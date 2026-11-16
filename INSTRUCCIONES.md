@@ -4,7 +4,7 @@ Fuente para que otra IA siga. Sin código hasta que Pablo lo pida.
 
 ## Pago (decidido)
 
-Un solo monto en dólares para todos los MJRV. El administrador escribe el tipo de cambio. Se paga en euros con ese valor.
+Un solo monto en dólares para todos los MJRV. El administrador escribe el tipo de cambio. Se paga en euros. Firma quien paga un nombre fijo del consulado.
 
 ## Página del MJRV
 
@@ -16,8 +16,8 @@ Coordinador: Aceptar, Siguiente, No se puede (no contesta, no quiere, ya no est�
 
 ## Pregunta abierta
 
-¿Quién firma como quien paga?
+¿Ese nombre lo escribe el administrador?
 
-A) El funcionario de la ventanilla, con su PIN
-B) Un nombre fijo que escribe el administrador
+A) Sí
+B) Viene impreso en el modelo del acta y no se cambia
 C) Otro
