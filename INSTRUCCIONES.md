@@ -2,24 +2,27 @@
 
 Fuente para que otra IA siga. Sin código hasta que Pablo lo pida.
 
-## Tablero DGSMH
+## Incidentes (propuesto, sin cerrar)
 
-Mapa que se enciende y se apaga con la hora local. Fases: inicio, incidentes, votantes, cierre, inicio y fin de escrutinio, inicio y fin de escaneo, cierre del proceso.
+Lista fija más “otro” con texto. Sale de informes de la OEA y del plan del CNE para el 29 de noviembre.
 
-Votantes: firmas o estimación, lo elige el consulado en cada reporte. Pequeños: junta por junta. Grandes: varias personas a la vez, con el mismo usuario del consulado en varios móviles.
+- Instalación: falta de material, junta que no abre, lluvia o recinto inutilizable.
+- Votación: fila larga, suspensión, violencia o material dañado.
+- Cierre: no cierra a la hora, electores aún en fila.
+- Escrutinio: acta con error, diferencia en el conteo.
+- Escaneo: equipo que falla, acta ilegible.
 
-## Login
+## Tablero
 
-Correo y contraseña. Excel del superadmin. Claves por correo, fuera del sistema. Primer ingreso: cambio obligatorio.
+Mapa por hora local. Fases: inicio, incidentes, votantes (firmas o estimación), cierre, escrutinio, escaneo, cierre del proceso. Grandes: varios móviles con el mismo usuario.
 
-## Madrid
+## Login y Madrid
 
-Un monto en dólares. Cambio y nombre que firma, los escribe el administrador. QR general para la cédula. QR de la credencial = cédula. Coordinador: Aceptar, Siguiente, No se puede. Fichas por color.
+Correo y contraseña. Excel del superadmin. Claves por correo. Primer cambio obligatorio. Madrid es la gestión interna, ya descrita.
 
 ## Pregunta abierta
 
-¿Un incidente es un texto libre?
+¿Esta lista de incidentes?
 
-A) Sí, texto y hora
-B) Una lista fija de tipos
-C) Otro
+A) Sí
+B) Otro
