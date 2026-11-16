@@ -2,26 +2,27 @@
 
 Fuente para que otra IA siga. Sin código hasta que Pablo lo pida. Luego, handover para Claude o Codex.
 
-## Cuadro de mando de Madrid (decidido)
+## Decisiones del coordinador (decidido)
 
-Fichas por junta: número, H o M, color de zona, aro vivo (verde 3, ámbar falta gente, rojo nadie). Filas por color, en el orden del recinto.
+La IA de teinvito muestra una propuesta. Tres acciones:
 
-Quien mueve es el coordinador de recinto. Tiene este visor y una radio. La IA de teinvito le muestra una decisión en pantalla. La acepta o la rechaza, y aparece la siguiente. Él llama a la persona por radio. Primero un suplente de sobra de la misma zona, por cercanía, y se registra.
+- Aceptar. La persona se mueve, completa la junta, la ficha pasa a verde con un distintivo de que hubo movimiento. Se actualizan la conformación de la junta y los pagos.
+- Siguiente. No se mueve y aparece otra propuesta.
+- No se puede. Motivo: no contesta, no quiere, o ya no está. Esa persona no vuelve a proponerse para ese hueco.
 
-Numeración (página 9 en adelante): hombres 1–21 amarillo, 22–41 azul. Mujeres 1–8 rojo, 9–29 celeste, 30–39 verde, 40–54 rosado. Cada serie empieza en 1.
+El coordinador de recinto tiene el visor y llama por radio.
 
-## Recibo
+## Cuadro de mando
 
-Acta: datos completos, quién paga, valor que recibe y entrega, firma de los dos, fotos en la página siguiente. El modelo llega al final. Sin las dos fotos no se imprime.
+Ficha: número, H o M, color de zona, aro vivo (verde 3, ámbar falta gente, rojo nadie). Filas por color. Hombres 1–21 amarillo, 22–41 azul. Mujeres 1–8 rojo, 9–29 celeste, 30–39 verde, 40–54 rosado.
 
 ## Resto decidido
 
-Excel, PDF plantilla, PDF suelto, collage A4 o WhatsApp (Evolution, teinvito). Credencial 85,6 × 54 mm. QR = cédula. Cuentas solo consulado y superadmin. Puerta con PIN. DGSMH y login, después.
+Recibo acta: datos completos, quién paga, valor, firma de los dos, fotos en la página siguiente. Sin las dos fotos no se imprime. Excel, PDF, WhatsApp Evolution. Credencial 85,6 × 54 mm. QR = cédula. Cuentas solo consulado y superadmin. Puerta con PIN. DGSMH y login, después.
 
 ## Pregunta abierta
 
-Si rechaza la decisión:
+¿Bastan los motivos no contesta, no quiere y ya no está?
 
-A) La IA propone otra al momento
-B) Esa persona queda quieta y se salta a la siguiente
-C) Otro
+A) Sí
+B) Otro
