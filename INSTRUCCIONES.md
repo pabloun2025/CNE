@@ -4,7 +4,7 @@ Fuente para que otra IA siga. Sin código hasta que Pablo lo pida.
 
 ## Pago (decidido)
 
-Un solo monto en dólares para todos los MJRV. El administrador escribe el tipo de cambio. Se paga en euros. Firma quien paga un nombre fijo del consulado.
+Un solo monto en dólares para todos los MJRV. El administrador escribe el tipo de cambio y el nombre fijo del consulado que firma como quien paga. Se paga en euros.
 
 ## Página del MJRV
 
@@ -16,8 +16,8 @@ Coordinador: Aceptar, Siguiente, No se puede (no contesta, no quiere, ya no est�
 
 ## Pregunta abierta
 
-¿Ese nombre lo escribe el administrador?
+¿Madrid, en lo esencial, ya está?
 
-A) Sí
-B) Viene impreso en el modelo del acta y no se cambia
-C) Otro
+A) Sí, pasamos al login de los consulados
+B) Sí, pasamos al tablero de la DGSMH
+C) Falta algo de Madrid
