@@ -10,54 +10,52 @@ Repo: https://github.com/pabloun2025/CNE (privado, cuenta pabloun2025).
 
 Sistema de monitoreo del proceso electoral de Ecuador del 29 de noviembre de 2026.
 
-Usuarios: consulados ecuatorianos en el exterior (cargan información) y la Dirección de Gestión de Servicios de Movilidad Humana (DGSMH), que monitorea con un tablero en tiempo real (alertas y avances).
+Dos piezas distintas. No mezclarlas.
 
-## Orden de trabajo
-
-1. Primero el consulado en Madrid (lo más complejo). En curso.
-2. Después, el login de todos los consulados (copiar estructura, reglas y control de bots de DEMP) y el tablero de la DGSMH.
+- Madrid, ahora: credenciales, puerta, fotos, pagos y el análisis de cómo constituir las mesas.
+- Después: login de todos los consulados (copiar DEMP) y el tablero de la DGSMH. Ese tablero es otro sistema.
 
 ## Madrid: credenciales MJRV (decidido)
 
-Se crean en parametrización, antes del proceso electoral.
+En parametrización, antes del proceso.
 
-- Carga por Excel: nombre, apellido, número de cédula, rol (presidente, secretario, vocal, etc.), junta (1 Masculina, xx Femenina, etc.), email y teléfono con WhatsApp.
+- Excel: nombre, apellido, cédula, rol (presidente, secretario, vocal, etc.), junta (1 Masculina, xx Femenina, etc.), email y teléfono WhatsApp.
 - Alta, edición y baja individual.
-- Plantilla PDF ya diseñada, con un espacio en blanco al centro donde van los datos y el QR.
-- Salidas: PDF individual, collage en A4 para imprimir y recortar, o envío uno a uno por WhatsApp.
-- WhatsApp: Evolution API, reutilizando el método de teinvito (preferido frente a DEMP).
-- Tamaño de la credencial: 85,6 × 54 mm.
-- El QR es solo el número de cédula.
+- PDF plantilla con un espacio en blanco al centro para los datos y el QR.
+- Salidas: PDF individual, collage A4, o WhatsApp uno a uno con Evolution API como en teinvito.
+- Tamaño: 85,6 × 54 mm.
+- El QR es solo la cédula.
 
 ## Cuentas (decidido)
 
-Solo el consulado y el superadmin tienen cuenta y contraseña. Los funcionarios de puerta no.
+Solo el consulado y el superadmin tienen cuenta y contraseña.
 
 ## Puerta (decidido)
 
-Igual que teinvito: enlace `{APP}/puerta/{token}`, activo hasta revocarlo, se copia o se manda por WhatsApp. El funcionario abre sin login. Escaneo válido: verde y un pitido. Negativo: rojo y dos pitidos.
+Enlace `{APP}/puerta/{token}` como teinvito, activo hasta revocarlo, se copia o se manda por WhatsApp. Sin login. Válido: verde y un pitido. Negativo: rojo y dos pitidos.
 
-El administrador de Madrid carga nombre, apellido y PIN de cada funcionario autorizado. El PIN lo identifica donde el sistema pide su intervención, sin cuenta.
+El administrador de Madrid carga nombre, apellido y PIN. El PIN identifica al funcionario donde haga falta, sin cuenta.
+
+Cada mesa tiene 3 titulares (presidente, secretario, vocal) y sus suplentes. El escaneo dice, en tiempo real, quién ya está y qué mesa se puede constituir.
+
+## Análisis de Madrid (decidido, no es el tablero DGSMH)
+
+No es un tablero de monitoreo. Es un análisis en tiempo real de qué hacer y a quién mover: si una mesa ya tiene 3 y otra no, proponer pasar un suplente de la completa a la incompleta, por proximidad, para dejar las mesas en 3. Usar la IA ya instalada en teinvito.
 
 ## Foto de la cédula y pago (decidido)
 
-La foto se toma durante el proceso, por el MJRV o por un funcionario. Recuadro para encajar la cédula; lo ideal es disparo automático al encajar. Recorte automático. Anverso y reverso van como anexo en la página siguiente del registro.
+Durante el proceso, la toma el MJRV o un funcionario. Recuadro, disparo al encajar si se puede, recorte automático. Anverso y reverso van en la página siguiente del registro. Sin las dos fotos no se habilita imprimir el pago: la ventanilla las toma y un QR incompleto obliga a completarlas.
 
-Si faltan las fotos, el botón de imprimir el pago no se habilita. Quien administra la ventanilla debe tomarlas antes de seguir. Un QR incompleto obliga al funcionario a completarlas antes de proceder.
+## Aún por cerrar
 
-## Madrid: aún por cerrar
-
-- Tablero de constitución de las juntas y toma de decisiones.
-- Contenido del recibo impreso (datos del pago, firma).
-
-## Login DEMP (referencia, no copiado aún)
-
-App de funcionarios en funcionario.consulado.app. Sesión de 12 horas. Roles: consulado, centro de impresión y superadmin (TOTP). Sin captcha en el login; límite por IP y bloqueo progresivo. Turnstile solo en consulta pública, alta y restablecer clave.
+- Cómo se muestra el análisis (lista de movimientos, o solo el hueco).
+- Contenido del recibo.
+- Login de consulados y tablero DGSMH, después.
 
 ## Pregunta abierta
 
-¿Qué muestra el tablero de las juntas?
+¿Qué debe decir el análisis?
 
-A) Por junta: quiénes llegaron, quién falta y si ya se constituyó
-B) Solo el conteo: constituidas, incompletas y ausentes
+A) Una lista concreta: mueve a esta persona de la mesa X a la mesa Y
+B) Solo señala mesas completas y mesas a las que les falta gente
 C) Otro
