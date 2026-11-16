@@ -2,27 +2,23 @@
 
 Fuente para que otra IA siga. Sin código hasta que Pablo lo pida.
 
-## Incidentes (propuesto, sin cerrar)
+## Incidentes (propuesto)
 
-Lista fija más “otro” con texto. Sale de informes de la OEA y del plan del CNE para el 29 de noviembre.
+Lista corta. La lluvia no es un incidente: solo cuenta lo que para el proceso. Siempre hay “otro” con texto.
 
-- Instalación: falta de material, junta que no abre, lluvia o recinto inutilizable.
-- Votación: fila larga, suspensión, violencia o material dañado.
-- Cierre: no cierra a la hora, electores aún en fila.
-- Escrutinio: acta con error, diferencia en el conteo.
-- Escaneo: equipo que falla, acta ilegible.
+- Instalación: falta de material, recinto cerrado, junta sin tres miembros.
+- Votación: fila que no avanza, junta suspendida, material dañado.
+- Cierre: electores en fila, junta que no cierra.
+- Escrutinio: acta que no cuadra, acta sin firmas.
+- Escaneo: escáner que no funciona, acta que no se lee.
 
 ## Tablero
 
-Mapa por hora local. Fases: inicio, incidentes, votantes (firmas o estimación), cierre, escrutinio, escaneo, cierre del proceso. Grandes: varios móviles con el mismo usuario.
-
-## Login y Madrid
-
-Correo y contraseña. Excel del superadmin. Claves por correo. Primer cambio obligatorio. Madrid es la gestión interna, ya descrita.
+Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, mismo usuario.
 
 ## Pregunta abierta
 
-¿Esta lista de incidentes?
+¿Esta lista?
 
 A) Sí
 B) Otro
