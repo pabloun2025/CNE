@@ -2,13 +2,13 @@
 
 Fuente para que otra IA siga. Sin código hasta que Pablo lo pida.
 
-## Página del MJRV (decidido)
+## Pago (decidido)
 
-Un QR general, igual para todos. Allí escribe su cédula, confirma junta y cargo, y sube las fotos. El QR de la credencial sigue siendo solo la cédula, para la puerta.
+Importe: parámetro en dólares, fijo. Se paga en euros. El administrador escribe el tipo de cambio y ese es el valor que se usa.
 
-## Pago
+## Página del MJRV
 
-Importe: parámetro. Dólares fijos, se paga en euros al cambio del día. Falta decidir de dónde sale el cambio.
+QR general. Escribe su cédula, confirma junta y cargo, y sube las fotos. El QR de la credencial es solo la cédula, para la puerta.
 
 ## Ya decidido
 
@@ -16,8 +16,8 @@ Coordinador: Aceptar, Siguiente, No se puede (no contesta, no quiere, ya no est�
 
 ## Pregunta abierta
 
-¿De dónde sale el tipo de cambio?
+¿El monto en dólares es uno solo para todos los roles?
 
-A) Lo escribe el administrador cada mañana
-B) El sistema lo toma de una fuente pública
+A) Sí, el mismo para presidente, secretario y vocal
+B) Uno por rol
 C) Otro
