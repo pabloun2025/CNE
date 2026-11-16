@@ -8,32 +8,24 @@ Repo: https://github.com/pabloun2025/CNE (privado, cuenta pabloun2025).
 
 ## Qué es
 
-Sistema de monitoreo del proceso electoral de Ecuador del 29 de noviembre de 2026. Madrid ahora. El tablero de la DGSMH es otro sistema y va después. Login de consulados (copia de DEMP), después.
-
-## Recinto (manual operativo 2027)
-
-El manual define los espacios, dónde está cada junta, la numeración y los colores. No define cómo mover suplentes.
-
-Caja Mágica, nivel −2. 95 juntas: masculinas 1–41 y femeninas 1–54. Personal 08:00. Voto 09:00–19:00. Cada mesa: 3 titulares (presidente, secretario, vocal) y sus suplentes.
+Monitoreo electoral de Ecuador, 29 de noviembre de 2026. Ahora Madrid. El tablero DGSMH y el login de consulados (copia de DEMP) van después.
 
 ## Cuadro de mando de Madrid (decidido)
 
-Visualmente es juntas y colores, no el plano del edificio. La decisión de a quién mover sí usa la realidad física de los espacios. Se llena en tiempo real. Usar la IA de teinvito.
+No es un plano del edificio. Es una representación visual de cubos, uno por junta. Cada cubo muestra el color de zona del manual, el número y si es masculina o femenina.
 
-Regla de movimiento (guía 2019): primero un suplente de sobra de la misma zona de color, y se registra el cambio. Tres conteos. El paquete no se abre sin 3 MJRV.
+Alertas, además del color de zona: verde si ya están los 3, ámbar si falta gente, rojo si no ha llegado nadie.
+
+La decisión de a quién mover sí usa la cercanía física real. Hay que conocer cuántas juntas hay, qué color tiene cada una y dónde está. Regla de la guía 2019: primero un suplente de sobra de la misma zona de color, y se registra el cambio.
+
+Cada mesa: 3 titulares (presidente, secretario, vocal) y suplentes. El paquete no se abre sin 3 MJRV.
+
+Recinto: Caja Mágica, nivel −2. Personal 08:00. Voto 09:00–19:00. El detalle de colores y posiciones se completa al leer el manual.
 
 ## Credenciales, puerta, foto y pago (decidido)
 
-Excel y alta individual. PDF plantilla. PDF suelto, collage A4 o WhatsApp (Evolution, como teinvito). Credencial 85,6 × 54 mm. QR = solo la cédula.
-
-Cuentas solo para consulado y superadmin. Puerta: enlace como teinvito, nombre, apellido y PIN. Válido verde y un pitido; negativo rojo y dos.
-
-Foto de cédula durante el proceso, recuadro y recorte. Sin anverso y reverso no se habilita imprimir el pago.
+Excel y alta individual. PDF plantilla. PDF suelto, collage A4 o WhatsApp (Evolution, como teinvito). Credencial 85,6 × 54 mm. QR = solo la cédula. Cuentas solo para consulado y superadmin. Puerta: enlace como teinvito, nombre, apellido y PIN. Válido verde y un pitido; negativo rojo y dos. Foto de cédula durante el proceso, con recorte. Sin anverso y reverso no se imprime el pago. IA de teinvito para el análisis.
 
 ## Pregunta abierta
 
-¿Qué color tiene una junta en el mapa?
-
-A) Verde si ya están los 3, ámbar si falta gente, rojo si no ha llegado nadie
-B) El color de zona del manual, y un número de cuántos faltan
-C) Otro
+Ninguna hasta tener del manual el listado de juntas, colores y posición.
