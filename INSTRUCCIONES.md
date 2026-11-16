@@ -15,16 +15,19 @@ Dos piezas distintas. No mezclarlas.
 - Madrid, ahora: credenciales, puerta, fotos, pagos y el análisis de cómo constituir las mesas.
 - Después: login de todos los consulados (copiar DEMP) y el tablero de la DGSMH. Ese tablero es otro sistema.
 
+## Recinto (manual operativo seccionales y CPCCS 2027, v2)
+
+Caja Mágica, Madrid, votación en nivel −2. 95 juntas: masculinas 1–41 y femeninas 1–54, en una sola corrida 1–95. Personal a las 08:00. Voto 09:00–19:00 del domingo 29 de noviembre. El manual no define presidente, secretario, vocal, suplentes ni cómo mover gente. Eso lo define Pablo: cada mesa tiene 3 titulares y sus suplentes.
+
 ## Madrid: credenciales MJRV (decidido)
 
 En parametrización, antes del proceso.
 
-- Excel: nombre, apellido, cédula, rol (presidente, secretario, vocal, etc.), junta (1 Masculina, xx Femenina, etc.), email y teléfono WhatsApp.
+- Excel: nombre, apellido, cédula, rol, junta, email y teléfono WhatsApp.
 - Alta, edición y baja individual.
-- PDF plantilla con un espacio en blanco al centro para los datos y el QR.
+- PDF plantilla con espacio en blanco al centro para datos y QR.
 - Salidas: PDF individual, collage A4, o WhatsApp uno a uno con Evolution API como en teinvito.
-- Tamaño: 85,6 × 54 mm.
-- El QR es solo la cédula.
+- Tamaño: 85,6 × 54 mm. El QR es solo la cédula.
 
 ## Cuentas (decidido)
 
@@ -32,25 +35,15 @@ Solo el consulado y el superadmin tienen cuenta y contraseña.
 
 ## Puerta (decidido)
 
-Enlace `{APP}/puerta/{token}` como teinvito, activo hasta revocarlo, se copia o se manda por WhatsApp. Sin login. Válido: verde y un pitido. Negativo: rojo y dos pitidos.
-
-El administrador de Madrid carga nombre, apellido y PIN. El PIN identifica al funcionario donde haga falta, sin cuenta.
-
-Cada mesa tiene 3 titulares (presidente, secretario, vocal) y sus suplentes. El escaneo dice, en tiempo real, quién ya está y qué mesa se puede constituir.
+Enlace `{APP}/puerta/{token}` como teinvito, activo hasta revocarlo, se copia o se manda por WhatsApp. Sin login. Válido: verde y un pitido. Negativo: rojo y dos pitidos. Autorización: nombre, apellido y PIN, cargados por el administrador de Madrid.
 
 ## Análisis de Madrid (decidido, no es el tablero DGSMH)
 
-No es un tablero de monitoreo. Es un análisis en tiempo real de qué hacer y a quién mover: si una mesa ya tiene 3 y otra no, proponer pasar un suplente de la completa a la incompleta, por proximidad, para dejar las mesas en 3. Usar la IA ya instalada en teinvito.
+Análisis en tiempo real de qué hacer y a quién mover: suplente de una mesa ya completa (3) hacia una incompleta, por proximidad. Usar la IA ya instalada en teinvito.
 
 ## Foto de la cédula y pago (decidido)
 
-Durante el proceso, la toma el MJRV o un funcionario. Recuadro, disparo al encajar si se puede, recorte automático. Anverso y reverso van en la página siguiente del registro. Sin las dos fotos no se habilita imprimir el pago: la ventanilla las toma y un QR incompleto obliga a completarlas.
-
-## Aún por cerrar
-
-- Cómo se muestra el análisis (lista de movimientos, o solo el hueco).
-- Contenido del recibo.
-- Login de consulados y tablero DGSMH, después.
+Durante el proceso, la toma el MJRV o un funcionario. Recuadro, disparo al encajar si se puede, recorte automático. Anverso y reverso en la página siguiente del registro. Sin las dos fotos no se habilita imprimir el pago.
 
 ## Pregunta abierta
 
