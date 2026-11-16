@@ -4,11 +4,11 @@ Fuente para que otra IA siga. Sin código hasta que Pablo lo pida.
 
 ## Pago (decidido)
 
-Importe: parámetro en dólares, fijo. Se paga en euros. El administrador escribe el tipo de cambio y ese es el valor que se usa.
+Un solo monto en dólares para todos los MJRV. El administrador escribe el tipo de cambio. Se paga en euros con ese valor.
 
 ## Página del MJRV
 
-QR general. Escribe su cédula, confirma junta y cargo, y sube las fotos. El QR de la credencial es solo la cédula, para la puerta.
+QR general. Escribe su cédula, confirma junta y cargo, y sube las fotos. El QR de la credencial es la cédula, para la puerta.
 
 ## Ya decidido
 
@@ -16,8 +16,8 @@ Coordinador: Aceptar, Siguiente, No se puede (no contesta, no quiere, ya no est�
 
 ## Pregunta abierta
 
-¿El monto en dólares es uno solo para todos los roles?
+¿Quién firma como quien paga?
 
-A) Sí, el mismo para presidente, secretario y vocal
-B) Uno por rol
+A) El funcionario de la ventanilla, con su PIN
+B) Un nombre fijo que escribe el administrador
 C) Otro
