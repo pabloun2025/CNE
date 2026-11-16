@@ -27,7 +27,7 @@ Se crean en parametrización, antes del proceso electoral.
 - Salidas: PDF individual, collage en A4 para imprimir y recortar, o envío uno a uno por WhatsApp.
 - WhatsApp: Evolution API, reutilizando el método de teinvito (preferido frente a DEMP).
 - Tamaño de la credencial: 85,6 × 54 mm (tarjeta, bolsillo plástico y cordón). Pablo eligió A.
-- El QR es el número de cédula: único y predecible. Aún no ha confirmado si se queda así o se añade un secreto.
+- El QR es solo el número de cédula. Pablo eligió A. Quien conozca la cédula puede simular el escaneo; se acepta.
 
 ## Madrid: aún por cerrar
 
@@ -42,8 +42,8 @@ App de funcionarios en funcionario.consulado.app. Pantallas: entrar, cambio de c
 
 ## Pregunta abierta
 
-El QR es la cédula, así que quien la conozca puede simular el escaneo.
+¿Quién lee el QR en la puerta?
 
-A) Sí, el QR es solo la cédula
-B) La cédula más un código secreto que no se adivina
+A) Un funcionario del consulado, con su móvil ya logueado
+B) Cualquier móvil, sin login, solo con la página de lectura
 C) Otro
