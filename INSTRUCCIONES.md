@@ -37,13 +37,16 @@ Solo el consulado y el superadmin tienen cuenta y contraseña. Los funcionarios 
 
 Igual que teinvito: enlace `{APP}/puerta/{token}` creado desde el sistema, activo hasta revocarlo, se copia o se manda por WhatsApp. El funcionario abre sin login. Escaneo válido: verde y un pitido. Negativo: rojo y dos pitidos.
 
-El administrador de Madrid carga, en configuración, nombre, apellido y PIN de cada funcionario autorizado. Pablo eligió las dos. El PIN identifica al funcionario en todas las partes del sistema que piden su intervención, sin cuenta.
+El administrador de Madrid carga, en configuración, nombre, apellido y PIN de cada funcionario autorizado. El PIN identifica al funcionario en todas las partes del sistema que piden su intervención, sin cuenta.
+
+## Foto de la cédula (decidido)
+
+Se sube durante el proceso electoral. La puede tomar el MJRV o un funcionario por él. La cámara muestra un recuadro para encajar la cédula. Lo ideal es disparar sola cuando queda encajada. Luego se recorta sola. Anverso y reverso van como anexo en la página siguiente del registro.
 
 ## Madrid: aún por cerrar
 
 - Tablero de constitución de las juntas y toma de decisiones.
-- Cada MJRV entra y sube foto de la cédula (anverso y reverso), tomada con el móvil y recortada a la cédula.
-- Al escanear para el pago se imprime un recibo con los datos del pago y esas fotos, para firma y pago.
+- Al escanear para el pago se imprime un recibo con los datos del pago y las fotos de la cédula, para firma y pago.
 
 ## Login DEMP (referencia, no copiado aún)
 
@@ -51,9 +54,8 @@ App de funcionarios en funcionario.consulado.app. Pantallas: entrar, cambio de c
 
 ## Pregunta abierta
 
-¿Cuándo sube el MJRV la foto de la cédula?
+¿Qué pasa si al cobrar aún no hay foto de la cédula?
 
-A) Antes del día, desde un enlace propio, sin login
-B) El día de la elección, en la puerta, antes de entrar
-C) Cuando va a cobrar
-D) Otro
+A) No se imprime el recibo hasta que estén anverso y reverso
+B) Se imprime igual, con el espacio de las fotos vacío
+C) Otro
