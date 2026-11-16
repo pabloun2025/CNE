@@ -12,9 +12,7 @@ Monitoreo electoral de Ecuador, 29 de noviembre de 2026. Ahora Madrid. El tabler
 
 ## Numeración (decidido)
 
-Hombres y mujeres empiezan cada uno en la junta 1. Hombres 1–41. Mujeres 1–54. Sumadas, 95.
-
-Colores, según el plano:
+La fuente es la tabla del manual, páginas 9 en adelante. Hombres y mujeres empiezan cada uno en 1.
 
 - Hombres 1–21, amarillo
 - Hombres 22–41, azul
@@ -23,13 +21,13 @@ Colores, según el plano:
 - Mujeres 30–39, verde
 - Mujeres 40–54, rosado
 
-Pablo confirmó el criterio (hombres y mujeres desde 1, y el ejemplo amarillo, rojo y azul). Los tramos de celeste, verde y rosado salen del plano y aún no los ha confirmado.
+Total 95. Caja Mágica, nivel −2. Personal 08:00. Voto 09:00–19:00.
 
 ## Cuadro de mando (decidido)
 
-Cubos, no el plano. Cada cubo: color de zona, su número (1–41 o 1–54) y si es masculina o femenina. Alerta: verde si están los 3, ámbar si falta gente, rojo si no llegó nadie. Mover usa la cercanía real. Primero un suplente de sobra de la misma zona de color, y se registra.
+Cubos, no el plano. Cada cubo: color de zona, su número y si es masculina o femenina. Alerta: verde si están los 3, ámbar si falta gente, rojo si no llegó nadie. Mover usa la cercanía real. Primero un suplente de sobra de la misma zona de color, y se registra.
 
-Cada mesa: 3 titulares (presidente, secretario, vocal) y suplentes. Personal 08:00. Voto 09:00–19:00. Caja Mágica, nivel −2.
+Cada mesa: 3 titulares (presidente, secretario, vocal) y suplentes.
 
 ## Credenciales, puerta, foto y pago (decidido)
 
@@ -37,7 +35,8 @@ Excel y alta individual. PDF plantilla. PDF suelto, collage A4 o WhatsApp (Evolu
 
 ## Pregunta abierta
 
-¿Los tramos de color de las mujeres están bien?
+El cubo ya tiene el color de zona, y la alerta es otro color. ¿Cómo conviven?
 
-A) Sí: 1–8 rojo, 9–29 celeste, 30–39 verde, 40–54 rosado
-B) Otro
+A) El cubo es del color de zona, y la alerta es un punto verde, ámbar o rojo
+B) El cubo pasa a verde, ámbar o rojo, y el color de zona va en una etiqueta
+C) Otro
