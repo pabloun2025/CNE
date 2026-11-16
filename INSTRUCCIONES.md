@@ -8,18 +8,19 @@ Hombres 1–21 amarillo, 22–41 azul. Mujeres 1–8 rojo, 9–29 celeste, 30–
 
 ## Cuadro de mando (decidido)
 
-No es un plano ni un cubo. Cada junta es una ficha: número y H o M, rellena con el color de zona, y un aro vivo de alerta (verde si están los 3, ámbar si falta gente, rojo si no llegó nadie). Las fichas van en filas por color, en el orden físico del recinto. Mover usa esa cercanía. Primero un suplente de sobra de la misma zona, y se registra. IA de teinvito para el análisis.
+Cada junta es una ficha: número y H o M, color de zona, aro vivo (verde si están los 3, ámbar si falta gente, rojo si nadie). Filas por color, en el orden del recinto. Mover usa la cercanía. Primero un suplente de sobra de la misma zona, y se registra. IA de teinvito.
 
-Cada mesa: 3 titulares y suplentes.
+## Recibo de pago (decidido)
+
+Acta formal. Datos completos de la persona, quién paga, el valor que recibe y el que entrega, y la firma de los dos. Las fotos de la cédula van en la página siguiente. El modelo (o pedirle a la IA que lo genere) llega en la etapa final del diseño. Sin las dos fotos no se habilita imprimir.
 
 ## Resto decidido
 
-Excel y alta individual. PDF plantilla. PDF suelto, collage A4 o WhatsApp (Evolution, teinvito). Credencial 85,6 × 54 mm. QR = cédula. Cuentas solo consulado y superadmin. Puerta con PIN. Foto de cédula con recorte. Sin las dos fotos no se imprime el pago. DGSMH y login, después.
+Excel y alta individual. PDF plantilla. PDF suelto, collage A4 o WhatsApp (Evolution, teinvito). Credencial 85,6 × 54 mm. QR = cédula. Cuentas solo consulado y superadmin. Puerta con PIN. Foto con recorte. DGSMH y login de consulados, después.
 
 ## Pregunta abierta
 
-¿Qué lleva el recibo, además de las dos fotos?
-
-A) Nombre, cédula, junta, rol e importe
-B) Solo nombre, cédula e importe
-C) Otro
+A) Quién puede mover a un suplente de mesa
+B) El login de los consulados
+C) El tablero de la DGSMH
+D) Otro
