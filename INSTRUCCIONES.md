@@ -26,22 +26,18 @@ Se crean en parametrización, antes del proceso electoral.
 - Plantilla PDF ya diseñada, con un espacio en blanco al centro donde van los datos y el QR.
 - Salidas: PDF individual, collage en A4 para imprimir y recortar, o envío uno a uno por WhatsApp.
 - WhatsApp: Evolution API, reutilizando el método de teinvito (preferido frente a DEMP).
-- Tamaño de la credencial: 85,6 × 54 mm (tarjeta, bolsillo plástico y cordón). Pablo eligió A.
+- Tamaño de la credencial: 85,6 × 54 mm. Pablo eligió A.
 - El QR es solo el número de cédula. Pablo eligió A.
 
 ## Cuentas (decidido)
 
 Solo el consulado y el superadmin tienen cuenta y contraseña. Los funcionarios de puerta no.
 
-## Puerta
+## Puerta (decidido)
 
 Igual que teinvito: enlace `{APP}/puerta/{token}` creado desde el sistema, activo hasta revocarlo, se copia o se manda por WhatsApp. El funcionario abre sin login. Escaneo válido: verde y un pitido. Negativo: rojo y dos pitidos.
 
-El administrador de Madrid carga, en configuración de funcionarios, quiénes pueden usar ese enlace. Pablo dejó dos formas y aún no eligió:
-
-A) Lista simple de nombre y apellido: si coincide, puede escanear.
-B) Un PIN por funcionario, sin cuenta, que lo identifica en todas las partes del sistema que piden su intervención.
-C) Las dos.
+El administrador de Madrid carga, en configuración, nombre, apellido y PIN de cada funcionario autorizado. Pablo eligió las dos. El PIN identifica al funcionario en todas las partes del sistema que piden su intervención, sin cuenta.
 
 ## Madrid: aún por cerrar
 
@@ -55,9 +51,9 @@ App de funcionarios en funcionario.consulado.app. Pantallas: entrar, cambio de c
 
 ## Pregunta abierta
 
-¿Cómo se autoriza al funcionario de puerta?
+¿Cuándo sube el MJRV la foto de la cédula?
 
-A) Lista de nombre y apellido: si coincide, puede escanear
-B) Un PIN por funcionario, sin cuenta, válido en todo el sistema
-C) Las dos
+A) Antes del día, desde un enlace propio, sin login
+B) El día de la elección, en la puerta, antes de entrar
+C) Cuando va a cobrar
 D) Otro
