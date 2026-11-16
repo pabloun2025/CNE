@@ -27,13 +27,21 @@ Se crean en parametrización, antes del proceso electoral.
 - Salidas: PDF individual, collage en A4 para imprimir y recortar, o envío uno a uno por WhatsApp.
 - WhatsApp: Evolution API, reutilizando el método de teinvito (preferido frente a DEMP).
 - Tamaño de la credencial: 85,6 × 54 mm (tarjeta, bolsillo plástico y cordón). Pablo eligió A.
-- El QR es solo el número de cédula. Pablo eligió A. Quien conozca la cédula puede simular el escaneo; se acepta.
+- El QR es solo el número de cédula. Pablo eligió A.
 
-## Puerta (teinvito, visto; CNE aún no cerrado)
+## Cuentas (decidido)
 
-En teinvito, un usuario logueado crea el enlace en En directo, Puerta. El token está activo mientras no se revoque. Se comparte `{APP}/puerta/{token}` copiando o por WhatsApp. El funcionario abre sin login, escribe su nombre una vez y queda guardado en el móvil. Ese nombre no se contrasta con ninguna lista. El QR del invitado es el código del pase, no la URL. Escaneo válido: verde, «Válida», un pitido agudo. Desconocido, ya usado o bloqueado: rojo, dos pitidos graves.
+Solo el consulado y el superadmin tienen cuenta y contraseña. Los funcionarios de puerta no.
 
-Pablo quiere lo mismo en CNE, con esta diferencia pedida: al abrir, el funcionario pone nombre y apellido y se contrasta con una lista de autorizados. Aún no ha elegido A o B abajo.
+## Puerta
+
+Igual que teinvito: enlace `{APP}/puerta/{token}` creado desde el sistema, activo hasta revocarlo, se copia o se manda por WhatsApp. El funcionario abre sin login. Escaneo válido: verde y un pitido. Negativo: rojo y dos pitidos.
+
+El administrador de Madrid carga, en configuración de funcionarios, quiénes pueden usar ese enlace. Pablo dejó dos formas y aún no eligió:
+
+A) Lista simple de nombre y apellido: si coincide, puede escanear.
+B) Un PIN por funcionario, sin cuenta, que lo identifica en todas las partes del sistema que piden su intervención.
+C) Las dos.
 
 ## Madrid: aún por cerrar
 
@@ -47,8 +55,9 @@ App de funcionarios en funcionario.consulado.app. Pantallas: entrar, cambio de c
 
 ## Pregunta abierta
 
-¿Quién puede escanear en la puerta?
+¿Cómo se autoriza al funcionario de puerta?
 
-A) Igual que teinvito: el nombre se escribe y no se contrasta
-B) El nombre y el apellido se contrastan con una lista de autorizados
-C) Otro
+A) Lista de nombre y apellido: si coincide, puede escanear
+B) Un PIN por funcionario, sin cuenta, válido en todo el sistema
+C) Las dos
+D) Otro
