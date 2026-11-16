@@ -2,22 +2,20 @@
 
 Fuente para que otra IA siga. Sin código hasta que Pablo lo pida.
 
-## Pago (decidido)
+## Login de consulados (decidido)
 
-Un solo monto en dólares para todos los MJRV. El administrador escribe el tipo de cambio y el nombre fijo del consulado que firma como quien paga. Se paga en euros.
+Correo y contraseña, como en consulares. Incluye a Madrid. La gestión interna de Madrid (credenciales, puerta, pagos, cuadro de mando) es otro sistema.
 
-## Página del MJRV
+El superadmin carga un Excel con las credenciales iniciales: usuario, email y contraseña inicial.
 
-QR general. Escribe su cédula, confirma junta y cargo, y sube las fotos. El QR de la credencial es la cédula, para la puerta.
+## Madrid, ya decidido
 
-## Ya decidido
-
-Coordinador: Aceptar, Siguiente, No se puede (no contesta, no quiere, ya no está). Ficha con color de zona y aro de alerta. Hombres 1–21 amarillo, 22–41 azul. Mujeres 1–8 rojo, 9–29 celeste, 30–39 verde, 40–54 rosado. Recibo acta. Excel, PDF, WhatsApp. Credencial 85,6 × 54 mm. Cuentas solo consulado y superadmin. Puerta con PIN.
+Un monto en dólares para todos. El administrador escribe el cambio y el nombre del consulado que firma. QR general para la página de la cédula. QR de la credencial = cédula, para la puerta. Coordinador: Aceptar, Siguiente, No se puede (no contesta, no quiere, ya no está). Fichas por color. Hombres 1–21 amarillo, 22–41 azul. Mujeres 1–8 rojo, 9–29 celeste, 30–39 verde, 40–54 rosado.
 
 ## Pregunta abierta
 
-¿Madrid, en lo esencial, ya está?
+¿Al entrar por primera vez debe cambiar la contraseña?
 
-A) Sí, pasamos al login de los consulados
-B) Sí, pasamos al tablero de la DGSMH
-C) Falta algo de Madrid
+A) Sí, obligatoria
+B) Puede seguir con la inicial
+C) Otro
