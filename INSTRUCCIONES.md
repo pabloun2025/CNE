@@ -29,9 +29,14 @@ Se crean en parametrización, antes del proceso electoral.
 - Tamaño de la credencial: 85,6 × 54 mm (tarjeta, bolsillo plástico y cordón). Pablo eligió A.
 - El QR es solo el número de cédula. Pablo eligió A. Quien conozca la cédula puede simular el escaneo; se acepta.
 
+## Puerta (teinvito, visto; CNE aún no cerrado)
+
+En teinvito, un usuario logueado crea el enlace en En directo, Puerta. El token está activo mientras no se revoque. Se comparte `{APP}/puerta/{token}` copiando o por WhatsApp. El funcionario abre sin login, escribe su nombre una vez y queda guardado en el móvil. Ese nombre no se contrasta con ninguna lista. El QR del invitado es el código del pase, no la URL. Escaneo válido: verde, «Válida», un pitido agudo. Desconocido, ya usado o bloqueado: rojo, dos pitidos graves.
+
+Pablo quiere lo mismo en CNE, con esta diferencia pedida: al abrir, el funcionario pone nombre y apellido y se contrasta con una lista de autorizados. Aún no ha elegido A o B abajo.
+
 ## Madrid: aún por cerrar
 
-- Lectura del QR en la puerta con un móvil, como en teinvito, y registro de entrada.
 - Tablero de constitución de las juntas y toma de decisiones.
 - Cada MJRV entra y sube foto de la cédula (anverso y reverso), tomada con el móvil y recortada a la cédula.
 - Al escanear para el pago se imprime un recibo con los datos del pago y esas fotos, para firma y pago.
@@ -42,8 +47,8 @@ App de funcionarios en funcionario.consulado.app. Pantallas: entrar, cambio de c
 
 ## Pregunta abierta
 
-¿Quién lee el QR en la puerta?
+¿Quién puede escanear en la puerta?
 
-A) Un funcionario del consulado, con su móvil ya logueado
-B) Cualquier móvil, sin login, solo con la página de lectura
+A) Igual que teinvito: el nombre se escribe y no se contrasta
+B) El nombre y el apellido se contrastan con una lista de autorizados
 C) Otro
