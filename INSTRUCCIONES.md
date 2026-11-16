@@ -10,19 +10,26 @@ Repo: https://github.com/pabloun2025/CNE (privado, cuenta pabloun2025).
 
 Monitoreo electoral de Ecuador, 29 de noviembre de 2026. Ahora Madrid. El tablero DGSMH y el login de consulados (copia de DEMP) van después.
 
-## Juntas (manual 2027, nivel −2)
+## Numeración (decidido)
 
-95 juntas: 41 hombres y 54 mujeres.
+Hombres y mujeres empiezan cada uno en la junta 1. Hombres 1–41. Mujeres 1–54. Sumadas, 95.
 
-Por color, vial este de norte a sur: amarillo 21 (plano 1–21, hombres), azul 20 (22–41, hombres), rojo 8 (42–49, mujeres), celeste 21 (50–70, mujeres). Vial norte hacia el oeste: verde 10 (71–80, mujeres) y rosado 15 (81–95, mujeres).
+Colores, según el plano:
 
-Las tablas (pp. 9–11) renumeran: masculinas 1–41 y femeninas 1–54. Femenina n coincide en color y cantidad con la junta 41+n del plano. El manual no lo escribe así.
+- Hombres 1–21, amarillo
+- Hombres 22–41, azul
+- Mujeres 1–8, rojo
+- Mujeres 9–29, celeste
+- Mujeres 30–39, verde
+- Mujeres 40–54, rosado
 
-Personal 08:00. Voto 09:00–19:00. Cada mesa: 3 titulares y suplentes.
+Pablo confirmó el criterio (hombres y mujeres desde 1, y el ejemplo amarillo, rojo y azul). Los tramos de celeste, verde y rosado salen del plano y aún no los ha confirmado.
 
 ## Cuadro de mando (decidido)
 
-Cubos, no el plano. Cada cubo: color de zona, número y si es masculina o femenina. Alerta: verde si están los 3, ámbar si falta gente, rojo si no llegó nadie. Mover usa la cercanía real. Primero un suplente de sobra de la misma zona de color, y se registra.
+Cubos, no el plano. Cada cubo: color de zona, su número (1–41 o 1–54) y si es masculina o femenina. Alerta: verde si están los 3, ámbar si falta gente, rojo si no llegó nadie. Mover usa la cercanía real. Primero un suplente de sobra de la misma zona de color, y se registra.
+
+Cada mesa: 3 titulares (presidente, secretario, vocal) y suplentes. Personal 08:00. Voto 09:00–19:00. Caja Mágica, nivel −2.
 
 ## Credenciales, puerta, foto y pago (decidido)
 
@@ -30,9 +37,7 @@ Excel y alta individual. PDF plantilla. PDF suelto, collage A4 o WhatsApp (Evolu
 
 ## Pregunta abierta
 
-¿Qué número lleva cada cubo?
+¿Los tramos de color de las mujeres están bien?
 
-A) El del plano, del 1 al 95
-B) El de la tabla: masculina 1–41 o femenina 1–54
-C) Los dos
-D) Otro
+A) Sí: 1–8 rojo, 9–29 celeste, 30–39 verde, 40–54 rosado
+B) Otro
