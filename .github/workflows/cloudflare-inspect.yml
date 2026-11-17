@@ -1,0 +1,30 @@
+name: Inspeccionar Cloudflare (solo lectura)
+
+# Lista zonas y túneles y los hostnames públicos del túnel. No cambia nada.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar
+        env:
+          CF: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set +x
+          test -n "$CF" || { echo "Falta CLOUDFLARE_API_TOKEN"; exit 1; }
+          H="Authorization: Bearer $CF"
+          echo "=== TOKEN ==="; curl -fsS -H "$H" https://api.cloudflare.com/client/v4/user/tokens/verify | jq -r '.result.status'
+          echo "=== ZONAS ==="; curl -fsS -H "$H" "https://api.cloudflare.com/client/v4/zones?per_page=50" | jq -r '.result[] | "\(.name)\t\(.status)\tcuenta=\(.account.id)"'
+          for ACC in $(curl -fsS -H "$H" "https://api.cloudflare.com/client/v4/accounts" | jq -r '.result[].id'); do
+            echo "=== TUNELES cuenta $ACC ==="
+            curl -fsS -H "$H" "https://api.cloudflare.com/client/v4/accounts/$ACC/cfd_tunnel?is_deleted=false" | jq -r '.result[] | "\(.id)\t\(.name)\t\(.status)"' | while IFS=$'\t' read -r ID NAME ST; do
+              echo "TUNEL $NAME ($ST) $ID"
+              curl -fsS -H "$H" "https://api.cloudflare.com/client/v4/accounts/$ACC/cfd_tunnel/$ID/configurations" | jq -r '.result.config.ingress[]? | "  \(.hostname // "*") -> \(.service)"' || echo "  (sin permiso de lectura de configuración)"
+            done
+          done
