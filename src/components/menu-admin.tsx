@@ -3,6 +3,7 @@ import { salirAdmin } from "@/server/acceso-actions";
 
 export const ENLACES_ADMIN: { href: string; texto: string }[] = [
   { href: "/admin", texto: "Inicio" },
+  { href: "/admin/mjrv", texto: "MJRV" },
 ];
 
 // Menú lateral en escritorio; a 375 px es un desplegable.
