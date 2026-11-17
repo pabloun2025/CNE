@@ -1,0 +1,49 @@
+name: Inspeccionar servidor Oracle (solo lectura)
+
+# Muestra capacidad, contenedores, redes y NOMBRES de variables (nunca valores).
+# No cambia nada en el servidor. Requiere el secreto ORACLE_SSH_KEY en este repositorio.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Preparar clave SSH
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          test -n "$ORACLE_SSH_KEY" || { echo "Falta el secreto ORACLE_SSH_KEY en pabloun2025/CNE"; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
+          chmod 600 ~/.ssh/oracle
+
+      - name: Inspeccionar sin exponer secretos
+        run: |
+          ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            ubuntu@51.170.51.109 'bash -s' <<'REMOTE'
+          set -u
+          echo '=== SISTEMA ==='; hostname; uname -m; nproc; uptime; free -h; df -h /
+          echo '=== DOCKER ==='; sudo docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
+          echo '=== USO DE RECURSOS ==='; sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}'
+          echo '=== PROYECTOS COMPOSE ==='; sudo docker compose ls
+          echo '=== REDES ==='; sudo docker network ls --format '{{.Name}}' | sort
+          echo '=== VOLUMENES ==='; sudo docker system df
+          echo '=== PUERTOS ==='; sudo ss -lntp | sed -E 's/users:\(.*\)//'
+          echo '=== NOMBRES DE VARIABLES (sin valores) ==='
+          for f in /home/ubuntu/consulares/.env.production /home/ubuntu/consulares/docker/evolution.env /home/ubuntu/teinvito/.env.production /home/ubuntu/cne/.env.production; do
+            [ -f "$f" ] || continue; echo "ARCHIVO: $f"
+            sudo sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$f" | sort -u
+          done
+          echo '=== TUNEL CLOUDFLARE ==='; sudo docker ps --filter ancestor=cloudflare/cloudflared --format '{{.Names}}' ; ls /etc/cloudflared 2>/dev/null
+          echo '=== BASES POSTGRES ==='
+          for c in $(sudo docker ps --format '{{.Names}}' | grep -Ei 'postgres|db'); do echo "CONTENEDOR: $c"; sudo docker exec "$c" psql -U postgres -Atc "select datname from pg_database where not datistemplate" 2>/dev/null || echo "(sin acceso con usuario postgres)"; done
+          REMOTE
+
+      - name: Borrar clave temporal
+        if: always()
+        run: rm -f ~/.ssh/oracle
