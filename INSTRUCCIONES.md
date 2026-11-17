@@ -41,3 +41,10 @@ Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, m
 - **ABIERTO.** Cuáles incidentes deben llegar a Quito como asuntos que precisan intervención y cuáles serán solo informativos. Pregunta estratégica siguiente: distinguir selección por consulado, elevación por Quito o ambos.
 - **ABIERTO.** Quién puede cambiar estados y resolver un incidente; permisos del tablero, notificaciones, destinatarios y reglas de escalamiento siguen pendientes.
 
+
+## Alertas y contacto operativo (decisiones 17-11-2026)
+
+- **DECIDIDO.** Todos los incidentes de los consulados son visibles en el mapa y seguimiento de la DGSMH. Se adopta el modelo combinado (opción C): el consulado puede solicitar apoyo explícito de Quito y, de manera independiente, la DGSMH puede marcar para seguimiento un incidente que considere relevante. Registrar quién solicitó o marcó el seguimiento y su evolución, sin dar por aprobadas reglas de prioridad automática, notificaciones o cierre.
+- **DECIDIDO.** Cada consulado debe introducir un **teléfono de contacto operativo** para la jornada, disponible para consulta de la DGSMH desde Quito. Es un contacto del consulado o de la operación, no de cada junta. No se confunde con los teléfonos de electores ni de miembros de juntas. Su modalidad de captura, confirmación y actualización será objeto de la siguiente pregunta.
+- **CONSECUENCIA FUNCIONAL.** El contacto operativo facilita llamadas ante incidencias urgentes y evita añadir un chat interno; la trazabilidad de solicitudes y resoluciones permanece en el sistema. No se ha aprobado uso público del teléfono ni integración telefónica.
+- **ABIERTO.** Cuándo debe ingresar/confirmar el consulado su teléfono operativo: al configurar, al iniciar la jornada o configuración previa y confirmación el día electoral. Esta es la siguiente decisión.
