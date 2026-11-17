@@ -474,3 +474,234 @@ DGSMH puede cerrar una incidencia de acuerdo con lo informado por el consulado, 
 
 Todo informe debe conservar diferencias entre hechos confirmados, pendientes expresos, sin información y estimaciones. Debe señalar **fecha/hora de corte de la consulta** para no presentar como inmutables cifras que los consulados pueden corregir. Si se vuelve a generar después de una corrección, se obtiene el estado vigente; la trazabilidad histórica queda en el sistema. **Excluir** datos de miembros de junta de Madrid, cédulas, fotografías, movimientos y pagos. No presentar el informe como acta electoral, certificación de resultados ni declaración formal del CNE.
 
+## 13. Madrid: detalle de pantallas, estaciones y estados
+
+### 13.1. Objeto y distribución interna
+
+**DECIDIDO.** Madrid dispone de un módulo autónomo que no reporta de oficio a Quito. La administración Madrid prepara fichas de MJRV y credenciales; la puerta registra llegadas; el centro de mando observa las 95 JRV y propone movimientos; la documentación obtiene ambas caras de la cédula; finanzas controla el pago físico. El estado operativo de «tres miembros presentes» es distinto del reporte oficial de instalación.
+
+**DISEÑO DERIVADO:** desde la cuenta administrativa Madrid, la pantalla inicial puede resumir **credenciales preparadas / pendientes, MJRV ingresados, JRV con tres personas presentes, JRV incompletas, documentos completos y pagos confirmados**. Separar visualmente la operación de apertura de juntas de los desembolsos que suelen ocurrir después. La gestión de usuarios de estación, las credenciales, la configuración del pago y los informes quedan en navegación administrativa; el operador de puerta o finanzas no debe ver ese menú.
+
+La interfaz de las estaciones debe ser **una sola tarea por pantalla**, compatible con móviles o tabletas para puerta y fotografía, y ordenadores con impresora para finanzas. Las pantallas administrativas pueden aprovechar tablas y filtros en escritorio.
+
+### 13.2. Carga de MJRV y ficha individual
+
+**DECIDIDO:** importar Excel con nombres, apellidos, cédula, función en junta, serie H/M, número de junta, y correo/teléfono cuando consten. El administrador puede crear, editar y dar de baja fichas particulares. **DISEÑO DERIVADO:**
+
+- La importación inicial se prepara durante el desarrollo a partir del archivo real, tras detectar duplicados, campos ausentes, identificadores inconsistentes y asignaciones imposibles.
+- La ficha individual muestra identidad, cargo/función según el Excel, JRV inicialmente asignada, asignación operativa vigente, información de contacto disponible, estado de credencial, llegada, fotografías, movimientos y pago, **según permisos**.
+- Distinguir la **asignación de origen** importada del **destino operativo vigente** tras una redistribución. Ningún traslado debe borrar quién estaba originalmente asignado.
+- La baja administrativa debe impedir nuevos usos operativos sin borrar historial necesario de ingresos, documentos o pagos; su significado exacto en credenciales ya impresas queda para implementación de la regla de bloqueo.
+- La validación de duplicados de cédula es indispensable para no generar credenciales o pagos superpuestos; los casos conflictivos deben quedar identificados para corrección administrativa, no consolidarse automáticamente por similitud de nombres.
+
+La cédula es un identificador personal y debe manejarse como dato protegido. El QR contiene el **número de cédula**, como está aprobado; por tanto, **es un identificador para búsqueda, no una prueba criptográfica de identidad**. Los controles de estación, la verificación del documento y las autorizaciones no pueden descansar solo en conocer o copiar ese QR.
+
+### 13.3. Generación, impresión y distribución de credenciales
+
+**DECIDIDO:** credencial de tamaño CR80 (85,6 × 54 mm), conforme a plantilla que entregará Pablo, con QR individual cuyo contenido es el número de cédula. Salidas: PDF individual, hojas A4 optimizadas para corte y portaidentificaciones, envío por WhatsApp con el servicio existente y por correo electrónico.
+
+**DISEÑO DERIVADO:** las credenciales se generan a partir de la misma ficha validada. El administrador podrá seleccionar una o múltiples personas para producir un PDF individual o un documento A4 con tantas credenciales completas como permita la impresión legible; mantener proporción CR80, márgenes de corte prácticos y ningún elemento fuera de página. Cada credencial debe mostrar únicamente los campos indicados por la plantilla oficial y datos disponibles en la ficha. El código QR será legible por cámara de móvil y lector previsto; comprobar esa legibilidad con un dispositivo real antes de distribuir.
+
+Al enviar credenciales, distinguir claramente **«preparada»**, **«enviada al servicio»**, **«falló envío»** y **«entrega confirmada»** solo si el proveedor realmente devuelve confirmación. No inventar estados «recibido» o «leído» si la integración no los proporciona. La conexión a Evolution API/teinvito debe reutilizarse **solo después de comprobar el mecanismo real y sus límites**; el correo electrónico requiere verificar el transporte disponible. No es necesario crear otro servicio de mensajería sin motivo.
+
+### 13.4. Control de puerta: flujo del operador
+
+**DECIDIDO:** enlace especial revocable, identificación del funcionario por nombre y PIN de cuatro dígitos, escaneo de QR, resultado inmediato en pantalla, sonido y actualización del centro de mando. **DISEÑO DERIVADO:**
+
+1. El administrador habilita el enlace y permisos de la estación de puerta. El funcionario introduce su nombre/identificación de operador y PIN; no accede a la administración.
+2. La pantalla queda lista para leer códigos sucesivos, con botón claro para activar cámara y, si el dispositivo lo requiere, alternativa de entrada manual controlada del identificador (esta alternativa es diseño técnico, no una decisión de acceso libre).
+3. Al leer la cédula del QR, el servidor comprueba que corresponde a una ficha autorizada y el estado del ingreso.
+4. Si la primera lectura es válida: mensaje **verde «Válida»**, pitido agudo, registro de ingreso con operador y hora; el tablero de Madrid se actualiza.
+5. Si el código es desconocido, ya utilizado o está bloqueado: mensaje **rojo**, motivo comprensible y dos pitidos graves; no crear un segundo ingreso válido por una lectura duplicada.
+6. La interfaz vuelve con rapidez al modo de lectura para evitar acumulación de personas.
+
+**PENDIENTE:** definición exacta de «bloqueado», tratamiento de salida y reingreso físico y facultad administrativa de desbloqueo. La señal roja para duplicado debe respetarse mientras no haya norma funcional distinta; no suponer que una segunda lectura acredita una segunda llegada. La lectura válida establece **presencia operativa presunta**, no certifica que el MJRV esté ya en su mesa ni que su junta se haya instalado.
+
+**DISEÑO DERIVADO:** la lectura debe ser idempotente en servidor para impedir que dos lecturas casi simultáneas dupliquen el mismo ingreso. La falta de permiso de cámara, QR ilegible o pérdida de conexión debe mostrarse como error de operación, no como identidad rechazada.
+
+### 13.5. Centro de mando: lectura de las 95 juntas
+
+**DECIDIDO:** visualizar 95 fichas, separadas en hombres **H1–H41** y mujeres **M1–M54**, agrupables por problemas, con identificación de zona cromática según distribución del apartado «Mapa de juntas de Madrid». **DISEÑO DERIVADO:**
+
+- Cabecera con número de MJRV que llegaron; JRV con al menos tres integrantes operativamente disponibles; JRV a las que les faltan integrantes; y suplentes identificados como transferibles.
+- Vista principal de fichas con **serie H/M + número**, color de **zona**, estado de dotación y, si corresponde, señal de que hubo movimiento.
+- Colores de **estado**, distintos de colores de **zona**: verde para tres presentes; ámbar para junta incompleta; rojo si no ha llegado nadie. Mostrar también texto y conteo.
+- Orden y filtros que pongan primero las juntas más próximas a quedar constituidas, las sin dotación y las que tienen suplentes transferibles. No forzar una geometría del nivel −2 ni dibujar incorrectamente los bloques.
+- Ficha ampliada de junta con miembros originalmente asignados, marcados como llegados, reasignados, faltantes y personas disponibles para apoyar, sujeto a permisos.
+- La disponibilidad basada en puerta es una **estimación de trabajo** y admite excepciones anotadas desde el centro de mando cuando una persona no está realmente disponible.
+
+El centro de mando no transforma tres presencias en «instalada» en el módulo nacional, no cierra incidencias consulares y no puede utilizar sus datos internos para crear informes automáticos de Quito.
+
+### 13.6. Motor de propuestas de redistribución y control humano
+
+**DECIDIDO:** sugerir **un movimiento a la vez**, priorizando suplentes sobrantes en la misma zona; si no los hay, otras zonas, según cercanía y disponibilidad. El coordinador del centro de mando **acepta**, **pasa a otra propuesta** o **indica que no es viable**. Ninguna IA ejecuta cambios por su cuenta.
+
+**DISEÑO DERIVADO:** una propuesta debe mostrar quién se trasladaría, función y JRV actual, zona de origen, junta de destino, razón del movimiento, número de integrantes que permanecerían en el origen y beneficio esperado en destino. **No ofrecer como transferible a una persona que deje su junta de origen sin el mínimo requerido**, salvo regla operativa expresa posteriormente validada. No crear dos movimientos pendientes simultáneos de la misma persona.
+
+La preferencia debe ordenar primero **soluciones dentro de la misma zona**, luego en las otras zonas que resulten más cercanas, usando las relaciones espaciales realmente conocidas. No afirmar un cálculo de metros o minutos de desplazamiento basado en un plano incompleto. La distancia puede tratarse como prioridad relativa por zonas/adyacencia hasta contar con información más precisa.
+
+Al aceptar, el servidor registra: persona, origen, destino, coordinador que autorizó, hora, asignación anterior y nueva. Se actualizan de inmediato las fichas y el cómputo de disponibles. Al pasar o rechazar por inviabilidad, guardar un motivo simple para no repetir sin criterio la misma sugerencia. Si el motor local de IA no está accesible, las funciones fundamentales de consulta y **movimiento manual autorizado por el centro de mando** deberían seguir siendo implementables; esta continuidad dentro del software es una propuesta de resiliencia, no autorización de traslados automáticos.
+
+**PENDIENTE:** mecanismo exacto para que el coordinador conozca que el traslado físico se cumplió, porque aprobarlo en pantalla no garantiza que el suplente haya llegado a la junta de destino. No asignar por defecto confirmación formal a los coordinadores de mesa, que no tendrán cuentas del sistema.
+
+### 13.7. Obtención de anverso y reverso de la cédula
+
+**DECIDIDO:** QR **genérico** distinto del QR individual, formulario donde se escribe cédula, fotografía de anverso y reverso, ayuda opcional de funcionario, guía de encuadre, captura automática cuando esté correctamente alineada y recorte. Ambas imágenes sirven como anexo de la **segunda página del acta de pago**.
+
+**DISEÑO DERIVADO:** el formulario confirma que existe una ficha para esa cédula, muestra el mínimo dato necesario para evitar subir imágenes a una persona equivocada y pide dos capturas diferenciadas. Se observa una previsualización para aceptar, repetir o corregir. No se debe considerar completo el expediente con dos fotos del mismo lado, archivos vacíos o imágenes ilegibles. La calidad y la captura automática requieren ensayo real con cámaras y navegadores; si el algoritmo de encuadre no es suficientemente fiable, conservar una forma controlada de captura manual y recorte sin bloquear el proceso.
+
+Las fotografías deben almacenarse asociadas a la ficha MJRV, **nunca en archivos públicos por URL predecible**. El QR genérico no equivale a un enlace público para consultar fichas ajenas: validar acceso y limitar la información visible. Si la persona no consigue fotografiar su documento, un funcionario autorizado de documentación/finanzas puede completar ambas capturas. **PENDIENTE:** si el QR se entrega por cartel, WhatsApp o ambos, y la regla de conservación y retirada de imágenes sensibles.
+
+### 13.8. Finanzas: flujo físico completo de atención y pago
+
+**DECIDIDO:** dos o tres puestos simultáneos; lectura del **QR individual**; verificación directa por el operador de finanzas de que la persona cumplió sus funciones, **sin autorización previa** del centro de mando. Fotografías obligatorias de ambas caras. Impresión y firma del acta y entrega de efectivo **antes** de confirmar el pago en pantalla. **DISEÑO DERIVADO:**
+
+1. El operador ingresa mediante su enlace especial, nombre y PIN, y abre la pantalla de lectura.
+2. Escanea el QR individual. El sistema busca la ficha y comprueba identidad registral, estado de documentación y que **no exista pago confirmado**.
+3. Se muestra la situación y, cuando corresponda, la ficha del MJRV y su junta de trabajo actual. El funcionario de finanzas verifica directamente el cumplimiento de funciones; el escaneo de entrada no prueba ese cumplimiento.
+4. Si falta alguna fotografía, la pantalla ofrece completar el expediente en el puesto o derivarlo a la captura de documentación; **no** habilita imprimir el acta final incompleta.
+5. El sistema presenta el monto en USD, tipo de cambio configurado por administración y monto resultante en EUR **con la fórmula que se aprobará**. No implementar una conversión supuesta sin parámetro válido.
+6. El funcionario genera/previsualiza e imprime el **acta de pago y su anexo de fotografías**, conforme a plantilla aportada. El documento de papel recibe las firmas del pagador y receptor; el efectivo se entrega físicamente.
+7. **Solo entonces** el operador pulsa «Confirmar pago», con identificación y hora. El servidor comprueba nuevamente que no existe confirmación previa y registra el desembolso de forma atómica.
+8. Una consulta posterior muestra inequívocamente «Pagado», importe EUR, responsable y momento, y bloquea el segundo desembolso ordinario.
+
+No confundir **acta generada**, **acta impresa**, **atención en curso** y **pago confirmado**. Un error de impresora, abandono del puesto o acta reimpresa **no** debe marcar a la persona como pagada. Si se intenta leer un QR cuyo pago ya está confirmado, mostrar aviso claro y los datos mínimos del pago anterior para que no vuelva a pagarse.
+
+**PENDIENTE DE DECISIÓN TÉCNICA/OPERATIVA:** reserva temporal mientras un puesto prepara pago, duración y recuperación si falla impresión o se cierra sesión. Es razonable usar reserva corta, visible y recuperable para evitar que dos puestos preparen simultáneamente el mismo expediente, **pero no constituye una decisión aprobada**. Lo imprescindible ya aprobado es que dos confirmaciones concurrentes **no** puedan generar dos pagos.
+
+**PENDIENTE DE INSUMO:** plantilla oficial definitiva, cantidad USD, tipo de cambio de jornada y regla precisa de conversión/decimales. No incorporar tasas de cambio de internet ni redondeos inventados. Una anomalía en el sistema o un pago controvertido debe resolverse por personal autorizado, sin crear un segundo pago automático.
+
+### 13.9. Panel financiero e informes de cierre Madrid
+
+**DECIDIDO:** control individual y resumen en tiempo real de **pagados, pendientes, total entregado en euros**, con informe descargable de pagos, importes y operadores responsables. **DISEÑO DERIVADO:** distinguir al menos (a) documentación incompleta, (b) documentación lista y pago no confirmado, (c) atención o acta en preparación, cuando haya registro fiable de ese estado, y (d) pago confirmado. No elevar todas las fichas con documentación completa a «pagadas».
+
+El informe PDF/Excel de Madrid debe poder presentar: identidad y referencia de MJRV, serie/junta operativa, monto USD de referencia y monto EUR **cuando sea aplicable**, condición pendiente o confirmada, momento, operador pagador y total en euros. El total entregado se calcula solo con confirmaciones de desembolsos, no con documentos preparados. No incorporar fotografías de cédulas a un listado financiero general por defecto: las imágenes están en el anexo del acta individual, sujeto a permisos. Las cifras se recalculan tras cada confirmación atómica.
+
+### 13.10. Operadores de estación y experiencia de trabajo
+
+Los enlaces de **puerta**, **documentación**, **finanzas** y, si procede técnicamente, centro de mando son funciones delimitadas por rol y estación. Cada operador se autentica con su **PIN de cuatro cifras** y nombre/cuenta previamente habilitados por la administración de Madrid. Se conserva la identificación durante la jornada en ese dispositivo hasta salir o cambiar de operador. Intentos fallidos se limitan, enlaces y PIN pueden revocarse y no dan acceso a la administración.
+
+**DISEÑO DERIVADO:** cada pantalla operativa debe ofrecer un encabezado discreto con función y operador actual, estado de conexión y una acción visible de «Cambiar operador» o «Cerrar sesión». El lector de puerta debe permitir procesar rápidamente personas sucesivas; finanzas necesita controles grandes para distinguir «Imprimir acta» de «Confirmar pago»; documentación tiene dos pasos visuales claros «Anverso» y «Reverso». No usar menús genéricos que permitan a un operador saltar a funciones sin autorización.
+
+## 14. Superadministración y preparación de la elección
+
+### 14.1. Alcance de la superadministración
+
+**DECIDIDO:** existe superadministrador separado de DGSMH y de administrador Madrid, con herramientas de configuración y puesta en marcha. **DISEÑO DERIVADO:** deberá poder ver la configuración general; consultar e importar catálogos corregidos; administrar cuentas institucionales consulares, cuentas DGSMH y el acceso de administración Madrid; verificar existencia de recintos/JRV y parámetros de zona horaria; gestionar las opciones **«Modo prueba»** y **«Borrar datos de prueba y preparar para elección»**. No es una cuarta pantalla de operación consular ni un panel para modificar indiscriminadamente datos reales del día electoral.
+
+La administración Madrid mantiene su ámbito de MJRV, credenciales, operadores, documentación y pagos; esa administración no permite ver o modificar los reportes de otros consulados. El superadministrador solo accede a datos sensibles de Madrid cuando sea estrictamente necesario para un cometido de configuración autorizado; la existencia de un rol global no debe provocar exposición indiscriminada de fotos.
+
+### 14.2. Modo prueba: comportamiento visible y límites
+
+**DECIDIDO:** se prueba **en la propia instalación de producción**, sin entorno paralelo. Solo superadministración enciende/apaga el **modo prueba**; mientras esté activo se pueden recorrer las fases sin esperar horas reales ni cierres previos. **DISEÑO DERIVADO:** indicar **«MODO PRUEBA»** de forma notoria en los tres portales y etiquetar cada nuevo evento como dato simulado. Las interfaces mantienen permisos y controles de identidad; lo que se omite son las restricciones de reloj/secuencia que impedirían demostrar las funciones antes de la elección.
+
+En ese modo se pueden simular reportes, alertas, estados de JRV, llegadas por puerta, traslados, capturas de prueba y trámites de pagos **sin que la mera confirmación informática suponga entrega de dinero real**. Las pruebas de impresión no equivalen a actas definitivas y deberían llevar señalización inequívoca para que nadie las utilice por error como comprobantes reales. Los tableros deben indicar que las cifras y estados son simulados.
+
+### 14.3. «Borrar datos de prueba y preparar para elección»
+
+**DECIDIDO:** botón exclusivo de superadministración que restablece los registros operativos simulados, **conserva todos los datos maestros y configuraciones** y deja activas las reglas de operación real. **DISEÑO DERIVADO del procedimiento:**
+
+1. El sistema muestra resumen de qué categorías se limpiarán: reportes/hitos de prueba, incidencias/urgencias, estados transitorios, ingresos, movimientos, capturas de documento de ensayo y confirmaciones de pago simuladas.
+2. Avisa explícitamente qué se conserva: cuentas y contraseñas, operadores/PIN habilitados, consulados, recintos, JRV, electores, MJRV, plantillas de credencial y pago, configuración de moneda/tipo de cambio y parámetros legítimos.
+3. Exige confirmación administrativa clara y realiza **respaldo** previo comprobable. Si el respaldo falla, no debe seguir un borrado destructivo.
+4. Ejecuta limpieza **selectiva de registros marcados como prueba**, y no un vaciado indiscriminado de las tablas. Evita que datos de pruebas permanezcan como pagos confirmados o afecten el conteo de presencia el día electoral.
+5. Verifica que los informes y tableros de operación electoral comiencen sin actividad de prueba y que los catálogos sigan disponibles.
+6. Establece **modo elección** con las restricciones de hora local y secuencia restauradas, y muestra un resultado de la preparación.
+
+La función **no debe borrar actividad electoral real** ni quedar disponible a operadores de estaciones. Si se acciona de forma repetida, no debe destruir información que no esté etiquetada como ensayo. Las credenciales y archivos nominativos que deban utilizarse el día de la jornada se conservan; las fotos capturadas durante una simulación se tratan como prueba salvo decisión diferente basada en necesidad real.
+
+**DISEÑO DERIVADO DE SEGURIDAD:** separar lógica y datos de ensayo mediante un identificador/indicador inequívoco desde el primer registro, en lugar de intentar reconocer «a ojo» qué es prueba el día 29. Un respaldo previo protege de errores, pero no es licencia para mezclar datos reales y ficticios. No habilitar un reinicio general de producción con el pretexto de simplificar la limpieza.
+
+### 14.4. Parámetros que el superadministrador debe poder verificar
+
+Datos por consulado y recinto, fuente/identificador de huso horario, totales de JRV, asignaciones, cuentas y estado de acceso. Para Madrid: referencia a plantilla vigente, datos de funcionarios de estación, importe USD y tipo de cambio manual cuando se hayan aprobado, sin accesos que permitan a Quito consultar expedientes personales. Para el seguimiento: márgenes de «reporte esperado ausente», aún **pendientes** de definición; no fijar minutos arbitrarios. No añadir un editor de nuevas elecciones, porque el producto se utiliza solo para la jornada de 2026.
+
+## 15. Modelo de información, operaciones y trazabilidad
+
+### 15.1. Entidades funcionales principales
+
+La siguiente tabla describe **datos lógicos**; no prescribe un esquema SQL, nombres de tablas ni decisiones de implementación irrevocables.
+
+| Entidad | Datos y referencias mínimos | Ámbito / regla |
+| --- | --- | --- |
+| Consulado | Identificador, denominación, cuenta institucional, teléfono operativo | Solo sus recintos; Quito consulta contacto operativo |
+| Recinto | Identificador, consulado responsable, nombre, localidad, huso horario, JRV asociadas | Unidad central de reporte |
+| JRV | Identificador estable, recinto, serie/número si corresponde, total de electores cuando figure | El avance se almacena por JRV/hito |
+| Operador consular | Nombre declarado en sesión, cuenta institucional, sesión/dispositivo de actuación | No requiere cuenta personal |
+| Reporte de hito | JRV o ámbito pertinente, hito, estado, datos y hora declarada si existe, hora de recepción, operador | Último reporte recibido para misma JRV/fase prevalece |
+| Reporte de participación | Recinto/ámbito definido, cifra, fuente firmas/estimación, hora, operador | No confundir con avance por JRV |
+| Confirmación sin novedades | Recinto, fase, hora, operador | No modifica estados de juntas |
+| Incidencia | Identificador, recinto, JRV afectadas o ámbito general, fase, tipo, prioridad, situación | Independiente del avance |
+| Actuación de incidencia | Incidencia, actor, fecha/hora, texto de resolución, subconjunto JRV resuelto si corresponde | Historial inalterado de eventos |
+| Solicitud de apoyo | Incidencia/origen, urgencia, fecha, acuse DGSMH, estado | Urgencia sonora solo con solicitud expresa |
+| Alerta por falta de reporte | Recinto/hito esperado, regla temporal, última actualización, situación | No constituye incidencia electoral |
+| MJRV Madrid | Identidad, cédula, JRV inicial, cargo, contactos opcionales, estado operativo | Datos de acceso restringido |
+| Credencial MJRV | Referencia MJRV, plantilla/versiones y dato QR (cédula) | Identificador, no autenticación suficiente |
+| Ingreso Madrid | MJRV, puerta/operador, hora, resultado | Evitar duplicaciones |
+| Movimiento Madrid | MJRV, origen/destino, aprobador, hora, motivo/estado | Historial de reasignaciones |
+| Documento MJRV | MJRV, imagen anverso, imagen reverso, estado de captura | Datos sensibles y acceso restringido |
+| Trámite de pago | MJRV, estado de preparación, importes y tipo de cambio, operador de estación | No equivale por sí mismo a pago |
+| Confirmación de pago | MJRV, euros efectivamente entregados, confirmante, momento | Única e indivisible por MJRV |
+| Registro de prueba | Identificador de sesión/ciclo o bandera de simulación, tipo y referencia del evento | Selección segura para limpieza de pruebas |
+
+**PENDIENTE:** nombres reales de campos de Excel, campos del modelo de acta y política de conservación documental. No mostrar como obligatorio un dato que el archivo fuente no contiene, salvo que resulte imprescindible por regla aprobada.
+
+### 15.2. Reglas de consistencia y concurrencia
+
+- Un operador consular solo escribe sobre JRV del recinto autorizado por su cuenta; todas las escrituras llevan identificación operativa y momento de recepción del servidor.
+- Dos acciones sobre **JRV distintas** no se sobreescriben entre sí. Dos actualizaciones sobre la misma JRV y fase dejan vigente la última aceptada por el servidor, sin bloquear con confirmaciones de conflicto no aprobadas.
+- El envío no produce «éxito» hasta que el servidor lo confirma. Un clic duplicado o reintento de red no debe crear dos incidencias idénticas por accidente ni dos confirmaciones de pago.
+- Para una **incidencia**, el estado y las resoluciones parciales deben poder coexistir con eventos posteriores y con reaperturas. La explicación breve es obligatoria **al resolver**, no al corregir libremente un reporte de hito.
+- El pago **confirmado** de un MJRV no admite una segunda confirmación ordinaria, incluso cuando dos puestos de finanzas actúen casi simultáneamente; se requiere comprobación atómica de servidor.
+- Una JRV con tres llegadas operativas en Madrid puede seguir «sin información» en instalación consular: no existe sincronización automática entre esos dos hechos.
+- La limpieza de pruebas no modifica cuentas, catálogos ni pagos reales, y no puede ejecutarse como operación de caja normal.
+
+### 15.3. Distinción entre estado actual e historial
+
+El sistema necesita **estado actual legible para operaciones** e **historial de eventos suficiente para auditar cambios**, aunque el funcionario no vea una pantalla compleja de auditoría. En reportes, conservar la última versión vigente y trazabilidad técnica de cambios con operador, fecha y valor anterior; no pedir justificación. En incidencias, conservar apertura, cambios de alcance/prioridad, solicitudes de apoyo, acuses, resoluciones parciales, cierres y reaperturas. En Madrid, mantener asignación inicial y movimientos; diferenciar impresiones de actas de confirmaciones de desembolso.
+
+Los informes de cierre son **fotografías del estado de los datos al momento de generarlos**, por lo que deben identificar su hora de corte. Si un consulado corrige después, el informe regenerado puede diferir; no etiquetar ambos como idénticos ni modificar silenciosamente un archivo PDF ya emitido. La política de archivo y eliminación definitiva posterior a la elección está pendiente.
+
+### 15.4. Estados funcionales mínimos por subsistema
+
+| Subsistema | Estados que debe distinguir |
+| --- | --- |
+| JRV por fase/hito | Completada; pendiente expresamente reportada; sin información |
+| Reporte local | Borrador en dispositivo; enviando; aceptado por servidor; error de envío |
+| Incidencia | Abierta; parcialmente resuelta si procede; cerrada; reabierta sobre la misma incidencia |
+| Solicitud urgente | Emitida sin acuse; recibida por DGSMH/en seguimiento; resuelta |
+| Alerta de reporte ausente | Ausencia detectada; actualizada/regularizada o sin actualizar, sin equipararla a incidencia |
+| Llegada Madrid | No registrada; ingreso válido; intento de segundo escaneo/rechazo, según regla aún abierta |
+| Junta Madrid | Sin nadie; incompleta; al menos tres presentes/disponibles; con marca de movimiento si corresponde |
+| Documento MJRV | Falta anverso y/o reverso; completo; requiere repetición por imagen inservible |
+| Pago MJRV | Documentación incompleta; listo para preparar; trámite/acta preparada; pago físico confirmado |
+| Sistema global | Modo prueba; modo elección |
+
+Estas etiquetas expresan diferencias lógicas. No obligan a crear una pantalla nueva por cada estado ni definen si se implementarán como enumeraciones, eventos o columnas.
+
+### 15.5. Matriz de acciones que exigen confirmación
+
+| Acción | Interacción mínima |
+| --- | --- |
+| Registrar o corregir un reporte consular | Guardar/enviar y mostrar resultado; **sin motivo obligatorio** |
+| Registrar incidencia | Confirmar tipo, ámbito y datos, sin formulario extensivo |
+| Registrar resolución parcial o total | Elegir JRV cuando corresponda y **explicación breve obligatoria** |
+| Acusar urgencia DGSMH | «Recibido»; conserva incidencia abierta |
+| Autorizar un traslado Madrid | Aprobación expresa del centro de mando; nunca automática |
+| Tomar imagen de documento | Revisar imagen capturada y permitir repetir |
+| Generar/imprimir acta | Acción distinta del pago; no cambiar a «pagado» |
+| Confirmar pago | Acción explícita del operador financiero **tras efectivo y firmas** |
+| Pasar a modo prueba | Acción exclusiva superadmin, con señal visible del estado |
+| Borrar pruebas y preparar elección | Respaldo, alcance explícito, confirmación y validación posterior |
+
+### 15.6. Fórmulas e indicadores ya definidos
+
+- **Avance de hito por recinto (%) = JRV con hito completado / total de JRV del recinto × 100.**
+- **Avance por consulado (%) = suma de JRV con hito completado de sus recintos / suma de JRV totales de esos recintos × 100.**
+- **Avance mundial (%) = suma de JRV con hito completado / suma de JRV totales del catálogo pertinente × 100.**
+- **Votantes:** conservar cantidad informada, fuente y alcance. Una tasa de participación solo se calcula cuando existen numerador de alcance comparable y electores habilitados validados; si la cantidad fue estimada, identificarlo.
+- **Total EUR efectivamente entregado en Madrid = suma de importes EUR de pagos confirmados**, sin contar preparaciones o impresiones.
+- **Importe EUR individual:** pendiente de la fórmula, tasa manual y regla de redondeo aprobadas. No introducir coeficiente ni tipo de cambio por suposición.
+
+Una cifra «0» expresamente confirmada no es lo mismo que «sin información»; una JRV «pendiente» no cuenta como «completada». La hora real de cada hito reportado puede diferir de su hora de recepción en el servidor: conservar ambos valores si el flujo y la fuente los proporcionan, sin hacer obligatorio un campo histórico que Pablo no ha solicitado.
+
