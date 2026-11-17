@@ -53,3 +53,10 @@ Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, m
 
 - **DECIDIDO.** Opción C: cada consulado registra previamente un teléfono de contacto operativo y, al iniciar la jornada electoral, confirma que sigue siendo válido o lo actualiza. El teléfono está disponible para la DGSMH en el tablero, como dato de contacto de la operación consular; no se solicita por cada JRV.
 - **ABIERTO.** Política para identificar y gestionar consulados que no reportan un hito esperado: visualización simple, aviso por falta de reporte, u otro mecanismo. Ninguna ausencia de reporte equivale automáticamente a un incidente electoral.
+
+## Control de reportes ausentes (decisión 17-11-2026)
+
+- **DECIDIDO.** Opción C: el tablero DGSMH mostrará permanentemente el último hito/reportado de cada consulado y su hora. Cuando no se registre un hito esperado dentro de un margen razonable, aparecerá una **alerta de seguimiento por falta de reporte**, diferenciada expresamente de los incidentes electorales. Esta alerta no presume que haya una interrupción real del sufragio.
+- **DECIDIDO.** La evaluación de hitos esperados se hará respecto de la hora **local** del lugar. No se han definido minutos de tolerancia ni la fuente concreta del huso horario.
+- **ABIERTO.** Plazos de tolerancia exactos, escalamiento y notificaciones; no inventarlos.
+- **ABIERTO.** ¿Qué forma de visualización de avances debe priorizar el tablero DGSMH para consulados de muy distinto tamaño: porcentaje de JRV por hito, número absoluto de JRV y total, o ambos? La respuesta no debe contradecir el reporte junta por junta para consulados pequeños y el reporte concurrente por sección para consulados grandes ya decididos.
