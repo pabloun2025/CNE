@@ -1,12 +1,13 @@
-import { FormCrearAdmin, FormModo, FormRestablecer } from "@/components/superadmin-formularios";
+import { FormCrearAdmin, FormDemo, FormModo, FormRestablecer } from "@/components/superadmin-formularios";
 import { leerModo } from "@/server/config";
+import { contarDemo } from "@/server/demo";
 import { requireSuperadmin } from "@/server/guard";
 import { activarAdminAccion } from "@/server/superadmin-actions";
 import { FRASE_MODO, listarAdmins } from "@/server/superadmin";
 
 export default async function SuperInicio() {
   const sesion = await requireSuperadmin();
-  const [modo, admins] = await Promise.all([leerModo(), listarAdmins(sesion)]);
+  const [modo, admins, demo] = await Promise.all([leerModo(), listarAdmins(sesion), contarDemo()]);
   const destino = modo === "prueba" ? "eleccion" : "prueba";
   return (
     <main className="mx-auto max-w-3xl space-y-8">
@@ -20,6 +21,13 @@ export default async function SuperInicio() {
         )}
         <div className="mt-3 max-w-sm"><FormModo destino={destino} frase={FRASE_MODO[destino]} /></div>
       </section>
+
+      {modo === "prueba" && (
+        <section>
+          <h2 className="text-lg font-semibold">Datos de demostración</h2>
+          <div className="mt-2"><FormDemo cargadas={demo} /></div>
+        </section>
+      )}
 
       <section>
         <h2 className="text-lg font-semibold">Cuentas de administración Madrid</h2>

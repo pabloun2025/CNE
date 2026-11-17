@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSuperadmin } from "./guard";
 import { activarAdmin, cambiarModo, crearAdmin, restablecerAdmin } from "./superadmin";
 import type { Modo } from "./config";
+import { cargarDemo, quitarDemo } from "./demo";
 
 export type EstadoSuper = { error?: string; aviso?: string; password?: string } | null;
 
@@ -32,4 +33,26 @@ export async function cambiarModoAccion(_: EstadoSuper, f: FormData): Promise<Es
   const r = await cambiarModo(sesion, destino as Modo, String(f.get("confirmacion") ?? ""));
   revalidatePath("/superadmin", "layout");
   return r.ok ? { aviso: `Modo cambiado a ${destino === "prueba" ? "prueba" : "elección"}.` } : { error: r.mensaje };
+}
+
+export async function cargarDemoAccion(): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  try {
+    const r = await cargarDemo(sesion);
+    revalidatePath("/superadmin");
+    return { aviso: r.insertadas ? `Se cargaron ${r.insertadas} fichas de demostración.` : "Los datos de demostración ya estaban cargados." };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export async function quitarDemoAccion(): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  try {
+    const r = await quitarDemo(sesion);
+    revalidatePath("/superadmin");
+    return { aviso: `Se quitaron ${r.borradas} fichas de demostración.` };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
