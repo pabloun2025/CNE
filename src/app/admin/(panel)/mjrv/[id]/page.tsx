@@ -34,6 +34,8 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
         <p className="sm:col-span-2"><strong>Pago:</strong> {m.pago ? `Pagado el ${hora(m.pago.en)} por ${m.pago.operador}: ${m.pago.importe_eur} EUR` : "sin pago confirmado"}</p>
       </section>
 
+      <p><a className="underline" target="_blank" href={`/admin/credenciales/pdf?formato=individual&ids=${m.id}`}>Descargar credencial (PDF)</a></p>
+
       <section>
         <h2 className="font-semibold">Movimientos</h2>
         {m.movimientos.length === 0 ? <p className="text-sm">Ninguno.</p> : (
