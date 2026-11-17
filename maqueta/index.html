@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Maqueta · Tablero DGSMH · Elecciones 29-11-2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F3F5F8;font-family:Inter,system-ui,sans-serif;color:#101828}
+button{font-family:inherit}
+.aviso{background:#7A2E0E;color:#fff;font-size:13px;font-weight:600;text-align:center;padding:6px 16px}
+header{background:#0B2545;color:#fff;display:flex;flex-wrap:wrap;align-items:center;gap:16px 32px;padding:14px 24px}
+header .t{display:flex;flex-direction:column;gap:2px;flex:1 1 320px}
+.sm{font-size:12px;color:#B8C7DA}
+.btn{min-height:44px;padding:0 16px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;border:1px solid #D0D5DD;background:#fff;color:#344054}
+.btn-osc{border:1px solid #4B6587;background:transparent;color:#fff}
+.btn-urg{border:0;background:#B42318;color:#fff;font-weight:600}
+main{max-width:1440px;margin:0 auto;padding:20px 24px 40px;display:flex;flex-direction:column;gap:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.card{background:#fff;border:1px solid #E4E7EC;border-radius:12px;padding:16px}
+.kpi{display:flex;flex-direction:column;gap:4px;border-radius:10px;padding:14px 16px}
+.kpi .l{font-size:13px;color:#475467;font-weight:500}.kpi .v{font-size:26px;font-weight:700}.kpi .s{font-size:12px;color:#475467}
+.fila{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.mapa-card{flex:999 1 640px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.mapa{position:relative;width:100%;aspect-ratio:1000/394;border-radius:8px;overflow:hidden;background:#E8EEF3}
+.mapa img{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pt{position:absolute;transform:translate(-50%,-50%);border-radius:999px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;padding:0;box-shadow:0 1px 3px rgba(16,24,40,.35)}
+.pt.urg{animation:lat 1.4s ease-in-out infinite}
+@keyframes lat{50%{box-shadow:0 0 0 8px rgba(180,35,24,.25)}}
+@media (prefers-reduced-motion:reduce){.pt.urg{animation:none}}
+.ley{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#344054}
+.ley span{display:inline-flex;align-items:center;gap:6px}.dot{width:12px;height:12px;border-radius:99px;display:inline-block}
+aside{flex:1 1 360px;display:flex;flex-direction:column;gap:16px}
+h2{margin:0;font-size:16px;font-weight:700}
+.item{display:flex;flex-direction:column;gap:4px;padding:8px 0;border-top:1px solid #F2F4F7}
+.prio{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+.hitos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.hito{border:1px solid #E4E7EC;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.bar{height:6px;border-radius:99px;background:#EAECF0;overflow:hidden}.bar div{height:6px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
+th{text-align:left;color:#475467;padding:8px;border-bottom:1px solid #E4E7EC;font-weight:600}
+td{padding:8px;border-bottom:1px solid #F2F4F7}
+tr.clic{cursor:pointer}tr.clic:hover{background:#F9FAFB}
+@media print{.aviso{-webkit-print-color-adjust:exact;print-color-adjust:exact}header,.card,.kpi{-webkit-print-color-adjust:exact;print-color-adjust:exact}.noprint{display:none}}
+</style>
+</head>
+<body>
+<div class="aviso">MAQUETA — todas las cifras, recintos, personas y estados son ficticios, solo para mostrar el diseño</div>
+<header>
+  <div class="t"><span class="sm" style="font-weight:500">DGSMH · Cancillería del Ecuador</span><span style="font-size:20px;font-weight:700">Seguimiento de la jornada electoral en el exterior</span></div>
+  <div style="display:flex;flex-direction:column;gap:2px"><span class="sm">Domingo 29-11-2026</span><span style="font-size:16px;font-weight:600">10:00 Quito · 15:00 UTC</span></div>
+  <div class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">
+    <button id="mute" class="btn btn-osc">Silenciar sonido</button>
+    <button class="btn" style="font-weight:600;color:#0B2545" onclick="window.print()">Generar informe</button>
+  </div>
+  <span class="sm" style="font-size:13px">Ana R. · DGSMH</span>
+</header>
+<main>
+  <section class="kpis" id="kpis" aria-label="Indicadores principales"></section>
+  <div class="fila">
+    <section class="card mapa-card" aria-label="Mapa mundial">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px">
+        <h2>Mapa mundial · consulados</h2>
+        <span style="font-size:12px;color:#475467">Zona sombreada: noche ahora. La hora de cada recinto sale de su huso horario.</span>
+      </div>
+      <div class="mapa" id="mapa"><img src="mapa-mundo.svg" alt=""></div>
+      <div class="ley">
+        <span><i class="dot" style="background:#1F5FAD"></i>Al día</span>
+        <span><i class="dot" style="background:#C2570C"></i>Incidencia o pendiente reportado</span>
+        <span><i class="dot" style="background:#B42318"></i>Solicitud urgente de apoyo</span>
+        <span><i class="dot" style="background:#98A2B3"></i>Sin información (alerta de seguimiento)</span>
+        <span><i class="dot" style="background:#1F5FAD;border:2px solid #0B2545"></i>Número = varios consulados del país</span>
+      </div>
+    </section>
+    <aside aria-label="Panel de atención">
+      <div id="urgente"></div>
+      <div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <h2 style="font-size:15px">Alertas de seguimiento</h2>
+        <span style="font-size:12px;color:#475467">Falta un reporte esperado según la hora local. No es una incidencia.</span>
+        <div id="alertas"></div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <h2 style="font-size:15px">Incidencias abiertas</h2>
+        <div id="incidencias"></div>
+      </div>
+    </aside>
+  </div>
+  <section class="card" id="detalle" aria-label="Detalle del consulado" style="display:flex;flex-direction:column;gap:14px;padding:20px"></section>
+  <section class="card" aria-label="Consolidado por consulado" style="display:flex;flex-direction:column;gap:12px;padding:20px">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center">
+      <h2>Consolidado por consulado</h2>
+      <div class="noprint" style="display:flex;gap:8px"><button class="btn" onclick="window.print()">Exportar PDF</button><button class="btn" disabled title="Disponible en el sistema real">Exportar Excel</button></div>
+    </div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Consulado</th><th>Hora local</th><th>Recintos</th><th>Fase</th><th>JRV al día</th><th>Votantes</th><th>Estado</th></tr></thead><tbody id="tabla"></tbody></table></div>
+    <span style="font-size:12px;color:#475467">El informe distingue datos confirmados, estimados, pendientes y sin reporte. No contiene resultados de votos ni datos internos de Madrid (credenciales, ingresos o pagos).</span>
+  </section>
+</main>
+<script>
+// Maqueta estática: datos ficticios, sin conexión a ningún servidor.
+const COL={ok:'#1F5FAD',pend:'#C2570C',urg:'#B42318',sin:'#98A2B3'};
+const TXT={ok:'#1F5FAD',pend:'#B54708',urg:'#B42318',sin:'#475467'};
+const EST={ok:'Al día',pend:'Incidencia abierta',urg:'Solicitud urgente',sin:'Sin reporte reciente'};
+const C=[
+['es','España (5 consulados)',49.2,30.4,'pend','16:00','9 recintos','Votación','402/415','18 940 (firmas)',5],
+['mil','Milán',52.55,27.1,'urg','16:00','3 recintos','Votación','58/64','2 310 (estimación)',0],
+['gen','Génova',52.2,28.6,'ok','16:00','1 recinto','Votación','22/22','1 105 (firmas)',0],
+['lon','Londres',49.96,22.9,'ok','15:00','1 recinto','Votación','12/12','640 (firmas)',0],
+['ams','Ámsterdam',51.4,21.6,'sin','16:00','1 recinto','Votación','—','sin reporte',0],
+['nyc','Nueva York',29.44,30.5,'ok','10:00','4 recintos','Votación','96/96','3 870 (firmas)',0],
+['chi','Chicago',25.67,29.6,'pend','09:00','1 recinto','Votación','14/18','210 (estimación)',0],
+['tor','Toronto',27.94,27.6,'ok','10:00','1 recinto','Votación','8/8','190 (firmas)',0],
+['lax','Los Ángeles',17.15,35.2,'sin','07:00','1 recinto','Antes de la apertura','—','—',0],
+['mex','México',22.47,45.5,'ok','09:00','1 recinto','Votación','6/6','95 (firmas)',0],
+['bog','Bogotá',29.42,55.8,'ok','10:00','1 recinto','Votación','10/10','410 (firmas)',0],
+['lim','Lima',28.6,67.7,'ok','10:00','1 recinto','Votación','7/7','260 (firmas)',0],
+['scl','Santiago de Chile',30.4,82.7,'pend','12:00','1 recinto','Votación','9/11','330 (estimación)',0],
+['bue','Buenos Aires',33.8,83.5,'ok','12:00','1 recinto','Votación','9/9','280 (firmas)',0],
+['mos','Moscú',60.44,19.9,'ok','18:00','1 recinto','Votación','2/2','48 (firmas)',0],
+['auh','Abu Dabi',65.1,42.0,'ok','19:00','1 recinto','Cierre de votación','1/1','22 (firmas)',0],
+['tyo','Tokio',88.8,34.0,'ok','00:00','1 recinto','Escrutinio terminado','2/2','61 (firmas)',0],
+['syd','Sídney',92.0,83.0,'ok','02:00','1 recinto','Cierre del proceso','1/1','35 (firmas)',0]
+].map(r=>({id:r[0],name:r[1],x:r[2],y:r[3],est:r[4],hora:r[5],rec:r[6],fase:r[7],jrv:r[8],vot:r[9],n:r[10]}));
+const ALERTAS=[['Ámsterdam · Recinto 1','Sin reporte de votantes desde la apertura','16:00 local'],['Los Ángeles · Recinto 1','Teléfono operativo sin confirmar','07:00 local'],['Madrid · Recinto 3','12 JRV sin información de inicio','16:00 local']];
+const INC=[['CRÍTICA','#FEE4E2','#912018','Milán · Recinto 2','Falta el paquete electoral · M-14, M-15','Abierta 09:12 local · apoyo solicitado'],['ALTA','#FEF0C7','#93370D','Chicago · Recinto 1','JRV sin tres integrantes · 4 juntas','Abierta 08:50 local · resuelta en 1 de 5 JRV'],['NORMAL','#EAECF0','#344054','Santiago de Chile','Otro: corte de luz breve en el recinto','Abierta 11:30 local · seguimiento DGSMH']];
+const S={sel:'mil',ack:false,muted:false};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Pitido de aviso con la API de audio; si el navegador lo bloquea, el aviso visual basta.
+let actx=null;
+function pitido(){if(S.ack||S.muted)return;try{actx=actx||new AudioContext();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;g.gain.value=.05;o.connect(g).connect(actx.destination);o.start();o.stop(actx.currentTime+.18);}catch(e){}}
+setInterval(pitido,8000);
+
+function render(){
+  $('kpis').innerHTML=[
+    ['Recintos instalados','64/71','90 % · 3 sin información','#101828'],
+    ['JRV con votación','722/760','95 % de las JRV con dato','#101828'],
+    ['Votantes reportados','29 806','78 % firmas · 22 % estimación','#101828'],
+    ['Incidencias abiertas','6','1 crítica · 2 altas · 3 normales','#B54708'],
+    ['Solicitudes urgentes',S.ack?'0 sin acuse':'1',S.ack?'1 recibida, en curso':'Sin acuse de recibo','#B42318'],
+    ['Alertas de seguimiento','3','Reportes esperados ausentes','#475467']
+  ].map(k=>`<div class="kpi card"><span class="l">${k[0]}</span><span class="v" style="color:${k[3]}">${k[1]}</span><span class="s">${k[2]}</span></div>`).join('');
+
+  const mapa=$('mapa');mapa.querySelectorAll('.pt').forEach(e=>e.remove());
+  C.forEach(c=>{const b=document.createElement('button');const sz=c.n?26:16;
+    b.className='pt'+(c.est==='urg'&&!S.ack?' urg':'');
+    b.style.cssText=`left:${c.x}%;top:${c.y}%;width:${sz}px;height:${sz}px;background:${COL[c.est]};border:${S.sel===c.id?'3px solid #0B2545':'2px solid #fff'}`;
+    b.textContent=c.n||'';b.setAttribute('aria-label',`${c.name}: ${EST[c.est]}`);b.title=`${c.name} · ${EST[c.est]}`;
+    b.onclick=()=>{S.sel=c.id;render();$('detalle').scrollIntoView({behavior:'smooth',block:'nearest'});};mapa.appendChild(b);});
+
+  $('urgente').innerHTML=!S.ack?`<div style="background:#FEF3F2;border:2px solid #B42318;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px">
+    <span style="font-size:12px;font-weight:700;color:#B42318">SOLICITUD URGENTE DE APOYO · ${S.muted?'sonido silenciado':'con aviso sonoro'}</span>
+    <span style="font-size:16px;font-weight:700">Consulado en Milán · Recinto 2</span>
+    <span style="font-size:14px;color:#344054">Falta el paquete electoral de 2 JRV (M-14, M-15). Solicitan coordinar con la Junta Especial del Exterior.</span>
+    <span style="font-size:12px;color:#475467">Hace 6 min · Operador: Luis G. · Tel. operativo +39 ··· ··· 214</span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-urg" id="ack">Recibido</button><button class="btn" id="vermil">Ver consulado</button></div></div>`
+   :`<div class="card" style="border-color:#FDA29B;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;font-weight:700;color:#B42318">RECIBIDO · SIGUE PENDIENTE DE RESOLVER</span><span style="font-size:14px;font-weight:600">Milán · Recinto 2 · falta paquete (2 JRV)</span><span style="font-size:12px;color:#475467">Acuse de Ana R. a las 10:00. El aviso sonoro se ha silenciado.</span></div>`;
+  if(!S.ack){$('ack').onclick=()=>{S.ack=true;render();};$('vermil').onclick=()=>{S.sel='mil';render();};}
+
+  $('alertas').innerHTML=ALERTAS.map(a=>`<div class="item" style="flex-direction:row;justify-content:space-between;gap:8px"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">${a[0]}</span><span style="font-size:12px;color:#475467">${a[1]}</span></div><span style="font-size:12px;color:#475467;white-space:nowrap">${a[2]}</span></div>`).join('');
+  $('incidencias').innerHTML=INC.map(i=>`<div class="item"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="prio" style="background:${i[1]};color:${i[2]}">${i[0]}</span><span style="font-size:14px;font-weight:600">${i[3]}</span></div><span style="font-size:13px;color:#344054">${i[4]}</span><span style="font-size:12px;color:#475467">${i[5]}</span></div>`).join('');
+
+  const c=C.find(x=>x.id===S.sel)||C[0];const tot=c.id==='mil'?64:10;
+  const base=c.id==='mil'?[61,58]:[9,8];
+  const H=['Inicio','Votantes','Cierre de votación','Inicio de escrutinio','Fin de escrutinio','Inicio de escaneo','Cierre del proceso'];
+  $('detalle').innerHTML=`<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline"><h2 style="font-size:18px">${esc(c.name)}</h2><span style="font-size:13px;color:#475467">Hora local ${c.hora} · ${c.rec} · Tel. operativo confirmado ${c.est==='sin'?'pendiente':'sí'}</span></div>
+   <span style="font-size:13px;color:#475467">Pulse un punto del mapa o una fila de la tabla para ver otro consulado. Avance calculado sobre JRV reales, sin sumar porcentajes.</span>
+   <div class="hitos">${H.map((n,i)=>{const d=i<2?base[i]:0;const p=Math.round(d/tot*100);const fut=i>=2;
+     return `<div class="hito"><span style="font-size:12px;color:#475467;font-weight:500">${n}</span><span style="font-size:18px;font-weight:700">${d}/${tot} · ${p} %</span><div class="bar"><div style="width:${p}%;background:${fut?'#D0D5DD':'#1F5FAD'}"></div></div><span style="font-size:11px;color:#475467">${fut?'Se habilita tras las 19:00 locales':(c.id==='mil'&&i===0?'2 pendientes reportadas · 1 sin información':'Completadas / total de JRV')}</span></div>`}).join('')}</div>
+   <span style="font-size:13px;color:#344054">Votantes reportados: <strong>${c.vot}</strong></span>`;
+
+  $('tabla').innerHTML=C.map(c=>`<tr class="clic" data-id="${c.id}"><td style="font-weight:600">${esc(c.name)}</td><td>${c.hora}</td><td>${c.rec}</td><td>${c.fase}</td><td>${c.jrv}</td><td>${c.vot}</td><td style="color:${TXT[c.est]};font-weight:600">${EST[c.est]}</td></tr>`).join('');
+  $('tabla').querySelectorAll('tr').forEach(tr=>tr.onclick=()=>{S.sel=tr.dataset.id;render();$('detalle').scrollIntoView({behavior:'smooth',block:'nearest'});});
+  $('mute').textContent=S.muted?'Activar sonido':'Silenciar sonido';
+}
+$('mute').onclick=()=>{S.muted=!S.muted;render();};
+render();
+</script>
+</body>
+</html>
