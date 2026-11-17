@@ -60,3 +60,9 @@ Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, m
 - **DECIDIDO.** La evaluación de hitos esperados se hará respecto de la hora **local** del lugar. No se han definido minutos de tolerancia ni la fuente concreta del huso horario.
 - **ABIERTO.** Plazos de tolerancia exactos, escalamiento y notificaciones; no inventarlos.
 - **ABIERTO.** ¿Qué forma de visualización de avances debe priorizar el tablero DGSMH para consulados de muy distinto tamaño: porcentaje de JRV por hito, número absoluto de JRV y total, o ambos? La respuesta no debe contradecir el reporte junta por junta para consulados pequeños y el reporte concurrente por sección para consulados grandes ya decididos.
+
+## Indicadores de avance por consulado (decisión 17-11-2026)
+
+- **DECIDIDO.** Se adopta la opción C de visualización para DGSMH: por hito, mostrar simultáneamente el número de juntas reportadas respecto del total y su porcentaje (ej.: 76 de 95 — 80 %). Cuando la información disponible lo permita, podrá consultarse qué juntas siguen pendientes. El total real por recinto provendrá del catálogo que Pablo entregará; no se debe inventar.
+- **PRECISIÓN FUNCIONAL.** El porcentaje se calcula sobre juntas, no sobre personas votantes. Un porcentaje de avance no implica que haya concluido toda la elección ni equivale al porcentaje de participación.
+- **ABIERTO.** Cómo producir un conteo por JRV fiable y con mínima carga en consulados grandes: actualizaciones individuales, marcado masivo por zona/grupo con excepciones, o modelo híbrido. No asumir alimentación automática desde el módulo interno de Madrid ni imponer revisión junta por junta.
