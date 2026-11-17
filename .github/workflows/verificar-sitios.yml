@@ -1,0 +1,24 @@
+name: Verificar sitios publicados
+
+# Comprueba desde fuera que CNE responde y que los servicios que comparten túnel siguen bien. Solo lectura.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar
+        run: |
+          fallo=0
+          for u in https://madrid.consulado.app/api/salud https://madrid.consulado.app/ https://recordatorio.consulado.app/acceso; do
+            code=$(curl -sS -o /tmp/r -w '%{http_code}' --max-time 20 "$u" || echo 000)
+            echo "$code $u"
+            case "$u" in */api/salud) head -c 300 /tmp/r; echo;; esac
+            case "$code" in 2*|3*) ;; *) fallo=1;; esac
+          done
+          exit $fallo
