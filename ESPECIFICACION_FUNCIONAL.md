@@ -1,10 +1,19 @@
 # Especificación funcional — Proyecto CNE
 
-**Estado:** versión consolidada, 17 de noviembre de 2026.  
+**Estado:** versión consolidada y ampliación detallada de diseño funcional, 17 de noviembre de 2026.  
 **Repositorio:** pabloun2025/CNE, rama main.  
 **Objeto:** elección del 29 de noviembre de 2026 en el exterior; primera versión con los tres componentes completos.
 
 Esta especificación reúne el documento original y las decisiones posteriores de la entrevista. Cuando exista una diferencia entre una definición histórica y una decisión posterior documentada aquí, **prevalece la decisión posterior**. Los apartados se identifican como **DECIDIDO**, **ABIERTO** o **PROPUESTA NO APROBADA**; las propuestas técnicas no son instrucciones para construir. No escribir código ni iniciar despliegues hasta que Pablo lo solicite expresamente. Al comenzar la construcción se prepara una entrega integral de instrucciones para el agente programador.
+
+## Guía de lectura del documento
+
+- **Apartados 1–9:** decisiones consolidadas de alcance, arquitectura, operación, usuarios, Madrid, incidencias y continuidad; **fuente de autoridad funcional**.
+- **Apartados 10–15:** desarrollo detallado de los tres portales, superadministración, pantallas, flujos, datos, estados y validaciones; contiene decisiones aprobadas y diseños derivados expresamente diferenciados.
+- **Apartados 16–17:** seguridad, tratamiento de datos, criterios de aceptación y comprobaciones mínimas con modo prueba.
+- **Apartados 18–19:** insumos pendientes, reglas que no pueden inventarse y guía para comenzar el desarrollo **solo cuando se autorice**.
+
+La extensión de esta especificación es deliberada: debe permitir que un desarrollador entienda el funcionamiento del producto sin repetir la entrevista. **No** significa que se haya escrito código, desplegado un servicio, revisado los Excel todavía no entregados ni aprobado aspectos identificados como pendientes.
 
 ## 1. Propósito y alcance
 
@@ -161,7 +170,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO — informes completos de la jornada.** Pablo aprobó la opción C: la DGSMH podrá generar un informe consolidado con avances de los recintos y JRV, participación reportada (indicando si procede de firmas o estimación), incidencias y su seguimiento/resolución, y horas relevantes de los hitos. Podrá consultarse detalle por consulado y recinto y exportarse a PDF y Excel. No mezclar en el informe nacional la información sensible interna de Madrid (credenciales, cédulas, ingresos o pagos); el informe se alimenta del módulo consular/DGSMH. Distinguir información confirmada, estimada, pendiente y sin reporte; el informe no contiene resultados de votos ni constituye documento oficial del CNE.
 
-**DECIDIDO — pantalla principal DGSMH.** Se adopta la **opción C**: un tablero con el **mapa mundial como elemento visual dominante** y, simultáneamente, un panel lateral de **alertas urgentes, consulados con reportes pendientes e indicadores principales**. El usuario de Quito debe poder comprender la situación global y localizar lo que requiere atención **sin cambiar de pantalla**. Se respetan los estados de información disponible, pendientes expresamente reportados y ausencia de reporte, así como la diferenciación entre incidencias y alertas de seguimiento. La disposición deberá adaptarse a distintos tamaños de pantalla. El detalle de agrupación de marcadores para consulados con varios recintos todavía no está aprobado.
+**DECIDIDO — pantalla principal DGSMH.** Se adopta la **opción C**: un tablero con el **mapa mundial como elemento visual dominante** y, simultáneamente, un panel lateral de **alertas urgentes, consulados con reportes pendientes e indicadores principales**. El usuario de Quito debe poder comprender la situación global y localizar lo que requiere atención **sin cambiar de pantalla**. Se respetan los estados de información disponible, pendientes expresamente reportados y ausencia de reporte, así como la diferenciación entre incidencias y alertas de seguimiento. La disposición deberá adaptarse a distintos tamaños de pantalla. La agrupación por niveles **consulado → recinto → detalle JRV** fue aprobada posteriormente; véanse los apartados 10–12.
 
 **DECIDIDO.** Los incidentes se reportan **por excepción**. El formulario propone un alcance según el tipo (recinto entero o una o varias JRV) y el consulado puede modificarlo. No debe preguntarse junta por junta ni exigirse confirmación de normalidad periódica. Cada fase tendrá un desplegable corto de hechos concretos que afecten su desarrollo y la opción «Otro» con texto libre. Sus ítems siguen **ABIERTOS** hasta revisión de manuales.
 
