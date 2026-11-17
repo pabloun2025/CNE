@@ -1,3 +1,4 @@
+import { PanelFinanciero } from "@/components/panel-financiero";
 import { FormParametrosPago } from "@/components/form-parametros-pago";
 import { calcularImporteEur, faltanParametros } from "@/domain/pago";
 import { requireAdmin } from "@/server/guard";
@@ -11,6 +12,10 @@ export default async function Finanzas() {
   return (
     <main className="max-w-3xl space-y-6">
       <h1 className="text-xl font-semibold">Finanzas</h1>
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Panel financiero</h2>
+        <PanelFinanciero />
+      </section>
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Parámetros de pago</h2>
         {faltan.length > 0 ? (
