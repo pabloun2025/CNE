@@ -68,14 +68,19 @@ def principal(argv, entorno):
     if accion == "comprobar":
         return None
 
+    # Túnel existente: el que ya sirve ORIGEN; si no, el que tenga algún hostname de la misma zona.
     elegido = None
     for t in tuneles.get("result") or []:
         cfg = api(token, "GET", f"/accounts/{cuenta}/cfd_tunnel/{t['id']}/configurations")
-        ingress = ((cfg.get("result") or {}).get("config") or {}).get("ingress") or []
-        if any(r.get("hostname") == origen for r in ingress):
-            elegido = (t, cfg["result"]["config"])
+        config_t = (cfg.get("result") or {}).get("config") or {}
+        nombres = [r.get("hostname") or "" for r in config_t.get("ingress") or []]
+        if origen in nombres:
+            elegido = (t, config_t)
+            break
+        if elegido is None and any(n.endswith("." + z["name"]) for n in nombres):
+            elegido = (t, config_t)
     if not elegido:
-        return f"Ningún túnel gestionado en Cloudflare sirve {origen}."
+        return f"Ningún túnel gestionado en Cloudflare sirve {origen} ni otro hostname de {z['name']}."
     t, config = elegido
     if any(r.get("hostname") == host for r in config["ingress"]):
         print("Ingress: ya existía.")

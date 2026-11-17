@@ -13,9 +13,9 @@ on:
         type: choice
         options: [desplegar, revertir]
       host_madrid:
-        description: "Host público (opcional; si se deja vacío se usa la variable HOST_MADRID o ninguno)"
+        description: "Host público (por defecto madrid.consulado.app)"
         required: false
-        default: ""
+        default: "madrid.consulado.app"
       superadmin_email:
         description: "Correo de la superadmin (opcional; si falta, secreto SUPERADMIN_EMAIL o superadmin@cne.local)"
         required: false
@@ -54,7 +54,7 @@ jobs:
           APP_MASTER_KEY: ${{ secrets.APP_MASTER_KEY }}
           SUPERADMIN_PASSWORD_INICIAL: ${{ secrets.SUPERADMIN_PASSWORD_INICIAL }}
           SUPERADMIN_EMAIL: ${{ inputs.superadmin_email || secrets.SUPERADMIN_EMAIL }}
-          HOST_MADRID: ${{ inputs.host_madrid || vars.HOST_MADRID }}
+          HOST_MADRID: ${{ inputs.host_madrid || vars.HOST_MADRID || 'madrid.consulado.app' }}
           APP_VERSION: ${{ github.sha }}
         run: |
           set +x
