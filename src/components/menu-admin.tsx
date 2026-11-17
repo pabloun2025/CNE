@@ -5,6 +5,7 @@ export const ENLACES_ADMIN: { href: string; texto: string }[] = [
   { href: "/admin", texto: "Inicio" },
   { href: "/admin/mjrv", texto: "MJRV" },
   { href: "/admin/credenciales", texto: "Credenciales" },
+  { href: "/admin/operadores", texto: "Operadores y enlaces" },
 ];
 
 // Menú lateral en escritorio; a 375 px es un desplegable.
