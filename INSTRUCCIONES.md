@@ -48,3 +48,8 @@ Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, m
 - **DECIDIDO.** Cada consulado debe introducir un **teléfono de contacto operativo** para la jornada, disponible para consulta de la DGSMH desde Quito. Es un contacto del consulado o de la operación, no de cada junta. No se confunde con los teléfonos de electores ni de miembros de juntas. Su modalidad de captura, confirmación y actualización será objeto de la siguiente pregunta.
 - **CONSECUENCIA FUNCIONAL.** El contacto operativo facilita llamadas ante incidencias urgentes y evita añadir un chat interno; la trazabilidad de solicitudes y resoluciones permanece en el sistema. No se ha aprobado uso público del teléfono ni integración telefónica.
 - **ABIERTO.** Cuándo debe ingresar/confirmar el consulado su teléfono operativo: al configurar, al iniciar la jornada o configuración previa y confirmación el día electoral. Esta es la siguiente decisión.
+
+## Confirmación del teléfono operativo (decisión 17-11-2026)
+
+- **DECIDIDO.** Opción C: cada consulado registra previamente un teléfono de contacto operativo y, al iniciar la jornada electoral, confirma que sigue siendo válido o lo actualiza. El teléfono está disponible para la DGSMH en el tablero, como dato de contacto de la operación consular; no se solicita por cada JRV.
+- **ABIERTO.** Política para identificar y gestionar consulados que no reportan un hito esperado: visualización simple, aviso por falta de reporte, u otro mecanismo. Ninguna ausencia de reporte equivale automáticamente a un incidente electoral.
