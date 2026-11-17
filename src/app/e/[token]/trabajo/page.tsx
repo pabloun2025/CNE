@@ -1,6 +1,7 @@
 import { CabeceraEstacion } from "@/components/cabecera-estacion";
 import { FUNCION_NOMBRE, FUNCIONES } from "@/domain/estaciones";
 import { requireEstacion } from "@/server/guard";
+import { Documentacion } from "./documentacion";
 import { Mando } from "./mando";
 import { Puerta } from "./puerta";
 
@@ -14,7 +15,7 @@ export default async function Trabajo({ params }: { params: Promise<{ token: str
       <main className="p-4">
         {s.funcion === "puerta" && <Puerta />}
         {s.funcion === "mando" && <Mando />}
-        {s.funcion === "documentacion" && <p>Documentación: en construcción.</p>}
+        {s.funcion === "documentacion" && <Documentacion />}
         {s.funcion === "finanzas" && <p>Finanzas: en construcción.</p>}
       </main>
     </>
