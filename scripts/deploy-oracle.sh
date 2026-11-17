@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# Despliegue de CNE en la VM compartida. Uso: deploy-oracle.sh [desplegar|revertir]
+# Solo toca el proyecto Compose cne-prod: nunca consulares ni teinvito. Sin set -x ni eco de variables.
+set -euo pipefail
+
+ACCION="${1:-desplegar}"
+APP_DIR=/home/ubuntu/cne
+BOOTSTRAP_FILE=/tmp/cne-bootstrap.json
+ENV_FILE="$APP_DIR/.env.production"
+COMPOSE_FILE="$APP_DIR/docker-compose.oracle.yml"
+dc() { docker compose -p cne-prod --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
+trap 'rm -f "$BOOTSTRAP_FILE"' EXIT
+
+esperar_salud() {
+  for _ in $(seq 1 24); do
+    id=$(dc ps -q cne-app 2>/dev/null || true)
+    estado=""
+    if [ -n "$id" ]; then
+      estado=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || true)
+    fi
+    [ "$estado" = healthy ] && return 0
+    if [ "$estado" = unhealthy ] || [ "$estado" = exited ]; then
+      dc logs --tail=100 cne-app
+      return 1
+    fi
+    sleep 5
+  done
+  echo "cne-app no llegó a estar sano a tiempo." >&2
+  return 1
+}
+
+comprobar_desde_red_compartida() {
+  # Misma ruta que seguirá el túnel de Cloudflare: por el alias cne-app.
+  dc exec -T cne-app node -e "fetch('http://cne-app:38473/api/salud').then(async r=>{if(!r.ok)throw new Error(String(r.status));console.log(await r.text())})"
+}
+
+case "$ACCION" in
+  desplegar|revertir) ;;
+  *) echo "Acción desconocida: use desplegar o revertir." >&2; exit 2 ;;
+esac
+
+if [ "$ACCION" = revertir ]; then
+  cd "$APP_DIR"
+  docker image inspect cne:anterior >/dev/null 2>&1 || { echo "No hay imagen cne:anterior para revertir." >&2; exit 1; }
+  docker tag cne:anterior cne:local
+  dc up -d --no-build cne-app
+  esperar_salud
+  comprobar_desde_red_compartida
+  dc ps
+  exit 0
+fi
+
+test -f "$BOOTSTRAP_FILE"
+install -d -m 700 "$APP_DIR/backups" "$APP_DIR/backups/pre-despliegue"
+chmod 700 "$APP_DIR/backups"
+
+python3 - "$BOOTSTRAP_FILE" "$ENV_FILE" <<'PY'
+import json
+import secrets
+import base64
+import sys
+from pathlib import Path
+
+bootstrap_path, output_path = map(Path, sys.argv[1:])
+
+def dotenv(path: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    if not path.exists():
+        return result
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        result[key.strip()] = value
+    return result
+
+def quoted(value: str) -> str:
+    if any(char in value for char in "\r\n'"):
+        raise SystemExit("Una variable de despliegue contiene caracteres no admitidos.")
+    return f"'{value}'"
+
+bootstrap = json.loads(bootstrap_path.read_text())
+existing = dotenv(output_path)
+
+if not bootstrap.get("APP_VERSION"):
+    raise SystemExit("Falta APP_VERSION en el paquete de despliegue.")
+
+# La clave maestra puede no llegar de GitHub: la primera vez se genera aquí (equivale a «openssl rand -base64 32»)
+# y se conserva siempre. Con otra clave, las fotos y los secretos TOTP guardados quedarían ilegibles: se detiene.
+llegada = bootstrap.get("APP_MASTER_KEY") or ""
+if llegada and existing.get("APP_MASTER_KEY") and existing["APP_MASTER_KEY"] != llegada:
+    raise SystemExit("APP_MASTER_KEY del paquete difiere de la del servidor. Despliegue detenido; no se ha cambiado nada.")
+clave = existing.get("APP_MASTER_KEY") or llegada or base64.b64encode(secrets.token_bytes(32)).decode()
+
+# La contraseña inicial de la superadmin solo se usa si aún no existe ninguna; la cuenta obliga a cambiarla al entrar.
+# Si no llega, se genera y queda únicamente en este archivo (600). Nunca se imprime.
+def elegir(key: str, defecto: str = "") -> str:
+    return bootstrap.get(key) or existing.get(key) or defecto
+
+values = {
+    "POSTGRES_PASSWORD": existing.get("POSTGRES_PASSWORD") or secrets.token_hex(32),
+    "CNE_APP_PASSWORD": existing.get("CNE_APP_PASSWORD") or secrets.token_hex(32),
+    "APP_MASTER_KEY": clave,
+    "SUPERADMIN_EMAIL": elegir("SUPERADMIN_EMAIL", "superadmin@cne.local"),
+    "SUPERADMIN_PASSWORD_INICIAL": elegir("SUPERADMIN_PASSWORD_INICIAL") or secrets.token_urlsafe(18),
+    "APP_VERSION": bootstrap["APP_VERSION"],
+    # El host puede estar aún sin decidir (Q-R1): la aplicación no depende de él.
+    "HOST_MADRID": elegir("HOST_MADRID"),
+    "COOKIE_SECURE": "1",
+    "BACKUP_KEEP_DAYS": "14",
+    "BACKUP_INTERVAL_SECONDS": existing.get("BACKUP_INTERVAL_SECONDS") or "86400",
+}
+
+output_path.write_text("\n".join(f"{key}={quoted(value)}" for key, value in values.items()) + "\n")
+output_path.chmod(0o600)
+PY
+
+rm -f "$BOOTSTRAP_FILE"
+cd "$APP_DIR"
+dc config --quiet
+
+# Copia previa si la base ya existe (se conservan las 5 últimas).
+if [ -n "$(dc ps -q --status running cne-postgres 2>/dev/null || true)" ]; then
+  version=$(sed -n "s/^APP_VERSION='\(.*\)'$/\1/p" "$ENV_FILE" | cut -c1-7)
+  destino="backups/pre-despliegue/cne-$(date -u +%Y%m%dT%H%M%SZ)-${version:-sin-version}.dump"
+  (umask 077; dc exec -T cne-postgres pg_dump -U cne_owner -Fc cne > "$destino") || { rm -f "$destino"; echo "Falló la copia previa; despliegue detenido." >&2; exit 1; }
+  ls -t backups/pre-despliegue/cne-*.dump | tail -n +6 | xargs -r rm -f
+fi
+
+# Imagen anterior para poder revertir.
+if docker image inspect cne:local >/dev/null 2>&1; then
+  docker tag cne:local cne:anterior
+fi
+
+dc build cne-app
+dc up -d cne-postgres
+dc run --rm cne-migrate
+dc up -d cne-app
+# El contenedor de copias lee docker/backup.sh desde un montaje: se recrea para usar la versión nueva.
+dc up -d --force-recreate --no-deps cne-backup
+
+esperar_salud
+comprobar_desde_red_compartida
+# Libera disco sin tocar volúmenes ni imágenes en uso; nunca se borran contenedores huérfanos (podrían ser ajenos).
+docker image prune -f || true
+docker builder prune -f --filter until=72h || true
+dc ps

@@ -1,0 +1,92 @@
+name: cne-prod
+
+x-logs: &logs
+  driver: json-file
+  options: {max-size: "10m", max-file: "3"}
+
+x-app: &app
+  logging: *logs
+  build: .
+  image: cne:local
+  restart: unless-stopped
+  # Se crea en cada despliegue (scripts/deploy-oracle.sh). «required: false» deja validar el archivo sin él.
+  env_file:
+    - path: .env.production
+      required: false
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgres://cne_app:${CNE_APP_PASSWORD}@cne-postgres:5432/cne
+    DATABASE_OWNER_URL: postgres://cne_owner:${POSTGRES_PASSWORD}@cne-postgres:5432/cne
+
+services:
+  cne-postgres:
+    image: postgres:16.9-alpine
+    restart: unless-stopped
+    logging: *logs
+    mem_limit: 512m
+    environment:
+      POSTGRES_USER: cne_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: cne
+      CNE_APP_PASSWORD: ${CNE_APP_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cne_owner -d cne"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - cne_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    networks: [cne_interna]
+
+  cne-migrate:
+    <<: *app
+    restart: "no"
+    mem_limit: 384m
+    command: ["npm", "run", "db:prepare"]
+    depends_on:
+      cne-postgres: {condition: service_healthy}
+    networks: [cne_interna]
+
+  cne-app:
+    <<: *app
+    mem_limit: 768m
+    command: ["npm", "start"]
+    depends_on:
+      cne-migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:38473/api/salud').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      cne_interna: {}
+      citas_compartida:
+        aliases: [cne-app]
+
+  cne-backup:
+    logging: *logs
+    image: postgres:16.9-alpine
+    restart: unless-stopped
+    mem_limit: 128m
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      BACKUP_DATABASE_URL: postgres://cne_owner:${POSTGRES_PASSWORD}@cne-postgres:5432/cne
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      cne-postgres: {condition: service_healthy}
+    networks: [cne_interna]
+
+volumes:
+  cne_pgdata:
+
+networks:
+  cne_interna:
+  citas_compartida:
+    external: true
+    name: citas-prod_interna

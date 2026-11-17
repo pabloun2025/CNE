@@ -1,0 +1,42 @@
+name: Dominio
+
+# Añade (o comprueba) el hostname de CNE en el túnel de Cloudflare que ya sirve la otra aplicación.
+# El servicio de la regla nueva es siempre http://cne-app:38473. El token vive solo en el secreto CLOUDFLARE_API_TOKEN.
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: "comprobar = solo lectura; crear = añade el hostname al túnel y el DNS"
+        required: true
+        type: choice
+        options: [comprobar, crear]
+      host:
+        description: "Hostname de CNE"
+        required: false
+        default: "madrid.consulado.app"
+      zona:
+        description: "Zona de Cloudflare (vacío = se deduce del hostname)"
+        required: false
+        default: "consulado.app"
+      origen:
+        description: "Hostname que ya sirve el túnel"
+        required: true
+        default: recordatorio.consulado.app
+
+permissions:
+  contents: read
+
+jobs:
+  dominio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCION: ${{ inputs.accion }}
+          HOST: ${{ inputs.host || vars.HOST_MADRID || 'madrid.consulado.app' }}
+          ZONA: ${{ inputs.zona }}
+          ORIGEN: ${{ inputs.origen }}
+        run: python3 scripts/cloudflare-dominio.py "$ACCION" "$HOST" "$ZONA" "$ORIGEN"
