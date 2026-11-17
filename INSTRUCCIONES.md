@@ -1,3 +1,13 @@
+# Instrucciones de continuidad — prioridad de fuentes
+
+**VIGENTE (17-11-2026):** El documento canónico del proyecto es [ESPECIFICACION_FUNCIONAL.md](ESPECIFICACION_FUNCIONAL.md), consolidado con todas las decisiones y correcciones del 17 de noviembre. **Léelo completo antes de trabajar.** Este archivo INSTRUCCIONES.md conserva un **historial cronológico** de decisiones, preguntas pasadas y opciones descartadas; algunos encabezados «ABIERTO» y «pregunta siguiente» de este historial han sido superados por elecciones posteriores. **Si hay contradicción, prevalece la especificación consolidada y, después, la última decisión explícita del usuario.** No programar hasta autorización expresa.
+
+**Corrección central:** Madrid no es una extensión administrativa del login consular. Cuenta con administrador propio (una cuenta con contraseña), enlaces de operadores por nombre y PIN de cuatro dígitos y módulo financiero para 2–3 puestos. Los coordinadores de mesa no tienen acceso. El centro de mando observa llegadas, recibe propuestas de redistribución y decide; la IA nunca traslada sola. La entrada y el cobro se identifican con el QR individual de cédula; el QR genérico sirve para subir fotografías de ambas caras. Imprimir un acta no equivale a confirmar un pago. El sistema Madrid **no alimenta automáticamente** el tablero de Quito.
+
+**Arquitectura:** repositorio CNE independiente; una aplicación con tres portales web separados por subdominios bajo consulares.app; misma VM Oracle Cloud ya usada por consulares; reutilizar infraestructura sin duplicarla, con datos y permisos separados. El código todavía no está autorizado. Los nombres exactos de subdominio están propuestos, sin configurar.
+
+---
+
 # CNE: instrucciones para continuar
 
 Fuente para que otra IA siga. Sin código hasta que Pablo lo pida.
