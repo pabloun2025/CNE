@@ -10,5 +10,5 @@ process.env.DATABASE_OWNER_URL = dueno;
 process.env.DATABASE_URL = app.toString();
 process.env.CNE_APP_TEST_PASSWORD = clave;
 // 32 bytes fijos (ficticios) para cifrar en pruebas.
-process.env.APP_MASTER_KEY = Buffer.from("clave-ficticia-de-pruebas-32-byt!").toString("base64");
+process.env.APP_MASTER_KEY = Buffer.alloc(32, "prueba-cne").toString("base64");
 process.env.COOKIE_SECURE = "0";
