@@ -304,3 +304,173 @@ La dirección leída en el manual (Calle Camino de Perales 23, 28041 Madrid) no 
 - **DECIDIDO.** No confundir datos personales y pagos de Madrid con el seguimiento internacional DGSMH; nunca trasladarlos automáticamente al tablero de Quito.
 - **DECIDIDO.** No asumir que tener tres MJRV presentes equivale a instalación electoral oficial. El sistema Madrid apoya decisiones de conformación; la comunicación formal a Quito se hace en su portal.
 - **DECIDIDO.** Mantener la numeración H/M, zonas cromáticas y material operativo del proceso. No importar al CPCCS 2026 procedimientos de escrutinio específicos del referéndum de 2025.
+
+## 10. Modelo funcional detallado y criterios transversales
+
+### 10.1. Jerarquía de reglas y naturaleza de este desarrollo
+
+Este apartado desarrolla, para ejecución técnica y validación, las decisiones de los apartados 1–9. Se distinguen tres clases de contenido:
+
+- **DECISIÓN APROBADA:** requisito expresamente aceptado por Pablo; no cambiarlo por conveniencia técnica.
+- **DISEÑO DERIVADO:** descripción de pantallas, controles, validaciones y comportamiento necesario para hacer operativa una decisión aprobada. Se podrá ajustar durante programación sin alterar los requisitos.
+- **PENDIENTE DE INSUMO O VALIDACIÓN:** dato, plantilla, fórmula, criterio normativo o decisión que no consta; no sustituirlo por suposiciones. Si impide una función, dejarla preparada y señalar la dependencia.
+
+La interfaz de cada portal debe cumplir una función concreta. **Consular:** informar lo ocurrido en recintos y JRV con la menor carga posible. **Quito:** observar el avance, detectar falta de información y coordinar apoyo. **Madrid:** ejecutar operaciones internas con seguridad e impedir pagos duplicados. No convertir el sistema en una aplicación electoral general, de resultados oficiales ni de administración de votantes.
+
+### 10.2. Conceptos que nunca deben confundirse
+
+| Concepto | Significado funcional | No equivale a |
+| --- | --- | --- |
+| Consulado | Oficina usuaria que administra uno o varios recintos | Recinto individual |
+| Recinto | Lugar/ámbito operativo sobre el que se reportan JRV | Cuenta de usuario |
+| JRV | Junta identificada dentro de un recinto | Miembro personal de esa junta |
+| MJRV | Persona asignada a funciones en una junta; dato del módulo Madrid | Elector, voto emitido o junta instalada |
+| Junta con 3 miembros presentes en Madrid | Condición operativa estimada según escaneos y movimientos | Instalación electoral formal reportada a Quito |
+| Fase del CNE | Instalación, sufragio, escrutinio, embalaje | Cada hito que carga el consulado |
+| Hito reportado | Evento/estado comunicado en una JRV o recinto | Resultado electoral oficial |
+| Pendiente reportado | Una junta cuya fase sigue pendiente según aviso explícito | Ausencia de información |
+| Sin información | No existe un reporte confirmado para esa junta/hito | Junta inactiva, incidente o retraso comprobado |
+| Incidencia | Hecho concreto que afecta una operación, con seguimiento propio | Alerta informática por falta de reporte |
+| Solicitud urgente de apoyo | Petición expresa del consulado que activa alerta en Quito | Toda incidencia de prioridad alta/crítica |
+| Acta de pago impresa | Documento preparado para firma y desembolso físico | Pago confirmado |
+| Modo prueba | Ejecución identificada como simulación en la misma instalación | Entorno paralelo, producción electoral real |
+
+### 10.3. Datos maestros, asociación y cardinalidades
+
+**DISEÑO DERIVADO.** Un consulado tiene cero, uno o varios recintos asignados, según el catálogo real. Un recinto tiene una o varias JRV; cada JRV se identifica con una clave interna estable y un rótulo legible. Los datos del avance se asocian a la **JRV y el hito**; los del contacto y «sin novedades» se asocian a consulado/recinto/fase según corresponda. Un mismo usuario consular no puede modificar recintos de otro consulado.
+
+La información del sistema Madrid constituye un ámbito separado: MJRV, credenciales, acceso, asignación operativa actual, historial de movimientos, fotos de cédula y pagos. Puede compartir referencias al catálogo de recinto/JRV, pero **no** comparte sus campos personales con usuarios de Quito ni propaga automáticamente eventos de puerta, conformación o pagos al avance electoral.
+
+Se requieren relaciones consistentes para que no existan JRV de un recinto inexistente, miembros vinculados a juntas equivocadas ni pagos sin ficha de MJRV. El catálogo definitivo procede de los Excel que se entregarán; la geometría y los números de Madrid ya definidos son referencias de diseño, **no sustituyen el Excel nominativo**.
+
+### 10.4. Pantallas y permisos mínimos por portal
+
+| Perfil / portal | Pantallas funcionales | Puede actuar sobre |
+| --- | --- | --- |
+| Consulado | Acceso; identificación de operador; elección de recinto; jornada/avance; incidencias; borradores y envíos | Sus recintos, JRV, votantes agregados, hitos, incidencias y teléfono operativo |
+| DGSMH | Acceso; mapa y panel de alertas; ficha de consulado/recinto; detalle de incidencias; informes | Consulta global; acuse de urgencias; seguimiento, actuaciones y resolución de incidencias |
+| Administrador Madrid | Acceso; tablero Madrid; MJRV y credenciales; operadores; movimientos; documentación; finanzas e informes | Solo los datos internos del operativo Madrid |
+| Operador puerta Madrid | Enlace limitado con nombre y PIN; lector QR y resultado | Registro de ingreso a Madrid y consulta mínima para validar |
+| Operador documentación Madrid | Enlace limitado; identificación de MJRV y captura de ambas caras | Documentos de identidad estrictamente necesarios |
+| Operador finanzas Madrid | Enlace limitado; lector QR; preparación de acta; confirmación de pago | Verificación y desembolso por MJRV, sin administración general |
+| Centro de mando Madrid | Vista de las 95 JRV, disponibilidad y propuestas de redistribución | Aceptación o rechazo de movimientos, anotación de excepciones operativas |
+| Superadministrador | Acceso de configuración; usuarios/catálogos; modo prueba; preparación de elección | Configuración global e importaciones; acciones destructivas de pruebas exclusivamente |
+
+**DISEÑO DERIVADO.** No debe haber navegación cruzada por cambiar manualmente la URL. Los permisos se aplican del lado del servidor a consultas, escrituras, archivos, exportaciones y enlaces especiales. Un recurso directo (por ejemplo, foto de cédula o PDF de acta) requiere la misma autorización que su pantalla.
+
+### 10.5. Idioma, claridad visual y dispositivos
+
+Los tres portales se presentan en español, con terminología institucional consistente. En el móvil, controles táctiles amplios; en escritorio, información de varias JRV y mapa de mayor densidad. La hora se muestra con zona local y fecha cuando pueda ser ambigua; los porcentajes llevan siempre numerador/denominador. Un color no será la única señal de estado: acompañarlo de texto e iconografía. Confirmar visualmente cuándo un envío fue recibido; **no** tratar como enviado lo que está en borrador o pendiente de red. Reducir al mínimo botones secundarios y formularios extensos, especialmente en el portal consular.
+
+## 11. Portal consular: pantallas y recorrido completo
+
+### 11.1. Primer acceso e inicio de turno
+
+**DECIDIDO:** acceso institucional compartido por correo y contraseña, primer cambio de clave, nombre de operador una vez por sesión y recinto activo seleccionable. **DISEÑO DERIVADO:** tras autenticarse, si es el primer uso se pide nueva contraseña; luego se pide nombre del funcionario que está operando desde ese dispositivo. Al seleccionar un recinto de los autorizados, se abre la jornada. El encabezado muestra siempre nombre de consulado, **recinto activo**, fase vigente y nombre del operador, con acciones discretas «Cambiar recinto» y «Cambiar operador».
+
+Si el consulado tiene un solo recinto, su selección puede simplificarse sin eliminar la comprobación de que las actuaciones se atribuyen al recinto correcto. Cambiar recinto no elimina un borrador; los borradores mantienen asociado su recinto de origen. No usar GPS para inferir el recinto. La cuenta institucional puede abrirse simultáneamente en varios dispositivos, con distintos nombres de operador declarados.
+
+El teléfono operativo registrado antes de la jornada se presenta al inicio para **confirmarlo o actualizarlo**. Solo se exige a nivel de consulado, no de junta; queda visible para Quito. Evitar solicitarlo repetidamente a cada funcionario que abre la misma cuenta.
+
+### 11.2. Pantalla principal de jornada: máximo enfoque
+
+**DECIDIDO:** panel combinado, extremadamente sencillo, con acciones ajustadas al momento de la jornada. **DISEÑO DERIVADO:** en vez de una colección de menús, organizar la pantalla en cuatro áreas:
+
+1. **Situación actual:** recinto seleccionado, hora local, etapa vigente, número de JRV y resumen del avance conocido.
+2. **Acción principal:** botón grande y contextual para registrar el hito o actualización propia de la fase habilitada.
+3. **Acciones siempre útiles:** «Reportar incidencia», «Solicitar apoyo a Quito» cuando proceda, «Actualizar votantes» durante su período pertinente y «Ver/rectificar reportes».
+4. **Estado de conexión:** último envío confirmado y, si existen, borradores locales por enviar.
+
+Las acciones futuras no deben activarse anticipadamente. Pueden verse atenuadas dentro de una secuencia que indique lo que sigue, sin permitir envíos. Las cifras y acciones de una fase ya registrada siguen siendo consultables y **corregibles** desde la vista de historial o detalle, aunque no aparezcan como acción principal. No exigir pasar por pantallas innecesarias para una operación frecuente.
+
+**Secuencia visible orientativa:** instalación → sufragio → cierre de votación → escrutinio → escaneo → cierre del proceso. El embalaje es fase formal del CNE, no un nuevo hito automático sin autorización. La hora local se calcula según el lugar del recinto, no según el navegador del funcionario cuando reporte desde otra ciudad.
+
+### 11.3. Avance por juntas: operaciones individuales y masivas
+
+**DECIDIDO:** tres estados por JRV y fase, trabajo individual en recintos pequeños y por grupos con excepciones en grandes. **DISEÑO DERIVADO:** la pantalla de actualización muestra JRV del recinto y su fase/hito; en recintos grandes se elige un conjunto de juntas y se ejecuta «Marcar completadas», dejando como **pendientes expresamente informadas** las excepciones que el funcionario selecciona. No convertir automáticamente en «pendiente» ninguna JRV no incluida en el envío. En recintos pequeños se permite cambiar directamente el estado de una JRV.
+
+Cada operación debe mostrar antes de guardar un resumen comprensible: recinto, fase, cantidad de JRV que pasarán a completadas, cantidad con pendiente declarado y cantidad **no tocada**. Al confirmar, el servidor actualiza solo las claves JRV/hito incluidas; no reemplaza el estado de todo el recinto por la fotografía de pantalla del dispositivo.
+
+Los contadores deben diferenciar: total de JRV del recinto, completadas confirmadas, pendientes expresamente comunicadas y sin información. **Fórmula aprobada para avance:** completadas / total de JRV × 100, con denominador del catálogo. Un mismo dato no puede sumarse dos veces por recibir actualizaciones repetidas.
+
+**Corrección libre aprobada:** desde el estado vigente se podrá editar una junta ya registrada, sin pedir autorización o texto de justificación. La última actualización **aceptada por el servidor** para la misma JRV/fase es la vigente, conservando un registro técnico con valor previo, nuevo, operador, recinto y hora. Corregir un dato previo no autoriza a crear anticipadamente hitos futuros.
+
+### 11.4. Hitos, reloj y bloqueo de fases futuras
+
+En modo elección, para registrar el inicio del escrutinio de una JRV deben cumplirse **conjuntamente**: (i) que sean las **19:00 o más en la zona horaria local** y (ii) que exista el **cierre de votación reportado** para esa misma junta. La comprobación corresponde al servidor y a la interfaz. En una operación masiva, separar las JRV habilitadas de las no habilitadas y no desbloquear automáticamente todo el recinto porque una junta esté cerrada. **No** esperar a que todas las juntas terminen para permitir a las que sí cumplieron continuar.
+
+**DISEÑO DERIVADO:** el mensaje de una acción bloqueada debe explicar por qué no puede utilizarse: «Disponible desde las 19:00, hora local», «Falta confirmar el cierre de votación de esta junta», o ambas condiciones. El modo prueba controlado por superadministración omite estas restricciones temporales y secuenciales de simulación, pero no omite permisos.
+
+Los hitos ya definidos —inicio, cierre de sufragio, inicio/fin de escrutinio, inicio/fin de escaneo y cierre total— deben conservarse como hechos distintos. Un hito no implica completar automáticamente los siguientes. No crear un resultado electoral ni pedir detalles de candidaturas, votos afirmativos, papeletas válidas o adjudicación. La definición operativa exacta de «cierre del proceso» queda pendiente.
+
+### 11.5. Participación electoral y «sin novedades»
+
+**DECIDIDO:** se puede informar el número de votantes a partir de conteo de firmas o estimación, con fuente distinguible. **DISEÑO DERIVADO:** al registrar participación, mostrar recinto, cifra, **método** («Firmas en padrón» / «Estimación»), operador y hora. Mostrar qué cifra está vigente y permitir corrección. Si el diseño agrega la cifra a nivel consulado, evitar duplicar una cifra de recinto cargada dos veces; la periodicidad de actualización no debe convertirse en obligación artificial.
+
+Cuando se actualice una fase, ofrecer la confirmación **«Sin novedades» a nivel de recinto/fase**, sin exigirla como un nuevo reporte por cada JRV. No significa «todas las juntas completadas», no suma avances y no cierra ni descarta incidencias existentes. Su interpretación más segura como mensaje de interfaz es «Sin nuevas novedades que comunicar en esta actualización», sin afirmar que no existan incidencias abiertas; la redacción definitiva se validará sin sumar pasos obligatorios.
+
+Los porcentajes de **participación** (si se presentan) no deben confundirse con porcentajes de **avance de juntas**. Solo se pueden calcular sobre número de electores del catálogo validado y deben indicar cuando el numerador es estimado; nunca asumir que una estimación es conteo definitivo.
+
+### 11.6. Registrar una incidencia y pedir apoyo
+
+**DECIDIDO:** registro por excepción, tipos concretos por fase, opción «Otro», alcance sugerido editable, prioridad sugerida editable, seguimiento y resolución. **DISEÑO DERIVADO:** desde la jornada el funcionario pulsa «Reportar incidencia» y encuentra, idealmente en una pantalla breve: fase actual, tipo de incidente, alcance (recinto completo o selección de JRV), prioridad sugerida y una descripción corta solo cuando sea necesaria para entender el hecho o cuando seleccione «Otro». Puede registrar la incidencia sin pedir apoyo a Quito, o marcar una petición de apoyo si precisa intervención.
+
+La solicitud **urgente** de apoyo es una acción expresa y diferenciada. No producir alertas sonoras por el mero hecho de marcar una prioridad crítica. Al confirmar, mostrar identificador de la incidencia, su estado y, en caso de urgencia, el estado de la solicitud (emitida/recibida). Los tipos concretos, descripciones y prioridades iniciales se cerrarán tras cotejar los manuales, y **no** se debe utilizar como definitivo el listado histórico de INSTRUCCIONES.md.
+
+La ficha del consulado debe permitir registrar una explicación breve al resolver, reabrir la misma incidencia si reaparece y, si afecta varias JRV, indicar cuáles se han solucionado, dejando las demás pendientes. Esas acciones no completan automáticamente ningún hito de votación.
+
+### 11.7. Borradores locales, conectividad y resultado del envío
+
+**DECIDIDO:** si hay interrupción de conexión, conservar borradores en el dispositivo y requerir **revisión/envío manual**. **DISEÑO DERIVADO:** distinguir tres situaciones visibles: «Guardado en este dispositivo, pendiente de envío», «Enviando» y «Confirmado por servidor». Una cola/lista pequeña permite revisar el recinto, fase, cambios y hora original de cada borrador y pulsar «Enviar» cuando vuelva la conexión. Nunca describir un borrador local como recibido en Quito.
+
+Si se edita un borrador, mantener su ámbito de recinto y fase; si cambia el recinto activo, no reasignarlo. Enviar un borrador antiguo puede reemplazar un dato posterior porque rige la regla aprobada del último recibido por el servidor: mostrar su fecha original en revisión, **sin** añadir una exigencia de aprobación del conflicto. Evitar reenvíos duplicados por doble clic y hacer visibles errores de validación.
+
+La página puede requerir caché de recursos para seguir funcionando tras perder internet aunque **no se instalará PWA**; la viabilidad real del modo sin conexión en los navegadores de destino debe comprobarse. En dispositivos compartidos, no dejar visibles borradores más allá del acceso de operadores autorizados sin necesidad.
+
+## 12. Tablero DGSMH: control mundial, alertas y reportes
+
+### 12.1. Composición de la pantalla principal
+
+**DECIDIDO:** mapa mundial protagonista y panel lateral visibles simultáneamente. **DISEÑO DERIVADO:** cabecera con título de jornada, fecha/hora de referencia, estado global de conectividad/actualización y acceso a informes. Área central con mapa y leyenda compacta. Área lateral con tres bloques priorizados: (1) solicitudes urgentes por acusar/seguir, (2) consulados/recintos con informes esperados no recibidos, (3) resumen numérico de avance. En pantallas estrechas, el panel puede quedar en una pestaña o sección accesible sin perder la capacidad de atender una alerta.
+
+Los cambios del mapa, del panel y de las fichas deben surgir de datos enviados y aceptados por el servidor; una pantalla que sigue abierta necesita actualizarse sin recarga manual constante. Conservar orden visual estable en lo posible para que los registros no salten innecesariamente.
+
+### 12.2. Mapa por niveles y geografía temporal
+
+**DECIDIDO:** mundo con marcadores agrupados por consulado; al seleccionar o ampliar, recintos y detalle de sus juntas; capa profesional día/noche con terminador solar. **DISEÑO DERIVADO:**
+
+- Vista global: agrupaciones de consulados con resumen claro de avance y alertas; no crear un marcador por cada JRV visible desde el mundo.
+- Acercamiento o selección: consulados individuales y sus recintos. La selección de un recinto permite entrar al detalle de JRV y hechos reportados sin abandonar innecesariamente la vista mundial.
+- La capa solar presenta **posición del sol y transición entre zona diurna y nocturna** según la fecha y hora del mundo; debe ser sutil y no tapar marcadores, alertas ni rótulos.
+- La **hora oficial local** de cada recinto y el régimen horario solar son variables distintas. La interfaz puede mostrar hora local junto al nombre del consulado/recinto. La fuente concreta de zona horaria y coordenadas procede del catálogo validado o de verificación posterior, nunca de una inferencia indiscriminada del país.
+- Los estados no se codifican solo por colores. Dar texto para «sin información», «en progreso», «con incidencias» y solicitudes de apoyo; un color de agrupación **no** debe hacer pasar una ausencia de datos por normalidad.
+- La capa de iluminación y el mapa no se usarán para deducir que una junta abrió o cerró: eso depende de reportes y reglas horarias.
+
+No inventar localizaciones precisas de recintos no aportadas. Cuando el Excel solo contenga ciudad y no dirección/coordenadas, distinguir la ubicación aproximada del marcador del lugar exacto de votación; el mapa por consulado puede utilizar la localidad hasta contar con ubicaciones validadas.
+
+### 12.3. Indicadores y cálculo de consolidados
+
+**DECIDIDO:** por hito, número de JRV completadas / total y porcentaje; diferenciación de pendiente expresamente reportado y sin información. **DISEÑO DERIVADO:** la ficha de cada recinto incluye su total de JRV, completadas por fase/hito, pendientes declaradas, sin dato, última actividad confirmada y hora local. La ficha del consulado suma numeradores y denominadores reales de **todos sus recintos**; el consolidado mundial suma de igual manera. **No** se suman porcentajes ni se promedian porcentajes de recintos con tamaños diferentes.
+
+Separar cifras de participación electoral de indicadores operativos de avance. Mostrar cuando una cifra de votantes es estimada y cuándo procede del padrón; no mezclar ambas como si fueran datos finales de igual calidad. No atribuir a una JRV un problema porque no informó; la falta de reporte es una alerta de seguimiento independiente.
+
+### 12.4. Panel de alertas y seguimiento de Quito
+
+**DECIDIDO:** todas las incidencias son visibles; solo la **petición urgente de apoyo** emite aviso visual y sonoro dentro del tablero abierto. «Recibido» silencia ese aviso, pero no cierra la incidencia. **DISEÑO DERIVADO:** separar filtros o secciones «Urgente sin acuse», «Recibido/en seguimiento», «Incidencias» y «Reportes esperados sin recibir». La atención de una urgencia debe estar disponible con un botón claro «Recibido» y acceso al teléfono operativo del consulado.
+
+Al recibir, registrar persona DGSMH y fecha/hora; mostrar el asunto hasta que se resuelva. Las llamadas y WhatsApp reales se realizan fuera del sistema; dentro basta registrar actuaciones pertinentes y resultado, sin construir chat integrado ni generar supuestas conversaciones automáticas. Un funcionario DGSMH puede señalar para seguimiento una incidencia no urgida por el consulado. Una incidencia crítica, por sí misma, no genera pitidos.
+
+Un aviso por reporte esperado ausente depende de la **hora local del recinto** y de un margen aún no definido. Mostrarlo como «Falta actualización esperada» y **no** como «junta sin instalar», «consulado sin votar» o «incidente comprobado». El sistema debe indicar último hito y momento de recepción. Evitar que el sonido repetido de la misma urgencia continúe tras el acuse.
+
+### 12.5. Incidencias, cierres parciales y reaperturas
+
+La ficha compartida entre consulado y Quito muestra identificador único, ámbito afectado, momento, tipo, prioridad, petición de apoyo si la hay, estado actual y actuaciones. La resolución requiere **una explicación corta obligatoria**. Si la incidencia afecta varias JRV, se permite registrar solución para una parte de ellas, conservar visibles las restantes y mantener abierta la incidencia. Cada acción parcial registra responsable y hora. Una reapertura **reutiliza el identificador de la incidencia original**, conservando todos los ciclos previos.
+
+DGSMH puede cerrar una incidencia de acuerdo con lo informado por el consulado, pero ese cierre de seguimiento no constituye decisión electoral del CNE. El registro de resolución no altera automáticamente estados de instalación, votación o escrutinio.
+
+### 12.6. Informes integrales y exportación
+
+**DECIDIDO:** informes completos con exportación **PDF y Excel**, visión mundial y desglose por consulado y recinto. **DISEÑO DERIVADO:** cabecera con fecha de generación, fecha de jornada y ámbito del informe; resumen de JRV totales y avance por fase/hito; cifras de votantes y método de obtención; recintos sin información; incidencias por estado, prioridad y alcance; solicitudes urgentes, acuses y seguimiento; marcas horarias de hitos. El Excel debe contener datos tabulares reutilizables y el PDF una presentación legible con totales y detalle según ámbito seleccionado.
+
+Todo informe debe conservar diferencias entre hechos confirmados, pendientes expresos, sin información y estimaciones. Debe señalar **fecha/hora de corte de la consulta** para no presentar como inmutables cifras que los consulados pueden corregir. Si se vuelve a generar después de una corrección, se obtiene el estado vigente; la trazabilidad histórica queda en el sistema. **Excluir** datos de miembros de junta de Madrid, cédulas, fotografías, movimientos y pagos. No presentar el informe como acta electoral, certificación de resultados ni declaración formal del CNE.
+
