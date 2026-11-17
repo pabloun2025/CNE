@@ -274,7 +274,11 @@ La dirección leída en el manual (Calle Camino de Perales 23, 28041 Madrid) no 
 
 ## 8. Cuestiones abiertas e insumos pendientes
 
-**ABIERTO — pruebas y simulación sin contaminar datos reales.** Antes del 29 de noviembre será necesario probar los tres portales. No está decidida la separación entre registros de prueba y datos de producción, ni la forma de reiniciar el entorno antes de abrir la operación real. Es una decisión de desarrollo central para evitar reportes de prueba en el tablero o pagos simulados como reales.
+**DECIDIDO — despliegue directo en producción y pruebas controladas.** Pablo no dispone de tiempo para un ciclo de pruebas extenso ni quiere un entorno de pruebas independiente. Se desplegará la plataforma **directamente en producción** y se comprobarán sus funciones sobre esa misma instalación antes del 29 de noviembre de 2026. Justo antes de la jornada, el administrador deberá poder realizar una **limpieza manual y selectiva de los registros operativos de prueba** y comenzar la operación real con los datos de configuración ya preparados. No crear ni exigir un entorno de ensayo paralelo, ni programar un borrado automático por fecha.
+
+**REQUISITO PARA EVITAR PÉRDIDAS.** La limpieza de pruebas debe preservar el catálogo de consulados/recintos/JRV y MJRV, cuentas, PIN, plantillas, parámetros y configuración. Debe separar claramente los registros de prueba de los definitivos, impedir un borrado indiscriminado de datos maestros y requerir confirmación del administrador; conservar un respaldo antes de limpiar. Las confirmaciones de pagos realizadas durante pruebas son **simuladas**, sin implicar entrega de dinero, y no deberán quedar como pagos reales ni bloquear cobros el día electoral. No incluir registros reales de pagos en el borrado ni dar por probado un pago efectivo con un clic. Determinar en implementación la técnica más simple, sin añadir complejidad funcional innecesaria.
+
+**DECIDIDO — pruebas y reinicio de registros.** Se utilizará la propia instalación en producción para comprobar funciones y se habilitará limpieza selectiva de registros de prueba antes de la jornada, conservando datos maestros y configuración; no habrá entorno separado (véase la decisión anterior).
 
 **ABIERTO — insumos esenciales:** Excel de consulados, recintos, JRV y electores; Excel de MJRV de Madrid y sus funciones; plantilla PDF CR80 de credencial; plantilla oficial de acta de pago y anexo; importe y fórmula de conversión de USD a EUR. Los archivos aportados deberán ser revisados en contenido antes de cargarse.
 
