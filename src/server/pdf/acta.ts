@@ -16,7 +16,8 @@ export type DatosActa = {
   reverso: Buffer;
 };
 
-const latin = (t: string) => t.replace(/[^ -ÿ]/g, "?");
+// WinAnsi: Latin-1 más guiones, comillas, viñeta, euro y puntos suspensivos.
+const latin = (t: string) => t.replace(/[^\u0020-\u00ff\u2013\u2014\u2018\u2019\u201c\u201d\u2022\u20ac\u2026]/g, "?");
 const fechaMadrid = (d: Date) => new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(d);
 
 function partir(texto: string, f: PDFFont, size: number, ancho: number): string[] {
