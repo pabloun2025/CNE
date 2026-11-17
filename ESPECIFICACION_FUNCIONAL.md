@@ -135,6 +135,10 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 ## 5. Reporte electoral de los consulados
 
+**DECIDIDO — pantalla principal consular y secuencia temporal.** Se adopta un **panel combinado muy simple** (opción C matizada por Pablo): debe destacar el **estado y la acción principal de la fase actual**, reducir al mínimo la navegación y las alternativas visibles, y ofrecer acceso directo y discreto a reportar incidencias u otra información pertinente para esa fase. **No deben habilitarse funciones de fases futuras antes de tiempo**: en particular, no debe poder reportarse el inicio o avance del escrutinio antes de terminar la jornada de votación. Los controles deben tener validación en el servidor, no solo ocultarse visualmente. Se mantienen el recinto activo por sesión y los reportes por grupos con excepciones.
+
+**CRITERIO PROPUESTO, PENDIENTE DE DETALLE.** Combinar hora local del recinto y progresión efectiva de hitos (p. ej. cierre de votación antes de escrutinio), con visualización de fases futuras como deshabilitadas, no como botones activos. Queda pendiente precisar las condiciones exactas para habilitar cada hito y el tratamiento de correcciones o jornadas con retrasos, sin abrir ahora microdecisiones.
+
 **DECIDIDO.** La unidad de reporte es el **recinto**, no el consulado agregado: un consulado puede tener varios recintos. Cada recinto tiene JRV, avances, hitos e incidencias independientes. Quito también ve el consolidado del consulado, calculado sobre totales reales sin sumar porcentajes. El operador puede reportar desde el recinto o desde la oficina central; selecciona un **recinto activo por sesión**, siempre visible, que puede cambiar sin volver a iniciar sesión.
 
 **DECIDIDO.** Los hitos reportados son: inicio, incidencias, votantes, cierre de votación, inicio y fin de escrutinio, inicio y fin de escaneo, y cierre del proceso. Son distintos de las cuatro fases formales del CNE (instalación, sufragio, escrutinio y embalaje). Los votantes se informan mediante conteo de firmas en padrón o estimación, identificando cuál se usó.
