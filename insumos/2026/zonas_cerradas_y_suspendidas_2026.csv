@@ -1,0 +1,9 @@
+zona_o_localidad,pais,estado,fecha_fuente,url_fuente,observacion
+Belarús,Belarús,CERRADA_RESOLUCION_CNE,2026-03-02,https://www.cne.gob.ec/wp-content/uploads/2026/03/R-2-MARZO-2026-SV-FINAL-signed.pdf,Electores reubicados a Moscú según resolución
+Yakarta,Indonesia,CERRADA_RESOLUCION_CNE,2026-03-02,https://www.cne.gob.ec/wp-content/uploads/2026/03/R-2-MARZO-2026-SV-FINAL-signed.pdf,Electores reubicados a Tokio según resolución
+Santa Clara,Cuba,CERRADA_RESOLUCION_CNE,2026-03-02,https://www.cne.gob.ec/wp-content/uploads/2026/03/R-2-MARZO-2026-SV-FINAL-signed.pdf,Electores reubicados a La Habana según resolución previa
+Monterrey,México,CERRADA_RESOLUCION_CNE,2026-03-02,https://www.cne.gob.ec/wp-content/uploads/2026/03/R-2-MARZO-2026-SV-FINAL-signed.pdf,Electores reubicados a México según resolución
+Pretoria,Sudáfrica,CERRADA_RESOLUCION_CNE,2026-03-02,https://www.cne.gob.ec/wp-content/uploads/2026/03/R-2-MARZO-2026-SV-FINAL-signed.pdf,Electores reubicados a El Cairo según resolución
+Caracas,Venezuela,SUSPENDIDA_VOTACION_2026,2026-10-21,https://www.cne.gob.ec/486-414-ecuatorianos-en-el-exterior-podran-votar-en-las-elecciones-2027/,Suspensión de comicios; no confundir con cierre de zona
+Valencia,Venezuela,SUSPENDIDA_VOTACION_2026,2026-10-21,https://www.cne.gob.ec/486-414-ecuatorianos-en-el-exterior-podran-votar-en-las-elecciones-2027/,Suspensión de comicios; no confundir con cierre de zona
+La Habana,Cuba,SUSPENDIDA_VOTACION_2026,2026-10-21,https://www.cne.gob.ec/486-414-ecuatorianos-en-el-exterior-podran-votar-en-las-elecciones-2027/,Suspensión de comicios en 2026; distinta del cierre previo de Santa Clara
