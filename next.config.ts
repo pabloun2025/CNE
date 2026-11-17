@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   serverExternalPackages: ["pg", "@node-rs/argon2", "xlsx", "qrcode", "sharp"],
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  // Excel de MJRV (hasta 5 MB) y fotos de cédula (hasta 2 MB) llegan por acciones de servidor.
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
