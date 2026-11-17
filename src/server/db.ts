@@ -2,6 +2,8 @@ import { types, type Pool, type PoolClient } from "pg";
 import { loadEnv, requiredEnv } from "./env";
 
 // Fechas y horas como texto: así no cambian de día por la zona horaria del servidor.
+// Identificadores bigint como número (son pequeños): así se comparan con los que llegan de formularios.
+types.setTypeParser(20, (value) => Number(value));
 types.setTypeParser(1082, (value) => value);
 types.setTypeParser(1083, (value) => value);
 

@@ -13,7 +13,7 @@ export async function estadoMando(): Promise<EstadoMando> {
 }
 
 export type MiembroFicha = {
-  id: number; nombre: string; rol: string; origen: string; actual: string; ingresado: boolean; con_excepcion: boolean;
+  id: number; nombre: string; rol: string; origen: string; actual: string; ingresado: boolean; con_excepcion: boolean; no_viable: boolean;
 };
 export type DetalleJunta = { junta: { id: number; etiqueta: string; zona: ZonaColor }; miembros: MiembroFicha[] };
 
@@ -22,7 +22,8 @@ export async function detalleJunta(juntaId: number): Promise<DetalleJunta | null
   const j = (await query<{ id: number; etiqueta: string; zona: ZonaColor }>("SELECT id, serie || numero AS etiqueta, zona_color AS zona FROM juntas_madrid WHERE id = $1", [juntaId]))[0];
   if (!j) return null;
   const miembros = await query<MiembroFicha>(
-    `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.rol, jo.serie || jo.numero AS origen, ja.serie || ja.numero AS actual, v.ingresado, v.con_excepcion
+    `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.rol, jo.serie || jo.numero AS origen, ja.serie || ja.numero AS actual, v.ingresado, v.con_excepcion,
+            EXISTS (SELECT 1 FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'no_viable' AND d.rehabilitada_en IS NULL) AS no_viable
        FROM mjrv m JOIN v_mjrv_asignacion v ON v.mjrv_id = m.id
        JOIN juntas_madrid jo ON jo.id = v.junta_origen_id JOIN juntas_madrid ja ON ja.id = v.junta_actual_id
       WHERE v.junta_origen_id = $1 OR v.junta_actual_id = $1
