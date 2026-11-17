@@ -1,0 +1,53 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { closePools } from "@/server/db";
+import type { SesionEstacion } from "@/server/estaciones";
+import { contadoresPuerta, normalizarCodigo, registrarLectura } from "@/server/puerta";
+import { consultarDueno, reiniciarBase } from "./helpers/db";
+
+let s1: SesionEstacion, s2: SesionEstacion;
+
+describe("puerta", () => {
+  beforeAll(async () => {
+    await reiniciarBase();
+    await consultarDueno("INSERT INTO cne.operadores_madrid (nombre, pin_hash, funciones) VALUES ('Op Prueba','x','{puerta}')");
+    await consultarDueno("INSERT INTO cne.enlaces_estacion (funcion, etiqueta, token_hash) VALUES ('puerta','Puerta 1','\\x01'), ('puerta','Puerta 2','\\x02')");
+    const j = "(SELECT id FROM cne.juntas_madrid WHERE serie='H' AND numero=12)";
+    await consultarDueno(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id) VALUES ('0000000001','APELLIDO PRUEBA 001','NOMBRE PRUEBA','PRESIDENTE','presidente',${j}), ('0000000002','APELLIDO PRUEBA 002','NOMBRE PRUEBA','VOCAL','vocal',${j}), ('0000000003','APELLIDO PRUEBA 003','NOMBRE PRUEBA','VOCAL','vocal',${j})`);
+    await consultarDueno("UPDATE cne.mjrv SET activo = false WHERE cedula = '0000000003'");
+    const [o] = await consultarDueno<{ id: number }>("SELECT id FROM cne.operadores_madrid");
+    const e = await consultarDueno<{ id: number }>("SELECT id FROM cne.enlaces_estacion ORDER BY id");
+    const base = { sesionId: "x", funcion: "puerta" as const, operadorId: o.id, operadorNombre: "Op Prueba" };
+    s1 = { ...base, enlaceId: e[0].id, etiqueta: "Puerta 1" };
+    s2 = { ...base, enlaceId: e[1].id, etiqueta: "Puerta 2" };
+  });
+  afterAll(closePools);
+
+  it("lectura válida muestra nombre y junta vigente; la segunda es duplicado", async () => {
+    expect(await registrarLectura(s1, "0000000001", "tab")).toEqual({ resultado: "valido", nombre: "APELLIDO PRUEBA 001, NOMBRE PRUEBA", junta: "H12", zona: "Amarillo" });
+    const d = await registrarLectura(s2, " 0000000001 ", null);
+    expect(d.resultado).toBe("duplicado");
+  });
+
+  it("código desconocido y ficha de baja (bloqueado)", async () => {
+    expect(await registrarLectura(s1, "9999999999", null)).toEqual({ resultado: "desconocido" });
+    expect(await registrarLectura(s1, "0000000003", null)).toEqual({ resultado: "bloqueado" });
+  });
+
+  it("dos lecturas simultáneas de la misma cédula producen un solo válido", async () => {
+    const r = await Promise.all([registrarLectura(s1, "0000000002", null), registrarLectura(s2, "0000000002", null), registrarLectura(s1, "0000000002", null)]);
+    expect(r.filter((x) => x.resultado === "valido")).toHaveLength(1);
+    expect(r.filter((x) => x.resultado === "duplicado")).toHaveLength(2);
+    expect((await consultarDueno("SELECT 1 FROM cne.lecturas_puerta WHERE resultado = 'valido' AND es_prueba")).length).toBe(2);
+  });
+
+  it("contadores por puesto y todas las lecturas quedan registradas con el modo", async () => {
+    const c = await contadoresPuerta(s1.enlaceId);
+    expect(c.total).toBe(2);
+    expect(c.esteEnlace + (await contadoresPuerta(s2.enlaceId)).esteEnlace).toBe(2);
+    expect((await consultarDueno("SELECT 1 FROM cne.lecturas_puerta WHERE NOT es_prueba")).length).toBe(0);
+  });
+
+  it("normaliza espacios y mayúsculas", () => {
+    expect(normalizarCodigo(" ab 12 ")).toBe("AB12");
+  });
+});
