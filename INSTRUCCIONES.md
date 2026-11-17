@@ -33,3 +33,11 @@ Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, m
 - **ABIERTO.** Quién inicia sesión en el tablero DGSMH, sus permisos concretos, reglas de correcciones y cierres. La opción C no crea por sí sola un tercer rol de cuenta.
 - **ABIERTO.** Los ítems definitivos del desplegable de incidentes. Las opciones de este documento siguen siendo propuestas de trabajo, no un catálogo ratificado. Cada incidente puede afectar a todo un recinto o a una o varias JRV; las juntas se seleccionan solo cuando exista incidencia, sin exigir reportar junta por junta.
 
+
+## Coordinación de incidentes Quito–consulados (decisión 17-11-2026)
+
+- **DECIDIDO.** Se adopta el modelo mixto (opción C) para atender incidencias: la DGSMH registra dentro del sistema solicitudes de seguimiento; las situaciones urgentes se coordinan por teléfono o WhatsApp; el consulado confirma en la plataforma las actuaciones y la resolución.
+- **ALCANCE.** No se está aprobando un chat interno ni la integración con servicios de telefonía/WhatsApp. Se requiere conservar el registro operativo mínimo de solicitud, seguimiento y resultado, sin duplicar la conversación externa.
+- **ABIERTO.** Cuáles incidentes deben llegar a Quito como asuntos que precisan intervención y cuáles serán solo informativos. Pregunta estratégica siguiente: distinguir selección por consulado, elevación por Quito o ambos.
+- **ABIERTO.** Quién puede cambiar estados y resolver un incidente; permisos del tablero, notificaciones, destinatarios y reglas de escalamiento siguen pendientes.
+
