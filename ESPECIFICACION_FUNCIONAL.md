@@ -1,81 +1,70 @@
 # Especificación funcional — Proyecto CNE
 
-Fecha de este texto: 17 de noviembre de 2026. Sirve para que otra IA siga la entrevista con Pablo Martínez y la definición funcional. No es código y no autoriza a construir.
+**Estado:** versión consolidada, 17 de noviembre de 2026.  
+**Repositorio:** pabloun2025/CNE, rama main.  
+**Objeto:** elección del 29 de noviembre de 2026 en el exterior; primera versión con los tres componentes completos.
 
-Cada afirmación lleva una marca:
+Esta especificación reúne el documento original y las decisiones posteriores de la entrevista. Cuando exista una diferencia entre una definición histórica y una decisión posterior documentada aquí, **prevalece la decisión posterior**. Los apartados se identifican como **DECIDIDO**, **ABIERTO** o **PROPUESTA NO APROBADA**; las propuestas técnicas no son instrucciones para construir. No escribir código ni iniciar despliegues hasta que Pablo lo solicite expresamente. Al comenzar la construcción se prepara una entrega integral de instrucciones para el agente programador.
 
-- **DECIDIDO.** Pablo lo cerró. No lo reabras.
-- **ABIERTO.** No está cerrado. No lo conviertas en decisión, no lo rellenes y no lo presentes como opción ya elegida.
+## 1. Propósito y alcance
 
----
+**DECIDIDO.** El sistema tiene tres ámbitos funcionales separados, dentro de una sola aplicación web con infraestructura común y acceso por portales independientes:
 
-## Cómo continuar
+1. **Reporte electoral consular:** cada oficina del Ecuador en el exterior, incluido Madrid, reporta avance, hitos, incidencias y votantes por sus recintos y JRV.
+2. **Tablero DGSMH en Quito:** visualización internacional de avances por hora local, supervisión de hitos, alertas, coordinación de apoyo y seguimiento de incidencias.
+3. **Sistema operativo de Madrid:** gestiona exclusivamente miembros de las juntas receptoras del voto (MJRV), credenciales, ingreso en puerta, conformación de JRV, propuesta y autorización de movimientos, fotografías de documentos y pagos.
 
-**DECIDIDO.** Pablo Martínez habla español. Él enuncia las ideas. Tú respondes con una sola decisión por turno, en opciones con letra: A, B, C, o «otro» más la explicación que él escriba. En este chat no hay botones: él contesta con la letra. No escribas código de aplicación hasta que él lo pida de forma explícita. Cuando pida construir, el primer entregable es un handover completo para que Claude o Codex construyan.
+**DECIDIDO.** La gestión operativa de Madrid es autónoma de la información que Madrid, como consulado, remite a Quito. Aunque se use un catálogo común y una misma infraestructura, **los eventos de puerta, movimientos, constitución operativa y pagos no actualizan automáticamente los hitos del tablero nacional**. Madrid envía sus reportes mediante el portal consular, como todos los demás.
 
-**DECIDIDO.** Tras cada decisión que se cierre, actualiza el archivo de instrucciones del repositorio privado, rama `main`:
+**DECIDIDO.** Los tres componentes completos deben estar operativos para el 29-11-2026. La plataforma se diseña **solo para esta jornada**, sin módulos para configurar futuras elecciones. La entrega completa es un objetivo de alcance; su viabilidad debe validarse con pruebas e insumos pendientes.
 
-https://github.com/pabloun2025/CNE/blob/main/INSTRUCCIONES.md
+**DECIDIDO.** Se trata de una aplicación 100 % web, adaptable a ordenador, móvil y tableta, sin aplicación nativa ni instalación obligatoria.
 
-**DECIDIDO.** La lista completa de recintos, consulados y países la dará Pablo más adelante. No la inventes, no la completes con fuentes públicas y no la des por cargada.
+## 2. Usuarios, separación de portales y acceso
 
-**DECIDIDO.** La pregunta vigente, la única que toca hacer ahora, es el desplegable de incidentes. La forma ya está cerrada (ver más abajo). Los ítems no. Hay un borrador más corto en `/cursor/stores/bc-acf7ef21-9c48-4731-8961-32ff7ce5360b/internal/incidentes.md`. Pablo no lo aceptó. No lo copies a esta especificación, no lo ofrezcas como lista cerrada y no lo trates como la respuesta.
+**DECIDIDO.** Los tres ámbitos tienen entradas, permisos y vistas administrativas aislados por servidor, no solo por ocultar menús. Se utilizará el dominio consulares.app con **subdominios distintos**. Los nombres cne.consulares.app (reportes consulares), control.consulares.app (DGSMH) y madrid.consulares.app (Madrid) fueron **propuestos, no confirmados ni configurados**. Podrá haber enlaces especiales de operador bajo el dominio del proyecto, pero su ruta o subdominio concreto no está fijado.
 
-**DECIDIDO.** El orden de la entrevista que sigue está en «Cola de preguntas abiertas». Una pregunta por turno. No adelantes la cola. No respondas tú las preguntas abiertas.
+### Reporte consular
 
----
+**DECIDIDO.** Cada consulado dispone de **una cuenta institucional compartida** (correo y contraseña). Pablo facilitará un Excel de consulados, direcciones de correo y contraseñas temporales; se realiza su importación inicial durante el desarrollo. En el primer acceso se exige cambiar la contraseña. Múltiples funcionarios pueden usar la misma cuenta desde diferentes dispositivos; cada uno identifica **una sola vez su nombre de operador por sesión de trabajo**, sin crearle una cuenta personal. Desde esa cuenta se accede exclusivamente a los recintos asignados al consulado.
 
-## Propósito
+**DECIDIDO.** La contraseña convencional requiere **un mínimo de ocho caracteres**; no se exige doble factor ni una composición de mayúsculas, símbolos y números adicional a ese mínimo. La protección antiintentos automatizados permanece como requisito. Los tiempos y mecanismos precisos de recuperación y sesión deben ajustarse a la operación de jornada completa, sin imponer verificaciones repetidas.
 
-**DECIDIDO.** El Proyecto CNE apoya el seguimiento del proceso electoral del Ecuador del 29 de noviembre de 2026 en el exterior.
+### DGSMH
 
-**DECIDIDO.** La audiencia del producto son todos los consulados ecuatorianos en el exterior, que entran y reportan el proceso, y la Dirección de Gestión de Servicios de Movilidad Humana (DGSMH), que los mira en un tablero aparte. Madrid usa ese mismo acceso de consulado y, además, un sistema interno propio. Son sistemas distintos.
+**DECIDIDO.** Los funcionarios autorizados de Quito disponen de cuentas individuales, sin permisos de administración general, para consultar mapa, atender solicitudes y gestionar incidencias. Sus intervenciones quedan atribuidas individualmente. No existe obligación de dividirlos en niveles distintos de solo lectura y edición.
 
-**DECIDIDO.** El repositorio es privado: https://github.com/pabloun2025/CNE. No hay código de aplicación hasta que Pablo lo pida.
+### Administración y operadores de Madrid
 
-**ABIERTO.** El catálogo operativo de recintos, consulados y países. Las cifras públicas leídas (más abajo) no son ese catálogo.
+**DECIDIDO.** Existe **una cuenta administrativa propia de Madrid**, con contraseña, distinta tanto de la cuenta consular de reporte como de la superadministración general. Madrid solo administra su operativo MJRV. El superadministrador general del proyecto tiene acceso de configuración separado.
 
----
+**DECIDIDO.** El personal operativo de Madrid **no utiliza cuentas con correo**, contraseñas convencionales ni verificaciones por correo. El administrador de Madrid registra sus nombres, asigna un **PIN individual de cuatro dígitos** y habilita el enlace operativo correspondiente a cada función. Al abrir el enlace, el funcionario se identifica por nombre y PIN; el dispositivo conserva la identificación durante su jornada hasta cambio de operador o cierre de sesión. Su PIN no le permite entrar en administración ni acceder a funciones ajenas. Los permisos se validan en el servidor. Se aplican límites de intentos y posibilidad de revocar enlaces y PIN.
 
-## Tres sistemas
+**DECIDIDO.** No se concede acceso al sistema a los coordinadores de **cada mesa**. La coordinación de movimientos se efectúa desde el **centro de mando**; no debe confundirse al coordinador responsable del centro de mando con cada coordinador de mesa. Los enlaces de puerta, documentación y finanzas conducen únicamente a las tareas específicas de la estación.
 
-Son tres. No los mezcles en una sola pantalla ni en un solo modelo de usuario.
+**DECIDIDO.** La parte financiera contará con acceso operativo restringido y podrá trabajar simultáneamente desde **dos o tres puestos**, sin requerir creación y validación por correo de cuentas tradicionales. Las confirmaciones de pago quedan atribuidas al operador identificado.
 
-### 1. Reporte del consulado
+**ABIERTO.** Rutas exactas de los enlaces, política de cambio o recuperación de PIN, detalle definitivo de qué estaciones necesitan PIN y procedimiento alternativo cuando el administrador no está disponible. No confundir el PIN de operador con la cédula de los MJRV.
 
-**DECIDIDO.** Cada consulado, Madrid incluido, entra con usuario de consulado y carga el avance de su proceso: inicio, incidentes, votantes, cierre, inicio y fin de escrutinio, inicio y fin de escaneo, y cierre del proceso.
+## 3. Datos maestros y puesta en marcha
 
-**DECIDIDO.** El consulado pequeño carga junta por junta. El consulado grande (Madrid, 95 juntas) tiene varias personas cargando la misma sección a la vez, con el mismo usuario de consulado, en varios teléfonos.
+**DECIDIDO.** Pablo proporcionará los archivos con consulados, recintos, juntas, electores y, para Madrid, nombres, cédulas, funciones, JRV asignada, correo y teléfono de contacto cuando consten. El asistente/agente de construcción debe **analizarlos, detectar inconsistencias y preparar su primera importación mediante el código o scripts de inicialización**, no exigir a Pablo una carga inicial desde el panel de superadministración.
 
-### 2. Tablero de la DGSMH
+**DECIDIDO.** Un superadministrador puede tener una herramienta de importación y corrección posterior, pero la primera carga se ejecuta como parte del desarrollo y despliegue. Los consulados y Quito no modifican el catálogo maestro de JRV, recintos y electores. Los cambios operativos de miembros de junta en Madrid se guardan como movimientos históricos propios, sin modificar el padrón electoral ni el catálogo maestro.
 
-**DECIDIDO.** Es otro sistema, separado de las herramientas internas de Madrid. La DGSMH ve un mapa del mundo que se enciende y se apaga según la hora local de cada lugar, y el avance que los consulados van cargando.
+**ABIERTO.** Todavía no se han aportado y validado aquí los datos definitivos de consulados, recintos, electores y MJRV. No sustituirlos por cifras públicas o por información de otros procesos.
 
-**ABIERTO.** Todo lo demás del tablero, después del desplegable de incidentes: quién puede editar una fase cerrada, correcciones, fuente de los husos, y qué significa «cierre del proceso» frente a escrutinio y escaneo. Está en la cola. No lo resuelvas aquí.
+## 4. Infraestructura y reutilización
 
-### 3. Sistema interno de Madrid
+**DECIDIDO.** El código del proyecto permanece en el repositorio privado independiente pabloun2025/CNE, rama main. La infraestructura de referencia es la que **ya funciona** en los repositorios consulares y, tras revisión, temp. No se mezclan los códigos de esas aplicaciones ni se modifica sin necesidad lo que está en servicio.
 
-**DECIDIDO.** Solo Madrid. Credenciales de los miembros de las juntas receptoras del voto (MJRV), puerta, fotos de la cédula, pago y constitución de juntas en vivo. Lo usa la misma cuenta de consulado con la que Madrid reporta. No es el tablero de la DGSMH.
+**DECIDIDO.** Se utiliza la **única máquina virtual existente en Oracle Cloud**, ya empleada para Consulares. Se prioriza reutilizar servicios instalados y configurados, evitando duplicar infraestructura. La referencia verificada en consulares comprende Next.js/Node, Docker Compose, PostgreSQL, Cloudflare Tunnel y copias de seguridad. El proyecto CNE debe conservar permisos y datos segregados aunque comparta servicios.
 
-**DECIDIDO.** El personal de puerta no tiene cuenta.
+**CRITERIO TÉCNICO.** Evitar instancias nuevas innecesarias de PostgreSQL, túneles, bases auxiliares o componentes de mensajería; reutilizar los servicios disponibles siempre que el aislamiento y la capacidad lo permitan. La integración concreta se define tras inspección de la máquina y de los repositorios consulares y temp. La capacidad de CPU/RAM/disco y el estado real de servicios compartidos deben comprobarse antes de desplegar; no se presume que hayan sido comprobados.
 
----
+**DECIDIDO.** Para las credenciales, el método de envío WhatsApp se basará en el funcionamiento existente de teinvito con Evolution API. La IA de apoyo a los movimientos toma como referencia el recurso local ya utilizado en teinvito. No se duplican esos servicios por defecto ni se deduce que puedan consumirse sin modificaciones técnicas.
 
-## Actores
-
-| Actor | Cuenta | Dónde actúa | Estado |
-| --- | --- | --- | --- |
-| Consulado (cada oficina en el exterior, Madrid incluido) | Sí. Rol `consulado`. Correo y contraseña. | Reporte del proceso. Madrid, además, opera el sistema interno. | **DECIDIDO.** |
-| Superadmin | Sí. Rol `superadmin`. | Sube el Excel de cuentas (usuario, email, contraseña inicial) y envía esas credenciales por fuera del sistema. | **DECIDIDO.** |
-| DGSMH | No hay un tercer rol de cuenta descrito para el tablero. | Mira el tablero. Quién entra a ese tablero no está cerrado. | **ABIERTO.** No inventes un rol. |
-| Funcionario de puerta en Madrid | No. | Abre el enlace de puerta. Se identifica con nombre, apellido y PIN. El administrador de Madrid los carga. El PIN lo identifica en todo punto del sistema que necesite saber quién actúa. | **DECIDIDO.** |
-| MJRV | No. | Lleva la credencial. En la página de datos personales escribe su cédula. Puede tomarse la foto de la cédula, o la toma un funcionario. | **DECIDIDO.** |
-| Coordinador del recinto de Madrid | No se le ha dado una cuenta distinta. | Tiene el visor de constitución y un radio. Acepta, pasa o descarta el movimiento que propone la IA. | **DECIDIDO.** el visor y el radio. **ABIERTO.** si ese coordinador es la misma cuenta `consulado` de Madrid o solo usa el visor. No abras esta pregunta antes de la cola. |
-| Elector en el exterior | No. | Vota en la zona consular. No es usuario del sistema. | **DECIDIDO.** |
-
-**DECIDIDO.** Solo hay dos roles de cuenta: `consulado` y `superadmin`. No hay rol de puerta, ni de funcionario, ni de cónsul, ni de centro de impresión.
-
----
+**ABIERTO.** Qué componentes exactos de temp y consulares se reutilizarán, límites de acceso a servicios existentes, base de datos separada o esquema aislado, configuración definitiva de subdominios, copias y capacidad disponible. No se crea una segunda máquina virtual.
 
 ## Calendario y proceso electoral
 
@@ -143,135 +132,88 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 ---
 
-## Flujos decididos
 
-### Acceso del consulado (Madrid incluido)
+## 5. Reporte electoral de los consulados
 
-**DECIDIDO.** Correo y contraseña, la misma idea que la aplicación de consulares ya existente. El repositorio de consulares no se encuestó. No des por leídas sus pantallas, rutas ni reglas. «Como consulares» significa solo: entrar con correo y contraseña.
+**DECIDIDO.** La unidad de reporte es el **recinto**, no el consulado agregado: un consulado puede tener varios recintos. Cada recinto tiene JRV, avances, hitos e incidencias independientes. Quito también ve el consolidado del consulado, calculado sobre totales reales sin sumar porcentajes. El operador puede reportar desde el recinto o desde la oficina central; selecciona un **recinto activo por sesión**, siempre visible, que puede cambiar sin volver a iniciar sesión.
 
-**DECIDIDO.** Dos roles de cuenta, y nada más: `consulado` y `superadmin`.
+**DECIDIDO.** Los hitos reportados son: inicio, incidencias, votantes, cierre de votación, inicio y fin de escrutinio, inicio y fin de escaneo, y cierre del proceso. Son distintos de las cuatro fases formales del CNE (instalación, sufragio, escrutinio y embalaje). Los votantes se informan mediante conteo de firmas en padrón o estimación, identificando cuál se usó.
 
-**DECIDIDO.** El superadmin sube un Excel con usuario, email y contraseña inicial, y envía esas credenciales por fuera del sistema. El primer ingreso obliga a cambiar la contraseña y, mientras no se cambie, no deja seguir.
+**DECIDIDO.** El avance de cada hito se muestra como número de JRV confirmadas respecto del total y porcentaje, p. ej. 76/95 y 80 %. Para cada JRV y fase se distinguen **completada**, **pendiente expresamente reportada** y **sin información**; no se atribuye un problema a una junta sin información. Los consulados grandes actualizan **grupos de JRV con excepciones**, sin confirmar juntas una a una; los pequeños pueden trabajar por junta. El sistema preserva identificadores y actualizaciones independientes para el trabajo concurrente.
 
-**DECIDIDO.** El patrón de acceso que se reutiliza es el login de DEMP, no el producto DEMP. Hechos del patrón que sí se toman:
+**DECIDIDO.** Si existen dos reportes contradictorios de la **misma JRV y fase**, prevalece el **último recibido correctamente por el servidor**. No se obliga a confirmar conflictos. Debe guardarse quién declaró el dato y cuándo. Las actualizaciones de un grupo no sobrescriben otros grupos o recintos.
 
-- Aplicación de personal (el acceso público de DEMP no forma parte de CNE).
-- `POST /api/login`.
-- Token bearer UUID guardado en `sessionStorage`.
-- En la tabla de sesión se guarda el SHA-256 del token, no el token.
-- Sesión absoluta de 12 horas: no se alarga por usar el sistema.
-- El rol sale del tipo de cuenta. En CNE ese tipo es solo `consulado` o `superadmin`.
-- Contraseña de 8 a 72 caracteres, con una mayúscula, un dígito y un símbolo.
-- Límite de 30 intentos por IP cada 15 minutos.
-- Bloqueo progresivo de 1, 5, 15 y 60 minutos al llegar a 5, 8, 11 y 14 fallos por el par correo+IP en una hora.
-- El login no lleva Turnstile. En DEMP, Turnstile está en la consulta pública, el alta y el olvido, no en el login.
+**DECIDIDO.** Si se pierde internet, los datos no enviados se guardan como **borradores en el dispositivo**; se revisan y envían manualmente al recuperar conexión, sin sincronización automática. Quito no ve borradores como reportes confirmados. La efectividad del almacenamiento local y de la carga de la interfaz offline debe probarse en navegadores reales.
 
-**DECIDIDO.** No se copia a ciegas el resto de DEMP. En particular no se copia:
+**DECIDIDO.** Cada consulado indica un **teléfono operativo** previamente y lo confirma o actualiza al iniciar la jornada, visible para DGSMH. Al actualizar cada fase puede marcar **«Sin novedades»** en el ámbito del recinto, sin comprobar una a una todas las JRV; eso no equivale a completar un hito ni cierra incidencias.
 
-- El alta pública ni la cola de cuentas `PENDING` pendientes de aprobación. En CNE la cuenta nace del Excel del superadmin.
-- Los perfiles y roles de DEMP (`FUNCIONARIO`, `CONSUL`, `SUPERADMIN`, `CONSULATE`, `PRINT_CENTER`) y su lista de funciones por oficina.
-- El segundo factor TOTP, obligatorio en DEMP para el superadministrador.
-- Turnstile en el login.
-- La recuperación de contraseña. En DEMP existe (enlace de un solo uso, 30 minutos). Aquí se ofreció y no se eligió: sigue **ABIERTA**, no está rechazada para siempre ni está construida.
+**ABIERTO.** Significado exacto de «cierre del proceso», corrección de hitos ya cerrados, catálogo definitivo de tipos de incidencia, fuente de husos horarios y plazos de tolerancia para alertas por reportes ausentes. La opción inicial de instalación que se debatió fue luego sometida a revisión; no existe catálogo de incidencias definitivo.
 
-### Reporte que carga el consulado
+## 6. Incidencias y seguimiento DGSMH
 
-**DECIDIDO.** Cada lugar registra estos hitos: inicio, incidentes, votantes, cierre, inicio de escrutinio, fin de escrutinio, inicio de escaneo, fin de escaneo, y cierre del proceso.
+**DECIDIDO.** Los incidentes se reportan **por excepción**. El formulario propone un alcance según el tipo (recinto entero o una o varias JRV) y el consulado puede modificarlo. No debe preguntarse junta por junta ni exigirse confirmación de normalidad periódica. Cada fase tendrá un desplegable corto de hechos concretos que afecten su desarrollo y la opción «Otro» con texto libre. Sus ítems siguen **ABIERTOS** hasta revisión de manuales.
 
-**DECIDIDO.** En votantes, cada reporte elige una de dos vías: el conteo de firmas del padrón, o una estimación. No hay una tercera vía dicha.
+**DECIDIDO.** Cada incidencia tiene seguimiento propio y prioridad sugerida por su tipo, **modificable por el consulado**; normal, alta y crítica se plantearon como niveles, sin definir todavía la matriz por tipo. Una incidencia de prioridad alta o crítica no produce por sí sola una alarma sonora.
 
-**DECIDIDO.** Consulado pequeño: la carga es junta por junta. Consulado grande, con Madrid y sus 95 juntas como caso: varias personas cargan la misma sección a la vez, mismo usuario de consulado, varios teléfonos.
+**DECIDIDO.** Todos los incidentes son visibles a Quito. Tanto el consulado puede **solicitar apoyo** como la DGSMH puede **marcar un asunto para seguimiento**. Se usa modelo mixto: las solicitudes y actuaciones relevantes quedan en el sistema, mientras que las urgencias se coordinan por teléfono o WhatsApp, sin chat interno obligatorio.
 
-**DECIDIDO.** Incidentes: Pablo rechazó ítems vagos y rechazó «lluvia» y el clima. Quiere un desplegable corto por fase, con hechos concretos que detienen o dañan esa fase, más «otro» con texto libre.
+**DECIDIDO.** Una **solicitud urgente de apoyo** se destaca visualmente en Quito y da aviso sonoro mientras el tablero esté abierto, con posibilidad de silenciarlo. Quito marca «Recibido» para acusar la solicitud y silenciar ese aviso, pero la incidencia continúa pendiente hasta su resolución. No se aprueban correos ni SMS automáticos para cada solicitud. La interfaz no debe depender de que el navegador permita reproducir audio.
 
-**ABIERTO.** Los ítems de ese desplegable, y el reparto exacto de fases del desplegable. Es la pregunta vigente. No incluyas ninguna lista de incidentes como decidida.
+**DECIDIDO.** Consulado o DGSMH pueden cerrar una incidencia sin doble aprobación, con **explicación breve obligatoria**, registro de autor y hora. Para una incidencia que afecta a varias JRV se permite **resolución parcial** dentro del mismo registro, seleccionando las juntas solucionadas y dando una explicación por actuación; sigue abierta para las demás. Una incidencia cerrada por error o recurrente **se reabre en su registro original**, conservando las aperturas, cierres y explicaciones anteriores.
 
-**ABIERTO.** Quién puede corregir un hito ya cerrado, y el significado preciso de «cierre del proceso» frente al fin de escrutinio y al fin de escaneo. Van después en la cola.
+**DECIDIDO.** El tablero muestra por separado los hitos y estados de JRV, los incidentes, las solicitudes de apoyo y la falta de información. Una ausencia de reporte esperado según la hora local genera **alerta de seguimiento distinta de incidente electoral**, no prueba que el sufragio esté interrumpido.
 
-### Tablero de la DGSMH
+**LÍMITE INSTITUCIONAL.** La DGSMH coordina seguimiento y apoyo consular. El sistema no le atribuye competencias de decisión electoral propias del CNE.
 
-**DECIDIDO.** Mapa del mundo. Cada lugar se enciende y se apaga según su hora local.
+## 7. Operativo de Madrid: principio y recorrido del MJRV
 
-**DECIDIDO.** Muestra el avance que cargan los consulados. No muestra la puerta, las credenciales, los pagos ni la constitución de juntas de Madrid.
+**DECIDIDO.** El objetivo es **registrar la llegada de cada MJRV, identificar juntas que tienen integrantes insuficientes y suplentes disponibles, proponer redistribuciones para constituir las juntas, reunir documentación de identidad y controlar pagos físicos sin duplicidades**. No es una aplicación de gestión general de mesas ni un segundo sistema de reporte electoral a Quito.
 
-**ABIERTO.** La fuente de los husos horarios. No elijas una zona IANA, un servicio ni una tabla a mano.
+### 7.1. Registro y credenciales
 
-**ABIERTO.** Quién abre el tablero, quién edita una fase cerrada y cómo se corrige un dato. Cola, después del desplegable.
+**DECIDIDO.** El administrador Madrid carga un Excel con nombre, apellidos, número de cédula, cargo en junta (presidente, secretario, vocal, suplentes u otros del archivo), serie H/M y junta asignada, más correo y teléfono si figuran. Puede dar altas, editar o dar bajas individuales. La plantilla PDF de credencial la aportará Pablo: tamaño CR80 85,6 × 54 mm, con datos del MJRV y **QR individual cuyo contenido es su número de cédula**.
 
-### Credenciales de Madrid
+**DECIDIDO.** Salidas: credencial PDF individual; hojas A4 **optimizadas para acomodar el máximo número de credenciales legibles sin recortarlas**, listas para imprimir, cortar y colocar en portaidentificaciones con cordón; envío individual por WhatsApp mediante teinvito/Evolution API y **por correo electrónico**. Plantilla gráfica y archivo fuente pendientes.
 
-**DECIDIDO.** Se preparan antes del proceso, en parametrización. El soporte es una credencial CR80 de 85,6 × 54 mm, para bolsillo de plástico y cordón.
+### 7.2. Control de ingreso
 
-**DECIDIDO.** El alta es un Excel más alta, edición y baja de una persona. El Excel trae nombre, apellido, cédula, rol (presidente, secretario, vocal, y los demás que vengan en el archivo), junta (serie de hombres o de mujeres), email y teléfono de WhatsApp.
+**DECIDIDO.** En puerta el operador utiliza un **enlace limitado, revocable**, creado por la administración; se identifica por nombre y PIN, no entra en el panel administrativo. Escanea el QR de la credencial; el sistema identifica al MJRV por cédula, registra ingreso y actualiza de inmediato el centro de mando.
 
-**DECIDIDO.** Hay una plantilla PDF con un espacio en blanco al centro para los datos y el QR. Esa plantilla la aporta el proceso; no la dibujes.
+**DECIDIDO.** Lectura válida: verde, aviso «Válida», pitido agudo. Desconocida, duplicada/ya usada o bloqueada: rojo, dos pitidos graves. **ABIERTO** el significado y tratamiento de bloqueado y reingreso; no copiar reglas ajenas de teinvito.
 
-**DECIDIDO.** Salidas: PDF individual, descarga, collage en A4 para imprimir y recortar, y envío de una en una por WhatsApp con Evolution API, por el método de teinvito. Si hay que mirar un envío ya hecho, se mira teinvito, no DEMP.
+**DECIDIDO.** Una persona escaneada en puerta se considera **presente y disponible por defecto para estimaciones operativas**, sin requerir segunda confirmación por coordinador de mesa. La llegada **no demuestra** que su junta se haya instalado oficialmente. El centro de mando podrá registrar excepciones cuando tenga información de indisponibilidad.
 
-**DECIDIDO.** El QR impreso en la credencial es solo la cédula. Es único y predecible. Pablo lo aceptó. La puerta lee ese QR.
+### 7.3. Centro de mando: conformación y movimientos
 
-**DECIDIDO.** La página de datos personales usa otro QR, distinto, igual para todo el mundo. Ahí el MJRV escribe la cédula. No es el QR de la credencial.
+**DECIDIDO.** Se visualizarán las **95 JRV de Madrid**, con series separadas H y M y sus colores de zona. El centro de mando debe identificar de inmediato juntas sin miembros, incompletas, próximas a estar completas y completas; además, dónde existen suplentes disponibles para cubrir faltantes. La información procede del control de puerta y de los movimientos autorizados.
 
-**ABIERTO.** Si ese QR compartido de datos va en un cartel o en un mensaje de WhatsApp.
+**DECIDIDO.** Se prioriza una **visualización orientada a decisiones**, ordenada por problemas y posibilidades de solución, no un plano exacto de la Caja Mágica. La distancia y el color son criterios para recomendar desplazamientos, no para obligar a mostrar las fichas en una geometría física. Indicadores globales: ingresos, juntas con tres integrantes presentes, juntas incompletas y suplentes transferibles.
 
-**DECIDIDO.** La foto de la cédula no sale en esta credencial. Va al acta de pago, en el momento del proceso.
+**DECIDIDO.** Cada junta requiere **tres integrantes** para abrir el paquete electoral; se incluyen titulares y suplentes conforme a las reglas procedentes. Para cubrir faltantes se priorizan suplentes que sobren en la **misma zona de color**. Reglas de otras zonas y voluntarios capacitados siguen **ABIERTAS** hasta confirmación.
 
-### Puerta de Madrid
+**DECIDIDO.** Un motor de apoyo basado en la IA local existente en teinvito puede proponer **un movimiento a la vez**, usando faltantes, disponibilidad y proximidad. El **coordinador del centro de mando**, no el coordinador de cada mesa ni la IA, decide: aceptar, pasar a la siguiente propuesta o señalar que no es viable por falta de respuesta, negativa o ausencia. El traslado aceptado actualiza asignación operativa, panel y consecuencias de pago, con trazabilidad. La IA **no mueve personas de oficio**.
 
-**DECIDIDO.** El mecanismo de enlace es el de teinvito. Una persona ya autenticada crea un enlace de puerta. El token sigue activo hasta que se revoca. Quien está en la puerta abre ese enlace y no inicia sesión.
+### 7.4. Fotografía de la cédula
 
-**DECIDIDO.** Diferencia con teinvito, que hay que conservar: en teinvito el nombre que escribe el funcionario no se contrasta con una lista y solo queda en el teléfono. En Madrid el nombre sí se comprueba. El funcionario tiene nombre, apellido y PIN, cargados por el administrador de Madrid. El PIN lo identifica donde el sistema necesite saber quién actúa.
+**DECIDIDO.** Un **segundo QR genérico**, independiente del QR de credencial, abre el formulario de documentación. El MJRV escribe su cédula, recupera la ficha correspondiente y fotografía anverso y reverso de su documento. Puede hacerlo personalmente o con ayuda de un funcionario. La interfaz propone un recuadro de alineación, **captura automática cuando está encuadrada** y recorte para conservar la imagen del documento. Las dos imágenes se asocian al MJRV y forman el **anexo en la segunda página del acta de pago**.
 
-**DECIDIDO.** La lectura en puerta es el QR de la cédula impreso en la credencial.
+**DECIDIDO.** Si falta alguna imagen, el sistema de finanzas no permite completar la preparación/impresión del acta hasta incorporar ambas; el ayudante de finanzas puede capturarlas en el momento. **ABIERTO** si el QR genérico se distribuirá en cartel, WhatsApp o ambos. La calidad y capacidad de captura automática requieren pruebas en dispositivos reales.
 
-**DECIDIDO.** Resultado en pantalla y en sonido:
+### 7.5. Pago físico y control financiero
 
-- Válida: verde, texto «Válida», un pitido agudo.
-- Desconocida, ya usada o bloqueada: rojo, dos pitidos graves.
+**DECIDIDO.** Al terminar el trabajo de su junta, el MJRV pasa a finanzas con su **mismo QR individual de la credencial**. Dos o tres operadores financieros pueden usar simultáneamente puestos de lectura QR y ordenador con impresora. El sistema debe consultar el estado central: identidad válida, documentación de anverso/reverso completa y **ausencia de pago previamente confirmado**.
 
-**ABIERTO.** La regla que clasifica a una persona como bloqueada, y si una segunda lectura el mismo día es siempre «usada». El aviso visual de esos tres casos negativos sí está cerrado. No copies de teinvito la reentrada, la tarjeta de invitado, las listas blanca, negra y gris, ni la búsqueda manual del invitado: el QR de Madrid es la cédula, no un pase aleatorio.
+**DECIDIDO.** Si se cumplen las condiciones, se habilita la **visualización, generación e impresión del acta de pago y su anexo**, con los datos de la persona. Se entrega el dinero **físicamente**, y el acta recoge las firmas del pagador y del receptor conforme a la plantilla. **Después de la impresión, firma y entrega del dinero**, el operador registra en pantalla una **confirmación explícita del pago**. Imprimir no equivale a pagar. Una persona con pago confirmado no puede cobrar otra vez por la vía ordinaria.
 
-**ABIERTO.** La lista de pantallas, además de la puerta, que piden el PIN. La regla de identificación sí está cerrada.
+**DECIDIDO.** Existe un monto general en USD para MJRV y el pago se efectúa en EUR; el administrador ingresa el tipo de cambio del día y los datos del pagador. La plantilla definitiva del acta y la fórmula exacta de conversión siguen **ABIERTAS**; no inventar importes, tipos de cambio ni campos de firma adicionales.
 
-### Foto de la cédula
+**REQUISITO DE CONTROL.** Para prevenir pagos duplicados con varias estaciones, la verificación y confirmación deben ser **atómicas en el servidor**. Se necesita conexión al servidor para confirmar desembolsos; no se permiten pagos marcados localmente sin verificar estado central. El sistema distingue al menos documentación incompleta, documentación lista para preparar/imprimir, pago en trámite y pago confirmado, con trazabilidad del operador y hora.
 
-**DECIDIDO.** Se toma durante el proceso. La toma el MJRV o un funcionario. Hay un recuadro de cámara. La meta es el disparo automático cuando la cédula queda alineada. Hay recorte automático. Anverso y reverso quedan como anexo.
-
-**DECIDIDO.** La impresión del acta de pago permanece deshabilitada hasta que existan las dos fotos.
-
-**DECIDIDO.** Si el recorrido de la credencial llega incompleto a la ventanilla, la ventanilla de pago toma las fotos antes de seguir.
-
-### Pago a los MJRV
-
-**DECIDIDO.** Hay un solo monto en dólares para todos los MJRV. Es un parámetro del sistema. Se paga en euros. El administrador escribe el tipo de cambio del día y el nombre fijo del consulado que firma como quien paga.
-
-**DECIDIDO.** El recibo es un acta formal. Lleva los datos completos de la persona, quién paga, el monto recibido, el monto entregado y las dos firmas (quien paga y la persona). Las fotos de la cédula van en la página siguiente.
-
-**ABIERTO.** La plantilla de esa acta. Llegará después. No la inventes, no bocetes campos de más y no fijes tipografía, sellos ni numeración.
-
-**ABIERTO.** La fórmula que une el parámetro en dólares, el tipo de cambio, el monto recibido y el monto entregado. No la supongas. No es la siguiente pregunta.
-
-### Constitución de la junta y movimiento
-
-**DECIDIDO.** Cada junta tiene 3 titulares: presidente, secretario y vocal, más suplentes. El paquete electoral no se abre sin 3 MJRV.
-
-**DECIDIDO.** Regla ya confirmada para 2026, tomada de la guía de coordinadores de 2019: el primer hueco se llena con un suplente que sobre en la misma zona de color, y el cambio queda registrado.
-
-**ABIERTO.** La misma guía fue leída con tres conteos, en este orden: misma zona, luego con apoyo, luego voluntarios capacitados. Pablo no confirmó el segundo ni el tercero para 2026. No fijes cifras ni actives esos dos conteos. El manual operativo de 2027 no define el movimiento de suplentes.
-
-**DECIDIDO.** El coordinador del recinto tiene el visor y un radio. La IA —la que ya está instalada en teinvito— propone un solo movimiento. Él puede:
-
-- Aceptar. La junta pasa a verde con una marca de movimiento, y se actualizan la composición de la junta y los pagos.
-- Siguiente. Salta esa propuesta.
-- No se puede, con uno de tres motivos: no contesta, no quiere, ya no está. Esa persona no se vuelve a proponer para ese hueco.
-
-**DECIDIDO.** La cercanía física se usa solo para decidir el movimiento. No se dibuja como plano ni como volumen.
-
----
+**PROPUESTA NO APROBADA COMO REGLA DEFINITIVA.** Reserva temporal de una ficha cuando un operador comienza el pago, para que otro puesto vea que está siendo atendida. Deben decidirse duración de la reserva, caducidad, recuperación por fallos de impresora y tratamiento de reimpresiones. No bloquear permanentemente un pago por abrir una ficha o imprimir.
 
 ## Mapa de juntas de Madrid
 
-**DECIDIDO.** No es un plano de planta ni un cubo. Cada junta es una ficha: número, H o M, relleno del color de su zona, y un aro de alerta vivo.
+**DECIDIDO.** No es un plano de planta ni un cubo. Cada junta es una ficha: número, H o M, color de zona y señal visual de situación. Los indicadores globales deben hacer visibles los huecos a cubrir, suplentes libres, miembros ingresados y juntas con tres miembros disponibles. El diseño exacto se validará con datos reales; no se impone una réplica del plano.
 
 - Verde: hay 3 presentes.
 - Ámbar: falta gente.
@@ -279,7 +221,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO.** Aceptar un movimiento deja la junta en verde y le añade la marca de movimiento. El verde de «3 presentes» y la marca de movimiento conviven: la marca dice que hubo traslado.
 
-**DECIDIDO.** Las fichas van en filas por color, en el orden físico. La numeración de la ficha sale de las tablas del manual operativo de 2027, desde la página 9. Cada serie cuenta sola. Hombres y mujeres vuelven a empezar en 1. La serie única 1–95 del plano no se imprime en la ficha.
+**DECIDIDO (criterio actualizado).** El tablero prioriza la lectura operativa de problemas, no la reproducción del plano físico. Debe poder ordenar, agrupar o filtrar juntas por faltantes, juntas próximas a completarse, juntas con tres miembros disponibles y juntas con suplentes transferibles. Se conservan el color de zona y la serie H/M de cada ficha, pero el orden visual puede diferir del plano. El orden físico solo se usa como referencia para la distancia y las sugerencias de movimiento. Los números visibles de las fichas proceden de las series separadas de hombres y mujeres, no de una numeración única de 1–95.
 
 **DECIDIDO.** Numeración de las fichas.
 
@@ -300,7 +242,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 - Vial este, de norte a sur: amarillo, azul, rojo, celeste. Cada color en dos filas.
 - Vial norte, de este a oeste: verde y después rosado, separados por una entrada.
 
-**ABIERTO.** El orden de los iconos dentro de cada fila. En el plano no se lee qué número está en cada extremo. No asignes el extremo norte ni el sur.
+**NOTA DE FUENTE.** El orden de los iconos dentro de cada fila no se puede deducir del plano; no se asignan extremos físicos. Como se decidió priorizar una organización por problemas, no es requisito reproducirlos en su posición exacta.
 
 **Leído en el plano, no reconfirmado junta por junta.** Los rótulos de fila usan la serie 1–95 del plano. Sirven para saber qué bloque está junto a cuál. La equivalencia con la ficha es la de la tabla de arriba (hombres 1–41 coinciden con el plano; mujeres 1–54 del plano son las juntas 42–95). No imprimas el número del plano en la ficha.
 
@@ -319,81 +261,22 @@ La dirección leída en el manual (Calle Camino de Perales 23, 28041 Madrid) no 
 
 ---
 
-## Mapa de reutilización
 
-| Recurso | Qué se hace con él | Estado |
-| --- | --- | --- |
-| DEMP (`pabloun2025/demp`, acceso en `funcionario.consulado.app`) | Solo patrón de login: SPA de personal, `POST /api/login`, bearer UUID en `sessionStorage`, SHA-256 del token, sesión absoluta de 12 h, rol según el tipo de cuenta, contraseña 8–72 con mayúscula, dígito y símbolo, 30 intentos por IP cada 15 min, bloqueo 1/5/15/60 min a los 5/8/11/14 fallos por correo+IP cada hora. El login no lleva Turnstile. | **DECIDIDO.** como patrón. El producto DEMP no se copia. |
-| Puerta de teinvito (`pabloun2025/teinvito`) | Enlace creado por quien ya entró, token vivo hasta revocarlo, página pública sin login, lectura de QR, verde «Válida» con un pitido agudo, rojo con dos pitidos graves. | **DECIDIDO.** el mecanismo. **DECIDIDO.** el cambio: Madrid sí comprueba nombre, apellido y PIN. |
-| WhatsApp de teinvito | Envío uno a uno de la credencial con Evolution API, por el método que ya usa teinvito. Se prefiere teinvito frente a DEMP. | **DECIDIDO.** el canal y la preferencia. Los endpoints no se reespecifican en este texto: se leen en teinvito cuando haya que construir. |
-| IA local de teinvito | La que ya está instalada. Propone un solo movimiento de suplente. Quien coordina acepta, pasa a la siguiente o marca «No se puede». | **DECIDIDO.** ese comportamiento. El modelo, el prompt y el despliegue no se reespecifican. |
-| Supabase | Nombrado como recurso que ya existe. DEMP lo usa para sesiones y contraseñas. | **ABIERTO.** No está dicho que CNE lo use, ni para qué. |
-| Oracle | Nombrado como recurso que ya existe. | **ABIERTO.** No está especificado. |
-| IA local (como recurso, aparte del uso ya descrito en la constitución) | Nombrada como recurso que ya existe. | **ABIERTO.** No está especificado más allá de la propuesta de un movimiento. |
-| App de consulares | Misma idea de correo y contraseña. | **DECIDIDO.** solo esa idea. El repositorio no se encuestó. |
+## 8. Cuestiones abiertas e insumos pendientes
 
----
+**ABIERTO — insumos esenciales:** Excel de consulados, recintos, JRV y electores; Excel de MJRV de Madrid y sus funciones; plantilla PDF CR80 de credencial; plantilla oficial de acta de pago y anexo; importe y fórmula de conversión de USD a EUR. Los archivos aportados deberán ser revisados en contenido antes de cargarse.
 
-## Lo que no se hace
+**ABIERTO — operación electoral y DGSMH:** catálogo concreto de incidencias por fase (revisado contra manuales, no lista inventada); criterios de prioridad; corrección de hitos cerrados; significado de cierre total; fuente de husos horarios; tolerancias de alertas por falta de reporte; modalidad exacta de seguimiento de asuntos ya abiertos. No abrir preguntas minúsculas antes de cerrar los flujos principales.
 
-**DECIDIDO.** No hay código de aplicación, esquema, pantalla ni handover de construcción hasta que Pablo lo pida con palabras explícitas. El primer entregable de construcción, cuando llegue, es un handover completo para Claude o Codex.
+**ABIERTO — Madrid:** criterio para segundo escaneo/reingreso en puerta, bloqueo de credencial; entrega de QR genérico; reglas de movimientos fuera de la misma zona de color; forma de solicitar confirmación física del traslado desde el centro de mando; funciones precisas de los operadores por estación; solución técnica para reserva temporal de pago; validación e impresión de actas; experiencia de cámara automática; reglas de protección y conservación de fotos de cédula.
 
-**DECIDIDO.** No se inventa la lista de recintos, consulados ni países.
+**ABIERTO — implementación:** nomenclatura de subdominios, reutilización efectiva de servicios de consulares y temp, capacidad real de la VM única, aislamiento de datos, pruebas de carga, comportamiento con cortes de red y dispositivo de contingencia. No dar por desplegado nada de lo que aquí se diseña.
 
-**DECIDIDO.** No se cierra el desplegable de incidentes con el borrador ya escrito, ni con «lluvia», ni con ítems vagos.
+## 9. Reglas de continuidad del proyecto
 
-**DECIDIDO.** No se inventa la plantilla del acta de pago ni la plantilla PDF de la credencial.
-
-**DECIDIDO.** No se abre el paquete con menos de 3 MJRV.
-
-**DECIDIDO.** No se numeran las fichas con la serie única 1–95 del plano.
-
-**DECIDIDO.** No se trata el tablero de la DGSMH como si fuera la puerta, el pago o el mapa de juntas de Madrid.
-
-**DECIDIDO.** No se da cuenta al personal de puerta.
-
-**DECIDIDO.** No se copia el alta pública de DEMP, su TOTP obligatorio, sus roles de oficina ni su Turnstile de login.
-
-**DECIDIDO.** No se aplica al CPCCS 2026 la clasificación de papeletas SÍ/NO del instructivo de género de 2025.
-
----
-
-## Cola de preguntas abiertas
-
-Haz solo la primera que siga abierta. Opciones A, B, C, o «otro» más la explicación de Pablo. Cuando él cierre una, márcala **DECIDIDO.** en este documento y actualiza `INSTRUCCIONES.md` en `main`. No respondas ninguna por tu cuenta.
-
-1. **Pregunta vigente. Incidentes.** Desplegable corto por fase, de hechos concretos que detienen o dañan esa fase, más «otro» con texto libre. La forma está **DECIDIDA.** Los ítems están **ABIERTOS.** Pablo rechazó lo vago y rechazó el clima. El borrador de `internal/incidentes.md` no está aceptado.
-2. **Plantilla del acta de pago.** Aún no existe. No la inventes.
-3. **Lista completa de recintos, consulados y países.** La traerá Pablo. No la armes.
-4. **QR compartido de datos personales.** Si va en un cartel o en un mensaje de WhatsApp. El QR de la credencial ya está cerrado: es la cédula.
-5. **Recuperación de contraseña.** Se ofreció y no se eligió. Sigue abierta. No la des por descartada ni por incluida.
-6. **Tablero DGSMH, y solo después del desplegable.** Pregúntalo de una en una, en este orden, sin contestar:
-   - Quién puede editar una fase ya cerrada.
-   - Cómo se corrige un dato.
-   - De dónde salen los husos horarios del mapa.
-   - Qué significa «cierre del proceso» frente al fin del escrutinio y al fin del escaneo.
-7. **Conteos de suplentes de la guía de 2019.** El primero está **DECIDIDO.**: suplente que sobre en la misma zona de color, y el cambio queda registrado. El segundo (con apoyo) y el tercero (voluntarios capacitados) se leyeron y Pablo no los confirmó para 2026.
-
-### Abiertos que no adelantan la cola
-
-No los preguntes antes de cerrar la cola de arriba. Quedan escritos para no perderlos.
-
-- **ABIERTO.** Orden de cada ficha dentro de su fila en el nivel −2.
-- **ABIERTO.** Si mujeres 46–48 y 49–54 quedan separadas por el espacio «JUGADORES».
-- **ABIERTO.** Fórmula entre el monto en dólares, el tipo de cambio del día, el monto recibido y el monto entregado.
-- **ABIERTO.** Regla que deja a una cédula en «bloqueada», y si una segunda lectura es siempre «usada».
-- **ABIERTO.** Qué pantallas, además de la puerta, piden el PIN.
-- **ABIERTO.** Si quien usa el visor de constitución entra con la cuenta `consulado` de Madrid.
-- **ABIERTO.** Quién inicia sesión en el tablero de la DGSMH. No hay un tercer rol decidido.
-- **ABIERTO.** Uso de Supabase, de Oracle y de la IA local, más allá de la propuesta de un movimiento que ya hace la IA instalada en teinvito.
-- **ABIERTO.** Horas del voto PPL y del voto en casa, y cualquier horario de consulado distinto de 08:30 y de 09:00–19:00 hora local.
-
----
-
-## Aclaraciones de diseño posteriores al documento base — 17/11/2026
-
-- **DECIDIDO.** La carga de incidentes es **por excepción**, no una lista de comprobación para responder junta por junta. Un incidente podrá afectar un recinto completo, una o varias JRV. Si corresponde a una junta, el formulario pedirá identificar la(s) junta(s) afectada(s), por selección múltiple. Evitar cargas repetitivas para consulados grandes.
-- **ACLARACIÓN.** Pablo seleccionó inicialmente la opción A de incidentes de instalación («junta no conformada», «material electoral faltante o incorrecto», «acta de instalación no suscrita»), pero después solicitó rediseñar el enfoque de **todo** el catálogo porque algunas categorías no respondían bien a los documentos operativos. La lista integral sigue **ABIERTA**, no aceptada.
-- **DECIDIDO.** Las preguntas de la entrevista no se limitarán a ratificar solicitudes: deben aportar criterio funcional, mostrar alternativas y consecuencias, e identificar problemas de diseño a partir de los objetivos del proyecto. Se abordarán las decisiones desde los resultados que necesita lograr cada sistema.
-- **DECIDIDO.** El usuario no quiere descargas periódicas. Guardar discretamente los avances en un archivo persistente durante las conversaciones; no prometer trabajo en segundo plano. Preservar decisiones cerradas y pendientes.
-- **ABIERTO.** Objetivo prioritario y criterio operativo de éxito del tablero DGSMH, antes de cerrar la taxonomía de incidentes; preguntar sin convertir en decidida ninguna opción. La solicitud actual de Pablo autoriza tratar primero esta cuestión de finalidad del producto.
+- **DECIDIDO.** Hacer preguntas de alcance y flujos, **una decisión por turno**, con opciones A/B/C/Otro seleccionables; acompañarlas de recomendaciones y mejoras con fundamento operativo, no limitarse a ratificar pedidos. Evitar reiterar detalles que ya estén claros.
+- **DECIDIDO.** Guardar avances periódicos y de manera silenciosa en GitHub; mantener actualizado este documento como especificación funcional canónica y usar INSTRUCCIONES.md como historial/guía. Las decisiones antiguas que hayan cambiado deben señalarse como sustituidas, no seguirse como órdenes vigentes.
+- **DECIDIDO.** No construir código, diagramar pantallas definitivas ni desplegar hasta autorización expresa. Cuando la haya, entregar primero instrucciones completas para desarrollo con Claude/Codex y plan de validación.
+- **DECIDIDO.** No confundir datos personales y pagos de Madrid con el seguimiento internacional DGSMH; nunca trasladarlos automáticamente al tablero de Quito.
+- **DECIDIDO.** No asumir que tener tres MJRV presentes equivale a instalación electoral oficial. El sistema Madrid apoya decisiones de conformación; la comunicación formal a Quito se hace en su portal.
+- **DECIDIDO.** Mantener la numeración H/M, zonas cromáticas y material operativo del proceso. No importar al CPCCS 2026 procedimientos de escrutinio específicos del referéndum de 2025.
