@@ -1,0 +1,96 @@
+name: Deploy to Oracle
+
+# Publica CNE en la VM compartida (carpeta /home/ubuntu/cne, proyecto Compose cne-prod).
+# Solo necesita el secreto ORACLE_SSH_KEY. APP_MASTER_KEY y la contraseña inicial de la superadmin
+# se generan en el servidor la primera vez si no existen como secretos; nunca se imprimen.
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: "desplegar = publicar main; revertir = volver a la imagen anterior"
+        required: true
+        default: desplegar
+        type: choice
+        options: [desplegar, revertir]
+      host_madrid:
+        description: "Host público (opcional; si se deja vacío se usa la variable HOST_MADRID o ninguno)"
+        required: false
+        default: ""
+      superadmin_email:
+        description: "Correo de la superadmin (opcional; si falta, secreto SUPERADMIN_EMAIL o superadmin@cne.local)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oracle-deploy
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    if: ${{ inputs.accion == 'desplegar' }}
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    # «revertir» no pasa por CI (el trabajo ci se omite); «desplegar» exige CI en verde.
+    if: ${{ !cancelled() && (needs.ci.result == 'success' || inputs.accion == 'revertir') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Solo desde main
+        if: ${{ inputs.accion == 'desplegar' && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "Producción solo se publica desde main."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - name: Preparar clave SSH y paquete protegido
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          APP_MASTER_KEY: ${{ secrets.APP_MASTER_KEY }}
+          SUPERADMIN_PASSWORD_INICIAL: ${{ secrets.SUPERADMIN_PASSWORD_INICIAL }}
+          SUPERADMIN_EMAIL: ${{ inputs.superadmin_email || secrets.SUPERADMIN_EMAIL }}
+          HOST_MADRID: ${{ inputs.host_madrid || vars.HOST_MADRID }}
+          APP_VERSION: ${{ github.sha }}
+        run: |
+          set +x
+          test -n "$ORACLE_SSH_KEY" || { echo "Falta el secreto ORACLE_SSH_KEY en pabloun2025/CNE"; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
+          chmod 600 ~/.ssh/oracle
+          # Las entradas vacías se omiten: el servidor genera o conserva lo que falte.
+          jq -n '{APP_MASTER_KEY: env.APP_MASTER_KEY, SUPERADMIN_EMAIL: env.SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD_INICIAL: env.SUPERADMIN_PASSWORD_INICIAL, HOST_MADRID: env.HOST_MADRID, APP_VERSION: env.APP_VERSION} | with_entries(select(.value != null and .value != ""))' > /tmp/cne-bootstrap.json
+          chmod 600 /tmp/cne-bootstrap.json
+
+      - name: Instalar y verificar CNE
+        env:
+          ACCION: ${{ inputs.accion }}
+        run: |
+          set +x
+          SSH=(ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109)
+          SCP=(scp -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new)
+          if [ "$ACCION" = revertir ]; then
+            "${SSH[@]}" 'cd /home/ubuntu/cne && chmod +x scripts/deploy-oracle.sh && ./scripts/deploy-oracle.sh revertir'
+            exit 0
+          fi
+          tar \
+            --exclude=.git \
+            --exclude=.next \
+            --exclude=.env.production \
+            --exclude='.env' \
+            --exclude=node_modules \
+            --exclude=backups \
+            -czf /tmp/cne-source.tar.gz .
+          "${SSH[@]}" 'set -e; install -d -m 700 /home/ubuntu/cne; find /home/ubuntu/cne -mindepth 1 -maxdepth 1 ! -name .env.production ! -name backups -exec rm -rf {} +'
+          "${SCP[@]}" /tmp/cne-source.tar.gz ubuntu@51.170.51.109:/tmp/cne-source.tar.gz
+          "${SSH[@]}" 'tar -xzf /tmp/cne-source.tar.gz -C /home/ubuntu/cne; rm -f /tmp/cne-source.tar.gz'
+          "${SCP[@]}" /tmp/cne-bootstrap.json ubuntu@51.170.51.109:/tmp/cne-bootstrap.json
+          "${SSH[@]}" 'chmod 600 /tmp/cne-bootstrap.json; cd /home/ubuntu/cne; chmod +x scripts/deploy-oracle.sh; ./scripts/deploy-oracle.sh desplegar'
+
+      - name: Borrar archivos temporales
+        if: always()
+        run: rm -f ~/.ssh/oracle /tmp/cne-bootstrap.json /tmp/cne-source.tar.gz

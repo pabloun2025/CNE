@@ -17,7 +17,6 @@ x-app: &app
     NODE_ENV: production
     DATABASE_URL: postgres://cne_app:${CNE_APP_PASSWORD}@cne-postgres:5432/cne
     DATABASE_OWNER_URL: postgres://cne_owner:${POSTGRES_PASSWORD}@cne-postgres:5432/cne
-    EVOLUTION_API_URL: http://evolution-api:8080
 
 services:
   cne-postgres:
@@ -65,15 +64,6 @@ services:
       cne_interna: {}
       citas_compartida:
         aliases: [cne-app]
-
-  cne-worker:
-    <<: *app
-    mem_limit: 384m
-    command: ["npm", "run", "worker"]
-    depends_on:
-      cne-migrate: {condition: service_completed_successfully}
-    # Se une a la red de consulares solo para alcanzar evolution-api.
-    networks: [cne_interna, citas_compartida]
 
   cne-backup:
     logging: *logs

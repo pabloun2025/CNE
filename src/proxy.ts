@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Provisional (T01): solo cabeceras. La separación por host llega en T06.
+// Cabeceras de seguridad en todas las respuestas. La separación es por rutas, no por host (07-plan-madrid §2).
 export function proxy(request: NextRequest) {
   void request;
   const response = NextResponse.next();

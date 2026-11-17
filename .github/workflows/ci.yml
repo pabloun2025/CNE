@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16.9-alpine
+        env:
+          POSTGRES_USER: cne_owner
+          POSTGRES_PASSWORD: cne-test-password
+          POSTGRES_DB: cne_test
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U cne_owner -d cne_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Solo base de pruebas del servicio: contraseña ficticia, sin valor real.
+      DATABASE_TEST_URL: postgres://cne_owner:cne-test-password@localhost:54329/cne_test
+      CNE_APP_TEST_PASSWORD: cne-test-password
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Comprobar tipos
+        run: npx tsc --noEmit -p .
+
+      - name: Revisar código
+        run: npm run lint
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Compilar
+        run: npm run build
