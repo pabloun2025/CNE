@@ -705,3 +705,200 @@ Estas etiquetas expresan diferencias lógicas. No obligan a crear una pantalla n
 
 Una cifra «0» expresamente confirmada no es lo mismo que «sin información»; una JRV «pendiente» no cuenta como «completada». La hora real de cada hito reportado puede diferir de su hora de recepción en el servidor: conservar ambos valores si el flujo y la fuente los proporcionan, sin hacer obligatorio un campo histórico que Pablo no ha solicitado.
 
+## 16. Seguridad, integridad y tratamiento de datos
+
+### 16.1. Identidad, autenticación y límites reales de cada credencial
+
+**DECIDIDO:** cuentas consulares institucionales compartidas; cuentas individuales DGSMH; cuenta administrativa independiente de Madrid; cuenta superadministradora; estaciones de Madrid con nombre y PIN personal de cuatro dígitos. **DISEÑO DERIVADO:** la autenticación y la autorización deben comprobarse en el servidor para cada solicitud. No basta con ocultar botones o pantallas.
+
+- La contraseña de cuentas convencionales tiene un mínimo de ocho caracteres. No agregar por defecto MFA ni reglas de composición que no han sido aprobadas. Limitar intentos y gestionar sesiones sin interrumpir innecesariamente la jornada.
+- Un consulado puede usar varios dispositivos. El nombre declarado de operador permite atribución operativa de sus actos, **no** constituye verificación legal de la identidad de la persona.
+- Cada funcionario DGSMH actúa con su propia cuenta y no administra claves consulares, MJRV o pagos.
+- Los PIN de cuatro dígitos solo se aceptan junto al operador/enlace habilitado; requieren límites de intentos y revocación. No guardarlos ni exponerlos como texto plano en interfaces o exportaciones. La definición de recuperación/cambio sigue pendiente.
+- La cédula contenida en el QR individual de Madrid no debe considerarse un secreto. El QR permite localizar una ficha, pero la operación depende de controles humanos y de permisos de estación.
+- Las URLs de documentos PDF y fotografías deben comprobar permisos por servidor; no usar rutas de acceso público que se puedan adivinar.
+- Mantener sesiones, operaciones y controles de acceso de Madrid separados de la cuenta de reportes consulares, aunque la aplicación comparta infraestructura.
+
+### 16.2. Privacidad de la información de Madrid
+
+**DISEÑO DERIVADO:** aplicar minimización. Un operador de puerta necesita saber si el QR es válido y los datos mínimos para identificar a la persona; no necesita ver fotografías del documento, pagos ni la lista completa de MJRV. Un operador de documentación necesita consultar la ficha necesaria para asociar imágenes. Finanzas accede a ficha, documentos y pagos necesarios para la actuación; Quito no accede a esos datos internos en ninguna pantalla ni exportación.
+
+Fotografías de cédulas: proteger en tránsito y en almacenamiento, no dejar expuestos originales por rutas de servidor ni incluirlos automáticamente en informes globales. No imprimir fotos de documentos fuera de su anexo individual autorizado. **PENDIENTE DE DEFINICIÓN INSTITUCIONAL:** plazo de conservación, destrucción posterior, información a interesados, fundamento del tratamiento y acceso al archivo documental. No inventar reglas españolas o ecuatorianas para suplir esa revisión.
+
+El acceso público o semipúblico al QR genérico de subida requiere limitar intentos, consultar el mínimo indispensable y evitar que alguien pruebe cédulas en masa para descubrir datos personales. La identificación escrita en ese formulario no prueba por sí sola ser titular del documento.
+
+### 16.3. Registro técnico y observabilidad
+
+Sin cargar de campos al usuario, registrar errores de servidor, autenticaciones fallidas, intentos de uso de enlaces revocados, cambios de catálogo, reportes corregidos, acuses de urgencia, resoluciones, movimientos de MJRV, generación/reimpresión de actas y confirmaciones de pago. No registrar en logs públicos imágenes, contraseñas, PIN, documentos completos ni datos personales innecesarios. Los logs técnicos no sustituyen los eventos funcionales que necesitan ver los administradores.
+
+**DISEÑO DERIVADO:** fechas/horas de persistencia coherentes, con conversión a zonas locales en presentación; conservar la hora de recepción del servidor para la regla de último reporte vigente. Si la hora del dispositivo no es fiable, no usarla como criterio de resolución de conflictos ni de vencimientos oficiales.
+
+### 16.4. Continuidad de sesión, red y servidores
+
+La solución utiliza la VM Oracle Cloud existente y se apoya en Next.js/Node, PostgreSQL, Docker Compose y Cloudflare Tunnel como referencias verificadas, **sin presuponer que se ha desplegado ya el CNE**. Antes de construir será necesario comprobar recursos, servicios compartidos, red, rutas, aislamiento y respaldo. No crear infraestructura adicional por costumbre ni alterar aplicaciones existentes sin necesidad.
+
+El funcionamiento web debe ser adecuado en móvil con HTTPS y permisos de cámara. Las pruebas mínimas deben comprobar cámara, lectura QR, fotografía, impresión A4, generación PDF y envío con los proveedores realmente existentes. Los borradores offline están aprobados, pero no se puede prometer ejecución completa sin red sin verificar que la interfaz cargue desde caché. **La política externa de contingencia ante indisponibilidad total sigue pospuesta por instrucción de Pablo**; no convertirla en otra ronda de preguntas.
+
+### 16.5. Calidad de información y reglas de error
+
+Errores deben indicar lo que ocurrió y cómo corregirlo, sin adjudicar falsamente incidentes electorales. Casos distintos: credenciales incorrectas, acceso no autorizado, recinto equivocado, cifra de votantes inválida, documento sin reverso, QR no reconocido, segundo ingreso, falta de conectividad, archivo de Excel inconsistente, impresora sin respuesta y segunda confirmación de pago denegada.
+
+**DISEÑO DERIVADO:** ante un envío duplicado de reporte, prevenir duplicaciones de efecto; ante fallo parcial de una operación masiva, mostrar exactamente qué JRV se actualizaron y cuáles no, o garantizar atomicidad del grupo. No mostrar «Guardado» si el servidor devolvió error. Evitar borrar texto ya introducido ante un error recuperable. Comprobar formatos de números, cédulas y montos según las fuentes y los requisitos del proceso, sin inventar validadores que rechacen datos reales del archivo aportado.
+
+## 17. Criterios de aceptación funcional y comprobaciones previas a la jornada
+
+Las pruebas siguientes constituyen una **lista de comprobación del software, no un compromiso de montar un laboratorio paralelo**. Se realizarán sobre la instalación prevista, con **modo prueba**, siguiendo la decisión de Pablo. Los casos se agrupan para que pueda verificarse rápidamente lo esencial. Los parámetros dependientes de insumos reales se completarán cuando estén disponibles.
+
+### 17.1. Portal consular
+
+| ID | Escenario | Resultado esperado |
+| --- | --- | --- |
+| C-01 | Primer inicio de sesión con contraseña temporal | Solicita cambiarla; no permite continuar con la inicial sin completar el cambio |
+| C-02 | Dos dispositivos usan cuenta del mismo consulado | Cada dispositivo identifica operador distinto; cada envío conserva el nombre declarado |
+| C-03 | Consulado con varios recintos cambia recinto activo | El encabezado cambia, los reportes van al recinto elegido y no se trasladan borradores de otro |
+| C-04 | Intento de acceder a recinto de otra oficina | El servidor rechaza consulta y escritura |
+| C-05 | Actualización individual de una JRV | Solo cambia esa JRV/hito; las demás conservan su estado |
+| C-06 | Marcar grupo completado con excepciones pendientes | El numerador incluye solo completadas; las excepciones son pendientes expresas y las no tocadas siguen sin información |
+| C-07 | Actualizaciones simultáneas de JRV diferentes | Ninguna pisa el estado de la otra |
+| C-08 | Actualizaciones contradictorias misma JRV/fase | Prevalece la última aceptada por el servidor, con atribución automática |
+| C-09 | Corrección de fase ya reportada | El consulado corrige sin permiso de Quito ni justificación obligatoria; Quito ve nuevo valor |
+| C-10 | Intentar reportar escrutinio antes de 19:00 local | En modo elección está deshabilitado, aun cuando el reloj del dispositivo esté alterado |
+| C-11 | Son más de las 19:00 pero una JRV no tiene cierre reportado | Escrutinio bloqueado solo para esa JRV; otras cerradas pueden avanzar |
+| C-12 | Alternar modo prueba | Se pueden recorrer fases sin las restricciones de tiempo/secuencia y se ven distintivos de prueba |
+| C-13 | Reportar cifra de votantes | Guarda cantidad y tipo de fuente; no la convierte en avance de JRV |
+| C-14 | Marcar «Sin novedades» | No cambia juntas a completadas ni cierra incidencias |
+| C-15 | Perder conexión tras introducir cambios | Quedan como borradores locales, no figuran enviados; se revisan y transmiten manualmente |
+| C-16 | Reintentar un envío después de error | Muestra aceptación real del servidor y evita efectos duplicados |
+| C-17 | Solicitar apoyo urgente desde incidencia | Se crea solicitud específica sin convertir todas las incidencias en urgentes |
+
+### 17.2. Tablero DGSMH
+
+| ID | Escenario | Resultado esperado |
+| --- | --- | --- |
+| Q-01 | Ingresar con cuenta DGSMH | Muestra mapa y seguimiento, no panel superadmin ni datos personales de Madrid |
+| Q-02 | Abrir el mapa mundial | Se ven consulados agrupados y un panel lateral de alertas e indicadores |
+| Q-03 | Acercar/seleccionar un consulado | Se abren sus recintos y detalle de JRV sin mezclar ubicaciones |
+| Q-04 | Avanzar el tiempo de simulación visual | Cambia la zona solar día/noche, pero no modifica hitos reportados |
+| Q-05 | Consultar hora local de recinto | Usa la zona local del lugar; no la hora del navegador remoto |
+| Q-06 | Consolidar dos recintos de tamaños distintos | Suma juntas y obtiene porcentaje ponderado por juntas, nunca media simple de porcentajes |
+| Q-07 | Recinto aún sin reportes | Muestra «sin información» y no acusa interrupción electoral como hecho |
+| Q-08 | Falta de hito tras margen esperado configurado | Se muestra alerta informativa diferenciada de incidencia; no genera incidente automático |
+| Q-09 | Incidencia alta/crítica sin solicitud urgente | Se visualiza para seguimiento, sin alarma sonora solo por su prioridad |
+| Q-10 | Solicitud urgente del consulado | Aviso visual y, cuando navegador lo permita, sonido; permanece si el audio está bloqueado |
+| Q-11 | Pulsar «Recibido» en Quito | Registra acuse, silencia esa urgencia y conserva incidencia pendiente |
+| Q-12 | Resolver parcialmente incidencia de varias JRV | Quedan visibles las juntas afectadas restantes y explicación de la resolución |
+| Q-13 | Reabrir la misma incidencia | Conserva identificador y los ciclos históricos |
+| Q-14 | Emitir informe mundial PDF/Excel | Refleja avances, participación, incidencias, ausencias y hora de corte; excluye datos internos Madrid |
+| Q-15 | Consulado corrige dato después del informe | La vista vigente se actualiza y el informe nuevo muestra su propia hora de corte |
+
+### 17.3. Madrid: credenciales, acceso y conformación
+
+| ID | Escenario | Resultado esperado |
+| --- | --- | --- |
+| M-01 | Cargar archivo de MJRV con inconsistencias | Se detectan duplicados/campos conflictivos; no se generan fichas erróneas en silencio |
+| M-02 | Generar credencial individual | Respeta plantilla CR80; QR codifica cédula de la ficha correspondiente |
+| M-03 | Generar hoja de impresión | A4 con credenciales completas, legibles, proporción y sin recortes |
+| M-04 | Envío por WhatsApp o correo falla | Se indica fallo sin afirmar que la credencial llegó |
+| M-05 | Operador puerta abre enlace sin PIN válido | No puede registrar ingresos ni acceder a otras funciones |
+| M-06 | Primera lectura válida | Verde, «Válida», pitido agudo, un ingreso y actualización del centro de mando |
+| M-07 | QR inexistente o duplicado | Rojo, dos pitidos graves, sin segundo ingreso válido |
+| M-08 | Consulta tablero 95 JRV | Aparecen H1–H41 y M1–M54, zonas cromáticas y estados de dotación |
+| M-09 | Solo dos miembros presentes en una junta | La ficha sigue incompleta, sin reportar instalación oficial a Quito |
+| M-10 | Suplente sobrante en misma zona | Se propone preferentemente para una junta que lo necesita |
+| M-11 | No hay suplente sobrante en misma zona | Se propone otra zona, priorizando cercanía sin movimientos automáticos |
+| M-12 | Coordinador rechaza o pasa sugerencia | No cambia asignaciones de nadie |
+| M-13 | Coordinador acepta movimiento | Se registra origen/destino/autor y se actualizan dotaciones operativas |
+| M-14 | MJRV carga dos caras de cédula | Se asocian a la ficha correcta; ambas pueden visualizarse en su anexo autorizado |
+| M-15 | Solo una cara o imagen incompleta | No se permite finalizar el acta individual hasta completar ambas |
+
+### 17.4. Madrid: pagos y preparación de elección
+
+| ID | Escenario | Resultado esperado |
+| --- | --- | --- |
+| F-01 | Dos o tres operadores entran a finanzas | Cada uno tiene sesión atribuida, permisos limitados y puede atender independientemente |
+| F-02 | MJRV se presenta con QR válido, sin documentos completos | El sistema exige completar fotos antes de imprimir acta final |
+| F-03 | Acta impresa pero todavía sin entrega de dinero | La persona **no** figura como pagada |
+| F-04 | Verificación directa del trabajo en finanzas | No exige autorización del centro de mando ni por junta ni por individuo |
+| F-05 | Pago físico entregado, acta firmada y confirmación | Registra una sola confirmación, momento, operador y euros efectivamente entregados |
+| F-06 | Dos puestos confirman simultáneamente el mismo MJRV | El servidor acepta a lo sumo **una** confirmación válida |
+| F-07 | QR de MJRV ya pagado | Informa el pago previo y bloquea un segundo desembolso ordinario |
+| F-08 | Consultar panel e informe financiero | Pagados, pendientes, total EUR y responsables coinciden con confirmaciones, no impresiones |
+| F-09 | Falta monto USD, tasa o fórmula aprobada | No inventa conversión para generar un acta financiera definitiva |
+| S-01 | Activar modo prueba desde superadmin | Todos los portales lo indican; permite ensayar horarios sin mezclar cifras reales |
+| S-02 | Generar incidencias, llegadas y pagos simulados | Todos quedan identificados como registros de prueba |
+| S-03 | Preparar elección con borrado | Pide confirmación, verifica respaldo, elimina solo actividad de prueba y mantiene catálogos, credenciales y usuarios |
+| S-04 | Entrar después de preparar elección | No quedan avances, ingresos ni pagos simulados como reales; restricciones horarias activas |
+| S-05 | Intentar limpiar datos desde rol no superadmin | Acceso denegado |
+| S-06 | Repetir accidentalmente limpieza o acceder a datos reales | No borra pagos ni reportes reales |
+
+### 17.5. Pruebas de integraciones y equipos reales
+
+Antes del uso, comprobar al menos una vez la cámara de móvil para QR, lectura con el dispositivo previsto en puerta, captura de anverso y reverso, impresión de credencial A4, impresión del acta y su anexo, exportación de PDF/Excel, conectividad de la VM y visualización simultánea en más de una sesión. Verificar entrega de mensajes solo cuando las credenciales del servicio WhatsApp/correo estén disponibles. No declarar «listo» un flujo si únicamente se ha probado con datos ficticios y falta el modelo oficial que determina su salida.
+
+No extender estas comprobaciones a un programa indefinido de pruebas que retrase el objetivo del usuario. Priorizar las que evitan **pérdida de datos, confusión de fases, exposición de cédulas y pagos duplicados**.
+
+## 18. Dependencias y pendientes ordenados por impacto
+
+Este inventario **no es un cuestionario para Pablo**. Agrupa información que hará falta cuando se programe; si falta una respuesta menor, el desarrollador debe utilizar el criterio más sencillo compatible con lo aprobado y documentarlo, sin bloquear el trabajo ni inventar instrucciones oficiales.
+
+### 18.1. Insumos documentales que no deben fabricarse
+
+| Insumo | Necesario para | Regla mientras no se aporte |
+| --- | --- | --- |
+| Excel definitivo consulados, recintos y JRV/electores | Permisos, totales, porcentajes, hora local y mapa | Estructura preparada, sin inventar catálogo ni totales |
+| Excel nominativo MJRV Madrid | Credenciales, puerta, centro de mando, identificación y pagos | No suponer nombres, cédulas o cargos |
+| PDF/archivo fuente de credencial CR80 | Generación e impresión final | Probar estructura, no afirmar fidelidad a plantilla no vista |
+| Modelo oficial de acta de pago y anexo | PDF de cobro, firmas, documentación | No inventar campos oficiales, logos ni cláusulas |
+| Monto USD y regla de conversión EUR | Cálculo y emisión financiera | Mantener pendiente el cálculo definitivo |
+| Manuales/criterios operativos sobre incidencias | Catálogo definitivo por fase, prioridades sugeridas | No asumir aprobada lista histórica de 2025 |
+| Relación real de ciudades/zonas horarias/coordenadas | Hora oficial de recintos, alertas, marcadores | No calcular la hora por zona solar ni asumir un huso para todo el país |
+
+### 18.2. Reglas abiertas que no deben cambiar silenciosamente las decisiones
+
+- **Cierre total del proceso:** determinar exactamente qué hecho comunica el último hito y cómo convive con escaneo, embalaje y finalización del recinto; no declararlo automáticamente a las 19:00.
+- **Catálogo de incidencias:** comprobar tipos y prioridades según material operativo, con opción «Otro» y alcance editable. Las sugerencias de prioridad no son decisiones electorales.
+- **Alertas por reporte ausente:** especificar márgenes de tolerancia razonables cuando exista criterio operativo. No presentar un minuto arbitrario como exigencia del CNE.
+- **Reingreso y bloqueo de MJRV:** mantener primera validación, resultado rojo de duplicado y prevención de nuevos ingresos; concretar excepción de reentrada si fuera necesaria sin inventar permisos.
+- **Traslado físicamente realizado:** separar propuesta aprobada de confirmación de traslado cuando resulte necesario para que el tablero no presuponga disponibilidad inexistente; no conceder acceso a coordinadores de mesa por defecto.
+- **Reserva temporal de finanzas y reimpresiones:** resolver técnicamente sin impedir recuperación tras fallo de impresora ni permitir doble pago.
+- **Distribución del QR genérico de documentos:** cartel, comunicación o ambos todavía sin decisión; el formulario y sus restricciones sí están aprobados.
+- **Conservación/retirada de fotografías y registros:** requiere criterio institucional y técnico verificable; la aplicación no debe borrar documentos sensibles de forma arbitraria.
+- **Subdominios:** están propuestos cne.consulares.app, control.consulares.app y madrid.consulares.app; confirmar rutas reales en despliegue, sin afirmar que existen.
+- **Servicios compartidos:** comprobar repositorios y servicios existentes antes de reutilizarlos; no asumir integraciones operativas por simple mención de teinvito, temp o Consulares.
+- **Distancia física exacta en plano de Madrid:** respetar las zonas y equivalencias aprobadas; no deducir posiciones físicas individuales donde el plano no las permite.
+
+### 18.3. Criterios para resolver aspectos menores sin nuevas entrevistas
+
+**DISEÑO DERIVADO:** el desarrollador puede seleccionar denominaciones de botones, distribución responsiva, paginación, mensajes de validación, iconos, estados de carga, manejo de doble clic, almacenamiento técnico, orden de filtros, tamaños de fuente, rutas internas y estructura de tablas, siempre que conserve la funcionalidad y los permisos ya decididos. También puede elegir mecanismos habituales de confirmación de acciones destructivas y control de errores sin abrir una pregunta por cada uno.
+
+**No debe decidir por su cuenta** importes, tipos de cambio, contenido de modelos oficiales, catálogo nominativo, horarios electorales alternativos, criterios de elegibilidad electoral, derechos de personas sobre sus datos, atribuciones del CNE o facultades nuevas a Quito. Si alguno de estos temas afecta el software, registrar la dependencia e implementar solo lo que pueda basarse en fuentes o decisiones verificadas.
+
+## 19. Guía de implementación posterior a la autorización
+
+**ESTADO ACTUAL:** documento de diseño funcional, **no código ni autorización de despliegue**. La construcción comenzará solo con instrucción expresa de Pablo. Esta guía indica cómo convertir la especificación en trabajo de desarrollo sin reabrir decisiones cerradas.
+
+### 19.1. Orden lógico de construcción
+
+1. **Fundación compartida:** inspeccionar servicios disponibles de la VM y de los proyectos de referencia; definir aislamiento, catálogo y permisos por portal; establecer modos prueba/elección desde el inicio para que no se mezclen datos.
+2. **Portal consular y datos electorales:** importación y validación del catálogo; inicio de sesión, operador y recinto; hitos por JRV, grupos/excepciones, cifras de votantes, incidencias, corrección libre y borradores locales.
+3. **DGSMH:** consolidación real de JRV, panel mundial de mapa/solar, fichas y horas locales, alertas, seguimiento/resolución de incidencias, informes PDF/Excel.
+4. **Madrid — preparación:** carga nominativa, credenciales PDF/QR, operadores, envío, control de puerta y tablero de 95 JRV.
+5. **Madrid — operación y finanzas:** propuestas de redistribución con aprobación humana, fotografía de ambas caras, plantillas de actas, concurrencia de cobros, informes y seguridad de datos.
+6. **Cierre de integración y preparación:** verificar permisos entre módulos, comprobar equipos reales, limpiar pruebas con respaldo y activar modo elección.
+
+Este orden **no autoriza a aplazar ninguno de los tres componentes** de la primera entrega; identifica dependencias para evitar que una pantalla se construya sin los datos o el control de acceso que requiere.
+
+### 19.2. Definición funcional de «terminado»
+
+No es suficiente que aparezca una pantalla o un mapa atractivo. Una función está completa si su usuario autorizado puede realizar el recorrido, el servidor aplica correctamente permisos y validaciones, los registros persisten con atribución, la vista correspondiente refleja el cambio, los errores no corrompen información y los documentos generados respetan las plantillas aplicables. Para operaciones concurrentes de pagos, la **ausencia de duplicidad** es requisito crítico. Para el reporte nacional, lo crítico es distinguir dato recibido, dato pendiente, dato ausente y dato estimado.
+
+### 19.3. Documentación técnica que se preparará al iniciar programación
+
+El agente desarrollador deberá producir, a partir de esta especificación y de la inspección real de infraestructura: inventario de servicios compartidos y aislamiento, mapa de permisos, diseño de datos, contratos de intercambios por portal, lista de pantallas, estrategia de importación de Excel, plan de pruebas mínimas y pasos seguros de despliegue/retorno. Las decisiones técnicas deberán documentarse y ser coherentes con el repositorio independiente CNE. **No editar sistemas existentes ni conectar servicios de mensajería reales sin verificar credenciales y efectos de la operación.**
+
+### 19.4. Últimas decisiones consolidadas de la entrevista
+
+Para evitar que el historial INSTRUCCIONES.md se interprete erróneamente, son **definitivas** estas decisiones posteriores: portal consular **simple**, panel combinado con acciones de fase; pantalla Quito con **mapa mundial + panel lateral**; mapa por niveles consulado → recinto con **capa día/noche solar**; informes integrales PDF/Excel para Quito; un **panel financiero completo** e informe PDF/Excel para Madrid; verificación de cumplimiento **directamente por finanzas**, sin aprobación del centro de mando; movimientos de suplentes primero en su zona y después entre zonas, con aprobación humana; escrutinio solo desde **19:00 local + cierre de votación reportado**; superadmin con **modo prueba** que permite ignorar estas restricciones y botón **«Borrar datos de prueba y preparar para elección»**; y **corrección libre de reportes consulares**, incluso de fases finalizadas, sin motivo obligatorio.
+
+**Instrucción final de continuidad:** respetar el alcance integral para el 29 de noviembre de 2026, no repetir preguntas resueltas, no presentar propuestas como aprobaciones, no inventar datos oficiales y **no programar hasta orden expresa de Pablo**.
+
