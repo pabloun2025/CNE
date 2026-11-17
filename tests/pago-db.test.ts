@@ -1,0 +1,26 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { Sesion } from "@/server/auth";
+import { closePools } from "@/server/db";
+import { guardarParametros, leerParametros } from "@/server/pago";
+import { consultarDueno, reiniciarBase } from "./helpers/db";
+
+const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", debeCambiar: false, mfaVerificada: false };
+
+describe("parámetros de pago en la base", () => {
+  beforeAll(async () => {
+    await reiniciarBase();
+    await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash) VALUES ('madrid_admin','a@x.y','A','x')");
+  });
+  afterAll(closePools);
+
+  it("nacen todos vacíos", async () => {
+    expect(Object.values(await leerParametros()).every((v) => v === null)).toBe(true);
+  });
+  it("guardan y se leen con decimales exactos; un valor inválido no escribe", async () => {
+    const e = { importe_usd: "100", tipo_cambio: "1.5", sentido_cambio: "usd_por_eur", decimales_eur: "2", redondeo: "truncar", pagador_nombre: "PAGADOR PRUEBA", pagador_cargo: "CARGO PRUEBA", lugar: "LUGAR PRUEBA" };
+    expect(await guardarParametros(sesion, e)).toEqual({ ok: true });
+    expect(await leerParametros()).toMatchObject({ importe_usd: "100.00", tipo_cambio: "1.500000", sentido_cambio: "usd_por_eur", decimales_eur: 2 });
+    expect((await guardarParametros(sesion, { ...e, importe_usd: "-5" })).ok).toBe(false);
+    expect((await leerParametros()).importe_usd).toBe("100.00");
+  });
+});
