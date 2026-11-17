@@ -157,7 +157,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO — mapa mundial por niveles y ciclo día/noche.** Se aprueba la **opción C** para la representación geográfica: vista global de **consulados agrupados**, y al acercar el mapa o seleccionar uno se despliegan sus **recintos electorales** con acceso al detalle de juntas. El mapa incorporará una **visualización profesional del ciclo solar**: zona del planeta iluminada y zona nocturna, con transición día/noche (terminador solar) actualizada conforme la fecha y hora real. La capa será sutil para no ocultar marcadores, colores de estado ni alertas; su objetivo es hacer evidente, de un vistazo, en qué partes del mundo es de día y en cuáles de noche. **La iluminación solar es geográfica y no equivale al huso horario oficial**: las horas locales de recintos siguen determinándose de forma independiente por el huso horario correspondiente. Es una funcionalidad de presentación del tablero DGSMH, no una fuente de hitos electorales.
 
-**ABIERTO — informes de cierre y exportación.** Aún no se ha aprobado si el tablero solo debe mostrar datos en vivo o generar informes descargables al final de la jornada; decidir en una pregunta estratégica posterior.
+**DECIDIDO — informes completos de la jornada.** Pablo aprobó la opción C: la DGSMH podrá generar un informe consolidado con avances de los recintos y JRV, participación reportada (indicando si procede de firmas o estimación), incidencias y su seguimiento/resolución, y horas relevantes de los hitos. Podrá consultarse detalle por consulado y recinto y exportarse a PDF y Excel. No mezclar en el informe nacional la información sensible interna de Madrid (credenciales, cédulas, ingresos o pagos); el informe se alimenta del módulo consular/DGSMH. Distinguir información confirmada, estimada, pendiente y sin reporte; el informe no contiene resultados de votos ni constituye documento oficial del CNE.
 
 **DECIDIDO — pantalla principal DGSMH.** Se adopta la **opción C**: un tablero con el **mapa mundial como elemento visual dominante** y, simultáneamente, un panel lateral de **alertas urgentes, consulados con reportes pendientes e indicadores principales**. El usuario de Quito debe poder comprender la situación global y localizar lo que requiere atención **sin cambiar de pantalla**. Se respetan los estados de información disponible, pendientes expresamente reportados y ausencia de reporte, así como la diferenciación entre incidencias y alertas de seguimiento. La disposición deberá adaptarse a distintos tamaños de pantalla. El detalle de agrupación de marcadores para consulados con varios recintos todavía no está aprobado.
 
@@ -273,6 +273,8 @@ La dirección leída en el manual (Calle Camino de Perales 23, 28041 Madrid) no 
 
 
 ## 8. Cuestiones abiertas e insumos pendientes
+
+**ABIERTO — pruebas y simulación sin contaminar datos reales.** Antes del 29 de noviembre será necesario probar los tres portales. No está decidida la separación entre registros de prueba y datos de producción, ni la forma de reiniciar el entorno antes de abrir la operación real. Es una decisión de desarrollo central para evitar reportes de prueba en el tablero o pagos simulados como reales.
 
 **ABIERTO — insumos esenciales:** Excel de consulados, recintos, JRV y electores; Excel de MJRV de Madrid y sus funciones; plantilla PDF CR80 de credencial; plantilla oficial de acta de pago y anexo; importe y fórmula de conversión de USD a EUR. Los archivos aportados deberán ser revisados en contenido antes de cargarse.
 
