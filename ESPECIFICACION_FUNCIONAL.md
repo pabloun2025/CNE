@@ -192,6 +192,8 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 ### 7.1. Registro y credenciales
 
+**ALERTA DE INSUMO — nomenclatura de credenciales de 2026.** El PDF visual aportado (disponible en `insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf`) muestra ejemplos **M01 para masculino** y **F01 para femenino**; el esquema anterior de fichas Madrid en esta especificación conserva **H/M**. Las dos referencias **no son equivalentes**. No definir automáticamente el sexo/serie por una inicial aislada, ni cambiar el rótulo operativo de las 95 juntas sin cotejar el Excel definitivo. Separar identificador interno de junta, sexo/grupo, número y texto imprimible. Véase `insumos/GUIA_DE_USO_PARA_CLAUDE.md`.
+
 **DECIDIDO.** El administrador Madrid carga un Excel con nombre, apellidos, número de cédula, cargo en junta (presidente, secretario, vocal, suplentes u otros del archivo), serie H/M y junta asignada, más correo y teléfono si figuran. Puede dar altas, editar o dar bajas individuales. La plantilla PDF de credencial la aportará Pablo: tamaño CR80 85,6 × 54 mm, con datos del MJRV y **QR individual cuyo contenido es su número de cédula**.
 
 **DECIDIDO.** Salidas: credencial PDF individual; hojas A4 **optimizadas para acomodar el máximo número de credenciales legibles sin recortarlas**, listas para imprimir, cortar y colocar en portaidentificaciones con cordón; envío individual por WhatsApp mediante teinvito/Evolution API y **por correo electrónico**. Plantilla gráfica y archivo fuente pendientes.
