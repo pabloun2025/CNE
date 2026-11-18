@@ -20,6 +20,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
       <div>
         <Link href="/admin/mjrv" className="text-sm underline">← Volver a la lista</Link>
         <h1 className="text-xl font-semibold">{m.apellidos}, {m.nombres}{m.es_prueba ? " (PRUEBA)" : ""}</h1>
+        {m.incorporado_en && <p className="mt-1 rounded bg-blue-100 p-2 font-medium text-blue-900">Incorporada desde votantes{m.incorporado_por ? ` por ${m.incorporado_por}` : ""} el {hora(m.incorporado_en)}. Está presente sin lectura de puerta y no lleva credencial.</p>}
         {!m.activo && <p className="mt-1 rounded bg-red-100 p-2 font-medium text-red-800">De baja{m.baja_motivo ? `: ${m.baja_motivo}` : ""}. La puerta responde «bloqueado».</p>}
       </div>
 
@@ -31,7 +32,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
         <p><strong>Rótulo de credencial:</strong> {m.rotulo_credencial ?? "pendiente"}</p>
         <p><strong>Credencial preparada:</strong> {hora(m.credencial_generada_en)}</p>
         <p><strong>Contacto:</strong> {[m.correo, m.telefono_e164].filter(Boolean).join(" · ") || "sin datos"}</p>
-        <p><strong>Llegada:</strong> {m.ingreso_en ? hora(m.ingreso_en) : "no registrada"}</p>
+        <p><strong>Llegada:</strong> {m.incorporado_en ? `${hora(m.incorporado_en)} (incorporada)` : m.ingreso_en ? hora(m.ingreso_en) : "no registrada"}</p>
         <p><strong>Documentos:</strong> {m.anverso && m.reverso ? "completos" : `faltan ${[!m.anverso && "anverso", !m.reverso && "reverso"].filter(Boolean).join(" y ")}`}</p>
         <p><strong>Actas generadas:</strong> {m.actas}</p>
         <p className="sm:col-span-2"><strong>Pago:</strong> {m.pago ? `Pagado el ${hora(m.pago.en)} por ${m.pago.operador}: ${m.pago.importe_eur} EUR` : "sin pago confirmado"}</p>
@@ -54,7 +55,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
 
       <section className="space-y-2">
         <h2 className="font-semibold">Envío de la credencial</h2>
-        <p role="note" className="text-sm font-medium text-amber-900">Envío simulado: se registra pero no sale ningún mensaje.</p>
+        <p role="note" className="text-sm font-medium text-amber-900">Envío simulado: se registra pero no sale ningún mensaje. Si la superadministración enciende el envío real, las fichas reales (no las de demostración) quedan en cola.</p>
         <BotonesEnvio id={m.id} tieneTelefono={!!m.telefono_e164} tieneCorreo={!!m.correo} />
         {envios.length > 0 && (
           <ul className="text-sm">{envios.map((x) => <li key={x.id}>{hora(x.creado_en)} · {x.canal === "whatsapp" ? "WhatsApp" : "Correo"} · {ETIQUETA_ESTADO[x.estado]}{x.simulado ? " (simulado)" : ""}{x.error ? ` · ${x.error}` : ""}</li>)}</ul>

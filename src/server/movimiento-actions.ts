@@ -1,6 +1,7 @@
 "use server";
 
 import { adminOEstacionApi } from "./guard";
+import { incorporarVotante } from "./incorporar";
 import { aceptarPropuesta, asignarCargo, descartarPropuesta, quitarCargo, marcarNoDisponible, moverManual, quitarExcepcion, rehabilitar, type Actor, type Resultado } from "./movimientos";
 
 // Solo administración Madrid o una estación con función «mando». Cada acción lo comprueba en el servidor.
@@ -46,4 +47,10 @@ export async function asignarCargoAccion(f: FormData): Promise<Resultado> {
 export async function quitarCargoAccion(f: FormData): Promise<Resultado> {
   const a = await actor();
   return a ? quitarCargo(a, { juntaId: num(f, "juntaId"), mjrvId: num(f, "mjrvId") }) : NO_AUT;
+}
+
+export async function incorporarVotanteAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  const t = (k: string) => String(f.get(k) ?? "");
+  return a ? incorporarVotante(a, { nombres: t("nombres"), apellidos: t("apellidos"), cedula: t("cedula"), juntaId: num(f, "juntaId"), cargo: t("cargo"), telefono: t("telefono"), correo: t("correo") }) : NO_AUT;
 }

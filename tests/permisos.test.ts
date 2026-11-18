@@ -64,7 +64,7 @@ const ACCIONES: Record<string, Regla> = {
   "pago-actions#guardarParametrosAccion": SOLO_ADMIN,
   "envios-actions#enviarCredencialAccion": SOLO_ADMIN, "envios-actions#enviarLoteAccion": SOLO_ADMIN,
   "movimiento-actions#aceptarAccion": MANDO, "movimiento-actions#pasarAccion": MANDO, "movimiento-actions#noViableAccion": MANDO,
-  "movimiento-actions#asignarCargoAccion": MANDO, "movimiento-actions#quitarCargoAccion": MANDO,
+  "movimiento-actions#incorporarVotanteAccion": MANDO, "movimiento-actions#asignarCargoAccion": MANDO, "movimiento-actions#quitarCargoAccion": MANDO,
   "movimiento-actions#moverManualAccion": MANDO, "movimiento-actions#excepcionAccion": MANDO, "movimiento-actions#rehabilitarAccion": MANDO,
   "superadmin-actions#crearAdminAccion": SOLO_SUPER, "superadmin-actions#restablecerAdminAccion": SOLO_SUPER, "superadmin-actions#activarAdminAccion": SOLO_SUPER,
   "superadmin-actions#cambiarModoAccion": SOLO_SUPER, "superadmin-actions#cargarDemoAccion": SOLO_SUPER, "superadmin-actions#quitarDemoAccion": SOLO_SUPER,
