@@ -1,10 +1,13 @@
 # Guía para agentes — Proyecto CNE (elección del 29-11-2026 en el exterior)
 
+**Alcance vigente (18-11-2026): solo el sistema operativo de Madrid**, publicado en https://madrid.consulado.app. El portal consular y el tablero DGSMH no se construyen.
+
 ## Orden de lectura
 
-1. `ESPECIFICACION_FUNCIONAL.md` — documento canónico. Prevalece sobre todo lo demás.
+0. **`docs/TRASPASO.md`** — estado actual, infraestructura, cuentas, decisiones y pendientes. Empiece aquí.
+1. `ESPECIFICACION_FUNCIONAL.md` — documento canónico. Prevalece sobre todo lo demás (las entradas «DECIDIDO (18-11-2026)» sustituyen lo anterior).
 2. `insumos/GUIA_DE_USO_PARA_CLAUDE.md` — insumos aportados, fuentes oficiales y qué falta.
-3. `docs/diseno/` — diseño técnico aprobado y plan de construcción (cuando exista).
+3. `docs/diseno/` — plan vigente de Madrid: `07-plan-madrid.md`, `09-cambios-decisiones.md` y comprobaciones en `08-…`. 00–06 son referencia del diseño inicial.
 4. `INSTRUCCIONES.md` — solo historial.
 
 ## Reglas que no se negocian
@@ -23,6 +26,7 @@
 
 - `cne-disenador` (Opus): diseña arquitectura, datos, pantallas y el plan de tareas. No escribe código de la aplicación.
 - `cne-programador` (Sonnet): implementa el plan tarea por tarea, prueba y prepara la publicación.
+- Publicar: merge en `main` → flujo `oracle-deploy.yml` → `verificar-sitios.yml` (detalle en `docs/TRASPASO.md` §4).
 
 ## Antes de dar algo por terminado
 
