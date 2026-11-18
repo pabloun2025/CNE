@@ -1,12 +1,13 @@
 "use server";
 
+import { CONSUL_Y_COORDINADOR } from "../domain/roles";
 import { adminOEstacionApi } from "./guard";
 import { incorporarVotante } from "./incorporar";
 import { aceptarPropuesta, asignarCargo, descartarPropuesta, quitarCargo, marcarNoDisponible, moverManual, quitarExcepcion, rehabilitar, type Actor, type Resultado } from "./movimientos";
 
 // Solo administración Madrid o una estación con función «mando». Cada acción lo comprueba en el servidor.
 async function actor(): Promise<Actor | null> {
-  const s = await adminOEstacionApi(["mando"]);
+  const s = await adminOEstacionApi(["mando"], CONSUL_Y_COORDINADOR);
   if (!s) return null;
   return s.tipo === "admin" ? { tipo: "madrid_admin", id: s.sesion.usuarioId, nombre: s.sesion.nombre } : { tipo: "operador", id: s.sesion.operadorId, nombre: s.sesion.operadorNombre };
 }

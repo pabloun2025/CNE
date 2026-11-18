@@ -8,7 +8,7 @@ import { asignarCargo, quitarCargo } from "@/server/movimientos";
 import { registrarLectura } from "@/server/puerta";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const sup: Sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo: "superadmin", debeCambiar: false, mfaVerificada: true };
+const sup: Sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo: "superadmin", rol: "consul", debeCambiar: false, mfaVerificada: true };
 
 describe("centro de mando con la demostración", () => {
   let est: SesionEstacion;

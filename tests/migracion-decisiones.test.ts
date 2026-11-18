@@ -4,7 +4,7 @@ import { closePools } from "@/server/db";
 import { cargarDemo } from "@/server/demo";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo: "superadmin", debeCambiar: false, mfaVerificada: true };
+const sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo: "superadmin", rol: "consul" as const, debeCambiar: false, mfaVerificada: true };
 const MIGRACION = readFileSync("db/migrations/2026-11-19-decisiones-18-11.sql", "utf8");
 
 // Todo se hace en la base de pruebas, con el dueño (sin RLS por superusuario) y filas de prueba.

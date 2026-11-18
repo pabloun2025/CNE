@@ -3,6 +3,7 @@ import { registrarAuditoria } from "./auditoria";
 import { randomToken } from "./crypto";
 import { query, withTx } from "./db";
 import { hashPassword } from "./passwords";
+import { esRolAdmin, ETIQUETA_ROL, type RolAdmin } from "../domain/roles";
 import type { Modo } from "./config";
 
 // Defensa en profundidad: aunque una acción se llamara sin la guarda, solo la superadmin pasa.
@@ -10,30 +11,35 @@ function exigirSuperadmin(sesion: Sesion): void {
   if (sesion.tipo !== "superadmin") throw new Error("Solo la superadministración puede hacer esto.");
 }
 
-export type CuentaAdmin = { id: number; correo: string; nombre: string; activo: boolean; debe_cambiar: boolean; ultimo_acceso_en: string | null };
+export type CuentaAdmin = { id: number; correo: string; rol: RolAdmin; nombre: string; activo: boolean; debe_cambiar: boolean; ultimo_acceso_en: string | null };
 
 export async function listarAdmins(sesion: Sesion): Promise<CuentaAdmin[]> {
   exigirSuperadmin(sesion);
-  return query<CuentaAdmin>("SELECT id, correo, nombre, activo, debe_cambiar, ultimo_acceso_en::text FROM usuarios WHERE tipo = 'madrid_admin' ORDER BY correo");
+  return query<CuentaAdmin>("SELECT id, correo, rol, nombre, activo, debe_cambiar, ultimo_acceso_en::text FROM usuarios WHERE tipo = 'madrid_admin' ORDER BY correo");
 }
 
 // La contraseña temporal se genera aquí y se muestra una sola vez; la cuenta debe cambiarla al entrar.
 const temporal = () => randomToken(9);
 
-export async function crearAdmin(sesion: Sesion, correo: string, nombre: string): Promise<{ ok: true; password: string } | { ok: false; mensaje: string }> {
+// El identificador de acceso es un correo o un nombre de usuario (letras minúsculas, números, punto, guion).
+const ES_CORREO = /^[^@\s]+@[^@\s]+$/;
+const ES_USUARIO = /^[a-z0-9][a-z0-9._-]{2,39}$/;
+
+export async function crearAdmin(sesion: Sesion, correo: string, nombre: string, rol: string): Promise<{ ok: true; password: string } | { ok: false; mensaje: string }> {
   exigirSuperadmin(sesion);
   const c = correo.trim().toLowerCase();
   const n = nombre.trim();
-  if (!/^[^@\s]+@[^@\s]+$/.test(c) || c.length > 200) return { ok: false, mensaje: "Escriba un correo válido." };
+  if (!((ES_CORREO.test(c) && c.length <= 200) || ES_USUARIO.test(c))) return { ok: false, mensaje: "Escriba un correo o un nombre de usuario válido." };
+  if (!esRolAdmin(rol)) return { ok: false, mensaje: `Elija el rol: ${Object.values(ETIQUETA_ROL).join(", ")}.` };
   if (n.length < 2 || n.length > 120) return { ok: false, mensaje: "Escriba el nombre de la persona." };
   const password = temporal();
   const hash = await hashPassword(password);
   const f = await query<{ id: number }>(
-    "INSERT INTO usuarios (tipo, correo, nombre, password_hash, debe_cambiar) VALUES ('madrid_admin', $1, $2, $3, true) ON CONFLICT (correo) DO NOTHING RETURNING id",
-    [c, n, hash],
+    "INSERT INTO usuarios (tipo, correo, nombre, password_hash, debe_cambiar, rol) VALUES ('madrid_admin', $1, $2, $3, true, $4) ON CONFLICT (correo) DO NOTHING RETURNING id",
+    [c, n, hash, rol],
   );
-  if (!f[0]) return { ok: false, mensaje: "Ya existe una cuenta con ese correo." };
-  await registrarAuditoria({ portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "admin_creado", entidad: "usuarios", entidadId: f[0].id });
+  if (!f[0]) return { ok: false, mensaje: "Ya existe una cuenta con ese correo o usuario." };
+  await registrarAuditoria({ portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "admin_creado", entidad: "usuarios", entidadId: f[0].id, datos: { rol } });
   return { ok: true, password };
 }
 

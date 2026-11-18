@@ -1,3 +1,4 @@
+import { SOLO_CONSUL } from "@/domain/roles";
 import Link from "next/link";
 import { requireAdmin } from "@/server/guard";
 import { listarMjrv } from "@/server/mjrv";
@@ -5,7 +6,7 @@ import { listarMjrv } from "@/server/mjrv";
 const campo = "rounded border border-slate-400 px-2 py-2 text-base";
 
 export default async function ListaMjrv({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  await requireAdmin();
+  await requireAdmin({ roles: SOLO_CONSUL });
   const f = await searchParams;
   const filas = await listarMjrv({ junta: f.junta, rol: f.rol, estado: f.estado, q: f.q });
   return (

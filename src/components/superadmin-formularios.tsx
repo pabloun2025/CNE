@@ -1,5 +1,6 @@
 "use client";
 
+import { ETIQUETA_ROL, ROLES_ADMIN } from "@/domain/roles";
 import { useActionState } from "react";
 import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
@@ -23,8 +24,14 @@ export function FormCrearAdmin() {
   const [estado, enviar, pendiente] = useActionState(crearAdminAccion, null);
   return (
     <form action={enviar} className="space-y-3">
-      <label className="block text-sm font-medium">Correo<input name="correo" type="email" required className={campo} /></label>
+      <label className="block text-sm font-medium">Correo o nombre de usuario<input name="correo" type="text" autoComplete="off" required className={campo} /></label>
       <label className="block text-sm font-medium">Nombre<input name="nombre" required className={campo} /></label>
+      <label className="block text-sm font-medium">Rol
+        <select name="rol" required defaultValue="" className={campo}>
+          <option value="" disabled>Elija un rol</option>
+          {ROLES_ADMIN.map((r) => <option key={r} value={r}>{ETIQUETA_ROL[r]}</option>)}
+        </select>
+      </label>
       <button disabled={pendiente} className={boton}>Crear cuenta</button>
       <Resultado estado={estado} />
     </form>

@@ -1,4 +1,5 @@
 import { FormBorrarFotos, FormCrearAdmin, FormDemo, FormModo, FormPreparar, FormRestablecer } from "@/components/superadmin-formularios";
+import { ETIQUETA_ROL } from "@/domain/roles";
 import { leerModo } from "@/server/config";
 import { contarDemo } from "@/server/demo";
 import { resumenFotos } from "@/server/documentos";
@@ -49,7 +50,7 @@ export default async function SuperInicio() {
           {admins.map((a) => (
             <li key={a.id} className="space-y-2 py-3">
               <p className="font-medium">{a.nombre} <span className="font-normal text-slate-600">· {a.correo}</span></p>
-              <p className="text-sm">{a.activo ? "Activa" : "Desactivada"}{a.debe_cambiar ? " · debe cambiar la contraseña" : ""}</p>
+              <p className="text-sm">{ETIQUETA_ROL[a.rol]} · {a.activo ? "Activa" : "Desactivada"}{a.debe_cambiar ? " · debe cambiar la contraseña" : ""}</p>
               <div className="flex flex-wrap items-start gap-2">
                 <form action={activarAdminAccion}>
                   <input type="hidden" name="id" value={a.id} />

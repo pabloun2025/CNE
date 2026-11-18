@@ -1,3 +1,4 @@
+import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
 import { PanelFinanciero } from "@/components/panel-financiero";
 import { FormParametrosPago } from "@/components/form-parametros-pago";
 import { calcularImporteEur, faltanParametros } from "@/domain/pago";
@@ -5,7 +6,7 @@ import { requireAdmin } from "@/server/guard";
 import { leerParametros } from "@/server/pago";
 
 export default async function Finanzas() {
-  await requireAdmin();
+  await requireAdmin({ roles: CONSUL_Y_FINANCIERO });
   const p = await leerParametros();
   const faltan = faltanParametros(p);
   const imp = calcularImporteEur(p);

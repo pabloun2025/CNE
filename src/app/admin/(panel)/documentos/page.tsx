@@ -1,10 +1,11 @@
+import { SOLO_CONSUL } from "@/domain/roles";
 import { formularioAbierto } from "@/server/documentos";
 import { fijarFormularioAccion } from "@/server/documentos-actions";
 import { requireAdmin } from "@/server/guard";
 import { urlBase } from "@/server/url";
 
 export default async function Documentos() {
-  await requireAdmin();
+  await requireAdmin({ roles: SOLO_CONSUL });
   const [abierto, base] = await Promise.all([formularioAbierto(), urlBase()]);
   return (
     <main className="max-w-xl space-y-4">

@@ -1,4 +1,5 @@
 import { sha256Bytes, sha256Hex } from "../domain/text";
+import { esRolAdmin, type RolAdmin } from "../domain/roles";
 import { passwordProblem } from "../domain/password-policy";
 import { randomToken } from "./crypto";
 import { query } from "./db";
@@ -15,6 +16,7 @@ export type Sesion = {
   correo: string;
   nombre: string;
   tipo: string;
+  rol: RolAdmin; // solo significa algo en el portal admin; la superadmin lo ignora
   debeCambiar: boolean;
   mfaVerificada: boolean;
 };
@@ -104,15 +106,15 @@ export async function definirContrasenaInicial(entrada: { correo: string; nueva:
 // Una cookie solo vale en el portal que la creó: se comprueba portal de la sesión y tipo del usuario.
 export async function leerSesion(token: string | undefined, portal: PortalSesion): Promise<Sesion | null> {
   if (!token) return null;
-  const f = await query<{ id: string; usuario_id: number; correo: string; nombre: string; tipo: string; debe_cambiar: boolean; mfa_verificada: boolean }>(
-    `SELECT s.id, u.id AS usuario_id, u.correo, u.nombre, u.tipo, u.debe_cambiar, s.mfa_verificada
+  const f = await query<{ id: string; usuario_id: number; correo: string; nombre: string; tipo: string; rol: string; debe_cambiar: boolean; mfa_verificada: boolean }>(
+    `SELECT s.id, u.id AS usuario_id, u.correo, u.nombre, u.tipo, u.rol, u.debe_cambiar, s.mfa_verificada
        FROM sesiones s JOIN usuarios u ON u.id = s.usuario_id
       WHERE s.token_hash = $1 AND s.portal = $2 AND u.tipo = $3 AND u.activo
         AND s.revocada_en IS NULL AND s.expira_en > now()`,
     [sha256Bytes(token), portal, TIPO_DE_PORTAL[portal]],
   );
   const r = f[0];
-  return r ? { sesionId: r.id, usuarioId: r.usuario_id, correo: r.correo, nombre: r.nombre, tipo: r.tipo, debeCambiar: r.debe_cambiar, mfaVerificada: r.mfa_verificada } : null;
+  return r ? { sesionId: r.id, usuarioId: r.usuario_id, correo: r.correo, nombre: r.nombre, tipo: r.tipo, rol: esRolAdmin(r.rol) ? r.rol : "consul", debeCambiar: r.debe_cambiar, mfaVerificada: r.mfa_verificada } : null;
 }
 
 export async function cerrarSesion(token: string | undefined): Promise<void> {

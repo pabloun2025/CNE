@@ -4,7 +4,7 @@ import { closePools } from "@/server/db";
 import { guardarParametros, leerParametros } from "@/server/pago";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", debeCambiar: false, mfaVerificada: false };
+const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false, mfaVerificada: false };
 
 describe("parámetros de pago en la base", () => {
   beforeAll(async () => {

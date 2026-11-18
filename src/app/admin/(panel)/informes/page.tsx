@@ -1,7 +1,8 @@
+import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
 import { requireAdmin } from "@/server/guard";
 
 export default async function Informes() {
-  await requireAdmin();
+  await requireAdmin({ roles: CONSUL_Y_FINANCIERO });
   const boton = "inline-block rounded bg-blue-700 px-4 py-3 font-semibold text-white";
   return (
     <main className="max-w-xl space-y-4">

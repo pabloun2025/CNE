@@ -5,7 +5,7 @@ import { closePools } from "@/server/db";
 import { cargarDemo, quitarDemo } from "@/server/demo";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const sesion = (tipo: string): Sesion => ({ sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo, debeCambiar: false, mfaVerificada: true });
+const sesion = (tipo: string): Sesion => ({ sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo, rol: "consul", debeCambiar: false, mfaVerificada: true });
 
 describe("datos de demostración", () => {
   beforeAll(async () => {
