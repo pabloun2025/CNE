@@ -18,7 +18,7 @@ async function terminar(r: MfaResultado): Promise<never> {
 
 export async function comenzarMfaAccion(): Promise<void> {
   await comenzarMfa(await requireSuperadmin({ permitirSinMfa: true }));
-  redirect(PAGINA);
+  redirect(`${PAGINA}?paso=2`); // distinto de la redirección de rechazo de la guarda
 }
 
 export async function completarMfaAccion(f: FormData): Promise<void> {

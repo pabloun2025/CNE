@@ -12,3 +12,4 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 graphify-out/
+.tmp-permisos-respaldos
