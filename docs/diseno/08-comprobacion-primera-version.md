@@ -20,7 +20,7 @@ Se hace en producción, con el interruptor **Modo prueba** encendido (valor inic
 
 ## C. Recorrido con un móvil real (a 375 px)
 
-1. [ ] `/superadmin/acceso`: entrar con la contraseña inicial → obliga a cambiarla → consola. Un correo o contraseña errónea da «Correo o contraseña incorrectos.»
+1. [ ] `/superadmin/acceso`: entrar con la contraseña inicial → obliga a cambiarla → (desde la segunda versión) verificación en dos pasos, ver sección G → consola. Un correo o contraseña errónea da «Correo o contraseña incorrectos.»
 2. [ ] Consola: el conmutador de modo dice «MODO PRUEBA»; **crear cuenta de administración Madrid** (se muestra una contraseña temporal una sola vez).
 3. [ ] Cerrar sesión; `/admin/acceso`: entrar con esa cuenta → cambio obligatorio → inicio. Comprobar que la cookie de admin no abre `/superadmin` (redirige al acceso).
 4. [ ] Superadmin → **Cargar datos de demostración** (570 fichas «APELLIDO PRUEBA 001…», cédulas 0000000001…, rótulos H01…M54). Pulsarlo dos veces: la segunda no duplica.
@@ -35,17 +35,45 @@ Se hace en producción, con el interruptor **Modo prueba** encendido (valor inic
 13. [ ] Admin → **Finanzas** → Panel: «Pagados» y total EUR suben solo al confirmar (no al generar actas).
 14. [ ] Revisar las pantallas a 375 px: sin desplazamiento horizontal, botones grandes, menú de admin desplegable.
 
-## D. Qué anotar para M23 (captura automática)
+## D. Qué anotar para calibrar M23 (captura automática)
 
-Por cada modelo de móvil y navegador: ¿abre la cámara trasera?, ¿lee el QR de puerta rápido?, ¿enfoca el documento?, ¿el recuadro coincide con lo que se recorta?, ¿«Hacer o elegir foto» funciona como alternativa? Anotar fallos con modelo, sistema y navegador (sin datos personales).
+Por cada modelo de móvil y navegador: ¿abre la cámara trasera?, ¿lee el QR de puerta rápido?, ¿enfoca el documento?, ¿el recuadro coincide con lo que se recorta?, ¿«Hacer o elegir foto» funciona como alternativa? Anotar fallos con modelo, sistema y navegador (sin datos personales). Con la captura automática (segunda versión): ¿se toma sola en ~1 s con el documento quieto?, ¿dispara con una pared vacía o con el documento borroso (no debería)?, ¿tarda demasiado con poca luz? Los umbrales (`MIN_NITIDEZ`, `MAX_MOVIMIENTO`, `MS_ESTABLE` en `src/domain/captura-auto.ts`) son un punto de partida y se ajustan con estas notas.
 
 ## E. Reversión
 
 `Deploy to Oracle` → `accion=revertir` vuelve a la imagen `cne:anterior`. Los cambios de esquema son aditivos, no hace falta restaurar la base. Copias: `backups/` (diaria, 14 días) y `backups/pre-despliegue/` (5 últimas).
 
-## F. Límites conocidos de esta versión
+## F. Límites conocidos (actualizado en la segunda versión)
 
-- Superadministración sin 2FA (M18, obligatoria antes de cargar el Excel real). Mientras tanto, proteger `/superadmin*` con Cloudflare Access.
-- Sin «Preparar elección» (M19): no pasar a modo elección con datos de prueba.
-- Envíos de credenciales por WhatsApp/correo (M21), informe de cierre (M20), inicio con indicadores (M22) y captura automática (M23): pendientes.
 - Rótulo de credencial (P-5), importe y fórmula de pago (P-7), plantilla del acta (P-6): sin aprobar; el sistema lo marca como pendiente.
+- Envíos de credenciales: solo simulados. `WHATSAPP_REAL_SEND=true` o `EMAIL_REAL_SEND=true` se rechazan hasta conectar Evolution API / Brevo (no hay proveedor real escrito).
+- Aviso de atención simultánea (M24, P-8): no construido, no aprobado.
+- Los umbrales de la captura automática no están calibrados con móviles reales (solo probados con cámara simulada en Chrome).
+
+## G. Segunda tanda (M18–M25): comprobaciones nuevas
+
+Despliegue: la imagen ahora instala `postgresql-client-16` (PGDG) para el respaldo de M19; la construcción necesita red hacia `apt.postgresql.org`. Migraciones nuevas, aditivas e idempotentes: `2026-11-18-mfa-superadmin.sql` (columnas de 2FA en `usuarios` y tabla `codigos_recuperacion`) y `2026-11-18-envios-unico.sql` (índice único parcial en `envios_credencial`).
+
+**G1. 2FA de la superadmin (M18).** Hacer con el teléfono de Pablo.
+1. [ ] Entrar en `/superadmin/acceso` con la contraseña: la primera vez lleva a «Configure la verificación en dos pasos» (nada de `/superadmin` abre antes). Si se escribe `/superadmin` a mano, redirige a la verificación.
+2. [ ] «Empezar» → QR y 10 códigos de recuperación. **Guardar los códigos fuera del servidor** (no se vuelven a mostrar). Escanear con Google Authenticator/Microsoft Authenticator/FreeOTP, escribir el código → consola.
+3. [ ] Cerrar sesión y entrar de nuevo: pide el código de 6 cifras. Un código ya usado se rechaza (esperar al siguiente). Tras 5 fallos en 15 minutos la cuenta cierra sus sesiones.
+4. [ ] «No tengo el teléfono» con un código de recuperación: entra y ese código ya no sirve. Anotar cuáles quedan.
+5. [ ] Si se pierde el teléfono y los códigos: no hay pantalla de restablecimiento (a propósito). Hay que anular a mano en la base: `UPDATE cne.usuarios SET mfa_secreto=NULL, mfa_secreto_nonce=NULL, mfa_pendiente=NULL, mfa_pendiente_nonce=NULL, mfa_activada_en=NULL, mfa_ultimo_contador=NULL WHERE tipo='superadmin'` (pide autorización de Pablo; el siguiente acceso vuelve a pedir configurar).
+
+**G2. Borrar datos de prueba y preparar para elección (M19).** Solo cuando Pablo lo ordene (noche del 28); antes ensayar con datos de demostración.
+1. [ ] Consola → «Preparar elección»: lista lo que se borrará (con recuento) y lo que se conserva.
+2. [ ] «Solo crear respaldo para descargar» → «Descargar respaldo» (`.dump`). Guardarlo fuera del servidor (contiene cédulas y fotos cifradas; sin `APP_MASTER_KEY` no se leen las fotos). El archivo vive en el contenedor y se pierde al reiniciarlo.
+3. [ ] Escribir `PREPARAR ELECCIÓN` y pulsar el botón rojo: hace un respaldo nuevo y lo comprueba con `pg_restore --list`; si falla, dice «No se limpió nada» y el modo no cambia. Si va bien: recuentos borrados, enlace de descarga, modo elección. Los datos de demostración desaparecen; cuentas, operadores/PIN, enlaces, juntas, fichas reales y parámetros siguen.
+4. [ ] Repetirlo: borra 0 y no toca nada. La banda MODO PRUEBA desaparece de todas las pantallas.
+5. [ ] Copia interna: `SELECT lote, tabla, count(*) FROM cne.respaldo_limpieza GROUP BY 1,2` (las fotos de ensayo no se duplican ahí: están en el `.dump`).
+
+**G3. Informe de cierre (M20).** [ ] Admin → Informes → «Descargar PDF» y «Descargar Excel»: mismas filas que el panel de finanzas, con USD, tipo de cambio, EUR, momento y operador; hora de corte; el total coincide con el panel (solo confirmados); sin fotos; en modo prueba lleva «PRUEBA — SIN VALIDEZ». Abrir el Excel: la cédula conserva los ceros.
+
+**G4. Envío simulado de credenciales (M21).** [ ] Ficha de una persona con teléfono/correo → «Enviar por WhatsApp/correo»: queda «Enviada al servicio (simulado)» y no sale ningún mensaje; pulsarlo otra vez dice que ya hay un envío. Sin teléfono/correo el botón está desactivado. Admin → Credenciales → envío por lote a quienes faltan. Mensaje de aviso «Envío SIMULADO» visible.
+
+**G5. Inicio del admin (M22).** [ ] `/admin` muestra dos bloques: apertura de juntas (credenciales preparadas/pendientes, ingresados, juntas con tres presentes, incompletas, sin nadie) y pagos (documentos completos, pagos confirmados, total EUR). Se actualiza cada 10 s; los pagos no suben al imprimir actas. A 375 px las tarjetas pasan a 2 columnas sin desplazamiento horizontal.
+
+**G6. Captura automática (M23).** [ ] En `/d` (y en la estación de documentación): con la cámara abierta, la barra verde avanza y la foto se toma sola tras ~1 s con el documento quieto y nítido; con la cámara tapada o movida no dispara; «Tomar foto» y «Hacer o elegir foto» siguen funcionando; la casilla «Captura automática» la apaga; tras «Repetir» hay 2 s de pausa.
+
+**G7. Matriz de permisos (M25).** Automática en CI (`tests/permisos.test.ts`); no requiere acción manual. Toda ruta API o acción de servidor nueva debe añadirse a la matriz o la prueba falla.
