@@ -74,7 +74,7 @@ describe("incorporar un votante como MJRV", () => {
 
   it("en modo prueba la ficha es de prueba y «Preparar elección» la borra; en modo elección sería real", async () => {
     await incorporarVotante(actor, datos());
-    const sup: Sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo: "superadmin", rol: "consul", debeCambiar: false, mfaVerificada: true };
+    const sup: Sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo: "superadmin", rol: "consul", debeCambiar: false };
     const r = await prepararEleccion(sup, "PREPARAR ELECCION", async () => ({ archivo: "x", bytes: 1 }));
     expect(r.ok).toBe(true);
     expect((await consultarDueno("SELECT 1 FROM cne.mjrv WHERE incorporado_en IS NOT NULL")).length).toBe(0);

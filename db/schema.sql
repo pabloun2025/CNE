@@ -60,7 +60,6 @@ CREATE TABLE sesiones (
   token_hash      bytea NOT NULL UNIQUE,                 -- sha256 del token de la cookie
   usuario_id      bigint NOT NULL REFERENCES usuarios(id),
   portal          text NOT NULL CHECK (portal IN ('admin','superadmin')),
-  mfa_verificada  boolean NOT NULL DEFAULT false,
   creada_en       timestamptz NOT NULL DEFAULT now(),
   expira_en       timestamptz NOT NULL,
   revocada_en     timestamptz,

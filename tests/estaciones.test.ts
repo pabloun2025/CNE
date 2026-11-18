@@ -4,7 +4,7 @@ import { closePools } from "@/server/db";
 import { activarOperador, crearEnlace, crearOperador, enlacePorToken, identificarEstacion, identificarPuerta, listarEnlaces, restablecerPin, revocarEnlace, validarEstacion } from "@/server/estaciones";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const admin: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false, mfaVerificada: false };
+const admin: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
 
 async function nuevo(funcion: string, nombre: string, funciones: string[], pin = "1234") {
   const e = await crearEnlace(admin, funcion, `${funcion} de prueba`);

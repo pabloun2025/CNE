@@ -18,7 +18,6 @@ export type Sesion = {
   tipo: string;
   rol: RolAdmin; // solo significa algo en el portal admin; la superadmin lo ignora
   debeCambiar: boolean;
-  mfaVerificada: boolean;
 };
 
 export type ResultadoLogin = { ok: true; token: string; debeCambiar: boolean } | { ok: false; mensaje: string };
@@ -73,11 +72,11 @@ async function bloqueado(claveCorreo: string, ip: string | null): Promise<boolea
 export async function pideDefinirContrasena(correoCrudo: string, ip: string | null): Promise<boolean> {
   const correo = correoCrudo.trim().toLowerCase();
   if (await bloqueado(`correo:${sha256Hex(correo)}`, ip)) return false;
-  const f = await query("SELECT 1 FROM usuarios WHERE correo = $1 AND tipo = 'superadmin' AND activo AND password_pendiente AND password_hash IS NULL AND mfa_activada_en IS NULL", [correo]);
+  const f = await query("SELECT 1 FROM usuarios WHERE correo = $1 AND tipo = 'superadmin' AND activo AND password_pendiente AND password_hash IS NULL", [correo]);
   return f.length > 0;
 }
 
-// Primer acceso de la superadmin: define su contraseña (una sola vez) y abre sesión; la 2FA sigue siendo obligatoria.
+// Primer acceso de la superadmin: define su contraseña (una sola vez) y abre sesión.
 export async function definirContrasenaInicial(entrada: { correo: string; nueva: string; repetir: string; ip: string | null; agente: string | null }): Promise<ResultadoLogin> {
   const correo = entrada.correo.trim().toLowerCase();
   const claveCorreo = `correo:${sha256Hex(correo)}`;
@@ -94,7 +93,7 @@ export async function definirContrasenaInicial(entrada: { correo: string; nueva:
   // La condición va en el UPDATE: si dos personas llegan a la vez, solo una gana.
   const f = await query<{ id: number }>(
     `UPDATE usuarios SET password_hash = $1, password_pendiente = false, debe_cambiar = false
-      WHERE correo = $2 AND tipo = 'superadmin' AND activo AND password_pendiente AND password_hash IS NULL AND mfa_activada_en IS NULL RETURNING id`,
+      WHERE correo = $2 AND tipo = 'superadmin' AND activo AND password_pendiente AND password_hash IS NULL RETURNING id`,
     [await hashPassword(entrada.nueva), correo],
   );
   if (!f[0]) return fallar(GENERICO);
@@ -106,15 +105,15 @@ export async function definirContrasenaInicial(entrada: { correo: string; nueva:
 // Una cookie solo vale en el portal que la creó: se comprueba portal de la sesión y tipo del usuario.
 export async function leerSesion(token: string | undefined, portal: PortalSesion): Promise<Sesion | null> {
   if (!token) return null;
-  const f = await query<{ id: string; usuario_id: number; correo: string; nombre: string; tipo: string; rol: string; debe_cambiar: boolean; mfa_verificada: boolean }>(
-    `SELECT s.id, u.id AS usuario_id, u.correo, u.nombre, u.tipo, u.rol, u.debe_cambiar, s.mfa_verificada
+  const f = await query<{ id: string; usuario_id: number; correo: string; nombre: string; tipo: string; rol: string; debe_cambiar: boolean }>(
+    `SELECT s.id, u.id AS usuario_id, u.correo, u.nombre, u.tipo, u.rol, u.debe_cambiar
        FROM sesiones s JOIN usuarios u ON u.id = s.usuario_id
       WHERE s.token_hash = $1 AND s.portal = $2 AND u.tipo = $3 AND u.activo
         AND s.revocada_en IS NULL AND s.expira_en > now()`,
     [sha256Bytes(token), portal, TIPO_DE_PORTAL[portal]],
   );
   const r = f[0];
-  return r ? { sesionId: r.id, usuarioId: r.usuario_id, correo: r.correo, nombre: r.nombre, tipo: r.tipo, rol: esRolAdmin(r.rol) ? r.rol : "consul", debeCambiar: r.debe_cambiar, mfaVerificada: r.mfa_verificada } : null;
+  return r ? { sesionId: r.id, usuarioId: r.usuario_id, correo: r.correo, nombre: r.nombre, tipo: r.tipo, rol: esRolAdmin(r.rol) ? r.rol : "consul", debeCambiar: r.debe_cambiar } : null;
 }
 
 export async function cerrarSesion(token: string | undefined): Promise<void> {

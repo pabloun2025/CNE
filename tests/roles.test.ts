@@ -29,7 +29,7 @@ describe("roles de administración", () => {
   });
 
   it("la superadmin elige el rol al crear la cuenta; sin rol válido no se crea; admite nombre de usuario", async () => {
-    const sesion = { sesionId: "x", usuarioId: 1, correo: "s", nombre: "Super", tipo: "superadmin", rol: "consul" as const, debeCambiar: false, mfaVerificada: true };
+    const sesion = { sesionId: "x", usuarioId: 1, correo: "s", nombre: "Super", tipo: "superadmin", rol: "consul" as const, debeCambiar: false };
     expect((await crearAdmin(sesion, "fin1@prueba.cne", "Fin Uno", "financiero")).ok).toBe(true);
     expect((await crearAdmin(sesion, "coord.uno", "Coord Uno", "coordinador")).ok).toBe(true);
     expect((await crearAdmin(sesion, "otro@prueba.cne", "Otro", "")).ok).toBe(false);
