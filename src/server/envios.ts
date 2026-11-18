@@ -3,6 +3,7 @@ import { registrarAuditoria } from "./auditoria";
 import { query } from "./db";
 import { credencialesIndividuales } from "./pdf/credencial";
 import { seleccionarParaCredencial } from "./credenciales";
+import { textoCredencial } from "../domain/mensaje-credencial";
 import { canalEnReal } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
 import type { DatosCredencial } from "./pdf/credencial";
@@ -15,7 +16,7 @@ export type ResultadoEnvio = { ok: true; simulado: boolean; enCola?: boolean } |
 export function mensajeCredencial(d: DatosCredencial): { asunto: string; texto: string; nombreArchivo: string } {
   return {
     asunto: "Su credencial de miembro de Junta Receptora del Voto",
-    texto: `Buen día, ${d.nombres}. Adjuntamos su credencial de miembro de Junta Receptora del Voto (${d.rotulo}). Preséntela con su cédula.`,
+    texto: textoCredencial({ nombres: d.nombres, rotulo: d.rotulo, host: process.env.HOST_MADRID }),
     nombreArchivo: `credencial-${d.rotulo}.pdf`,
   };
 }

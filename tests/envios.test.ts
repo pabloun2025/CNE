@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
+import { textoCredencial } from "@/domain/mensaje-credencial";
 import { enviarCredencial, enviarLote, enviosDe } from "@/server/envios";
 import { elegirProveedor, type MensajeCredencial, type ProveedorEnvio } from "@/server/envios/proveedor";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
@@ -74,5 +75,35 @@ describe("envío simulado de credenciales", () => {
     const r = await enviarLote(admin, "whatsapp");
     expect(r).toMatchObject({ enviadas: 0, omitidas: 1 }); // 0000000003 sin rótulo; el resto ya tenía envío
     await expect(enviarCredencial({ ...admin, tipo: "superadmin" }, ids["0000000001"], "correo")).rejects.toThrow();
+  });
+});
+
+describe("D08 · texto del mensaje de la credencial", () => {
+  const d = { nombres: "NOMBRE PRUEBA", rotulo: "H01" };
+  it("lleva el rótulo, «comprobante de pago» y el enlace https://<HOST_MADRID>/d", () => {
+    const t = textoCredencial({ ...d, host: "madrid.ejemplo.invalid" });
+    expect(t).toContain("Buen día, NOMBRE PRUEBA.");
+    expect(t).toContain("(H01)");
+    expect(t).toContain("comprobante de pago");
+    expect(t).toContain("anverso y reverso");
+    expect(t.endsWith("https://madrid.ejemplo.invalid/d")).toBe(true);
+  });
+  it("tolera https:// y barras en el host; sin host no inventa ningún enlace", () => {
+    expect(textoCredencial({ ...d, host: "https://madrid.ejemplo.invalid/" })).toContain("https://madrid.ejemplo.invalid/d");
+    expect(textoCredencial({ ...d, host: "" })).not.toContain("http");
+    expect(textoCredencial({ ...d })).not.toContain("comprobante");
+  });
+  it("el envío (simulado) usa ese texto con el HOST_MADRID del servidor", async () => {
+    const antes = process.env.HOST_MADRID;
+    process.env.HOST_MADRID = "madrid.ejemplo.invalid";
+    try {
+      let texto = "";
+      const espia: ProveedorEnvio = { canal: "correo", enviar: async (m) => { texto = m.texto; return { idExterno: "X", simulado: true }; } };
+      await ficha("0000000006", { correo: "prueba6@ejemplo.invalid" });
+      await enviarCredencial(admin, ids["0000000006"], "correo", espia);
+      expect(texto).toContain("https://madrid.ejemplo.invalid/d");
+    } finally {
+      if (antes === undefined) delete process.env.HOST_MADRID; else process.env.HOST_MADRID = antes;
+    }
   });
 });
