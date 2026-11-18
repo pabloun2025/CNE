@@ -58,7 +58,7 @@ const ACCIONES: Record<string, Regla> = {
   "acceso-actions#accederAdmin": "publica", "acceso-actions#accederSuperadmin": "publica",
   "acceso-actions#cambiarContrasenaAdmin": "publica", "acceso-actions#cambiarContrasenaSuperadmin": "publica", // validan su propia cookie y la contraseña actual
   "acceso-actions#salirAdmin": "publica", "acceso-actions#salirSuperadmin": "publica",
-  "estacion-actions#entrarEstacionAccion": "publica", "estacion-actions#cambiarOperadorAccion": "publica", // acceso por PIN
+  "estacion-actions#entrarPuertaAccion": "publica", "estacion-actions#entrarEstacionAccion": "publica", "estacion-actions#cambiarOperadorAccion": "publica", // acceso por PIN
   "documentos-actions#fijarFormularioAccion": SOLO_ADMIN,
   "estacion-actions#crearOperadorAccion": SOLO_ADMIN, "estacion-actions#restablecerPinAccion": SOLO_ADMIN, "estacion-actions#activarOperadorAccion": SOLO_ADMIN,
   "estacion-actions#crearEnlaceAccion": SOLO_ADMIN, "estacion-actions#revocarEnlaceAccion": SOLO_ADMIN,
@@ -128,7 +128,7 @@ describe("matriz de permisos", () => {
     const admin = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul" as const, debeCambiar: false, mfaVerificada: false };
     for (const f of ["puerta", "documentacion", "finanzas", "mando"] as const) {
       const e = await crearEnlace(admin, f, `${f} prueba`);
-      const o = await crearOperador(admin, `Operador ${f}`, [f], "1234");
+      const o = await crearOperador(admin, `Operador ${f}`, "Prueba", [f], "1234");
       if (!e.ok || !o.ok) throw new Error("estación");
       const s = await identificarEstacion(e.token, o.id, "1234", "prueba");
       if (!s.ok) throw new Error("PIN");

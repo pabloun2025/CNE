@@ -18,7 +18,7 @@ export function PanelFinanciero() {
     <div className="space-y-3">
       {datos.modoPrueba && <p className="rounded bg-red-100 p-2 text-sm font-semibold text-red-900">Modo prueba: los pagos y los importes son simulados.</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Total entregado EUR", datos.totalEur]].map(([t, v]) => (
+        {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Total entregado USD", datos.totalUsd]].map(([t, v]) => (
           <div key={String(t)} className="rounded border bg-slate-50 p-2 text-center"><div className="text-2xl font-bold">{v}</div><div className="text-xs">{t}</div></div>
         ))}
       </div>
@@ -32,13 +32,13 @@ export function PanelFinanciero() {
       {filas.length === 0 ? <p>No hay personas con ese criterio.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b"><th className="p-2">Persona</th><th className="p-2">Junta</th><th className="p-2">Estado</th><th className="p-2">EUR</th><th className="p-2">Hora y operador</th></tr></thead>
+            <thead><tr className="border-b"><th className="p-2">Persona</th><th className="p-2">Junta</th><th className="p-2">Estado</th><th className="p-2">USD</th><th className="p-2">Hora y operador</th></tr></thead>
             <tbody>{filas.slice(0, 700).map((f) => (
               <tr key={f.id} className="border-b">
                 <td className="p-2">{f.nombre}<div className="text-slate-600">{f.cedula}</div></td>
                 <td className="p-2">{f.junta}</td>
                 <td className="p-2">{ESTADO[f.estado]}{f.simulado ? " (simulado)" : ""}</td>
-                <td className="p-2">{f.eur ?? "—"}</td>
+                <td className="p-2">{f.usd ?? "—"}</td>
                 <td className="p-2">{f.hora ? `${hora(f.hora)} · ${f.operador}` : "—"}</td>
               </tr>))}</tbody>
           </table>

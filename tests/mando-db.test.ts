@@ -29,7 +29,7 @@ describe("centro de mando con la demostración", () => {
     expect(m.indicadores).toMatchObject({ ingresados: 0, total: 570, sinNadie: 95 });
     await registrarLectura(est, "0000000067", null);
     const h12 = async () => (await estadoMando()).juntas.find((j) => j.serie === "H" && j.numero === 12)!;
-    expect(await h12()).toMatchObject({ presentes: 1, estado: "faltan", texto: "Faltan secretario y vocal", zona: "amarillo" });
+    expect(await h12()).toMatchObject({ presentes: 1, estado: "faltan", texto: "Falta gente", zona: "amarillo" });
     await registrarLectura(est, "0000000068", null);
     await registrarLectura(est, "0000000069", null);
     expect(await h12()).toMatchObject({ presentes: 3, estado: "completa" });
@@ -68,7 +68,7 @@ describe("D09 · cargos asignados a mano (contra la base)", () => {
   const cargos = async () => (await detalleJunta(junta))!.cargos.map((c) => [c.cargo, c.mjrvId, c.tipo]);
 
   it("las personas presentes sin cargo se asignan a un cargo vacante; se puede quitar", async () => {
-    expect((await estadoMando()).juntas.find((j) => j.id === junta)).toMatchObject({ presentes: 3, estado: "faltan", texto: "Faltan presidente, secretario y vocal" });
+    expect((await estadoMando()).juntas.find((j) => j.id === junta)).toMatchObject({ presentes: 3, estado: "completa", texto: "3 presentes" });
     expect(await asignarCargo(actor, { juntaId: junta, mjrvId: otros[0], cargo: "presidente" })).toEqual({ ok: true });
     expect(await cargos()).toEqual([["presidente", otros[0], "manual"], ["secretario", null, null], ["vocal", null, null]]);
     // Cargo ya cubierto o persona ajena a la junta: «la situación cambió».

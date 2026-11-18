@@ -1,7 +1,7 @@
 import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
 import { PanelFinanciero } from "@/components/panel-financiero";
 import { FormParametrosPago } from "@/components/form-parametros-pago";
-import { calcularImporteEur, faltanParametros } from "@/domain/pago";
+import { faltanParametros, montosParaActa } from "@/domain/pago";
 import { requireAdmin } from "@/server/guard";
 import { leerParametros } from "@/server/pago";
 
@@ -9,7 +9,7 @@ export default async function Finanzas() {
   await requireAdmin({ roles: CONSUL_Y_FINANCIERO });
   const p = await leerParametros();
   const faltan = faltanParametros(p);
-  const imp = calcularImporteEur(p);
+  const imp = montosParaActa(p);
   return (
     <main className="max-w-3xl space-y-6">
       <h1 className="text-xl font-semibold">Finanzas</h1>
@@ -22,7 +22,7 @@ export default async function Finanzas() {
         {faltan.length > 0 ? (
           <p role="alert" className="rounded bg-amber-100 p-2 font-medium text-amber-900">Parámetros de pago pendientes de aprobación. Faltan: {faltan.join(", ")}. Mientras tanto no se pueden confirmar pagos y las actas salen como borrador.</p>
         ) : (
-          <p className="rounded bg-green-100 p-2 font-medium text-green-900">Parámetros completos. Importe por persona: {imp.estado === "ok" ? `${imp.texto} EUR` : "—"}.</p>
+          <p className="rounded bg-green-100 p-2 font-medium text-green-900">Parámetros completos. Monto recibido y monto entregado: {imp.estado === "ok" ? `${imp.usd} USD` : "—"}. Tipo de cambio del día: {imp.estado === "ok" ? imp.tipoCambio : "—"}.</p>
         )}
         <FormParametrosPago valores={p} />
       </section>

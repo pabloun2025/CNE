@@ -16,6 +16,7 @@ export function FormOperador() {
   return (
     <form action={enviar} className="grid max-w-sm gap-3">
       <label className="text-sm font-medium">Nombre<input name="nombre" required className={campo} /></label>
+      <label className="text-sm font-medium">Apellido<input name="apellido" required className={campo} /></label>
       <fieldset className="text-sm font-medium"><legend>Funciones</legend>
         {FUNCIONES.map((f) => <label key={f} className="mr-4 inline-flex items-center gap-1 py-1"><input type="checkbox" name="funciones" value={f} /> {FUNCION_NOMBRE[f]}</label>)}
       </fieldset>

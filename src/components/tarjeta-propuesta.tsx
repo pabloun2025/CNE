@@ -6,7 +6,7 @@ import type { Propuesta } from "@/domain/propuestas";
 import { ZONA_NOMBRE } from "@/domain/juntas";
 import { useSondeo } from "./sondeo";
 
-const MOTIVOS = ["No responde", "Se niega", "No está", "Otro"];
+const MOTIVOS = ["No contesta", "No quiere", "Ya no está"];
 
 // Una propuesta a la vez. Las acciones las decide siempre una persona (§7.3); la tarjeta nunca mueve a nadie sola.
 export function TarjetaPropuesta({ onCambio }: { onCambio: () => void }) {
@@ -14,7 +14,6 @@ export function TarjetaPropuesta({ onCambio }: { onCambio: () => void }) {
   const [cargoElegido, setCargoElegido] = useState<{ clave: string; cargo: string } | null>(null);
   const [aviso, setAviso] = useState("");
   const [motivo, setMotivo] = useState(MOTIVOS[0]);
-  const [otro, setOtro] = useState("");
   const [verNoViable, setVerNoViable] = useState(false);
   const [pendiente, iniciar] = useTransition();
   if (!datos) return null;
@@ -56,16 +55,15 @@ export function TarjetaPropuesta({ onCambio }: { onCambio: () => void }) {
       {aviso && <p role="alert" className="font-semibold text-red-700">{aviso}</p>}
       <div className="flex flex-wrap gap-2">
         <button disabled={pendiente} onClick={() => ejecutar(aceptarAccion)} className="rounded bg-green-700 px-6 py-4 text-lg font-bold text-white disabled:opacity-60">Aceptar</button>
-        <button disabled={pendiente} onClick={() => ejecutar(pasarAccion)} className="rounded border-2 border-slate-600 px-6 py-4 text-lg font-bold disabled:opacity-60">Siguiente propuesta</button>
-        <button disabled={pendiente} onClick={() => setVerNoViable((v) => !v)} className="rounded border-2 border-red-700 px-6 py-4 text-lg font-bold text-red-800 disabled:opacity-60">No viable</button>
+        <button disabled={pendiente} onClick={() => ejecutar(pasarAccion)} className="rounded border-2 border-slate-600 px-6 py-4 text-lg font-bold disabled:opacity-60">Siguiente</button>
+        <button disabled={pendiente} onClick={() => setVerNoViable((v) => !v)} className="rounded border-2 border-red-700 px-6 py-4 text-lg font-bold text-red-800 disabled:opacity-60">No se puede</button>
       </div>
       {verNoViable && (
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-sm font-medium">Motivo
             <select value={motivo} onChange={(e) => setMotivo(e.target.value)} className="mt-1 block rounded border border-slate-400 px-3 py-3">{MOTIVOS.map((m) => <option key={m}>{m}</option>)}</select>
           </label>
-          {motivo === "Otro" && <input value={otro} onChange={(e) => setOtro(e.target.value)} placeholder="Escriba el motivo" className="rounded border border-slate-400 px-3 py-3" />}
-          <button disabled={pendiente || (motivo === "Otro" && otro.trim().length < 2)} onClick={() => ejecutar(noViableAccion, { motivo: motivo === "Otro" ? otro : motivo })} className="rounded bg-red-700 px-4 py-3 font-bold text-white disabled:opacity-60">Confirmar no viable</button>
+          <button disabled={pendiente} onClick={() => ejecutar(noViableAccion, { motivo })} className="rounded bg-red-700 px-4 py-3 font-bold text-white disabled:opacity-60">Confirmar</button>
         </div>
       )}
     </section>

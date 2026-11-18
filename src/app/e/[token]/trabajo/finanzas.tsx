@@ -6,8 +6,8 @@ import { Documentacion } from "./documentacion";
 
 type Ficha = {
   mjrvId: number; cedula: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
-  anverso: boolean; reverso: boolean; documentosCompletos: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeEur: string | null;
-  acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeEur: string; simulado: boolean } | null;
+  anverso: boolean; reverso: boolean; documentosCompletos: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; tipoCambio: string | null;
+  acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeUsd: string; tipoCambio: string | null; simulado: boolean } | null;
   estado: string; modoPrueba: boolean; otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
 };
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
@@ -18,7 +18,6 @@ export function Finanzas() {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [verificado, setVerificado] = useState(false);
   const [mensaje, setMensaje] = useState("");
-  const [capturar, setCapturar] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
 
@@ -60,9 +59,16 @@ export function Finanzas() {
     } catch { setMensaje("No hay conexión. El pago no se ha confirmado."); } finally { setOcupado(false); setConfirmando(false); }
   };
 
-  if (ficha && capturar) {
-    return (<div className="space-y-3"><button onClick={() => { setCapturar(false); void cargar(ficha.cedula); }} className="rounded border border-slate-500 px-4 py-3 font-semibold">← Volver a la ficha de pago</button><Documentacion inicial={ficha.cedula} /></div>);
+  if (ficha && !ficha.pago && !ficha.documentosCompletos) {
+    return (
+      <div className="mx-auto max-w-md space-y-3">
+        <p className="font-semibold">Faltan las fotos de la cédula. Tome el anverso y el reverso antes de continuar.</p>
+        <Documentacion inicial={ficha.cedula} abrirFaltante alCompletar={() => void cargar(ficha.cedula)} />
+        <button onClick={() => { setFicha(null); setCedula(""); setMensaje(""); }} className="w-full rounded border-2 border-slate-600 px-4 py-3 font-semibold">Otra persona</button>
+      </div>
+    );
   }
+  const montos = ficha?.importeUsd ? `${ficha.importeUsd} USD${ficha.tipoCambio ? ` · tipo de cambio ${ficha.tipoCambio}` : ""}` : "";
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <form onSubmit={(e) => { e.preventDefault(); void cargar(cedula); }} className="flex gap-2">
@@ -80,7 +86,7 @@ export function Finanzas() {
           ))}
           {ficha.pago && (
             <p role="alert" className="rounded bg-red-700 p-3 text-center text-lg font-extrabold text-white">
-              YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeEur} EUR. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
+              YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeUsd} USD{ficha.pago.tipoCambio ? ` · tipo de cambio ${ficha.pago.tipoCambio}` : ""}. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
             </p>
           )}
           <div><p className="text-lg font-semibold">{ficha.nombre}</p><p className="text-sm">Cédula {ficha.cedula} · {ficha.cargo} · junta {ficha.juntaVigente}{ficha.juntaVigente !== ficha.juntaOrigen ? ` (origen ${ficha.juntaOrigen})` : ""}</p></div>
@@ -89,9 +95,8 @@ export function Finanzas() {
             <Req ok={ficha.anverso} texto="Documento: anverso" />
             <Req ok={ficha.reverso} texto="Documento: reverso" />
             <Req ok={!ficha.pago} texto="Sin pago previo" />
-            <Req ok={ficha.parametrosCompletos} texto={ficha.parametrosCompletos ? `Parámetros de pago completos · ${ficha.importeEur} EUR` : `Parámetros de pago pendientes (${ficha.faltanParametros.join(", ")})`} />
+            <Req ok={ficha.parametrosCompletos} texto={ficha.parametrosCompletos ? `Parámetros de pago completos · ${montos}` : `Parámetros de pago pendientes (${ficha.faltanParametros.join(", ")})`} />
           </ul>
-          {!ficha.documentosCompletos && !ficha.pago && <button onClick={() => setCapturar(true)} className="w-full rounded border-2 border-blue-700 px-4 py-4 text-lg font-bold text-blue-800">Capturar ahora</button>}
           {!ficha.pago && ficha.activo && (
             <>
               <label className="flex items-start gap-3 rounded bg-slate-100 p-3 text-base font-medium">
@@ -107,7 +112,7 @@ export function Finanzas() {
                     <button disabled={!verificado || ocupado} onClick={() => setConfirmando(true)} className="w-full rounded bg-green-800 px-4 py-5 text-xl font-extrabold text-white disabled:opacity-50">Confirmar pago entregado</button>
                   ) : (
                     <div role="dialog" aria-label="Confirmar pago" className="space-y-3 rounded border-2 border-green-800 p-3">
-                      <p className="text-lg">Confirme que el acta está firmada y el dinero entregado: <strong>{ficha.importeEur} EUR</strong> a <strong>{ficha.nombre}</strong>.{ficha.modoPrueba ? " (Pago simulado: modo prueba)" : ""}</p>
+                      <p className="text-lg">Confirme que el acta está firmada y el dinero entregado: <strong>{montos}</strong> a <strong>{ficha.nombre}</strong>.{ficha.modoPrueba ? " (Pago simulado: modo prueba)" : ""}</p>
                       <div className="flex gap-3">
                         <button disabled={ocupado} onClick={confirmar} className="flex-1 rounded bg-green-800 px-4 py-4 text-lg font-bold text-white">Sí, confirmar</button>
                         <button disabled={ocupado} onClick={() => setConfirmando(false)} className="flex-1 rounded border-2 border-slate-600 px-4 py-4 text-lg font-bold">Cancelar</button>

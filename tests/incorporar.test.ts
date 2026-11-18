@@ -36,7 +36,7 @@ describe("incorporar un votante como MJRV", () => {
   });
 
   it("crea la ficha presente con la marca, cubre el cargo y deja auditoría; la junta pasa a verde", async () => {
-    expect((await estadoMando()).juntas.find((j) => j.id === junta)).toMatchObject({ estado: "faltan", texto: "Falta vocal" });
+    expect((await estadoMando()).juntas.find((j) => j.id === junta)).toMatchObject({ estado: "faltan", texto: "Falta gente" });
     const r = await incorporarVotante(actor, datos({ telefono: "612 345 678", correo: "Prueba@Ejemplo.invalid" }));
     expect(r).toMatchObject({ ok: true });
     const [m] = await consultarDueno<Record<string, unknown>>("SELECT rol, cargo_original, incorporado_por, fuente_archivo, correo, telefono_e164, es_prueba, incorporado_en IS NOT NULL AS inc, junta_origen_id::text FROM cne.mjrv WHERE cedula = '0000000900'");

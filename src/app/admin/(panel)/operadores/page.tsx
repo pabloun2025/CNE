@@ -23,7 +23,7 @@ export default async function Operadores() {
         <ul className="mt-2 divide-y">
           {operadores.map((o) => (
             <li key={o.id} className="space-y-2 py-3">
-              <p className="font-medium">{o.nombre} <span className="font-normal text-slate-600">· {o.funciones.map((f) => FUNCION_NOMBRE[f]).join(", ")}</span></p>
+              <p className="font-medium">{o.nombre} {o.apellido} <span className="font-normal text-slate-600">· {o.funciones.map((f) => FUNCION_NOMBRE[f]).join(", ")}</span></p>
               <p className="text-sm">{o.activo ? "Activo" : "Desactivado"}{o.bloqueado ? " · bloqueado por PIN" : ""}</p>
               <div className="flex flex-wrap items-start gap-3">
                 <form action={activarOperadorAccion}>

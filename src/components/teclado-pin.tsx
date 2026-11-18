@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { entrarEstacionAccion } from "@/server/estacion-actions";
 
 // Elegir nombre y teclear 4 dígitos con teclas grandes; envía solo al completar el cuarto.
-export function TecladoPin({ token, operadores }: { token: string; operadores: { id: number; nombre: string }[] }) {
+export function TecladoPin({ token, operadores }: { token: string; operadores: { id: number; nombre: string; apellido: string }[] }) {
   const [operador, setOperador] = useState<number | null>(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
@@ -32,7 +32,7 @@ export function TecladoPin({ token, operadores }: { token: string; operadores: {
           {operadores.map((o) => (
             <button key={o.id} type="button" onClick={() => { setOperador(o.id); setPin(""); setError(""); }}
               className={`rounded border-2 px-4 py-4 text-left text-lg font-semibold ${operador === o.id ? "border-blue-700 bg-blue-50" : "border-slate-300"}`}>
-              {o.nombre}
+              {`${o.nombre} ${o.apellido}`.trim()}
             </button>
           ))}
         </div>

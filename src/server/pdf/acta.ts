@@ -10,7 +10,7 @@ export type DatosActa = {
   emitidaEn: Date;
   operador: string;
   persona: { apellidos: string; nombres: string; cedula: string; cargo: string; juntaOrigen: string; juntaVigente: string };
-  importe: { eur: string } | null;
+  importe: { recibido: string; entregado: string; tipoCambio: string } | null;
   pagador: { nombre: string; cargo: string } | null;
   anverso: Buffer;
   reverso: Buffer;
@@ -78,7 +78,10 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
     linea("IMPORTE PENDIENTE DE APROBACIÓN — BORRADOR", 13, bold);
   } else {
     const i = d.importe;
-    linea(`Importe entregado: ${i.eur} EUR`, 13, bold);
+    // Misma plantilla. Los dos montos son el dólar escrito; el tipo de cambio se imprime y no se aplica.
+    linea(`Monto recibido: ${i.recibido} USD`, 13, bold);
+    linea(`Tipo de cambio del día: ${i.tipoCambio}`, 13, bold);
+    linea(`Monto entregado: ${i.entregado} USD`, 13, bold);
   }
   y -= 8;
   linea("4 · Declaración", 12, bold);

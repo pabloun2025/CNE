@@ -80,6 +80,7 @@ CREATE INDEX ON intentos_acceso (clave, creado_en);
 CREATE TABLE operadores_madrid (
   id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nombre          text NOT NULL CHECK (char_length(nombre) BETWEEN 2 AND 80),
+  apellido        text NOT NULL DEFAULT '' CHECK (char_length(apellido) <= 80),
   pin_hash        text NOT NULL,                         -- argon2id; nunca en claro (§16.1)
   funciones       text[] NOT NULL CHECK (funciones <@ ARRAY['puerta','documentacion','finanzas','mando'] AND cardinality(funciones) > 0),
   activo          boolean NOT NULL DEFAULT true,
@@ -89,7 +90,7 @@ CREATE TABLE operadores_madrid (
   creado_en       timestamptz NOT NULL DEFAULT now(),
   creado_por      bigint REFERENCES usuarios(id)
 );
-CREATE UNIQUE INDEX ON operadores_madrid (lower(nombre)) WHERE activo;
+CREATE UNIQUE INDEX operadores_madrid_nombre_apellido_activo ON operadores_madrid (lower(nombre), lower(apellido)) WHERE activo;
 
 CREATE TABLE enlaces_estacion (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -240,7 +241,7 @@ CREATE TABLE actas_pago (                  -- §13.8: generar/imprimir no es pag
   operador_id  bigint NOT NULL REFERENCES operadores_madrid(id),
   importe_usd  numeric(12,2) NOT NULL,
   tipo_cambio  numeric(14,6) NOT NULL,
-  importe_eur  numeric(12,2) NOT NULL,
+  importe_eur  numeric(12,2),            -- la fórmula con el tipo de cambio sigue abierta: las actas nuevas lo dejan vacío
   parametros   jsonb NOT NULL,             -- copia de parametros_pago usada (trazabilidad)
   impresion_n  int NOT NULL,               -- 1 = original; >1 = «REIMPRESIÓN n»
   creado_en    timestamptz NOT NULL DEFAULT now(),
@@ -254,7 +255,7 @@ CREATE TABLE pagos_confirmados (           -- §7.5 requisito de control
   acta_id       bigint NOT NULL REFERENCES actas_pago(id),
   importe_usd   numeric(12,2) NOT NULL,
   tipo_cambio   numeric(14,6) NOT NULL,
-  importe_eur   numeric(12,2) NOT NULL,    -- euros efectivamente entregados (§15.6)
+  importe_eur   numeric(12,2),             -- vacío mientras la fórmula entre dólares y euros siga abierta
   funciones_verificadas boolean NOT NULL CHECK (funciones_verificadas),
   operador_id   bigint NOT NULL REFERENCES operadores_madrid(id),
   enlace_id     bigint NOT NULL REFERENCES enlaces_estacion(id),

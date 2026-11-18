@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { IdentificacionPuerta } from "@/components/identificacion-puerta";
 import { TecladoPin } from "@/components/teclado-pin";
 import { FUNCION_NOMBRE } from "@/domain/estaciones";
 import { registrarAuditoria } from "@/server/auditoria";
@@ -20,12 +21,12 @@ export default async function Identificacion({ params }: { params: Promise<{ tok
   }
   const sesion = await leerSesionEstacion((await cookies()).get(COOKIE_ESTACION)?.value);
   if (sesion && sesion.enlaceId === enlace.id) redirect(`/e/${token}/trabajo`);
-  const operadores = await operadoresDelEnlace(enlace);
+  const operadores = enlace.funcion === "puerta" ? [] : await operadoresDelEnlace(enlace);
   return (
     <main className="mx-auto max-w-sm p-4">
       <p className="text-sm text-slate-600">{FUNCION_NOMBRE[enlace.funcion]}</p>
       <h1 className="text-2xl font-semibold">{enlace.etiqueta}</h1>
-      <TecladoPin token={token} operadores={operadores} />
+      {enlace.funcion === "puerta" ? <IdentificacionPuerta token={token} /> : <TecladoPin token={token} operadores={operadores} />}
     </main>
   );
 }

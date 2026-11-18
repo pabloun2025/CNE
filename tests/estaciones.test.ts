@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
-import { activarOperador, crearEnlace, crearOperador, enlacePorToken, identificarEstacion, listarEnlaces, restablecerPin, revocarEnlace, validarEstacion } from "@/server/estaciones";
+import { activarOperador, crearEnlace, crearOperador, enlacePorToken, identificarEstacion, identificarPuerta, listarEnlaces, restablecerPin, revocarEnlace, validarEstacion } from "@/server/estaciones";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const admin: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false, mfaVerificada: false };
 
 async function nuevo(funcion: string, nombre: string, funciones: string[], pin = "1234") {
   const e = await crearEnlace(admin, funcion, `${funcion} de prueba`);
-  const o = await crearOperador(admin, nombre, funciones, pin);
+  const o = await crearOperador(admin, nombre, "Prueba", funciones, pin);
   if (!e.ok || !o.ok) throw new Error("preparación");
   return { token: e.token, enlaceId: e.id, operadorId: o.id };
 }
@@ -20,12 +20,14 @@ describe("estaciones: operadores, PIN y enlaces", () => {
   });
   afterAll(closePools);
 
-  it("valida el PIN de 4 dígitos y el nombre único entre activos", async () => {
-    expect((await crearOperador(admin, "Op", ["puerta"], "12a4")).ok).toBe(false);
-    expect((await crearOperador(admin, "Op", ["puerta"], "123")).ok).toBe(false);
-    expect((await crearOperador(admin, "Op", [], "1234")).ok).toBe(false);
-    expect((await crearOperador(admin, "Op Único", ["puerta"], "1234")).ok).toBe(true);
-    expect((await crearOperador(admin, "op único", ["finanzas"], "1234")).ok).toBe(false);
+  it("valida el PIN de 4 dígitos y el nombre con apellido único entre activos", async () => {
+    expect((await crearOperador(admin, "Op", "Uno", ["puerta"], "12a4")).ok).toBe(false);
+    expect((await crearOperador(admin, "Op", "Uno", ["puerta"], "123")).ok).toBe(false);
+    expect((await crearOperador(admin, "Op", "Uno", [], "1234")).ok).toBe(false);
+    expect((await crearOperador(admin, "Op", "U", ["puerta"], "1234")).ok).toBe(false);
+    expect((await crearOperador(admin, "Op Único", "Uno", ["puerta"], "1234")).ok).toBe(true);
+    expect((await crearOperador(admin, "op único", "uno", ["finanzas"], "1234")).ok).toBe(false);
+    expect((await crearOperador(admin, "Op Único", "Dos", ["finanzas"], "1234")).ok).toBe(true);
   });
 
   it("el token se guarda con hash y cifrado, y el admin puede volver a verlo", async () => {
@@ -37,6 +39,13 @@ describe("estaciones: operadores, PIN y enlaces", () => {
     expect((await listarEnlaces()).find((x) => x.id === e.id)?.token).toBe(e.token);
     expect((await enlacePorToken(e.token))?.funcion).toBe("puerta");
     expect(await enlacePorToken("inventado-inventado-inventado")).toBeNull();
+  });
+
+  it("la puerta identifica con nombre, apellido y PIN, sin lista", async () => {
+    const { token } = await nuevo("puerta", "Elena", ["puerta"], "2468");
+    expect(await identificarPuerta(token, " elena ", "prueba", "2468", "tablet")).toMatchObject({ ok: true });
+    expect(await identificarPuerta(token, "Elena", "Otro", "2468", null)).toMatchObject({ ok: false, codigo: "pin" });
+    expect(await identificarPuerta(token, "Elena", "Prueba", "0000", null)).toMatchObject({ ok: false, mensaje: expect.stringContaining("PIN incorrecto") });
   });
 
   it("PIN correcto abre sesión; PIN erróneo avisa de los intentos que quedan y bloquea al 5.º", async () => {

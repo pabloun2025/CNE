@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { dosFilas } from "@/domain/juntas";
 import { calcularMando, filtrarJuntas, type JuntaEntrada, type PersonaEntrada } from "@/domain/mando";
 
 const juntas: JuntaEntrada[] = [
@@ -12,20 +13,20 @@ const roles = (junta: number, ...rs: string[]) => rs.map((r) => persona(junta, r
 const completa = (junta: number) => roles(junta, "presidente", "secretario", "vocal");
 const j = (r: ReturnType<typeof calcularMando>, id: number) => r.juntas.find((x) => x.id === id)!;
 
-describe("estado de las juntas (tres cargos cubiertos)", () => {
-  it("nadie → rojo; alguien pero falta un cargo → ámbar con el cargo; los tres cubiertos → verde", () => {
+describe("estado de las juntas (tres presentes)", () => {
+  it("nadie → rojo; uno o dos → ámbar; tres o más → verde", () => {
     expect(j(calcularMando(juntas, [], []), 1)).toMatchObject({ presentes: 0, estado: "nadie", texto: "Nadie" });
-    expect(j(calcularMando(juntas, roles(1, "presidente"), []), 1)).toMatchObject({ estado: "faltan", texto: "Faltan secretario y vocal", vacantes: ["secretario", "vocal"] });
-    expect(j(calcularMando(juntas, roles(1, "presidente", "secretario"), []), 1)).toMatchObject({ estado: "faltan", texto: "Falta vocal" });
-    expect(j(calcularMando(juntas, completa(1), []), 1)).toMatchObject({ presentes: 3, estado: "completa", texto: "Completa" });
+    expect(j(calcularMando(juntas, roles(1, "presidente"), []), 1)).toMatchObject({ presentes: 1, estado: "faltan", texto: "Falta gente", vacantes: ["secretario", "vocal"] });
+    expect(j(calcularMando(juntas, roles(1, "presidente", "secretario"), []), 1)).toMatchObject({ presentes: 2, estado: "faltan", texto: "Falta gente" });
+    expect(j(calcularMando(juntas, completa(1), []), 1)).toMatchObject({ presentes: 3, estado: "completa", texto: "3 presentes" });
   });
 
   it("presidente y secretario titulares + un suplente de la propia junta → verde", () => {
     expect(j(calcularMando(juntas, roles(1, "presidente", "secretario", "suplente"), []), 1).estado).toBe("completa");
   });
 
-  it("presidente y 2 vocales: ámbar «Falta secretario» (3 presentes no bastan)", () => {
-    expect(j(calcularMando(juntas, roles(1, "presidente", "vocal", "vocal"), []), 1)).toMatchObject({ presentes: 3, estado: "faltan", texto: "Falta secretario" });
+  it("tres presentes quedan en verde aunque falte un cargo", () => {
+    expect(j(calcularMando(juntas, roles(1, "presidente", "vocal", "vocal"), []), 1)).toMatchObject({ presentes: 3, estado: "completa", texto: "3 presentes", vacantes: ["secretario"] });
   });
 
   it("una excepción activa resta y quien no ha ingresado no cuenta", () => {
@@ -41,8 +42,8 @@ describe("estado de las juntas (tres cargos cubiertos)", () => {
     expect(j(r, 2)).toMatchObject({ presentes: 3, estado: "completa", movimiento: true });
     expect(j(r, 1)).toMatchObject({ presentes: 3, movimiento: true });
     expect(j(r, 3).movimiento).toBe(false);
-    // Sin la asignación el trasladado está presente pero sin cargo: sigue ámbar.
-    expect(j(calcularMando(juntas, [...completa(1), ...roles(2, "presidente", "secretario"), movida], [{ junta_origen_id: 1, junta_destino_id: 2 }]), 2)).toMatchObject({ presentes: 3, estado: "faltan", texto: "Falta vocal" });
+    // Sin la asignación el cargo sigue vacante, pero el aro es verde: hay 3 presentes.
+    expect(j(calcularMando(juntas, [...completa(1), ...roles(2, "presidente", "secretario"), movida], [{ junta_origen_id: 1, junta_destino_id: 2 }]), 2)).toMatchObject({ presentes: 3, estado: "completa", texto: "3 presentes", vacantes: ["vocal"] });
   });
 
   it("suplentes transferibles: solo los de la propia junta que sobran con los tres cargos cubiertos", () => {
@@ -66,5 +67,14 @@ describe("estado de las juntas (tres cargos cubiertos)", () => {
     expect(filtrarJuntas(con0, "faltan").map((x) => `${x.serie}${x.numero}`)).toEqual(["H13", "M1", "H12"]);
     expect(filtrarJuntas(todas, "completas").map((x) => x.id)).toEqual([1]);
     expect(filtrarJuntas(todas, "todas")).toHaveLength(3);
+  });
+});
+
+describe("filas por color", () => {
+  it("parte cada serie en dos filas, sin decidir el extremo", () => {
+    expect(dosFilas([1, 2, 3, 4, 5, 6, 7, 8]).map((f) => f.length)).toEqual([4, 4]);
+    expect(dosFilas(Array.from({ length: 21 }, (_, i) => i + 1)).map((f) => f.length)).toEqual([11, 10]);
+    expect(dosFilas(Array.from({ length: 15 }, (_, i) => i + 1)).map((f) => f.length)).toEqual([8, 7]);
+    expect(dosFilas([1]).map((f) => f.length)).toEqual([1]);
   });
 });

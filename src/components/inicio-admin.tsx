@@ -39,7 +39,7 @@ export function InicioAdmin() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Tarjeta titulo="Documentos completos" valor={p.documentosCompletos} detalle={`${p.documentosIncompletos} incompletos`} />
           <Tarjeta titulo="Pagos confirmados" valor={p.pagados} detalle={datos.modoPrueba ? "Simulados (modo prueba)" : undefined} />
-          <Tarjeta titulo="Total entregado" valor={`${p.totalEur} EUR`} detalle="Solo pagos confirmados" />
+          <Tarjeta titulo="Total entregado" valor={`${p.totalUsd} USD`} detalle="Solo pagos confirmados" />
         </div>
         <Link href="/admin/finanzas" className="inline-block rounded border border-slate-500 px-4 py-3 font-semibold">Ir a finanzas</Link>
       </section>}

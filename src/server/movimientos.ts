@@ -64,7 +64,7 @@ export async function aceptarPropuesta(a: Actor, p: { mjrvId: number; origenId: 
 // «Siguiente propuesta» (pasada) y «No viable» solo registran la decisión; no mueven a nadie.
 export async function descartarPropuesta(a: Actor, p: { mjrvId: number; origenId: number; destinoId: number }, decision: "pasada" | "no_viable", motivo?: string): Promise<Resultado> {
   const m = decision === "no_viable" ? (motivo ?? "").trim().slice(0, 200) : null;
-  if (decision === "no_viable" && m!.length === 0) return { ok: false, mensaje: "Indique el motivo: no responde, se niega, no está u otro." };
+  if (decision === "no_viable" && m!.length === 0) return { ok: false, mensaje: "Indique el motivo: no contesta, no quiere o ya no está." };
   return withTx(async (client) => {
     const s = await situacion(client, p.mjrvId, p.origenId, p.destinoId);
     if (!s || s.v.junta_actual_id !== p.origenId) return { ok: false as const, cambio: true, mensaje: MENSAJE_CAMBIO };

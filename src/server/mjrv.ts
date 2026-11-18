@@ -1,4 +1,5 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { textoCambio } from "../domain/pago";
 import { leerJunta } from "../domain/juntas";
 import { rolDeCargo, type Rol } from "../domain/importacion/mjrv";
 import type { Sesion } from "./auth";
@@ -44,7 +45,7 @@ export type Ficha = {
   id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; rol: Rol; rotulo_credencial: string | null;
   correo: string | null; telefono_e164: string | null; activo: boolean; baja_motivo: string | null; es_prueba: boolean;
   credencial_generada_en: string | null; fuente_archivo: string | null; origen: string; vigente: string;
-  ingreso_en: string | null; incorporado_en: string | null; incorporado_por: string | null; anverso: boolean; reverso: boolean; actas: number; pago: { en: string; importe_eur: string; operador: string } | null;
+  ingreso_en: string | null; incorporado_en: string | null; incorporado_por: string | null; anverso: boolean; reverso: boolean; actas: number; pago: { en: string; importe_usd: string | null; tipo_cambio: string | null; operador: string } | null;
   movimientos: { creado_en: string; origen: string; destino: string; decision: string; manual: boolean; actor_nombre: string }[];
 };
 
@@ -59,13 +60,14 @@ export async function obtenerFicha(id: number): Promise<Ficha | null> {
   if (!f[0]) return null;
   const docs = await query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [id]);
   const actas = await query<{ n: number }>("SELECT count(*)::int AS n FROM actas_pago WHERE mjrv_id = $1", [id]);
-  const pago = await query<{ en: string; importe_eur: string; operador: string }>(
-    "SELECT p.confirmado_en::text AS en, p.importe_eur::text, o.nombre AS operador FROM pagos_confirmados p JOIN operadores_madrid o ON o.id = p.operador_id WHERE p.mjrv_id = $1", [id]);
+  const pago = await query<{ en: string; importe_usd: string | null; tipo_cambio: string | null; operador: string }>(
+    "SELECT p.confirmado_en::text AS en, p.importe_usd::text, p.tipo_cambio::text, btrim(o.nombre || ' ' || o.apellido) AS operador FROM pagos_confirmados p JOIN operadores_madrid o ON o.id = p.operador_id WHERE p.mjrv_id = $1", [id]);
   const movimientos = await query<Ficha["movimientos"][number]>(
     `SELECT d.creado_en::text, jo.serie || jo.numero AS origen, jd.serie || jd.numero AS destino, d.decision, d.manual, d.actor_nombre
        FROM decisiones_movimiento d JOIN juntas_madrid jo ON jo.id = d.junta_origen_id JOIN juntas_madrid jd ON jd.id = d.junta_destino_id
       WHERE d.mjrv_id = $1 ORDER BY d.creado_en DESC, d.id DESC`, [id]);
-  return { ...f[0], anverso: docs.some((d) => d.lado === "anverso"), reverso: docs.some((d) => d.lado === "reverso"), actas: actas[0].n, pago: pago[0] ?? null, movimientos };
+  const cobro = pago[0];
+  return { ...f[0], anverso: docs.some((d) => d.lado === "anverso"), reverso: docs.some((d) => d.lado === "reverso"), actas: actas[0].n, pago: cobro ? { ...cobro, tipo_cambio: cobro.tipo_cambio ? textoCambio(cobro.tipo_cambio) : null } : null, movimientos };
 }
 
 export type DatosMjrv = { cedula: string; apellidos: string; nombres: string; cargo: string; junta: string; correo: string; telefono: string; rotulo: string };
