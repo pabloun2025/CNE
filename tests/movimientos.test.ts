@@ -44,7 +44,7 @@ describe("movimientos", () => {
     expect(typeof p.mjrvId).toBe("number");
     expect(await aceptarPropuesta(actor, p)).toEqual({ ok: true });
     const m = await estadoMando();
-    expect(m.juntas.find((j) => j.numero === 15 && j.serie === "H")).toMatchObject({ presentes: 3, estado: "completa", movimiento: true });
+    expect(m.juntas.find((j) => j.numero === 15 && j.serie === "H")).toMatchObject({ presentes: 3, movimiento: true }); // el cargo lo asigna D10
     const [d] = await consultarDueno<{ decision: string; actor_nombre: string; manual: boolean }>("SELECT decision, actor_nombre, manual FROM cne.decisiones_movimiento");
     expect(d).toEqual({ decision: "aceptada", actor_nombre: "Op Mando", manual: false });
     expect(await propuestaActual()).toBeNull();

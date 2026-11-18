@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { proponer, type DecisionProp, type JuntaProp, type PersonaProp, type Propuesta } from "../domain/propuestas";
 import { MINIMO_JUNTA } from "../domain/mando";
+import { CARGOS, cubrirCargos, type AsignacionCargo, type Cargo, type CoberturaJunta, type PersonaCargo } from "../domain/cargos";
 import { leerJunta } from "../domain/juntas";
 import { registrarAuditoria } from "./auditoria";
 import { query, withTx } from "./db";
@@ -93,4 +94,49 @@ export async function quitarExcepcion(mjrvId: number): Promise<Resultado> {
 export async function rehabilitar(mjrvId: number): Promise<Resultado> {
   await query("UPDATE decisiones_movimiento SET rehabilitada_en = now() WHERE mjrv_id = $1 AND decision = 'no_viable' AND rehabilitada_en IS NULL", [mjrvId]);
   return { ok: true };
+}
+
+// ───────────── Cargos por junta (decisión 9, 09 §3.4) ─────────────
+// Cobertura de una junta dentro de la transacción, bajo el bloqueo de aviso de esa junta.
+export async function coberturaEnTx(client: PoolClient, juntaId: number): Promise<CoberturaJunta> {
+  const personas = (await client.query<PersonaCargo>(
+    `SELECT m.id, m.rol, m.fila_origen, m.apellidos, v.junta_origen_id, v.junta_actual_id, v.ingresado, v.con_excepcion
+       FROM mjrv m JOIN v_mjrv_asignacion v ON v.mjrv_id = m.id WHERE v.junta_actual_id = $1 OR v.junta_origen_id = $1`, [juntaId])).rows;
+  const asignaciones = (await client.query<AsignacionCargo>("SELECT mjrv_id, junta_id, cargo, origen FROM asignaciones_cargo WHERE junta_id = $1 AND activa", [juntaId])).rows;
+  return cubrirCargos([juntaId], personas, asignaciones).get(juntaId)!;
+}
+
+export const insertarAsignacion = async (client: PoolClient, a: Actor, d: { mjrvId: number; juntaId: number; cargo: Cargo; origen: "traslado" | "incorporado" | "manual" }) => {
+  // Toda asignación nueva de la persona o del puesto anula la anterior, en la misma transacción.
+  await client.query("UPDATE asignaciones_cargo SET activa = false, anulada_en = now() WHERE activa AND (mjrv_id = $1 OR (junta_id = $2 AND cargo = $3))", [d.mjrvId, d.juntaId, d.cargo]);
+  await client.query(
+    "INSERT INTO asignaciones_cargo (mjrv_id, junta_id, cargo, origen, actor_tipo, actor_id, actor_nombre) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+    [d.mjrvId, d.juntaId, d.cargo, d.origen, a.tipo, a.id, a.nombre]);
+};
+
+const actorAuditoria = (a: Actor) => ({ actorTipo: (a.tipo === "madrid_admin" ? "usuario" : "operador") as "usuario" | "operador", actorId: a.id, actorNombre: a.nombre });
+
+// «Asignar» a mano una persona presente en la junta a un cargo vacante.
+export async function asignarCargo(a: Actor, d: { juntaId: number; mjrvId: number; cargo: string }): Promise<Resultado> {
+  if (!(CARGOS as string[]).includes(d.cargo)) return { ok: false, mensaje: "El cargo no es válido." };
+  const cargo = d.cargo as Cargo;
+  return withTx(async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock(7001, $1)", [d.juntaId]);
+    const c = await coberturaEnTx(client, d.juntaId);
+    if (!c.presentes.includes(d.mjrvId) || !c.vacantes.includes(cargo)) return { ok: false as const, cambio: true, mensaje: "La situación cambió: el cargo ya no está vacante o la persona ya no está en la junta." };
+    await insertarAsignacion(client, a, { mjrvId: d.mjrvId, juntaId: d.juntaId, cargo, origen: "manual" });
+    await registrarAuditoria({ portal: "mando", ...actorAuditoria(a), accion: "cargo_asignado", entidad: "mjrv", entidadId: d.mjrvId, datos: { junta: d.juntaId, cargo } }, client);
+    return { ok: true as const };
+  });
+}
+
+// «Quitar» una asignación explícita (traslado, incorporación o a mano): el cargo vuelve a quedar vacante o lo cubre otro por regla.
+export async function quitarCargo(a: Actor, d: { juntaId: number; mjrvId: number }): Promise<Resultado> {
+  return withTx(async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock(7001, $1)", [d.juntaId]);
+    const r = await client.query<{ cargo: string }>("UPDATE asignaciones_cargo SET activa = false, anulada_en = now() WHERE activa AND mjrv_id = $1 AND junta_id = $2 RETURNING cargo", [d.mjrvId, d.juntaId]);
+    if (!r.rows[0]) return { ok: false as const, cambio: true, mensaje: "Esa persona ya no tenía un cargo asignado a mano en esta junta." };
+    await registrarAuditoria({ portal: "mando", ...actorAuditoria(a), accion: "cargo_quitado", entidad: "mjrv", entidadId: d.mjrvId, datos: { junta: d.juntaId, cargo: r.rows[0].cargo } }, client);
+    return { ok: true as const };
+  });
 }
