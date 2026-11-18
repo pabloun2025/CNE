@@ -77,3 +77,37 @@ Despliegue: la imagen ahora instala `postgresql-client-16` (PGDG) para el respal
 **G6. Captura automática (M23).** [ ] En `/d` (y en la estación de documentación): con la cámara abierta, la barra verde avanza y la foto se toma sola tras ~1 s con el documento quieto y nítido; con la cámara tapada o movida no dispara; «Tomar foto» y «Hacer o elegir foto» siguen funcionando; la casilla «Captura automática» la apaga; tras «Repetir» hay 2 s de pausa.
 
 **G7. Matriz de permisos (M25).** Automática en CI (`tests/permisos.test.ts`); no requiere acción manual. Toda ruta API o acción de servidor nueva debe añadirse a la matriz o la prueba falla.
+
+## H. Decisiones del 18-11-2026 (D01–D13): comprobaciones nuevas
+
+Despliegue: una migración nueva, aditiva e idempotente: `2026-11-19-decisiones-18-11.sql` (importe en EUR, resultado `reingreso_autorizado`, cargos asumidos, fichas abiertas en finanzas, interruptores y cola de envío). Antes de publicar: copia de la base (la hace `scripts/deploy-oracle.sh`). **Revertir tras D03:** la imagen anterior mostraría importes de USD vacíos en actas nuevas; no se pierden datos, pero no se recomienda revertir una vez haya pagos reales. El envío real **nace apagado** y solo lo enciende la superadmin.
+
+**H1. Claves de envío (D05, D06).** [ ] `/superadmin/envios` dice «Claves de envío: WhatsApp sí, correo sí» (el despliegue las copia de consulares sin imprimirlas). Si dice «no», el envío sigue simulado: no es un fallo.
+
+**H2. Línea de WhatsApp de CNE (D06).** Con el teléfono de la línea de CNE en la mano.
+1. [ ] `/superadmin/envios` → «Crear y vincular» → aparece un QR que se renueva cada 3 s. Escanearlo desde WhatsApp › Dispositivos vinculados. El estado pasa a «Vinculada con +34…».
+2. [ ] La instancia se llama `cne-madrid`. En el servidor: `docker ps` muestra los contenedores de consulares (incluido `citas-prod-evolution-api`) con el mismo «Up» de antes; ninguna otra instancia de Evolution ha cambiado.
+3. [ ] Pulsar «Crear y vincular» con la línea ya creada no duplica nada. «Desvincular» (pide confirmar) la deja «Desconectada» y apaga el interruptor de WhatsApp.
+
+**H3. Envío simulado con el interruptor apagado (D07).** [ ] Con ambos interruptores en «apagado», enviar la credencial a una ficha real de prueba: queda «Enviada al servicio (simulado)» y no sale nada. La pantalla de credenciales dice «Envío SIMULADO».
+
+**H4. Envío real (D07, D08). SOLO con orden expresa de Pablo.**
+1. [ ] Crear fichas reales de prueba con **dos o tres teléfonos y correos propios** (no de demostración: las de demostración nunca salen por real).
+2. [ ] En `/superadmin/envios` guardar el remitente del correo (dirección verificada en Brevo y **nombre** que indique Pablo: sin nombre el correo real no se puede encender). Comprobar que `HOST_MADRID` está definido.
+3. [ ] Escribir `ENVIO REAL` para encender el canal. Si falta clave, línea vinculada, remitente o `HOST_MADRID`, no se enciende y dice qué falta.
+4. [ ] Enviar: la ficha queda «En cola» y sale de 9 a 21 h (Madrid), un mensaje cada 20–45 s (WhatsApp) o 2–5 s (correo). Comprobar en el teléfono y el correo: PDF de la credencial, texto «Buen día… credencial… comprobante de pago… https://<host>/d» y que el enlace abre el formulario de la cédula (si está cerrado, la pantalla de credenciales lo avisa).
+5. [ ] Los contadores de `/superadmin/envios` (en cola, enviados hoy de 150/200, próximo envío) cambian. Latido en el registro del contenedor: `docker logs cne-prod-cne-app-1 | grep "cola de envíos"`.
+6. [ ] Apagar el interruptor: lo pendiente queda «En cola» sin salir. Tras 5 fallos seguidos el canal se pausa con motivo y solo la superadmin lo reanuda («Reanudar envíos»). Si el contenedor se reinicia a medias, la fila interrumpida pasa a «Falló el envío: Interrumpido…» y no se reenvía sola.
+7. [ ] Con 570 fichas el WhatsApp tarda unos 4 días a 150 al día: empezar a enviar **no más tarde del 24-11**.
+
+**H5. Puerta (D04).** [ ] Leer dos veces el mismo QR: la segunda sale en **amarillo** («Ya ingresó a las hh:mm», nombre y junta, un pitido medio) con «Dejar pasar» y «No pasa / Siguiente»; «Dejar pasar» no cambia el contador de ingresados. Una cédula de baja sale en rojo «Dada de baja en la lista»; una desconocida, en rojo «QR no reconocido».
+
+**H6. Centro de mando (D09–D11).** [ ] Una junta solo es verde con presidente, secretario y vocal cubiertos («Falta secretario», «Faltan presidente y vocal» en ámbar; rojo si nadie). El suplente de la propia junta asume el cargo solo («Suplente de la junta»). La ficha de junta muestra los tres cargos con «Asignar» (a mano) y «Quitar». La propuesta de traslado indica el cargo (editable) y al aceptar queda «Trasladado desde Hx». Sin suplentes sobrantes aparece «No hay suplentes transferibles. Si hace falta, incorpore un votante». «Incorporar votante» con un **votante ficticio en modo prueba**: queda presente con la marca «Incorporada desde votantes», cubre el cargo, se puede documentar y cobrar, y «Preparar elección» lo borra.
+
+**H7. Finanzas (D03, D12).** [ ] Parámetros de pago: solo importe en EUR, pagador y lugar (sin USD ni tipo de cambio). Sin importe el acta sale BORRADOR. Con un importe de prueba evidente el acta se titula «Comprobante de pago» y dice «Importe entregado: NN,NN EUR». Vaciar el importe de prueba después. Abrir la misma ficha en dos puestos de finanzas: el segundo ve en ámbar «Finanzas N (operador) abrió esta ficha hace n min»; no bloquea. El informe PDF/Excel ya no lleva columnas de USD ni de cambio.
+
+**H8. Importador (D02).** [ ] Con el Excel real: si trae columna de rótulo, se imprime tal cual; si no, la vista previa avisa en grande «no trae columna de rótulo: se imprimirá el texto de la junta tal cual». Si el archivo usa M01/F01 (masculino/femenino) la vista previa lo avisa con el recuento por serie (M→H, F→M): **comprobar el recuento antes de aplicar**.
+
+**H9. Borrar fotos de cédula (D13).** [ ] Consola de superadmin › «Fotos de cédula»: muestra el recuento y cuántas personas aún no tienen pago confirmado. Sin la frase `BORRAR FOTOS` no borra; con ella borra las del modo actual, queda en la auditoría y finanzas vuelve a pedir las fotos. Las copias diarias conservan las fotos cifradas hasta 14 días.
+
+**H10. Matriz de permisos y compatibilidad.** Automática en CI: rutas y acciones nuevas (`POST /api/e/puerta/pase`, `GET /api/superadmin/whatsapp/estado`, cargos, incorporar, interruptores, borrar fotos) están en `tests/permisos.test.ts`.
