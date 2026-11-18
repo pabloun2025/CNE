@@ -27,10 +27,10 @@ describe("envío simulado de credenciales", () => {
   });
   afterAll(closePools);
 
-  it("sin variables *_REAL_SEND el proveedor es simulado; con «true» se rechaza (no hay proveedor real)", () => {
-    expect(elegirProveedor("whatsapp").canal).toBe("whatsapp");
+  it("el proveedor inmediato es siempre simulado: las variables *_REAL_SEND ya no cuentan (el interruptor está en la base)", () => {
     process.env.WHATSAPP_REAL_SEND = "true";
-    expect(() => elegirProveedor("whatsapp")).toThrow(/no está conectado/);
+    expect(elegirProveedor("whatsapp").canal).toBe("whatsapp");
+    expect(elegirProveedor("whatsapp").enviar).toBeTypeOf("function");
     delete process.env.WHATSAPP_REAL_SEND;
   });
 

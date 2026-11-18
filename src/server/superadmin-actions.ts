@@ -8,6 +8,7 @@ import { cargarDemo, quitarDemo } from "./demo";
 import { prepararEleccion } from "./preparar-eleccion";
 import { crearRespaldo } from "./respaldo";
 import { crearLinea, desvincularLinea } from "./whatsapp-linea";
+import { cambiarInterruptor, guardarRemitente, reanudarEnvios } from "./envios-config";
 
 export type EstadoSuper = { error?: string; aviso?: string; password?: string; enlace?: string; detalle?: string[]; qr?: string } | null;
 
@@ -99,4 +100,29 @@ export async function desvincularLineaAccion(): Promise<EstadoSuper> {
   const r = await desvincularLinea(sesion);
   revalidatePath("/superadmin/envios");
   return r.ok ? { aviso: "Línea desvinculada. El envío real por WhatsApp quedó apagado." } : { error: r.mensaje };
+}
+
+// Interruptores del envío real por canal. Encender exige escribir «ENVIO REAL»; todo queda en la auditoría.
+export async function interruptorEnvioAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const canal = f.get("canal") === "correo" ? "correo" : "whatsapp";
+  const encender = f.get("destino") === "encender";
+  const r = await cambiarInterruptor(sesion, canal, encender, String(f.get("confirmacion") ?? ""));
+  revalidatePath("/superadmin/envios");
+  if (!r.ok) return { error: r.mensaje };
+  return { aviso: encender ? "Envío real encendido. Los mensajes de fichas reales saldrán en cola, con pausas." : "Envío real apagado. Todo vuelve a ser simulado." };
+}
+
+export async function reanudarEnviosAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  await reanudarEnvios(sesion, f.get("canal") === "correo" ? "correo" : "whatsapp");
+  revalidatePath("/superadmin/envios");
+  return { aviso: "Envíos reanudados." };
+}
+
+export async function guardarRemitenteAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const r = await guardarRemitente(sesion, String(f.get("direccion") ?? ""), String(f.get("nombre") ?? ""));
+  revalidatePath("/superadmin/envios");
+  return r.ok ? { aviso: "Remitente guardado." } : { error: r.mensaje };
 }

@@ -15,6 +15,7 @@ export async function enviarCredencialAccion(_: EstadoEnvios, f: FormData): Prom
   const r = await enviarCredencial(sesion, id, canal(f));
   revalidatePath(`/admin/mjrv/${id}`);
   if (!r.ok) return { error: r.mensaje };
+  if (r.enCola) return { aviso: "En cola: saldrá poco a poco, con pausas entre mensajes y en horario de 9 a 21 h." };
   return { aviso: `Enviada al servicio${r.simulado ? NOTA : ""}.` };
 }
 
@@ -23,5 +24,6 @@ export async function enviarLoteAccion(_: EstadoEnvios, f: FormData): Promise<Es
   const r = await enviarLote(sesion, canal(f));
   revalidatePath("/admin/credenciales");
   if ("error" in r) return { error: r.error };
+  if (r.enCola > 0) return { aviso: `${r.enCola} en cola (saldrán poco a poco, con pausas y de 9 a 21 h), ${r.omitidas} omitidas (sin dato válido o sin rótulo), ${r.fallidas} con fallo.` };
   return { aviso: `${r.enviadas} enviadas al servicio, ${r.omitidas} omitidas (sin dato válido o sin rótulo), ${r.fallidas} con fallo${NOTA}.` };
 }
