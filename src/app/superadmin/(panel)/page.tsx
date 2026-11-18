@@ -1,13 +1,15 @@
-import { FormCrearAdmin, FormDemo, FormModo, FormRestablecer } from "@/components/superadmin-formularios";
+import { FormCrearAdmin, FormDemo, FormModo, FormPreparar, FormRestablecer } from "@/components/superadmin-formularios";
 import { leerModo } from "@/server/config";
 import { contarDemo } from "@/server/demo";
+import { CONSERVA } from "@/domain/limpieza";
+import { resumenLimpieza } from "@/server/preparar-eleccion";
 import { requireSuperadmin } from "@/server/guard";
 import { activarAdminAccion } from "@/server/superadmin-actions";
 import { FRASE_MODO, listarAdmins } from "@/server/superadmin";
 
 export default async function SuperInicio() {
   const sesion = await requireSuperadmin();
-  const [modo, admins, demo] = await Promise.all([leerModo(), listarAdmins(sesion), contarDemo()]);
+  const [modo, admins, demo, resumen] = await Promise.all([leerModo(), listarAdmins(sesion), contarDemo(), resumenLimpieza()]);
   const destino = modo === "prueba" ? "eleccion" : "prueba";
   return (
     <main className="mx-auto max-w-3xl space-y-8">
@@ -15,7 +17,7 @@ export default async function SuperInicio() {
         <h1 className="text-xl font-semibold">Modo del sistema</h1>
         <p className="mt-1">Ahora: <strong>{modo === "prueba" ? "MODO PRUEBA" : "MODO ELECCIÓN"}</strong>.</p>
         {modo === "prueba" ? (
-          <p className="mt-1 text-sm">Pasar a elección sin «Preparar elección» oculta los registros de prueba pero no los borra.</p>
+          <p className="mt-1 text-sm">Pasar a elección aquí oculta los registros de prueba pero no los borra. Para limpiar y pasar a elección use «Preparar elección».</p>
         ) : (
           <p className="mt-1 text-sm">Volver a prueba mostraría de nuevo los registros de prueba.</p>
         )}
@@ -28,6 +30,11 @@ export default async function SuperInicio() {
           <div className="mt-2"><FormDemo cargadas={demo} /></div>
         </section>
       )}
+
+      <section>
+        <h2 className="text-lg font-semibold">Preparar elección</h2>
+        <div className="mt-2"><FormPreparar resumen={resumen} conserva={CONSERVA} /></div>
+      </section>
 
       <section>
         <h2 className="text-lg font-semibold">Cuentas de administración Madrid</h2>

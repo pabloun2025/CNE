@@ -5,8 +5,10 @@ import { requireSuperadmin } from "./guard";
 import { activarAdmin, cambiarModo, crearAdmin, restablecerAdmin } from "./superadmin";
 import type { Modo } from "./config";
 import { cargarDemo, quitarDemo } from "./demo";
+import { prepararEleccion } from "./preparar-eleccion";
+import { crearRespaldo } from "./respaldo";
 
-export type EstadoSuper = { error?: string; aviso?: string; password?: string } | null;
+export type EstadoSuper = { error?: string; aviso?: string; password?: string; enlace?: string; detalle?: string[] } | null;
 
 export async function crearAdminAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
@@ -55,4 +57,29 @@ export async function quitarDemoAccion(): Promise<EstadoSuper> {
   } catch (e) {
     return { error: (e as Error).message };
   }
+}
+
+const rutaDescarga = (archivo: string) => `/superadmin/respaldo/${archivo}`;
+
+// Respaldo suelto para descargar (sin limpiar nada).
+export async function respaldarAccion(): Promise<EstadoSuper> {
+  await requireSuperadmin();
+  try {
+    const r = await crearRespaldo();
+    return { aviso: `Respaldo listo (${(r.bytes / 1048576).toFixed(1)} MB). Descárguelo y guárdelo fuera del servidor.`, enlace: rutaDescarga(r.archivo) };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export async function prepararEleccionAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const r = await prepararEleccion(sesion, String(f.get("confirmacion") ?? ""));
+  revalidatePath("/superadmin", "layout");
+  if (!r.ok) return { error: r.mensaje };
+  return {
+    aviso: "Listo: el sistema quedó en modo elección. Descargue el respaldo antes de salir.",
+    enlace: rutaDescarga(r.respaldo.archivo),
+    detalle: [...r.antes.map((a) => `${a.etiqueta}: ${a.n} borradas`), `Lote de copia interna: ${r.lote}`],
+  };
 }

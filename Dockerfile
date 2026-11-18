@@ -11,6 +11,13 @@ RUN npm run build && npm prune --omit=dev
 FROM node:22.23.4-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+# pg_dump 16 y pg_restore para el respaldo previo a «Preparar elección» (M19). El servidor es PostgreSQL 16: el cliente no puede ser más antiguo.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
+    && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system cne && useradd --system --gid cne --home /app cne
 COPY --from=build --chown=cne:cne /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=cne:cne /app/node_modules ./node_modules
