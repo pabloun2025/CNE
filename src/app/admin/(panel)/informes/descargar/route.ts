@@ -1,4 +1,5 @@
-import { sesionApi } from "@/server/guard";
+import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
+import { rechazoAdminApi, sesionApi } from "@/server/guard";
 import { resumenFinanzas } from "@/server/finanzas-resumen";
 import { informeCierreExcel } from "@/server/informe-excel";
 import { informeCierrePdf } from "@/server/pdf/informe";
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 // GET /admin/informes/descargar?formato=pdf|xlsx — sin fotos; el total sale solo de pagos confirmados.
 export async function GET(request: Request) {
-  if (!(await sesionApi("admin"))) return new Response("No autorizado", { status: 401 });
+  if (!(await sesionApi("admin", CONSUL_Y_FINANCIERO))) return rechazoAdminApi();
   const formato = new URL(request.url).searchParams.get("formato");
   if (formato !== "pdf" && formato !== "xlsx") return new Response("Formato no válido", { status: 400 });
   const r = await resumenFinanzas();

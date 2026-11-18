@@ -17,7 +17,7 @@ on:
         required: false
         default: "madrid.consulado.app"
       superadmin_email:
-        description: "Correo de la superadmin (opcional; si falta, secreto SUPERADMIN_EMAIL o superadmin@cne.local)"
+        description: "Correo de la superadmin (opcional; si falta, secreto SUPERADMIN_EMAIL o pabloun@gmail.com)"
         required: false
         default: ""
 
@@ -52,7 +52,6 @@ jobs:
         env:
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
           APP_MASTER_KEY: ${{ secrets.APP_MASTER_KEY }}
-          SUPERADMIN_PASSWORD_INICIAL: ${{ secrets.SUPERADMIN_PASSWORD_INICIAL }}
           SUPERADMIN_EMAIL: ${{ inputs.superadmin_email || secrets.SUPERADMIN_EMAIL }}
           HOST_MADRID: ${{ inputs.host_madrid || vars.HOST_MADRID || 'madrid.consulado.app' }}
           APP_VERSION: ${{ github.sha }}
@@ -63,7 +62,7 @@ jobs:
           printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
           chmod 600 ~/.ssh/oracle
           # Las entradas vacías se omiten: el servidor genera o conserva lo que falte.
-          jq -n '{APP_MASTER_KEY: env.APP_MASTER_KEY, SUPERADMIN_EMAIL: env.SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD_INICIAL: env.SUPERADMIN_PASSWORD_INICIAL, HOST_MADRID: env.HOST_MADRID, APP_VERSION: env.APP_VERSION} | with_entries(select(.value != null and .value != ""))' > /tmp/cne-bootstrap.json
+          jq -n '{APP_MASTER_KEY: env.APP_MASTER_KEY, SUPERADMIN_EMAIL: env.SUPERADMIN_EMAIL, HOST_MADRID: env.HOST_MADRID, APP_VERSION: env.APP_VERSION} | with_entries(select(.value != null and .value != ""))' > /tmp/cne-bootstrap.json
           chmod 600 /tmp/cne-bootstrap.json
 
       - name: Instalar y verificar CNE

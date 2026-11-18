@@ -52,7 +52,7 @@ describe("dominio de la importación de MJRV", () => {
   });
 });
 
-const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", debeCambiar: false, mfaVerificada: false };
+const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false, mfaVerificada: false };
 function excel(filas: object[]): Buffer {
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), "MJRV");

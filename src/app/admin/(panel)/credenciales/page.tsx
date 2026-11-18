@@ -1,3 +1,4 @@
+import { SOLO_CONSUL } from "@/domain/roles";
 import { ZONAS, ZONA_NOMBRE } from "@/domain/juntas";
 import { requireAdmin } from "@/server/guard";
 import { resumenCredenciales } from "@/server/credenciales";
@@ -9,7 +10,7 @@ import { formularioAbierto } from "@/server/documentos";
 const campo = "rounded border border-slate-400 px-2 py-2 text-base";
 
 export default async function Credenciales() {
-  await requireAdmin();
+  await requireAdmin({ roles: SOLO_CONSUL });
   const [r, e, cfg, abierto] = await Promise.all([resumenCredenciales(), resumenEnvios(), leerConfigEnvios(), formularioAbierto()]);
   const hayHost = !!process.env.HOST_MADRID?.trim();
   return (

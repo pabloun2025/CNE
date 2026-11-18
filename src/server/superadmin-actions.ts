@@ -15,7 +15,7 @@ export type EstadoSuper = { error?: string; aviso?: string; password?: string; e
 
 export async function crearAdminAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
-  const r = await crearAdmin(sesion, String(f.get("correo") ?? ""), String(f.get("nombre") ?? ""));
+  const r = await crearAdmin(sesion, String(f.get("correo") ?? ""), String(f.get("nombre") ?? ""), String(f.get("rol") ?? ""));
   revalidatePath("/superadmin");
   return r.ok ? { aviso: "Cuenta creada. Entregue esta contraseña temporal; no se vuelve a mostrar.", password: r.password } : { error: r.mensaje };
 }

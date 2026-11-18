@@ -2,22 +2,28 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { cambiarContrasena, cerrarSesion, login, type PortalSesion } from "./auth";
+import { GENERICO, cambiarContrasena, cerrarSesion, definirContrasenaInicial, login, pideDefinirContrasena, type PortalSesion, type ResultadoLogin } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import { COOKIE, cookieOptions, ipCliente } from "./guard";
 
-export type EstadoFormulario = { error?: string } | null;
+// definir: la cuenta tiene la contraseña pendiente y el formulario debe pedir «Defina su contraseña».
+export type EstadoFormulario = { error?: string; definir?: boolean; correo?: string } | null;
 const RUTA: Record<PortalSesion, string> = { admin: "/admin", superadmin: "/superadmin" };
 
 async function entrar(portal: PortalSesion, formData: FormData): Promise<EstadoFormulario> {
   const ip = await ipCliente();
-  const r = await login({
-    correo: String(formData.get("correo") ?? ""),
-    password: String(formData.get("password") ?? ""),
-    portal,
-    ip,
-    agente: (await headers()).get("user-agent"),
-  });
+  const correo = String(formData.get("correo") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const agente = (await headers()).get("user-agent");
+  let r: ResultadoLogin;
+  if (portal === "superadmin" && formData.has("nueva")) {
+    r = await definirContrasenaInicial({ correo, nueva: String(formData.get("nueva")), repetir: String(formData.get("repetir") ?? ""), ip, agente });
+    if (!r.ok && r.mensaje !== GENERICO) return { error: r.mensaje, definir: true, correo };
+  } else if (portal === "superadmin" && !password && (await pideDefinirContrasena(correo, ip))) {
+    return { definir: true, correo };
+  } else {
+    r = await login({ correo, password, portal, ip, agente });
+  }
   if (!r.ok) {
     await registrarAuditoria({ portal, actorTipo: "publico", accion: "login_fallido", ip });
     return { error: r.mensaje };

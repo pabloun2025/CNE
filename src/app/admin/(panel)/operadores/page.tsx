@@ -1,3 +1,4 @@
+import { SOLO_CONSUL } from "@/domain/roles";
 import QRCode from "qrcode";
 import { FormEnlace, FormOperador, FormPin } from "@/components/admin-operadores";
 import { FUNCION_NOMBRE } from "@/domain/estaciones";
@@ -7,7 +8,7 @@ import { listarEnlaces, listarOperadores } from "@/server/estaciones";
 import { urlBase } from "@/server/url";
 
 export default async function Operadores() {
-  await requireAdmin();
+  await requireAdmin({ roles: SOLO_CONSUL });
   const [operadores, enlaces, base] = await Promise.all([listarOperadores(), listarEnlaces(), urlBase()]);
   const conQr = await Promise.all(enlaces.map(async (e) => {
     const url = e.token ? `${base}/e/${e.token}` : null;

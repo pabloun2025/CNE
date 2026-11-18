@@ -10,7 +10,7 @@ import type { ClienteEvolution, Documento } from "@/server/envios/evolution";
 import type { ResultadoProveedor } from "@/server/envios/http";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const admin: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", debeCambiar: false, mfaVerificada: false };
+const admin: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false, mfaVerificada: false };
 const superadmin: Sesion = { ...admin, tipo: "superadmin", mfaVerificada: true };
 
 // Mañana a las 12:00 UTC: siempre dentro del horario de Madrid (13:00 o 14:00) y posterior al «ahora» real.

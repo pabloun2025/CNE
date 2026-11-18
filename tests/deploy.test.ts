@@ -18,21 +18,30 @@ function ejecutar(dir: string, paquete: object, consulares = path.join(dir, "sin
 const leer = (dir: string) => Object.fromEntries(readFileSync(path.join(dir, "env"), "utf8").trim().split("\n").map((l) => [l.split("=")[0], l.slice(l.indexOf("=") + 2, -1)]));
 
 describe("deploy-oracle.sh · .env.production", () => {
-  it("genera clave maestra y contraseña inicial si no llegan, y las conserva", () => {
+  it("genera la clave maestra si no llega y la conserva; la superadmin ya no tiene contraseña inicial", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "cne-"));
     expect(ejecutar(dir, { APP_VERSION: "v1" }).status).toBe(0);
     const primera = leer(dir);
     expect(Buffer.from(primera.APP_MASTER_KEY, "base64")).toHaveLength(32);
-    expect(primera.SUPERADMIN_PASSWORD_INICIAL.length).toBeGreaterThanOrEqual(16);
-    expect(primera.SUPERADMIN_EMAIL).toBe("superadmin@cne.local");
+    expect(primera.SUPERADMIN_PASSWORD_INICIAL).toBeUndefined();
+    expect(primera.SUPERADMIN_EMAIL).toBe("pabloun@gmail.com");
     expect(primera.HOST_MADRID).toBe("");
     expect((statSync(path.join(dir, "env")).mode & 0o777).toString(8)).toBe("600");
     expect(ejecutar(dir, { APP_VERSION: "v2", SUPERADMIN_EMAIL: "a@b.c" }).status).toBe(0);
     const segunda = leer(dir);
     expect(segunda.APP_MASTER_KEY).toBe(primera.APP_MASTER_KEY);
     expect(segunda.POSTGRES_PASSWORD).toBe(primera.POSTGRES_PASSWORD);
-    expect(segunda.SUPERADMIN_PASSWORD_INICIAL).toBe(primera.SUPERADMIN_PASSWORD_INICIAL);
+    expect(segunda.SUPERADMIN_PASSWORD_INICIAL).toBeUndefined();
     expect(segunda.SUPERADMIN_EMAIL).toBe("a@b.c");
+  });
+
+  it("un SUPERADMIN_EMAIL antiguo por defecto pasa a pabloun@gmail.com y la contraseña inicial vieja se descarta", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "cne-"));
+    writeFileSync(path.join(dir, "env"), "SUPERADMIN_EMAIL='superadmin@cne.local'\nSUPERADMIN_PASSWORD_INICIAL='vieja-FICTICIA'\n");
+    expect(ejecutar(dir, { APP_VERSION: "v1" }).status).toBe(0);
+    const v = leer(dir);
+    expect(v.SUPERADMIN_EMAIL).toBe("pabloun@gmail.com");
+    expect(v.SUPERADMIN_PASSWORD_INICIAL).toBeUndefined();
   });
 
   it("se detiene si la clave maestra del paquete difiere de la del servidor y no imprime valores", () => {

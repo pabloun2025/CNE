@@ -7,7 +7,7 @@ import { prepararEleccion, resumenLimpieza } from "@/server/preparar-eleccion";
 import { crearRespaldo, rutaRespaldo } from "@/server/respaldo";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const sesion = (tipo = "superadmin"): Sesion => ({ sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo, debeCambiar: false, mfaVerificada: true });
+const sesion = (tipo = "superadmin"): Sesion => ({ sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo, rol: "consul", debeCambiar: false, mfaVerificada: true });
 const n = async (sql: string) => (await consultarDueno<{ n: number }>(`SELECT count(*)::int AS n FROM ${sql}`))[0].n;
 
 async function sembrarActividad() {

@@ -5,7 +5,7 @@ import { EvolutionSimulado, type ClienteEvolution } from "@/server/envios/evolut
 import { crearLinea, desvincularLinea, estadoLinea } from "@/server/whatsapp-linea";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const sesion = (tipo = "superadmin"): Sesion => ({ sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo, debeCambiar: false, mfaVerificada: true });
+const sesion = (tipo = "superadmin"): Sesion => ({ sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "S", tipo, rol: "consul", debeCambiar: false, mfaVerificada: true });
 
 describe("línea de WhatsApp de CNE (cliente simulado)", () => {
   beforeAll(async () => { await reiniciarBase(); });

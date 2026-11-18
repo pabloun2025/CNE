@@ -16,7 +16,7 @@ Se hace en producción, con el interruptor **Modo prueba** encendido (valor inic
 - [ ] Registro de `cne-migrate`: `SELECT count(*) FROM cne.juntas_madrid = 95`.
 - [ ] `docker ps`: consulares (`citas-prod`) y teinvito con el mismo «Up …» que antes; `cne-prod` con 3 servicios en marcha (`cne-postgres`, `cne-app`, `cne-backup`).
 - [ ] `/home/ubuntu/cne/.env.production` con permisos 600 y copia previa en `backups/pre-despliegue/` a partir del segundo despliegue.
-- [ ] Superadmin: correo `SUPERADMIN_EMAIL` (o `superadmin@cne.local`); la contraseña inicial está en la línea `SUPERADMIN_PASSWORD_INICIAL` de `.env.production` (leer solo esa línea, no pegarla en chats ni registros). Se obliga a cambiarla al primer acceso.
+- [ ] Superadmin: correo `pabloun@gmail.com`. No hay contraseña inicial: en `/superadmin/acceso`, al escribir ese correo, el formulario pide «Defina su contraseña» (dos veces) y después sigue la 2FA obligatoria. Solo vale mientras la contraseña esté pendiente.
 
 ## C. Recorrido con un móvil real (a 375 px)
 

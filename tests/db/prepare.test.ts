@@ -38,7 +38,7 @@ describe("db:prepare", () => {
 
   it("la superadmin queda con cambio de contraseña obligatorio y la base arranca en modo prueba", async () => {
     const [s] = await consultarDueno<{ debe_cambiar: boolean; correo: string }>("SELECT debe_cambiar, correo FROM cne.usuarios WHERE tipo = 'superadmin'");
-    expect(s).toEqual({ debe_cambiar: true, correo: "super@prueba.cne" });
+    expect(s).toEqual({ debe_cambiar: true, correo: "pabloun@gmail.com" }); // la segunda preparación la pasó a Pablo (C1)
     expect((await consultarDueno<{ modo: string }>("SELECT modo FROM cne.configuracion"))[0].modo).toBe("prueba");
   });
 

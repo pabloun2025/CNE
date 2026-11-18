@@ -1,22 +1,13 @@
 import Link from "next/link";
+import { ENLACES_ADMIN, type RolAdmin } from "@/domain/roles";
 import { salirAdmin } from "@/server/acceso-actions";
 
-export const ENLACES_ADMIN: { href: string; texto: string }[] = [
-  { href: "/admin", texto: "Inicio" },
-  { href: "/admin/mjrv", texto: "MJRV" },
-  { href: "/admin/credenciales", texto: "Credenciales" },
-  { href: "/admin/mando", texto: "Centro de mando" },
-  { href: "/admin/finanzas", texto: "Finanzas" },
-  { href: "/admin/informes", texto: "Informes" },
-  { href: "/admin/documentos", texto: "Documentos (QR)" },
-  { href: "/admin/operadores", texto: "Operadores y enlaces" },
-];
-
 // Menú lateral en escritorio; a 375 px es un desplegable.
-export function MenuAdmin({ nombre }: { nombre: string }) {
+// Solo muestra lo que el rol puede abrir; el servidor lo vuelve a comprobar en cada pantalla.
+export function MenuAdmin({ nombre, rol }: { nombre: string; rol: RolAdmin }) {
   const lista = (
     <nav className="flex flex-col gap-1">
-      {ENLACES_ADMIN.map((e) => (
+      {ENLACES_ADMIN.filter((e) => e.roles.includes(rol)).map((e) => (
         <Link key={e.href} href={e.href} className="rounded px-3 py-3 text-base font-medium hover:bg-slate-200">{e.texto}</Link>
       ))}
       <form action={salirAdmin}>

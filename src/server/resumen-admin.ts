@@ -1,3 +1,4 @@
+import type { RolAdmin } from "../domain/roles";
 import { estadoMando } from "./mando";
 import { query } from "./db";
 import { leerModo } from "./config";
@@ -25,4 +26,10 @@ export async function resumenAdmin(): Promise<ResumenAdmin> {
     apertura: { preparadas: cred[0].preparadas, pendientes: cred[0].pendientes, ingresados: i.ingresados, total: i.total, completas: i.completas, incompletas: i.incompletas, sinNadie: i.sinNadie },
     pagos: { documentosCompletos: docs[0].completos, documentosIncompletos: docs[0].incompletos, pagados: pagos[0].n, totalEur: pagos[0].total },
   };
+}
+
+// Inicio limitado por rol: el coordinador solo ve lo de juntas y el financiero solo los pagos. El otro bloque ni sale del servidor.
+export type ResumenAdminRol = Omit<ResumenAdmin, "apertura" | "pagos"> & { apertura: ResumenAdmin["apertura"] | null; pagos: ResumenAdmin["pagos"] | null };
+export function resumenParaRol(r: ResumenAdmin, rol: RolAdmin): ResumenAdminRol {
+  return { ...r, apertura: rol === "financiero" ? null : r.apertura, pagos: rol === "coordinador" ? null : r.pagos };
 }

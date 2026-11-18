@@ -1,3 +1,4 @@
+import { SOLO_CONSUL } from "@/domain/roles";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotonesEnvio } from "@/components/envios-credenciales";
@@ -10,7 +11,7 @@ import { bajaMjrvAccion } from "@/server/mjrv-actions";
 const hora = (t: string | null) => (t ? new Date(t).toLocaleString("es-ES", { timeZone: "Europe/Madrid" }) : "—");
 
 export default async function FichaMjrv({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdmin({ roles: SOLO_CONSUL });
   const id = Number((await params).id);
   const m = Number.isInteger(id) ? await obtenerFicha(id) : null;
   if (!m) notFound();

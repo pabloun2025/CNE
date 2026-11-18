@@ -17,21 +17,24 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error(`REDIRECT:${url}`); } }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
-type Tipo = "ninguna" | "admin" | "super_sin_2fa" | "superadmin" | "e_puerta" | "e_documentacion" | "e_finanzas" | "e_mando";
-const TIPOS: Tipo[] = ["ninguna", "admin", "super_sin_2fa", "superadmin", "e_puerta", "e_documentacion", "e_finanzas", "e_mando"];
+// «admin» es la cuenta con rol consul; admin_coord y admin_fin, las de rol coordinador y financiero (C2).
+type Tipo = "ninguna" | "admin" | "admin_coord" | "admin_fin" | "super_sin_2fa" | "superadmin" | "e_puerta" | "e_documentacion" | "e_finanzas" | "e_mando";
+const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "super_sin_2fa", "superadmin", "e_puerta", "e_documentacion", "e_finanzas", "e_mando"];
 type Regla = Tipo[] | "publica";
 const SOLO_ADMIN: Regla = ["admin"];
 const SOLO_SUPER: Regla = ["superadmin"];
-const MANDO: Regla = ["admin", "e_mando"];
+const MANDO: Regla = ["admin", "admin_coord", "e_mando"];
+const FINANZAS: Regla = ["admin", "admin_fin"];
+const TODOS_ADMIN: Regla = ["admin", "admin_coord", "admin_fin"];
 
 // ─── Rutas API: «METODO /url» ───
 const RUTAS: Record<string, Regla> = {
-  "GET /admin/informes/descargar": SOLO_ADMIN,
+  "GET /admin/informes/descargar": FINANZAS,
   "GET /admin/documentos/cartel": SOLO_ADMIN,
   "GET /admin/credenciales/pdf": SOLO_ADMIN,
   "GET /api/admin/documentos/[id]/[lado]": SOLO_ADMIN,
-  "GET /api/admin/resumen": SOLO_ADMIN,
-  "GET /api/admin/finanzas/resumen": SOLO_ADMIN,
+  "GET /api/admin/resumen": TODOS_ADMIN,
+  "GET /api/admin/finanzas/resumen": FINANZAS,
   "GET /api/mando/junta": MANDO,
   "GET /api/mando/propuesta": MANDO,
   "GET /api/mando/estado": MANDO,
@@ -61,7 +64,7 @@ const ACCIONES: Record<string, Regla> = {
   "estacion-actions#crearEnlaceAccion": SOLO_ADMIN, "estacion-actions#revocarEnlaceAccion": SOLO_ADMIN,
   "importar-actions#revisarImportacion": SOLO_ADMIN, "importar-actions#aplicarImportacionAccion": SOLO_ADMIN,
   "mjrv-actions#crearMjrvAccion": SOLO_ADMIN, "mjrv-actions#editarMjrvAccion": SOLO_ADMIN, "mjrv-actions#bajaMjrvAccion": SOLO_ADMIN,
-  "pago-actions#guardarParametrosAccion": SOLO_ADMIN,
+  "pago-actions#guardarParametrosAccion": FINANZAS,
   "envios-actions#enviarCredencialAccion": SOLO_ADMIN, "envios-actions#enviarLoteAccion": SOLO_ADMIN,
   "movimiento-actions#aceptarAccion": MANDO, "movimiento-actions#pasarAccion": MANDO, "movimiento-actions#noViableAccion": MANDO,
   "movimiento-actions#incorporarVotanteAccion": MANDO, "movimiento-actions#asignarCargoAccion": MANDO, "movimiento-actions#quitarCargoAccion": MANDO,
@@ -107,6 +110,8 @@ describe("matriz de permisos", () => {
     await reiniciarBase({ correo: "super@prueba.cne", password: "clave-super-1" });
     await consultarDueno("UPDATE cne.usuarios SET debe_cambiar = false");
     await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar) SELECT 'madrid_admin','admin@prueba.cne','Admin Prueba', password_hash, false FROM cne.usuarios WHERE tipo = 'superadmin'");
+    await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar, rol) SELECT 'madrid_admin','coord@prueba.cne','Coordinador Prueba', password_hash, false, 'coordinador' FROM cne.usuarios WHERE tipo = 'superadmin'");
+    await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar, rol) SELECT 'madrid_admin','fin@prueba.cne','Financiero Prueba', password_hash, false, 'financiero' FROM cne.usuarios WHERE tipo = 'superadmin'");
     const entrar = async (correo: string, portal: "admin" | "superadmin") => {
       const r = await login({ correo, password: "clave-super-1", portal, ip: "10.9.9.9", agente: "prueba" });
       if (!r.ok) throw new Error("login");
@@ -114,11 +119,13 @@ describe("matriz de permisos", () => {
     };
     sesionesHechas.ninguna = {};
     sesionesHechas.admin = { cne_admin: await entrar("admin@prueba.cne", "admin") };
+    sesionesHechas.admin_coord = { cne_admin: await entrar("coord@prueba.cne", "admin") };
+    sesionesHechas.admin_fin = { cne_admin: await entrar("fin@prueba.cne", "admin") };
     sesionesHechas.super_sin_2fa = { cne_super: await entrar("super@prueba.cne", "superadmin") };
     const tok = await entrar("super@prueba.cne", "superadmin");
     await marcarMfaVerificada(tok);
     sesionesHechas.superadmin = { cne_super: tok };
-    const admin = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", debeCambiar: false, mfaVerificada: false };
+    const admin = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul" as const, debeCambiar: false, mfaVerificada: false };
     for (const f of ["puerta", "documentacion", "finanzas", "mando"] as const) {
       const e = await crearEnlace(admin, f, `${f} prueba`);
       const o = await crearOperador(admin, `Operador ${f}`, [f], "1234");
@@ -181,7 +188,7 @@ describe("matriz de permisos", () => {
 
   describe("acciones de servidor", () => {
     // Denegada = redirección al acceso/verificación, «Solo la …» o «su sesión ya no es válida».
-    const DENEGADA = /^REDIRECT:\/(admin\/(acceso|cambiar-contrasena)|superadmin\/(acceso|cambiar-contrasena|verificacion))$|^Solo la /;
+    const DENEGADA = /^REDIRECT:\/(admin\/(acceso|cambiar-contrasena|mando|finanzas)|superadmin\/(acceso|cambiar-contrasena|verificacion))$|^Solo la /;
     async function denegada(a: (typeof accionesDescubiertas)[number]): Promise<boolean> {
       const fn = (await import(/* @vite-ignore */ a.archivo))[a.nombre] as (...args: unknown[]) => Promise<unknown>;
       const f = new FormData();
@@ -214,6 +221,32 @@ describe("matriz de permisos", () => {
       for (const f of paginas("admin").filter((f) => f.includes(`${path.sep}(panel)${path.sep}`))) expect(leer(f), f).toMatch(/requireAdmin\(/);
       expect(leer(path.join(SRC, "app/admin/(panel)/layout.tsx"))).toMatch(/requireAdmin\(/);
     });
+    // Roles que puede usar cada página de /admin (sin entrada aquí, la prueba falla) y a dónde redirige a los demás.
+    const ROLES_PAGINA: Record<string, string[]> = {
+      "": ["consul", "coordinador", "financiero"],
+      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], informes: ["consul", "financiero"],
+      credenciales: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
+    };
+    const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
+    const clavePagina = (f: string) => path.relative(path.join(SRC, "app/admin/(panel)"), path.dirname(f)).split(path.sep).join("/");
+    it("cada página de /admin con menú declara sus roles y coinciden con la matriz", () => {
+      const delPanel = paginas("admin").filter((f) => f.includes(`${path.sep}(panel)${path.sep}`));
+      expect(delPanel.map(clavePagina).sort()).toEqual(Object.keys(ROLES_PAGINA).sort());
+      for (const f of delPanel) expect(leer(f), f).toContain(`roles: ${NOMBRE_CONJUNTO[ROLES_PAGINA[clavePagina(f)].join(",")]} }`);
+    });
+    for (const rol of ["consul", "coordinador", "financiero"]) {
+      it(`el rol ${rol} entra solo a sus pantallas; el resto lo redirige a la suya`, async () => {
+        ponerSesion(rol === "consul" ? "admin" : rol === "coordinador" ? "admin_coord" : "admin_fin");
+        const inicio = { consul: "/admin", coordinador: "/admin/mando", financiero: "/admin/finanzas" }[rol];
+        for (const f of paginas("admin").filter((f) => f.includes(`${path.sep}(panel)${path.sep}`))) {
+          const permitido = ROLES_PAGINA[clavePagina(f)].includes(rol);
+          const pagina = (await import(/* @vite-ignore */ f)).default as (p: unknown) => Promise<unknown>;
+          let redirigida: string | null = null;
+          try { await pagina({ params: Promise.resolve({ id: "1" }), searchParams: Promise.resolve({}) }); } catch (e) { const m = /^REDIRECT:(.*)$/.exec((e as Error).message); if (m) redirigida = m[1]; }
+          expect(redirigida, `${rol} en /admin/${clavePagina(f)}`).toBe(permitido ? null : inicio);
+        }
+      });
+    }
     it("cada página de /superadmin llama a requireSuperadmin (las de antes de la 2FA, con su excepción explícita)", () => {
       for (const f of paginas("superadmin").filter((f) => !/acceso/.test(f))) expect(leer(f), f).toMatch(/requireSuperadmin\(/);
       expect(leer(path.join(SRC, "app/superadmin/(panel)/layout.tsx"))).toMatch(/requireSuperadmin\(\)/);

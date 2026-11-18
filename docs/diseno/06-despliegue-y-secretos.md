@@ -10,8 +10,8 @@ Producción: VM Oracle compartida `ubuntu@51.170.51.109`, carpeta `/home/ubuntu/
 | --- | --- | --- | --- |
 | `ORACLE_SSH_KEY` | Sí | SSH a la VM en `oracle-inspect.yml` y `oracle-deploy.yml` | La misma clave privada que ya usan consulares/teinvito (secreto `ORACLE_SSH_KEY` de `teinvito`). Pablo la copia de su gestor; GitHub no permite leer un secreto de otro repositorio. |
 | `APP_MASTER_KEY` | Sí | Cifra fotos de cédula, secretos TOTP y tokens de enlaces (AES-256-GCM) | Pablo la genera una vez en su equipo: `openssl rand -base64 32`; la guarda **también** en su gestor de contraseñas. No se cambia nunca después del primer despliegue. |
-| `SUPERADMIN_EMAIL` | Sí | Cuenta superadmin inicial | Correo de Pablo. |
-| `SUPERADMIN_PASSWORD_INICIAL` | Sí | Contraseña temporal de esa cuenta (cambio obligatorio + alta 2FA al primer acceso) | La elige Pablo (≥ 12 caracteres). |
+| `SUPERADMIN_EMAIL` | No | Correo de la superadmin | Por defecto `pabloun@gmail.com`. |
+| `SUPERADMIN_PASSWORD_INICIAL` | No (obsoleta) | Ya no se usa: la superadmin define su contraseña en el primer acceso | Se ignora si existe. |
 | `CLOUDFLARE_API_TOKEN` | Sí para `dominio.yml` | Añadir hostnames al túnel existente y crear su DNS | Cloudflare → My Profile → API Tokens: permisos *Account · Cloudflare Tunnel · Edit* y *Zone · DNS · Edit* sobre la zona de P-1. Puede ser el mismo token que tiene teinvito si ya incluye esa zona. Alternativa sin token: Pablo añade los hostnames a mano en Zero Trust (§3). |
 | `BREVO_API_KEY` | No | Correo de credenciales | Si falta, el script copia `BREVO_API_KEY` de `/home/ubuntu/consulares/.env.production` (sin mostrarla), como hace teinvito. |
 | `MAIL_FROM`, `MAIL_FROM_NAME` | No | Remitente (P-4) | Remitente ya validado en Brevo (p. ej. el de consulares). Sin ellos, el correo queda simulado. |
