@@ -11,7 +11,7 @@ async function actor(): Promise<Actor | null> {
 }
 const NO_AUT: Resultado = { ok: false, mensaje: "Su sesión ya no es válida. Vuelva a identificarse." };
 const num = (f: FormData, k: string) => Number(f.get(k));
-const propuesta = (f: FormData) => ({ mjrvId: num(f, "mjrvId"), origenId: num(f, "origenId"), destinoId: num(f, "destinoId") });
+const propuesta = (f: FormData) => ({ mjrvId: num(f, "mjrvId"), origenId: num(f, "origenId"), destinoId: num(f, "destinoId"), cargo: String(f.get("cargo") ?? "") });
 
 export async function aceptarAccion(f: FormData): Promise<Resultado> {
   const a = await actor();
@@ -27,7 +27,7 @@ export async function noViableAccion(f: FormData): Promise<Resultado> {
 }
 export async function moverManualAccion(f: FormData): Promise<Resultado> {
   const a = await actor();
-  return a ? moverManual(a, { mjrvId: num(f, "mjrvId"), destino: String(f.get("destino") ?? ""), confirmar: f.get("confirmar") === "1" }) : NO_AUT;
+  return a ? moverManual(a, { mjrvId: num(f, "mjrvId"), destino: String(f.get("destino") ?? ""), confirmar: f.get("confirmar") === "1", cargo: String(f.get("cargo") ?? "") }) : NO_AUT;
 }
 export async function excepcionAccion(f: FormData): Promise<Resultado> {
   const a = await actor();

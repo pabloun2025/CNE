@@ -19,9 +19,6 @@ export type JuntaMando = {
 
 export type Indicadores = { ingresados: number; total: number; completas: number; incompletas: number; sinNadie: number; transferibles: number };
 
-// Provisional: lo usan las propuestas y traslados hasta D10 (que pasan a razonar por cargos).
-export const MINIMO_JUNTA = 3;
-
 // Disponible = ingresado y sin excepción activa (§7.2).
 export const disponible = (p: PersonaEntrada) => p.ingresado && !p.con_excepcion;
 

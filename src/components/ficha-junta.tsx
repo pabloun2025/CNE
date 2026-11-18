@@ -13,6 +13,7 @@ export function FichaJunta({ juntaId, onCerrar, onCambio }: { juntaId: number; o
   const { datos, refrescar } = useSondeo<Detalle>(`/api/mando/junta?id=${juntaId}`, 3000);
   const [aviso, setAviso] = useState<{ id: number; texto: string; confirmar?: boolean } | null>(null);
   const [destino, setDestino] = useState<Record<number, string>>({});
+  const [cargoMover, setCargoMover] = useState<Record<number, string>>({});
   const [elegida, setElegida] = useState<Record<string, string>>({}); // cargo → persona a asignar
   const [avisoCargo, setAvisoCargo] = useState("");
   const [pendiente, iniciar] = useTransition();
@@ -78,7 +79,10 @@ export function FichaJunta({ juntaId, onCerrar, onCambio }: { juntaId: number; o
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <input value={destino[m.id] ?? ""} onChange={(e) => setDestino((d) => ({ ...d, [m.id]: e.target.value }))} placeholder="Mover a… (H12)" aria-label={`Destino para ${m.nombre}`} className="w-32 rounded border border-slate-400 px-2 py-2" />
-                  <button disabled={pendiente || !(destino[m.id] ?? "").trim()} onClick={() => correr(m.id, moverManualAccion, { destino: destino[m.id] })} className="rounded border border-slate-600 px-3 py-2 text-sm font-semibold disabled:opacity-60">Mover manualmente</button>
+                  <select value={cargoMover[m.id] ?? ""} onChange={(e) => setCargoMover((d) => ({ ...d, [m.id]: e.target.value }))} aria-label={`Cargo de ${m.nombre} en el destino`} className="rounded border border-slate-400 px-2 py-2">
+                    <option value="">sin cargo</option><option value="presidente">presidente</option><option value="secretario">secretario</option><option value="vocal">vocal</option>
+                  </select>
+                  <button disabled={pendiente || !(destino[m.id] ?? "").trim()} onClick={() => correr(m.id, moverManualAccion, { destino: destino[m.id], cargo: cargoMover[m.id] ?? "" })} className="rounded border border-slate-600 px-3 py-2 text-sm font-semibold disabled:opacity-60">Mover manualmente</button>
                   {m.ingresado && !m.con_excepcion && (
                     <button disabled={pendiente} onClick={() => { const motivo = window.prompt("Motivo por el que no está disponible"); if (motivo) correr(m.id, excepcionAccion, { motivo }); }} className="rounded border border-slate-600 px-3 py-2 text-sm font-semibold">Marcar no disponible</button>
                   )}
@@ -88,7 +92,7 @@ export function FichaJunta({ juntaId, onCerrar, onCambio }: { juntaId: number; o
                 {aviso?.id === m.id && (
                   <p role="alert" className="text-sm font-semibold text-red-700">
                     {aviso.texto}{" "}
-                    {aviso.confirmar && <button disabled={pendiente} onClick={() => correr(m.id, moverManualAccion, { destino: destino[m.id], confirmar: "1" })} className="ml-2 rounded bg-red-700 px-3 py-2 text-white">Confirmar traslado</button>}
+                    {aviso.confirmar && <button disabled={pendiente} onClick={() => correr(m.id, moverManualAccion, { destino: destino[m.id], cargo: cargoMover[m.id] ?? "", confirmar: "1" })} className="ml-2 rounded bg-red-700 px-3 py-2 text-white">Confirmar traslado</button>}
                   </p>
                 )}
               </li>
