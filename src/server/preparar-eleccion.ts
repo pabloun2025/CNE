@@ -18,7 +18,7 @@ function exigirSuperadmin(sesion: Sesion): void {
 // Cada tabla se acota a «lo que es de prueba»: nunca se borra una fila con es_prueba = false.
 const DE_PRUEBA: Record<string, string> = {
   pagos_confirmados: "es_prueba", actas_pago: "es_prueba", documentos_mjrv: "es_prueba", decisiones_movimiento: "es_prueba",
-  excepciones_disponibilidad: "es_prueba", lecturas_puerta: "es_prueba",
+  excepciones_disponibilidad: "es_prueba", lecturas_puerta: "es_prueba", fichas_abiertas_finanzas: "es_prueba", asignaciones_cargo: "es_prueba",
   envios_credencial: "mjrv_id IN (SELECT id FROM cne.mjrv WHERE es_prueba)",
   mjrv: "es_prueba",
 };

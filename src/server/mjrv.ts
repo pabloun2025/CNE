@@ -44,7 +44,7 @@ export type Ficha = {
   id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; rol: Rol; rotulo_credencial: string | null;
   correo: string | null; telefono_e164: string | null; activo: boolean; baja_motivo: string | null; es_prueba: boolean;
   credencial_generada_en: string | null; fuente_archivo: string | null; origen: string; vigente: string;
-  ingreso_en: string | null; anverso: boolean; reverso: boolean; actas: number; pago: { en: string; importe_eur: string; operador: string } | null;
+  ingreso_en: string | null; incorporado_en: string | null; incorporado_por: string | null; anverso: boolean; reverso: boolean; actas: number; pago: { en: string; importe_eur: string; operador: string } | null;
   movimientos: { creado_en: string; origen: string; destino: string; decision: string; manual: boolean; actor_nombre: string }[];
 };
 
@@ -52,7 +52,8 @@ export async function obtenerFicha(id: number): Promise<Ficha | null> {
   const f = await query<Omit<Ficha, "movimientos" | "pago" | "actas" | "anverso" | "reverso">>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.rol, m.rotulo_credencial, m.correo, m.telefono_e164, m.activo, m.baja_motivo, m.es_prueba,
             m.credencial_generada_en::text, m.fuente_archivo, jo.serie || jo.numero AS origen, jv.serie || jv.numero AS vigente,
-            (SELECT min(l.creado_en)::text FROM lecturas_puerta l WHERE l.mjrv_id = m.id AND l.resultado = 'valido') AS ingreso_en
+            (SELECT min(l.creado_en)::text FROM lecturas_puerta l WHERE l.mjrv_id = m.id AND l.resultado = 'valido') AS ingreso_en,
+            m.incorporado_en::text, m.incorporado_por
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id JOIN juntas_madrid jv ON jv.id = ${SQL_VIGENTE}
       WHERE m.id = $1`, [id]);
   if (!f[0]) return null;

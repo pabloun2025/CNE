@@ -10,7 +10,7 @@ export type DatosActa = {
   emitidaEn: Date;
   operador: string;
   persona: { apellidos: string; nombres: string; cedula: string; cargo: string; juntaOrigen: string; juntaVigente: string };
-  importe: { usd: string; cambio: string; sentido: string; eur: string; redondeo: string; decimales: number } | null;
+  importe: { eur: string } | null;
   pagador: { nombre: string; cargo: string } | null;
   anverso: Buffer;
   reverso: Buffer;
@@ -54,7 +54,9 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
   let y = H - 70;
   const linea = (t: string, size = 11, f = normal, x = M) => { p1.drawText(latin(t), { x, y, size, font: f, color: negro }); y -= size + 6; };
   const titulo = "RECIBO DE PAGO A MIEMBRO DE JUNTA RECEPTORA DEL VOTO";
-  p1.drawText(titulo, { x: (W - bold.widthOfTextAtSize(titulo, 14)) / 2, y, size: 14, font: bold, color: negro }); y -= 22;
+  p1.drawText(titulo, { x: (W - bold.widthOfTextAtSize(titulo, 14)) / 2, y, size: 14, font: bold, color: negro }); y -= 20;
+  const comprobante = "Comprobante de pago";
+  p1.drawText(comprobante, { x: (W - bold.widthOfTextAtSize(comprobante, 12)) / 2, y, size: 12, font: bold, color: negro }); y -= 18;
   const sub = "Elecciones Seccionales y CPCCS 2027 · Jornada del 29 de noviembre de 2026 · Madrid";
   p1.drawText(latin(sub), { x: (W - normal.widthOfTextAtSize(latin(sub), 10)) / 2, y, size: 10, font: normal, color: negro }); y -= 30;
 
@@ -76,10 +78,7 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
     linea("IMPORTE PENDIENTE DE APROBACIÓN — BORRADOR", 13, bold);
   } else {
     const i = d.importe;
-    linea(`Importe de referencia: ${i.usd} USD`);
-    linea(`Tipo de cambio aplicado: ${i.sentido === "eur_por_usd" ? `1 USD = ${i.cambio} EUR` : `1 EUR = ${i.cambio} USD`}`);
     linea(`Importe entregado: ${i.eur} EUR`, 13, bold);
-    linea(`Regla de redondeo: ${i.redondeo}; ${i.decimales === 0 ? "euros enteros" : "2 decimales"}`, 10);
   }
   y -= 8;
   linea("4 · Declaración", 12, bold);

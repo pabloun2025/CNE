@@ -1,7 +1,10 @@
 import sharp from "sharp";
 import { sha256Bytes } from "../domain/text";
 import { decryptBuffer, encryptBuffer } from "./crypto";
-import { query, withTx } from "./db";
+import { normalizarFrase } from "../domain/limpieza";
+import type { Sesion } from "./auth";
+import { registrarAuditoria } from "./auditoria";
+import { query, withOwnerTx, withTx } from "./db";
 
 export type Lado = "anverso" | "reverso";
 export const MIN_BYTES = 20_000;
@@ -94,4 +97,37 @@ export function ipDeSolicitud(headers: Headers): string | null {
 
 export async function fijarFormulario(abierto: boolean, usuarioId: number): Promise<void> {
   await query("UPDATE configuracion SET documentos_publico_abierto = $1, actualizado_en = now(), actualizado_por = $2 WHERE id = 1", [abierto, usuarioId]);
+}
+
+// ───────────── Borrado de todas las fotos (superadmin, 10d) ─────────────
+// Las fotos se conservan hasta que la superadmin pulse el botón. cne_app no tiene DELETE, así que va con el dueño del esquema;
+// la seguridad por filas limita el borrado al modo actual (prueba o elección). Las copias de seguridad diarias guardan las fotos cifradas hasta 14 días.
+export const FRASE_BORRAR_FOTOS = "BORRAR FOTOS";
+// El dueño del esquema puede saltarse la seguridad por filas: se acota el borrado al modo actual de forma explícita.
+const MODO_ACTUAL = "(SELECT modo = 'prueba' FROM cne.configuracion WHERE id = 1)";
+export type ResumenFotos = { fotos: number; personas: number; sinPago: number };
+
+export async function resumenFotos(): Promise<ResumenFotos> {
+  const f = (await query<ResumenFotos>(
+    `SELECT count(*)::int AS fotos, count(DISTINCT d.mjrv_id)::int AS personas,
+            count(DISTINCT d.mjrv_id) FILTER (WHERE NOT EXISTS (SELECT 1 FROM pagos_confirmados p WHERE p.mjrv_id = d.mjrv_id))::int AS "sinPago"
+       FROM documentos_mjrv d`))[0];
+  return f;
+}
+
+export async function borrarTodasLasFotos(sesion: Sesion, confirmacion: string): Promise<{ ok: true; borradas: number; personas: number } | { ok: false; mensaje: string }> {
+  if (sesion.tipo !== "superadmin") throw new Error("Solo la superadministración puede hacer esto.");
+  if (normalizarFrase(confirmacion) !== FRASE_BORRAR_FOTOS) return { ok: false, mensaje: `Escriba «${FRASE_BORRAR_FOTOS}» para confirmar. No se borró nada.` };
+  return withOwnerTx(async (client) => {
+    const antes = (await client.query<{ fotos: number; personas: number; sin_pago: number }>(
+      `SELECT count(*)::int AS fotos, count(DISTINCT d.mjrv_id)::int AS personas,
+              count(DISTINCT d.mjrv_id) FILTER (WHERE NOT EXISTS (SELECT 1 FROM cne.pagos_confirmados p WHERE p.mjrv_id = d.mjrv_id))::int AS sin_pago
+         FROM cne.documentos_mjrv d WHERE d.es_prueba = ${MODO_ACTUAL}`)).rows[0];
+    const r = await client.query(`DELETE FROM cne.documentos_mjrv WHERE es_prueba = ${MODO_ACTUAL}`);
+    await registrarAuditoria({
+      portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "fotos_cedula_borradas", entidad: "documentos_mjrv",
+      datos: { fotos: r.rowCount ?? 0, personas: antes.personas, sin_pago_confirmado: antes.sin_pago },
+    }, client);
+    return { ok: true as const, borradas: r.rowCount ?? 0, personas: antes.personas };
+  });
 }

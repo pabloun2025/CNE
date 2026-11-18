@@ -6,8 +6,9 @@ import { consultarDueno, reiniciarBase } from "./helpers/db";
 describe("inicio de administración", () => {
   beforeAll(async () => {
     await reiniciarBase();
-    for (const c of ["0000000001", "0000000002", "0000000003"]) {
-      await consultarDueno("INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id) SELECT $1,'APELLIDO PRUEBA','NOMBRE PRUEBA','VOCAL','vocal',id FROM cne.juntas_madrid WHERE serie='H' AND numero=1", [c]);
+    // Una junta completa necesita los tres cargos: presidente, secretario y vocal.
+    for (const [c, rol] of [["0000000001", "presidente"], ["0000000002", "secretario"], ["0000000003", "vocal"]]) {
+      await consultarDueno("INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id) SELECT $1,'APELLIDO PRUEBA','NOMBRE PRUEBA',upper($2),$2,id FROM cne.juntas_madrid WHERE serie='H' AND numero=1", [c, rol]);
     }
     await consultarDueno("UPDATE cne.mjrv SET credencial_generada_en = now() WHERE cedula = '0000000001'");
     await consultarDueno("INSERT INTO cne.operadores_madrid (nombre, pin_hash, funciones) VALUES ('Op Prueba','x','{puerta}')");

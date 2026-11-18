@@ -14,13 +14,13 @@ export function informeCierreExcel(d: DatosInforme): Buffer {
     ...(d.modoPrueba ? [["INFORME DE PRUEBA — SIN VALIDEZ: confirmaciones simuladas"]] : []),
     [],
     [...COLUMNAS_INFORME],
-    ...d.filas.map((f) => [f.cedula, f.nombre, f.junta, ESTADO_INFORME[f.estado] ?? f.estado, num(f.usd), num(f.tipo_cambio), num(f.eur), momento(f.hora), f.operador ?? ""]),
+    ...d.filas.map((f) => [f.cedula, f.nombre, f.junta, ESTADO_INFORME[f.estado] ?? f.estado, num(f.eur), momento(f.hora), f.operador ?? ""]),
     [],
     ["Personas", t.personas], ["Pagadas", t.pagadas], ["Pendientes", t.pendientes],
     ["TOTAL ENTREGADO EUR (solo pagos confirmados)", Number(t.totalEur)],
   ];
   const hoja = XLSX.utils.aoa_to_sheet(filas);
-  hoja["!cols"] = [14, 36, 8, 34, 10, 14, 14, 20, 24].map((wch) => ({ wch }));
+  hoja["!cols"] = [14, 36, 8, 34, 14, 20, 24].map((wch) => ({ wch }));
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, hoja, "Informe");
   return XLSX.write(libro, { type: "buffer", bookType: "xlsx" }) as Buffer;

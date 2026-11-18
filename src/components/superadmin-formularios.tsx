@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, quitarDemoAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
+import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
 const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
 const boton = "rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60";
@@ -89,6 +89,57 @@ export function FormPreparar({ resumen, conserva }: { resumen: { etiqueta: strin
           <input name="confirmacion" autoComplete="off" required className={campo} />
         </label>
         <button disabled={pendiente} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar datos de prueba y preparar para elección</button>
+      </form>
+      <Resultado estado={estado} />
+    </div>
+  );
+}
+
+export function FormInterruptor({ canal, encendido }: { canal: "whatsapp" | "correo"; encendido: boolean }) {
+  const [estado, enviar, pendiente] = useActionState(interruptorEnvioAccion, null);
+  return (
+    <form action={enviar} className="space-y-3">
+      <input type="hidden" name="canal" value={canal} />
+      <input type="hidden" name="destino" value={encendido ? "apagar" : "encender"} />
+      {!encendido && <label className="block text-sm font-medium">Para encender escriba «ENVIO REAL»<input name="confirmacion" autoComplete="off" required className={campo} /></label>}
+      <button disabled={pendiente} className={encendido ? "rounded border border-red-700 px-4 py-3 font-semibold text-red-700 disabled:opacity-60" : boton}>{encendido ? "Apagar el envío real" : "Encender el envío real"}</button>
+      <Resultado estado={estado} />
+    </form>
+  );
+}
+
+export function FormReanudar({ canal }: { canal: "whatsapp" | "correo" }) {
+  const [estado, enviar, pendiente] = useActionState(reanudarEnviosAccion, null);
+  return (
+    <form action={enviar}>
+      <input type="hidden" name="canal" value={canal} />
+      <button disabled={pendiente} className={boton}>Reanudar envíos</button>
+      <Resultado estado={estado} />
+    </form>
+  );
+}
+
+export function FormRemitente({ direccion, nombre }: { direccion: string; nombre: string }) {
+  const [estado, enviar, pendiente] = useActionState(guardarRemitenteAccion, null);
+  return (
+    <form action={enviar} className="max-w-sm space-y-3">
+      <label className="block text-sm font-medium">Dirección del remitente<input name="direccion" type="email" defaultValue={direccion} required className={campo} /></label>
+      <label className="block text-sm font-medium">Nombre del remitente<input name="nombre" defaultValue={nombre} required maxLength={70} className={campo} /></label>
+      <button disabled={pendiente} className={boton}>Guardar remitente</button>
+      <Resultado estado={estado} />
+    </form>
+  );
+}
+
+export function FormBorrarFotos({ fotos, personas, sinPago }: { fotos: number; personas: number; sinPago: number }) {
+  const [estado, enviar, pendiente] = useActionState(borrarFotosAccion, null);
+  return (
+    <div className="space-y-3">
+      <p className="text-sm">Hay <strong>{fotos}</strong> fotos de <strong>{personas}</strong> personas; <strong>{sinPago}</strong> de ellas aún sin pago confirmado. Las fotos se conservan hasta que usted las borre aquí.</p>
+      <p className="text-sm font-medium text-red-800">Borrar es definitivo: finanzas volverá a pedir las fotos. Las copias de seguridad diarias guardan las fotos cifradas hasta 14 días.</p>
+      <form action={enviar} className="max-w-sm space-y-3">
+        <label className="block text-sm font-medium">Para confirmar escriba «BORRAR FOTOS»<input name="confirmacion" autoComplete="off" required className={campo} /></label>
+        <button disabled={pendiente || fotos === 0} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar todas las fotos de cédula</button>
       </form>
       <Resultado estado={estado} />
     </div>

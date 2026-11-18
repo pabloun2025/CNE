@@ -5,6 +5,8 @@ export const CATEGORIAS_LIMPIEZA: CategoriaLimpieza[] = [
   { tabla: "pagos_confirmados", etiqueta: "Confirmaciones de pago simuladas" },
   { tabla: "actas_pago", etiqueta: "Actas de pago de prueba" },
   { tabla: "documentos_mjrv", etiqueta: "Fotos de cédula de ensayo" },
+  { tabla: "fichas_abiertas_finanzas", etiqueta: "Fichas abiertas en finanzas" },
+  { tabla: "asignaciones_cargo", etiqueta: "Cargos asumidos" },
   { tabla: "decisiones_movimiento", etiqueta: "Movimientos entre juntas" },
   { tabla: "excepciones_disponibilidad", etiqueta: "Excepciones de disponibilidad" },
   { tabla: "lecturas_puerta", etiqueta: "Lecturas de puerta" },

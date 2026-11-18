@@ -1,7 +1,8 @@
 "use server";
 
 import { adminOEstacionApi } from "./guard";
-import { aceptarPropuesta, descartarPropuesta, marcarNoDisponible, moverManual, quitarExcepcion, rehabilitar, type Actor, type Resultado } from "./movimientos";
+import { incorporarVotante } from "./incorporar";
+import { aceptarPropuesta, asignarCargo, descartarPropuesta, quitarCargo, marcarNoDisponible, moverManual, quitarExcepcion, rehabilitar, type Actor, type Resultado } from "./movimientos";
 
 // Solo administración Madrid o una estación con función «mando». Cada acción lo comprueba en el servidor.
 async function actor(): Promise<Actor | null> {
@@ -11,7 +12,7 @@ async function actor(): Promise<Actor | null> {
 }
 const NO_AUT: Resultado = { ok: false, mensaje: "Su sesión ya no es válida. Vuelva a identificarse." };
 const num = (f: FormData, k: string) => Number(f.get(k));
-const propuesta = (f: FormData) => ({ mjrvId: num(f, "mjrvId"), origenId: num(f, "origenId"), destinoId: num(f, "destinoId") });
+const propuesta = (f: FormData) => ({ mjrvId: num(f, "mjrvId"), origenId: num(f, "origenId"), destinoId: num(f, "destinoId"), cargo: String(f.get("cargo") ?? "") });
 
 export async function aceptarAccion(f: FormData): Promise<Resultado> {
   const a = await actor();
@@ -27,7 +28,7 @@ export async function noViableAccion(f: FormData): Promise<Resultado> {
 }
 export async function moverManualAccion(f: FormData): Promise<Resultado> {
   const a = await actor();
-  return a ? moverManual(a, { mjrvId: num(f, "mjrvId"), destino: String(f.get("destino") ?? ""), confirmar: f.get("confirmar") === "1" }) : NO_AUT;
+  return a ? moverManual(a, { mjrvId: num(f, "mjrvId"), destino: String(f.get("destino") ?? ""), confirmar: f.get("confirmar") === "1", cargo: String(f.get("cargo") ?? "") }) : NO_AUT;
 }
 export async function excepcionAccion(f: FormData): Promise<Resultado> {
   const a = await actor();
@@ -37,4 +38,19 @@ export async function excepcionAccion(f: FormData): Promise<Resultado> {
 export async function rehabilitarAccion(f: FormData): Promise<Resultado> {
   const a = await actor();
   return a ? rehabilitar(num(f, "mjrvId")) : NO_AUT;
+}
+
+export async function asignarCargoAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  return a ? asignarCargo(a, { juntaId: num(f, "juntaId"), mjrvId: num(f, "mjrvId"), cargo: String(f.get("cargo") ?? "") }) : NO_AUT;
+}
+export async function quitarCargoAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  return a ? quitarCargo(a, { juntaId: num(f, "juntaId"), mjrvId: num(f, "mjrvId") }) : NO_AUT;
+}
+
+export async function incorporarVotanteAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  const t = (k: string) => String(f.get(k) ?? "");
+  return a ? incorporarVotante(a, { nombres: t("nombres"), apellidos: t("apellidos"), cedula: t("cedula"), juntaId: num(f, "juntaId"), cargo: t("cargo"), telefono: t("telefono"), correo: t("correo") }) : NO_AUT;
 }

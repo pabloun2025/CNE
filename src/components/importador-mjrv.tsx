@@ -35,6 +35,8 @@ export function ImportadorMjrv() {
       {v && (
         <div className="space-y-3">
           <p>{v.filas.length} filas · <strong>{v.validas} válidas</strong> · {v.errores} con errores · {v.advertencias} con advertencias · {v.nuevas} nuevas · {v.actualizadas} se actualizarán.</p>
+          {v.sinColumnaRotulo && <p role="note" className="rounded border-2 border-amber-600 bg-amber-50 p-3 text-base font-semibold text-amber-900">El archivo no trae columna de rótulo: se imprimirá el texto de la junta tal cual (M01…).</p>}
+          {v.nomenclaturaMF && <p role="note" className="rounded border-2 border-amber-600 bg-amber-50 p-3 text-base font-semibold text-amber-900">El archivo usa M = masculino y F = femenino: M se importa como serie H (hombres) y F como serie M (mujeres). Resultado: {v.porSerie.H} en serie H y {v.porSerie.M} en serie M. Compruebe que es correcto antes de aplicar.</p>}
           {v.avisosJunta.length > 0 && <ul className="list-disc pl-5 text-sm text-amber-800">{v.avisosJunta.map((a) => <li key={a}>{a}</li>)}</ul>}
           {conProblemas.length > 0 && (
             <div className="overflow-x-auto">

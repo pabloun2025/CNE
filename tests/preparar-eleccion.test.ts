@@ -23,6 +23,11 @@ async function sembrarActividad() {
   await consultarDueno(`INSERT INTO cne.actas_pago (mjrv_id, operador_id, importe_usd, tipo_cambio, importe_eur, parametros, impresion_n, es_prueba) VALUES (${demo}, ${oper}, 10, 1, 10, '{}', 1, true)`);
   await consultarDueno(`INSERT INTO cne.pagos_confirmados (mjrv_id, acta_id, importe_usd, tipo_cambio, importe_eur, funciones_verificadas, operador_id, enlace_id, es_prueba) VALUES (${demo}, (SELECT id FROM cne.actas_pago LIMIT 1), 10, 1, 10, true, ${oper}, ${enl}, true)`);
   await consultarDueno(`INSERT INTO cne.envios_credencial (mjrv_id, canal, destino) VALUES (${demo}, 'correo', 'prueba@ejemplo.invalid')`);
+  // D01: cargos asumidos y fichas abiertas, de prueba y reales.
+  await consultarDueno(`INSERT INTO cne.asignaciones_cargo (mjrv_id, junta_id, cargo, origen, actor_tipo, actor_id, actor_nombre, es_prueba) VALUES (${demo}, (SELECT id FROM cne.juntas_madrid ORDER BY id LIMIT 1), 'vocal', 'manual', 'madrid_admin', 1, 'A', true)`);
+  await consultarDueno(`INSERT INTO cne.fichas_abiertas_finanzas (mjrv_id, enlace_id, operador_nombre, es_prueba) VALUES (${demo}, ${enl}, 'Operador Prueba', true)`);
+  await consultarDueno("INSERT INTO cne.asignaciones_cargo (mjrv_id, junta_id, cargo, origen, actor_tipo, actor_id, actor_nombre, es_prueba) SELECT id, junta_origen_id, 'vocal', 'manual', 'madrid_admin', 1, 'A', false FROM cne.mjrv WHERE cedula = '9999999999'");
+  await consultarDueno("INSERT INTO cne.fichas_abiertas_finanzas (mjrv_id, enlace_id, operador_nombre, es_prueba) SELECT id, (SELECT id FROM cne.enlaces_estacion LIMIT 1), 'Operador Real', false FROM cne.mjrv WHERE cedula = '9999999999'");
   // Un registro real (modo elección imaginario): no debe tocarse.
   await consultarDueno("INSERT INTO cne.lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, es_prueba) SELECT '9999999999', m.id, 'valido', (SELECT id FROM cne.operadores_madrid LIMIT 1), (SELECT id FROM cne.enlaces_estacion LIMIT 1), false FROM cne.mjrv m WHERE m.cedula = '9999999999'");
   await consultarDueno("INSERT INTO cne.envios_credencial (mjrv_id, canal, destino) SELECT id, 'correo', 'real@ejemplo.invalid' FROM cne.mjrv WHERE cedula = '9999999999'");
@@ -47,7 +52,7 @@ describe("Borrar datos de prueba y preparar para elección", () => {
 
   it("el resumen cuenta solo lo de prueba y no cambia nada", async () => {
     const r = await resumenLimpieza();
-    expect(Object.fromEntries(r.map((x) => [x.tabla, x.n]))).toMatchObject({ lecturas_puerta: 1, actas_pago: 1, pagos_confirmados: 1, mjrv: 570, envios_credencial: 1 });
+    expect(Object.fromEntries(r.map((x) => [x.tabla, x.n]))).toMatchObject({ lecturas_puerta: 1, actas_pago: 1, pagos_confirmados: 1, mjrv: 570, envios_credencial: 1, asignaciones_cargo: 1, fichas_abiertas_finanzas: 1 });
     expect((await consultarDueno<{ modo: string }>("SELECT modo FROM cne.configuracion"))[0].modo).toBe("prueba");
   });
 
@@ -72,6 +77,10 @@ describe("Borrar datos de prueba y preparar para elección", () => {
     expect(await n("cne.lecturas_puerta WHERE es_prueba")).toBe(0);
     expect(await n("cne.actas_pago")).toBe(0);
     expect(await n("cne.pagos_confirmados")).toBe(0);
+    expect(await n("cne.asignaciones_cargo")).toBe(1); // la real
+    expect(await n("cne.asignaciones_cargo WHERE es_prueba")).toBe(0);
+    expect(await n("cne.fichas_abiertas_finanzas")).toBe(1);
+    expect(await n("cne.fichas_abiertas_finanzas WHERE es_prueba")).toBe(0);
     expect(await n("cne.envios_credencial")).toBe(1);
     expect(await n("cne.operadores_madrid")).toBe(1);
     expect(await n("cne.enlaces_estacion")).toBe(1);

@@ -10,7 +10,8 @@ const MOTIVOS = ["No responde", "Se niega", "No está", "Otro"];
 
 // Una propuesta a la vez. Las acciones las decide siempre una persona (§7.3); la tarjeta nunca mueve a nadie sola.
 export function TarjetaPropuesta({ onCambio }: { onCambio: () => void }) {
-  const { datos, refrescar } = useSondeo<{ propuesta: Propuesta | null }>("/api/mando/propuesta", 3000);
+  const { datos, refrescar } = useSondeo<{ propuesta: Propuesta | null; juntasConVacantes: number }>("/api/mando/propuesta", 3000);
+  const [cargoElegido, setCargoElegido] = useState<{ clave: string; cargo: string } | null>(null);
   const [aviso, setAviso] = useState("");
   const [motivo, setMotivo] = useState(MOTIVOS[0]);
   const [otro, setOtro] = useState("");
@@ -18,9 +19,13 @@ export function TarjetaPropuesta({ onCambio }: { onCambio: () => void }) {
   const [pendiente, iniciar] = useTransition();
   if (!datos) return null;
   const p = datos.propuesta;
+  // El cargo propuesto (primera vacante) se puede cambiar por otra vacante del mismo destino; al cambiar de propuesta vuelve el sugerido.
+  const clave = p ? `${p.mjrvId}:${p.destinoId}` : "";
+  const cargoActual = p ? (cargoElegido?.clave === clave && p.vacantes.includes(cargoElegido.cargo as Propuesta["cargo"]) ? cargoElegido.cargo : p.cargo) : "";
   const datosForm = (extra: Record<string, string> = {}) => {
     const f = new FormData();
     f.set("mjrvId", String(p!.mjrvId)); f.set("origenId", String(p!.origenId)); f.set("destinoId", String(p!.destinoId));
+    f.set("cargo", cargoActual);
     for (const [k, v] of Object.entries(extra)) f.set(k, v);
     return f;
   };
@@ -32,12 +37,21 @@ export function TarjetaPropuesta({ onCambio }: { onCambio: () => void }) {
       refrescar();
       onCambio();
     });
-  if (!p) return <p className="rounded border bg-slate-50 p-3">No hay suplentes transferibles para las juntas incompletas.</p>;
+  if (!p) {
+    return datos.juntasConVacantes > 0
+      ? <p className="rounded border-2 border-amber-600 bg-amber-50 p-3 font-medium text-amber-900">No hay suplentes transferibles. Si hace falta, incorpore un votante.</p>
+      : <p className="rounded border bg-slate-50 p-3">No hay juntas con cargos vacantes que cubrir.</p>;
+  }
   return (
     <section className="sticky top-8 z-30 space-y-2 rounded border-2 border-blue-700 bg-blue-50 p-3 shadow" aria-label="Propuesta de traslado">
       <p className="text-lg">
         Trasladar a <strong>{p.persona}</strong> (suplente, {p.origen} {ZONA_NOMBRE[p.origenZona]}) → <strong>{p.destino} {ZONA_NOMBRE[p.destinoZona]}</strong>.
       </p>
+      <label className="block text-sm font-medium">Cargo que asumirá en {p.destino}
+        <select value={cargoActual} onChange={(e) => setCargoElegido({ clave, cargo: e.target.value })} className="ml-2 rounded border border-slate-400 px-3 py-3 capitalize">
+          {p.vacantes.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </label>
       <p className="text-sm">Motivo: {p.motivo}{p.mismaZona ? " Misma zona." : ""}</p>
       {aviso && <p role="alert" className="font-semibold text-red-700">{aviso}</p>}
       <div className="flex flex-wrap gap-2">

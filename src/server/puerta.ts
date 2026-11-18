@@ -4,7 +4,7 @@ import { ZONA_NOMBRE, type ZonaColor } from "../domain/juntas";
 
 export type Lectura =
   | { resultado: "valido"; nombre: string; junta: string; zona: string }
-  | { resultado: "duplicado"; desde: string }
+  | { resultado: "duplicado"; desde: string; mjrvId: number; nombre: string; junta: string }
   | { resultado: "desconocido" }
   | { resultado: "bloqueado" };
 
@@ -16,6 +16,14 @@ export async function registrarLectura(s: SesionEstacion, codigoBruto: string, d
   return withTx(async (client) => {
     const dev = (dispositivo ?? "").slice(0, 100) || null;
     const m = (await client.query<{ id: number; activo: boolean; apellidos: string; nombres: string }>("SELECT id, activo, apellidos, nombres FROM mjrv WHERE cedula = $1", [codigo])).rows[0];
+    // Junta vigente (la del último movimiento aceptado, si hay).
+    const juntaVigente = async (id: number) => {
+      const j = (await client.query<{ serie: string; numero: number; zona_color: ZonaColor }>(
+        `SELECT j.serie, j.numero, j.zona_color FROM juntas_madrid j WHERE j.id = coalesce(
+           (SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = $1 AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1),
+           (SELECT junta_origen_id FROM mjrv WHERE id = $1))`, [id])).rows[0];
+      return { junta: `${j.serie}${j.numero}`, zona: ZONA_NOMBRE[j.zona_color] };
+    };
     if (!m) {
       await client.query("INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, dispositivo) VALUES ($1, NULL, 'desconocido', $2, $3, $4)", [codigo, s.operadorId, s.enlaceId, dev]);
       return { resultado: "desconocido" as const };
@@ -28,14 +36,11 @@ export async function registrarLectura(s: SesionEstacion, codigoBruto: string, d
     if (!r.rows[0]) {
       const previa = (await client.query<{ creado_en: string }>("SELECT creado_en::text FROM lecturas_puerta WHERE mjrv_id = $1 AND resultado = 'valido'", [m.id])).rows[0];
       await client.query("INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, dispositivo) VALUES ($1, $2, 'duplicado', $3, $4, $5)", [codigo, m.id, s.operadorId, s.enlaceId, dev]);
-      return { resultado: "duplicado" as const, desde: previa.creado_en };
+      return { resultado: "duplicado" as const, desde: previa.creado_en, mjrvId: m.id, nombre: `${m.apellidos}, ${m.nombres}`, junta: (await juntaVigente(m.id)).junta };
     }
     if (r.rows[0].resultado === "bloqueado") return { resultado: "bloqueado" as const };
-    const j = (await client.query<{ serie: string; numero: number; zona_color: ZonaColor }>(
-      `SELECT j.serie, j.numero, j.zona_color FROM juntas_madrid j WHERE j.id = coalesce(
-         (SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = $1 AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1),
-         (SELECT junta_origen_id FROM mjrv WHERE id = $1))`, [m.id])).rows[0];
-    return { resultado: "valido" as const, nombre: `${m.apellidos}, ${m.nombres}`, junta: `${j.serie}${j.numero}`, zona: ZONA_NOMBRE[j.zona_color] };
+    const j = await juntaVigente(m.id);
+    return { resultado: "valido" as const, nombre: `${m.apellidos}, ${m.nombres}`, junta: j.junta, zona: j.zona };
   });
 }
 
@@ -43,4 +48,19 @@ export async function registrarLectura(s: SesionEstacion, codigoBruto: string, d
 export async function contadoresPuerta(enlaceId: number): Promise<{ total: number; esteEnlace: number }> {
   const f = await query<{ total: number; este: number }>("SELECT count(*)::int AS total, count(*) FILTER (WHERE enlace_id = $1)::int AS este FROM lecturas_puerta WHERE resultado = 'valido'", [enlaceId]);
   return { total: f[0].total, esteEnlace: f[0].este };
+}
+
+export type ResultadoPase = { ok: true } | { ok: false; status: 404 | 409; mensaje: string };
+
+// «Dejar pasar» un reingreso (09 §3.3): queda registrado con operador y puesto, pero no cuenta como segundo ingreso
+// (lecturas_un_ingreso y los contadores solo miran «valido»). Solo se puede si la persona ya ingresó una vez.
+export async function dejarPasar(s: SesionEstacion, mjrvId: number): Promise<ResultadoPase> {
+  return withTx(async (client) => {
+    const m = (await client.query<{ cedula: string; activo: boolean }>("SELECT cedula, activo FROM mjrv WHERE id = $1", [mjrvId])).rows[0];
+    if (!m || !m.activo) return { ok: false as const, status: 404 as const, mensaje: "La ficha no existe o está de baja." };
+    const previa = (await client.query("SELECT 1 FROM lecturas_puerta WHERE mjrv_id = $1 AND resultado = 'valido'", [mjrvId])).rows[0];
+    if (!previa) return { ok: false as const, status: 409 as const, mensaje: "Esta persona aún no ha ingresado." };
+    await client.query("INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id) VALUES ($1, $2, 'reingreso_autorizado', $3, $4)", [m.cedula, mjrvId, s.operadorId, s.enlaceId]);
+    return { ok: true as const };
+  });
 }

@@ -2,7 +2,7 @@ import { query } from "./db";
 import { leerModo } from "./config";
 import type { EstadoPago } from "./finanzas";
 
-export type FilaFinanzas = { id: number; cedula: string; nombre: string; junta: string; estado: EstadoPago; eur: string | null; usd: string | null; tipo_cambio: string | null; hora: string | null; operador: string | null; simulado: boolean };
+export type FilaFinanzas = { id: number; cedula: string; nombre: string; junta: string; estado: EstadoPago; eur: string | null; hora: string | null; operador: string | null; simulado: boolean };
 export type ResumenFinanzas = {
   generado_en: string; modoPrueba: boolean;
   pagados: number; pendientes: number; documentacionIncompleta: number; totalEur: string; filas: FilaFinanzas[];
@@ -16,7 +16,7 @@ export async function resumenFinanzas(): Promise<ResumenFinanzas> {
                  WHEN d.n < 2 THEN 'documentacion_incompleta'
                  WHEN EXISTS (SELECT 1 FROM actas_pago a WHERE a.mjrv_id = m.id) THEN 'acta_preparada'
                  ELSE 'lista' END AS estado,
-            p.importe_eur::text AS eur, p.importe_usd::text AS usd, p.tipo_cambio::text AS tipo_cambio, p.confirmado_en::text AS hora, o.nombre AS operador, coalesce(p.es_prueba, false) AS simulado
+            p.importe_eur::text AS eur, p.confirmado_en::text AS hora, o.nombre AS operador, coalesce(p.es_prueba, false) AS simulado
        FROM mjrv m
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT x.junta_destino_id FROM decisiones_movimiento x WHERE x.mjrv_id = m.id AND x.decision = 'aceptada' ORDER BY x.creado_en DESC, x.id DESC LIMIT 1), m.junta_origen_id)
        CROSS JOIN LATERAL (SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = m.id) d

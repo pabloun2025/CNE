@@ -198,31 +198,45 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO.** Salidas: credencial PDF individual; hojas A4 **optimizadas para acomodar el máximo número de credenciales legibles sin recortarlas**, listas para imprimir, cortar y colocar en portaidentificaciones con cordón; envío individual por WhatsApp mediante teinvito/Evolution API y **por correo electrónico**. Plantilla gráfica y archivo fuente pendientes.
 
+**DECIDIDO (18-11-2026).** El **rótulo de la credencial es el que traiga el Excel**, impreso tal cual. Si el Excel no trae columna de rótulo, se usa el texto de su columna de junta tal cual; si usa la nomenclatura M/F del modelo de credencial (M = masculino, F = femenino), se interpreta así y se avisa en la vista previa, sin convertir M01 en «mujeres».
+
+**DECIDIDO (18-11-2026).** **Envío real por WhatsApp** con la Evolution API ya desplegada en la VM (la de consulares), pero con **una instancia/línea propia de CNE** que se crea, se vincula por QR, se consulta y se desvincula desde el sistema de Madrid (pantalla de superadministración). **Correo real por Brevo** con la cuenta existente. Ambos envíos reales solo funcionan con un **interruptor explícito de la superadministración** (por defecto, simulado), con cola, pausas al azar de 20–45 s entre WhatsApp, horario razonable, tope diario y pausa tras varios fallos seguidos. El mensaje de la credencial incluye el **enlace al formulario de la cédula**. Diseño: `docs/diseno/09-cambios-decisiones.md`.
+
 ### 7.2. Control de ingreso
 
 **DECIDIDO.** En puerta el operador utiliza un **enlace limitado, revocable**, creado por la administración; se identifica por nombre y PIN, no entra en el panel administrativo. Escanea el QR de la credencial; el sistema identifica al MJRV por cédula, registra ingreso y actualiza de inmediato el centro de mando.
 
-**DECIDIDO.** Lectura válida: verde, aviso «Válida», pitido agudo. Desconocida, duplicada/ya usada o bloqueada: rojo, dos pitidos graves. **ABIERTO** el significado y tratamiento de bloqueado y reingreso; no copiar reglas ajenas de teinvito.
+**DECIDIDO.** Lectura válida: verde, aviso «Válida», pitido agudo. **SUSTITUIDO (18-11-2026)** por la decisión siguiente: Desconocida, duplicada/ya usada o bloqueada: rojo, dos pitidos graves. **ABIERTO** el significado y tratamiento de bloqueado y reingreso; no copiar reglas ajenas de teinvito.
+
+**DECIDIDO (18-11-2026).** Un segundo escaneo de una persona ya ingresada da **AMARILLO** con la hora del primer ingreso; el operador decide con el botón **«Dejar pasar»**, que queda registrado y **no cuenta un segundo ingreso**. **Rojo** solo para credencial desconocida o **bloqueada**, y **bloqueada = persona dada de baja en la lista**.
 
 **DECIDIDO.** Una persona escaneada en puerta se considera **presente y disponible por defecto para estimaciones operativas**, sin requerir segunda confirmación por coordinador de mesa. La llegada **no demuestra** que su junta se haya instalado oficialmente. El centro de mando podrá registrar excepciones cuando tenga información de indisponibilidad.
 
 ### 7.3. Centro de mando: conformación y movimientos
 
-**DECIDIDO — movimientos de suplentes entre zonas.** Pablo aprobó la opción **B**: el centro de mando busca primero suplentes sobrantes en la **misma zona de color**; cuando no los hay suficientes, puede proponer suplentes disponibles de **otras zonas**, priorizando cercanía y disponibilidad. Cada propuesta requiere aprobación expresa del coordinador del centro de mando; la IA nunca ejecuta movimientos automáticamente. El uso de voluntarios no forma parte de esta opción ni se presume habilitado. La asignación efectiva debe quedar registrada con sus cambios operativos.
+**SUSTITUIDO PARCIALMENTE (18-11-2026)** en lo relativo a voluntarios (véase la decisión de incorporar votantes, más abajo). **DECIDIDO — movimientos de suplentes entre zonas.** Pablo aprobó la opción **B**: el centro de mando busca primero suplentes sobrantes en la **misma zona de color**; cuando no los hay suficientes, puede proponer suplentes disponibles de **otras zonas**, priorizando cercanía y disponibilidad. Cada propuesta requiere aprobación expresa del coordinador del centro de mando; la IA nunca ejecuta movimientos automáticamente. El uso de voluntarios no forma parte de esta opción ni se presume habilitado. La asignación efectiva debe quedar registrada con sus cambios operativos.
 
 **DECIDIDO.** Se visualizarán las **95 JRV de Madrid**, con series separadas H y M y sus colores de zona. El centro de mando debe identificar de inmediato juntas sin miembros, incompletas, próximas a estar completas y completas; además, dónde existen suplentes disponibles para cubrir faltantes. La información procede del control de puerta y de los movimientos autorizados.
 
 **DECIDIDO.** Se prioriza una **visualización orientada a decisiones**, ordenada por problemas y posibilidades de solución, no un plano exacto de la Caja Mágica. La distancia y el color son criterios para recomendar desplazamientos, no para obligar a mostrar las fichas en una geometría física. Indicadores globales: ingresos, juntas con tres integrantes presentes, juntas incompletas y suplentes transferibles.
 
-**DECIDIDO.** Cada junta requiere **tres integrantes** para abrir el paquete electoral; se incluyen titulares y suplentes conforme a las reglas procedentes. Para cubrir faltantes se priorizan suplentes que sobren en la **misma zona de color**; si son insuficientes, se proponen suplentes disponibles en **otras zonas**, priorizando las más cercanas. Los voluntarios capacitados no están incluidos en esta regla.
+**SUSTITUIDO PARCIALMENTE (18-11-2026)** por la regla de los tres cargos y la incorporación de votantes, más abajo. **DECIDIDO.** Cada junta requiere **tres integrantes** para abrir el paquete electoral; se incluyen titulares y suplentes conforme a las reglas procedentes. Para cubrir faltantes se priorizan suplentes que sobren en la **misma zona de color**; si son insuficientes, se proponen suplentes disponibles en **otras zonas**, priorizando las más cercanas. Los voluntarios capacitados no están incluidos en esta regla.
 
 **DECIDIDO.** Un motor de apoyo basado en la IA local existente en teinvito puede proponer **un movimiento a la vez**, usando faltantes, disponibilidad y proximidad. El **coordinador del centro de mando**, no el coordinador de cada mesa ni la IA, decide: aceptar, pasar a la siguiente propuesta o señalar que no es viable por falta de respuesta, negativa o ausencia. El traslado aceptado actualiza asignación operativa, panel y consecuencias de pago, con trazabilidad. La IA **no mueve personas de oficio**.
+
+**DECIDIDO (18-11-2026).** **Tres cargos por junta.** Cada junta debe tener siempre cubiertos **presidente, secretario y vocal**. Cada cargo lo cubre su titular presente o un sustituto con «cargo asumido»: suplente de la propia junta, suplente trasladado o votante incorporado. Orden para cubrir una vacante: 1º suplente de la misma junta; 2º suplente de la misma zona; 3º suplente de la zona más cercana; 4º votante incorporado. El centro de mando ve qué cargo falta en cada junta; las propuestas y la aceptación de traslados asignan el cargo que falta (editable). Junta **completa (verde)** = los tres cargos cubiertos.
+
+**DECIDIDO (18-11-2026).** **Incorporar votantes como MJRV.** En el eventual caso de necesitar personas nuevas de entre los votantes, el **centro de mando** las añade **una por una** con un formulario (nombres, apellidos, cédula, junta y cargo; teléfono y correo opcionales) que solo ofrece cargos vacantes. Se rechazan cédulas duplicadas (el sistema no valida hoy el dígito verificador de la cédula, solo su formato, y no se añade). La persona queda **presente**, marcada «incorporada desde votantes», con trazabilidad, y puede documentarse y cobrar como cualquier MJRV.
+
+**DECIDIDO (18-11-2026).** Sin cambios: el **traslado cuenta al aceptarlo**; «**No viable**» deja a la persona fuera de las propuestas hasta que el centro de mando la reactive. El **orden de cercanía de las zonas** es el deducido del plano: celeste – rojo – azul – amarillo (vial este, de sur a norte) – verde – rosado (vial norte, de este a oeste).
 
 ### 7.4. Fotografía de la cédula
 
 **DECIDIDO.** Un **segundo QR genérico**, independiente del QR de credencial, abre el formulario de documentación. El MJRV escribe su cédula, recupera la ficha correspondiente y fotografía anverso y reverso de su documento. Puede hacerlo personalmente o con ayuda de un funcionario. La interfaz propone un recuadro de alineación, **captura automática cuando está encuadrada** y recorte para conservar la imagen del documento. Las dos imágenes se asocian al MJRV y forman el **anexo en la segunda página del acta de pago**.
 
-**DECIDIDO.** Si falta alguna imagen, el sistema de finanzas no permite completar la preparación/impresión del acta hasta incorporar ambas; el ayudante de finanzas puede capturarlas en el momento. **ABIERTO** si el QR genérico se distribuirá en cartel, WhatsApp o ambos. La calidad y capacidad de captura automática requieren pruebas en dispositivos reales.
+**DECIDIDO.** Si falta alguna imagen, el sistema de finanzas no permite completar la preparación/impresión del acta hasta incorporar ambas; el ayudante de finanzas puede capturarlas en el momento. **SUSTITUIDO (18-11-2026)** por la decisión siguiente: **ABIERTO** si el QR genérico se distribuirá en cartel, WhatsApp o ambos. La calidad y capacidad de captura automática requieren pruebas en dispositivos reales.
+
+**DECIDIDO (18-11-2026).** El QR de documentos se distribuye **por cartel y como enlace en el mensaje de la credencial**. Las **fotos de cédula se conservan hasta que la superadministración las borre** con un botón, con confirmación escrita y registro en la auditoría.
 
 ### 7.5. Pago físico y control financiero
 
@@ -234,11 +248,15 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO.** Si se cumplen las condiciones, se habilita la **visualización, generación e impresión del acta de pago y su anexo**, con los datos de la persona. Se entrega el dinero **físicamente**, y el acta recoge las firmas del pagador y del receptor conforme a la plantilla. **Después de la impresión, firma y entrega del dinero**, el operador registra en pantalla una **confirmación explícita del pago**. Imprimir no equivale a pagar. Una persona con pago confirmado no puede cobrar otra vez por la vía ordinaria.
 
-**DECIDIDO.** Existe un monto general en USD para MJRV y el pago se efectúa en EUR; el administrador ingresa el tipo de cambio del día y los datos del pagador. La plantilla definitiva del acta y la fórmula exacta de conversión siguen **ABIERTAS**; no inventar importes, tipos de cambio ni campos de firma adicionales.
+**SUSTITUIDO (18-11-2026)** por la decisión siguiente: **DECIDIDO.** Existe un monto general en USD para MJRV y el pago se efectúa en EUR; el administrador ingresa el tipo de cambio del día y los datos del pagador. La plantilla definitiva del acta y la fórmula exacta de conversión siguen **ABIERTAS**; no inventar importes, tipos de cambio ni campos de firma adicionales.
+
+**DECIDIDO (18-11-2026).** Se configura directamente un **importe fijo en euros**. Desaparecen el importe en USD y el tipo de cambio de la configuración, del cálculo, del acta y de los informes. Mientras el importe no se configure, el acta es borrador y no se confirman pagos. El **acta se mantiene con el modelo provisional**; en los documentos para el público se llama también **«comprobante de pago»**.
 
 **REQUISITO DE CONTROL.** Para prevenir pagos duplicados con varias estaciones, la verificación y confirmación deben ser **atómicas en el servidor**. Se necesita conexión al servidor para confirmar desembolsos; no se permiten pagos marcados localmente sin verificar estado central. El sistema distingue al menos documentación incompleta, documentación lista para preparar/imprimir, pago en trámite y pago confirmado, con trazabilidad del operador y hora.
 
-**PROPUESTA NO APROBADA COMO REGLA DEFINITIVA.** Reserva temporal de una ficha cuando un operador comienza el pago, para que otro puesto vea que está siendo atendida. Deben decidirse duración de la reserva, caducidad, recuperación por fallos de impresora y tratamiento de reimpresiones. No bloquear permanentemente un pago por abrir una ficha o imprimir.
+**SUSTITUIDO (18-11-2026)** por la decisión siguiente: **PROPUESTA NO APROBADA COMO REGLA DEFINITIVA.** Reserva temporal de una ficha cuando un operador comienza el pago, para que otro puesto vea que está siendo atendida. Deben decidirse duración de la reserva, caducidad, recuperación por fallos de impresora y tratamiento de reimpresiones. No bloquear permanentemente un pago por abrir una ficha o imprimir.
+
+**DECIDIDO (18-11-2026).** Sin reserva bloqueante. Si otro puesto de finanzas tiene abierta la misma ficha, se muestra un **aviso no bloqueante** con el puesto y el operador. La confirmación atómica sigue impidiendo el doble pago.
 
 ## Mapa de juntas de Madrid
 
@@ -247,6 +265,8 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 - Verde: hay 3 presentes.
 - Ámbar: falta gente.
 - Rojo: no hay nadie.
+
+**DECIDIDO (18-11-2026).** Verde = **los tres cargos cubiertos** (presidente, secretario y vocal), no solo tres presentes; ámbar = falta algún cargo, con el cargo que falta; rojo = no hay nadie (véase §7.3).
 
 **DECIDIDO.** Aceptar un movimiento deja la junta en verde y le añade la marca de movimiento. El verde de «3 presentes» y la marca de movimiento conviven: la marca dice que hubo traslado.
 
@@ -301,9 +321,13 @@ La dirección leída en el manual (Calle Camino de Perales 23, 28041 Madrid) no 
 
 **ABIERTO — insumos esenciales:** Excel de consulados, recintos, JRV y electores; Excel de MJRV de Madrid y sus funciones; plantilla PDF CR80 de credencial; plantilla oficial de acta de pago y anexo; importe y fórmula de conversión de USD a EUR. Los archivos aportados deberán ser revisados en contenido antes de cargarse.
 
+**DECIDIDO (18-11-2026).** Ya no hay conversión: importe fijo en EUR (§7.5), pendiente solo de que se configure el importe.
+
 **ABIERTO — operación electoral y DGSMH:** catálogo concreto de incidencias por fase (revisado contra manuales, no lista inventada); criterios de prioridad; significado de cierre total; fuente de husos horarios; tolerancias de alertas por falta de reporte; modalidad exacta de seguimiento de asuntos ya abiertos. No abrir preguntas minúsculas antes de cerrar los flujos principales.
 
 **ABIERTO — Madrid:** criterio para segundo escaneo/reingreso en puerta, bloqueo de credencial; entrega de QR genérico; forma de solicitar confirmación física del traslado desde el centro de mando; funciones precisas de los operadores por estación; solución técnica para reserva temporal de pago; validación e impresión de actas; experiencia de cámara automática; reglas de protección y conservación de fotos de cédula.
+
+**DECIDIDO (18-11-2026).** Resueltos: reingreso y bloqueo (§7.2), entrega del QR genérico y conservación de fotos (§7.4), reserva de pago → aviso no bloqueante (§7.5), acta provisional (§7.5). Sigue abierta la confirmación física del traslado.
 
 **ABIERTO — implementación:** nomenclatura de subdominios, reutilización efectiva de servicios de consulares y temp, capacidad real de la VM única, aislamiento de datos, pruebas de carga, comportamiento con cortes de red y dispositivo de contingencia. No dar por desplegado nada de lo que aquí se diseña.
 
@@ -526,7 +550,7 @@ Al enviar credenciales, distinguir claramente **«preparada»**, **«enviada al 
 5. Si el código es desconocido, ya utilizado o está bloqueado: mensaje **rojo**, motivo comprensible y dos pitidos graves; no crear un segundo ingreso válido por una lectura duplicada.
 6. La interfaz vuelve con rapidez al modo de lectura para evitar acumulación de personas.
 
-**PENDIENTE:** definición exacta de «bloqueado», tratamiento de salida y reingreso físico y facultad administrativa de desbloqueo. La señal roja para duplicado debe respetarse mientras no haya norma funcional distinta; no suponer que una segunda lectura acredita una segunda llegada. La lectura válida establece **presencia operativa presunta**, no certifica que el MJRV esté ya en su mesa ni que su junta se haya instalado.
+**SUSTITUIDO (18-11-2026)** por la decisión de §7.2 (18-11-2026) : **PENDIENTE:** definición exacta de «bloqueado», tratamiento de salida y reingreso físico y facultad administrativa de desbloqueo. La señal roja para duplicado debe respetarse mientras no haya norma funcional distinta; no suponer que una segunda lectura acredita una segunda llegada. La lectura válida establece **presencia operativa presunta**, no certifica que el MJRV esté ya en su mesa ni que su junta se haya instalado.
 
 **DISEÑO DERIVADO:** la lectura debe ser idempotente en servidor para impedir que dos lecturas casi simultáneas dupliquen el mismo ingreso. La falta de permiso de cámara, QR ilegible o pérdida de conexión debe mostrarse como error de operación, no como identidad rechazada.
 
@@ -571,22 +595,22 @@ Las fotografías deben almacenarse asociadas a la ficha MJRV, **nunca en archivo
 2. Escanea el QR individual. El sistema busca la ficha y comprueba identidad registral, estado de documentación y que **no exista pago confirmado**.
 3. Se muestra la situación y, cuando corresponda, la ficha del MJRV y su junta de trabajo actual. El funcionario de finanzas verifica directamente el cumplimiento de funciones; el escaneo de entrada no prueba ese cumplimiento.
 4. Si falta alguna fotografía, la pantalla ofrece completar el expediente en el puesto o derivarlo a la captura de documentación; **no** habilita imprimir el acta final incompleta.
-5. El sistema presenta el monto en USD, tipo de cambio configurado por administración y monto resultante en EUR **con la fórmula que se aprobará**. No implementar una conversión supuesta sin parámetro válido.
+5. **SUSTITUIDO (18-11-2026):** el sistema presenta el **importe fijo en EUR** configurado (§7.5). Texto anterior: 5. El sistema presenta el monto en USD, tipo de cambio configurado por administración y monto resultante en EUR **con la fórmula que se aprobará**. No implementar una conversión supuesta sin parámetro válido.
 6. El funcionario genera/previsualiza e imprime el **acta de pago y su anexo de fotografías**, conforme a plantilla aportada. El documento de papel recibe las firmas del pagador y receptor; el efectivo se entrega físicamente.
 7. **Solo entonces** el operador pulsa «Confirmar pago», con identificación y hora. El servidor comprueba nuevamente que no existe confirmación previa y registra el desembolso de forma atómica.
 8. Una consulta posterior muestra inequívocamente «Pagado», importe EUR, responsable y momento, y bloquea el segundo desembolso ordinario.
 
 No confundir **acta generada**, **acta impresa**, **atención en curso** y **pago confirmado**. Un error de impresora, abandono del puesto o acta reimpresa **no** debe marcar a la persona como pagada. Si se intenta leer un QR cuyo pago ya está confirmado, mostrar aviso claro y los datos mínimos del pago anterior para que no vuelva a pagarse.
 
-**PENDIENTE DE DECISIÓN TÉCNICA/OPERATIVA:** reserva temporal mientras un puesto prepara pago, duración y recuperación si falla impresión o se cierra sesión. Es razonable usar reserva corta, visible y recuperable para evitar que dos puestos preparen simultáneamente el mismo expediente, **pero no constituye una decisión aprobada**. Lo imprescindible ya aprobado es que dos confirmaciones concurrentes **no** puedan generar dos pagos.
+**SUSTITUIDO (18-11-2026)** por el aviso no bloqueante de §7.5: **PENDIENTE DE DECISIÓN TÉCNICA/OPERATIVA:** reserva temporal mientras un puesto prepara pago, duración y recuperación si falla impresión o se cierra sesión. Es razonable usar reserva corta, visible y recuperable para evitar que dos puestos preparen simultáneamente el mismo expediente, **pero no constituye una decisión aprobada**. Lo imprescindible ya aprobado es que dos confirmaciones concurrentes **no** puedan generar dos pagos.
 
-**PENDIENTE DE INSUMO:** plantilla oficial definitiva, cantidad USD, tipo de cambio de jornada y regla precisa de conversión/decimales. No incorporar tasas de cambio de internet ni redondeos inventados. Una anomalía en el sistema o un pago controvertido debe resolverse por personal autorizado, sin crear un segundo pago automático.
+**SUSTITUIDO (18-11-2026)** en cuanto a USD, cambio y conversión (importe fijo en EUR, acta provisional, §7.5): **PENDIENTE DE INSUMO:** plantilla oficial definitiva, cantidad USD, tipo de cambio de jornada y regla precisa de conversión/decimales. No incorporar tasas de cambio de internet ni redondeos inventados. Una anomalía en el sistema o un pago controvertido debe resolverse por personal autorizado, sin crear un segundo pago automático.
 
 ### 13.9. Panel financiero e informes de cierre Madrid
 
 **DECIDIDO:** control individual y resumen en tiempo real de **pagados, pendientes, total entregado en euros**, con informe descargable de pagos, importes y operadores responsables. **DISEÑO DERIVADO:** distinguir al menos (a) documentación incompleta, (b) documentación lista y pago no confirmado, (c) atención o acta en preparación, cuando haya registro fiable de ese estado, y (d) pago confirmado. No elevar todas las fichas con documentación completa a «pagadas».
 
-El informe PDF/Excel de Madrid debe poder presentar: identidad y referencia de MJRV, serie/junta operativa, monto USD de referencia y monto EUR **cuando sea aplicable**, condición pendiente o confirmada, momento, operador pagador y total en euros. El total entregado se calcula solo con confirmaciones de desembolsos, no con documentos preparados. No incorporar fotografías de cédulas a un listado financiero general por defecto: las imágenes están en el anexo del acta individual, sujeto a permisos. Las cifras se recalculan tras cada confirmación atómica.
+**DECIDIDO (18-11-2026):** el informe ya no lleva monto USD (importe fijo en EUR, §7.5). El informe PDF/Excel de Madrid debe poder presentar: identidad y referencia de MJRV, serie/junta operativa, monto USD de referencia y monto EUR **cuando sea aplicable**, condición pendiente o confirmada, momento, operador pagador y total en euros. El total entregado se calcula solo con confirmaciones de desembolsos, no con documentos preparados. No incorporar fotografías de cédulas a un listado financiero general por defecto: las imágenes están en el anexo del acta individual, sujeto a permisos. Las cifras se recalculan tras cada confirmación atómica.
 
 ### 13.10. Operadores de estación y experiencia de trabajo
 
@@ -625,7 +649,7 @@ La función **no debe borrar actividad electoral real** ni quedar disponible a o
 
 ### 14.4. Parámetros que el superadministrador debe poder verificar
 
-Datos por consulado y recinto, fuente/identificador de huso horario, totales de JRV, asignaciones, cuentas y estado de acceso. Para Madrid: referencia a plantilla vigente, datos de funcionarios de estación, importe USD y tipo de cambio manual cuando se hayan aprobado, sin accesos que permitan a Quito consultar expedientes personales. Para el seguimiento: márgenes de «reporte esperado ausente», aún **pendientes** de definición; no fijar minutos arbitrarios. No añadir un editor de nuevas elecciones, porque el producto se utiliza solo para la jornada de 2026.
+Datos por consulado y recinto, fuente/identificador de huso horario, totales de JRV, asignaciones, cuentas y estado de acceso. **DECIDIDO (18-11-2026):** donde dice importe USD y tipo de cambio, léase importe fijo en EUR (§7.5); además, la superadministración controla la línea de WhatsApp de CNE, los interruptores de envío real y el borrado de fotos de cédula (§7.1, §7.4). Para Madrid: referencia a plantilla vigente, datos de funcionarios de estación, importe USD y tipo de cambio manual cuando se hayan aprobado, sin accesos que permitan a Quito consultar expedientes personales. Para el seguimiento: márgenes de «reporte esperado ausente», aún **pendientes** de definición; no fijar minutos arbitrarios. No añadir un editor de nuevas elecciones, porque el producto se utiliza solo para la jornada de 2026.
 
 ## 15. Modelo de información, operaciones y trazabilidad
 
@@ -712,7 +736,7 @@ Estas etiquetas expresan diferencias lógicas. No obligan a crear una pantalla n
 - **Avance mundial (%) = suma de JRV con hito completado / suma de JRV totales del catálogo pertinente × 100.**
 - **Votantes:** conservar cantidad informada, fuente y alcance. Una tasa de participación solo se calcula cuando existen numerador de alcance comparable y electores habilitados validados; si la cantidad fue estimada, identificarlo.
 - **Total EUR efectivamente entregado en Madrid = suma de importes EUR de pagos confirmados**, sin contar preparaciones o impresiones.
-- **Importe EUR individual:** pendiente de la fórmula, tasa manual y regla de redondeo aprobadas. No introducir coeficiente ni tipo de cambio por suposición.
+- **DECIDIDO (18-11-2026):** importe EUR individual = importe fijo en EUR configurado (§7.5). Texto anterior: - **Importe EUR individual:** pendiente de la fórmula, tasa manual y regla de redondeo aprobadas. No introducir coeficiente ni tipo de cambio por suposición.
 
 Una cifra «0» expresamente confirmada no es lo mismo que «sin información»; una JRV «pendiente» no cuenta como «completada». La hora real de cada hito reportado puede diferir de su hora de recepción en el servidor: conservar ambos valores si el flujo y la fuente los proporcionan, sin hacer obligatorio un campo histórico que Pablo no ha solicitado.
 
@@ -860,7 +884,7 @@ Este inventario **no es un cuestionario para Pablo**. Agrupa información que ha
 | Excel nominativo MJRV Madrid | Credenciales, puerta, centro de mando, identificación y pagos | No suponer nombres, cédulas o cargos |
 | PDF/archivo fuente de credencial CR80 | Generación e impresión final | Probar estructura, no afirmar fidelidad a plantilla no vista |
 | Modelo oficial de acta de pago y anexo | PDF de cobro, firmas, documentación | No inventar campos oficiales, logos ni cláusulas |
-| Monto USD y regla de conversión EUR | Cálculo y emisión financiera | Mantener pendiente el cálculo definitivo |
+| Importe fijo en EUR (DECIDIDO 18-11-2026: sin USD ni conversión) | Cálculo y emisión financiera | Acta en borrador hasta que se configure el importe |
 | Manuales/criterios operativos sobre incidencias | Catálogo definitivo por fase, prioridades sugeridas | No asumir aprobada lista histórica de 2025 |
 | Relación real de ciudades/zonas horarias/coordenadas | Hora oficial de recintos, alertas, marcadores | No calcular la hora por zona solar ni asumir un huso para todo el país |
 
@@ -869,14 +893,14 @@ Este inventario **no es un cuestionario para Pablo**. Agrupa información que ha
 - **Cierre total del proceso:** determinar exactamente qué hecho comunica el último hito y cómo convive con escaneo, embalaje y finalización del recinto; no declararlo automáticamente a las 19:00.
 - **Catálogo de incidencias:** comprobar tipos y prioridades según material operativo, con opción «Otro» y alcance editable. Las sugerencias de prioridad no son decisiones electorales.
 - **Alertas por reporte ausente:** especificar márgenes de tolerancia razonables cuando exista criterio operativo. No presentar un minuto arbitrario como exigencia del CNE.
-- **Reingreso y bloqueo de MJRV:** mantener primera validación, resultado rojo de duplicado y prevención de nuevos ingresos; concretar excepción de reentrada si fuera necesaria sin inventar permisos.
+- **DECIDIDO (18-11-2026)** en §7.2. - **Reingreso y bloqueo de MJRV:** mantener primera validación, resultado rojo de duplicado y prevención de nuevos ingresos; concretar excepción de reentrada si fuera necesaria sin inventar permisos.
 - **Traslado físicamente realizado:** separar propuesta aprobada de confirmación de traslado cuando resulte necesario para que el tablero no presuponga disponibilidad inexistente; no conceder acceso a coordinadores de mesa por defecto.
-- **Reserva temporal de finanzas y reimpresiones:** resolver técnicamente sin impedir recuperación tras fallo de impresora ni permitir doble pago.
-- **Distribución del QR genérico de documentos:** cartel, comunicación o ambos todavía sin decisión; el formulario y sus restricciones sí están aprobados.
-- **Conservación/retirada de fotografías y registros:** requiere criterio institucional y técnico verificable; la aplicación no debe borrar documentos sensibles de forma arbitraria.
+- **DECIDIDO (18-11-2026)** en §7.5 (aviso no bloqueante). - **Reserva temporal de finanzas y reimpresiones:** resolver técnicamente sin impedir recuperación tras fallo de impresora ni permitir doble pago.
+- **DECIDIDO (18-11-2026)** en §7.4 (cartel y enlace). - **Distribución del QR genérico de documentos:** cartel, comunicación o ambos todavía sin decisión; el formulario y sus restricciones sí están aprobados.
+- **DECIDIDO (18-11-2026)** para las fotos en §7.4. - **Conservación/retirada de fotografías y registros:** requiere criterio institucional y técnico verificable; la aplicación no debe borrar documentos sensibles de forma arbitraria.
 - **Subdominios:** están propuestos cne.consulares.app, control.consulares.app y madrid.consulares.app; confirmar rutas reales en despliegue, sin afirmar que existen.
 - **Servicios compartidos:** comprobar repositorios y servicios existentes antes de reutilizarlos; no asumir integraciones operativas por simple mención de teinvito, temp o Consulares.
-- **Distancia física exacta en plano de Madrid:** respetar las zonas y equivalencias aprobadas; no deducir posiciones físicas individuales donde el plano no las permite.
+- **DECIDIDO (18-11-2026)** el orden de zonas en §7.3. - **Distancia física exacta en plano de Madrid:** respetar las zonas y equivalencias aprobadas; no deducir posiciones físicas individuales donde el plano no las permite.
 
 ### 18.3. Criterios para resolver aspectos menores sin nuevas entrevistas
 

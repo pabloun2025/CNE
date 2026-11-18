@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closePools } from "@/server/db";
 import type { SesionEstacion } from "@/server/estaciones";
-import { contadoresPuerta, normalizarCodigo, registrarLectura } from "@/server/puerta";
+import { contadoresPuerta, dejarPasar, normalizarCodigo, registrarLectura } from "@/server/puerta";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 let s1: SesionEstacion, s2: SesionEstacion;
@@ -25,7 +25,24 @@ describe("puerta", () => {
   it("lectura válida muestra nombre y junta vigente; la segunda es duplicado", async () => {
     expect(await registrarLectura(s1, "0000000001", "tab")).toEqual({ resultado: "valido", nombre: "APELLIDO PRUEBA 001, NOMBRE PRUEBA", junta: "H12", zona: "Amarillo" });
     const d = await registrarLectura(s2, " 0000000001 ", null);
-    expect(d.resultado).toBe("duplicado");
+    expect(d).toMatchObject({ resultado: "duplicado", nombre: "APELLIDO PRUEBA 001, NOMBRE PRUEBA", junta: "H12", mjrvId: expect.any(Number) });
+    expect(Number.isNaN(Date.parse((d as { desde: string }).desde))).toBe(false); // hora del primer ingreso
+  });
+
+  it("«Dejar pasar»: queda registrado y no cuenta como segundo ingreso; sin ingreso previo → 409", async () => {
+    const d = await registrarLectura(s2, "0000000001", null);
+    if (d.resultado !== "duplicado") throw new Error("se esperaba un reingreso");
+    const antes = await contadoresPuerta(s1.enlaceId);
+    expect(await dejarPasar(s2, d.mjrvId)).toEqual({ ok: true });
+    expect(await dejarPasar(s2, d.mjrvId)).toEqual({ ok: true }); // cada pase se anota, ninguno suma ingresos
+    expect(await contadoresPuerta(s1.enlaceId)).toEqual(antes);
+    const r = await consultarDueno<{ n: number; enlace_id: string }>("SELECT count(*)::int AS n, min(enlace_id)::text AS enlace_id FROM cne.lecturas_puerta WHERE resultado = 'reingreso_autorizado'");
+    expect(r[0].n).toBe(2);
+    expect(r[0].enlace_id).toBe(String(s2.enlaceId));
+    expect((await consultarDueno("SELECT 1 FROM cne.lecturas_puerta WHERE mjrv_id = $1 AND resultado = 'valido'", [d.mjrvId])).length).toBe(1);
+    const [otra] = await consultarDueno<{ id: number }>("SELECT id FROM cne.mjrv WHERE cedula = '0000000002'");
+    expect(await dejarPasar(s1, otra.id)).toMatchObject({ ok: false, status: 409 });
+    expect(await dejarPasar(s1, 987654321)).toMatchObject({ ok: false, status: 404 });
   });
 
   it("código desconocido y ficha de baja (bloqueado)", async () => {

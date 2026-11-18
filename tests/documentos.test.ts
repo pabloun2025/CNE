@@ -4,7 +4,8 @@ import { randomBytes } from "node:crypto";
 import { POST as buscar } from "@/app/api/d/buscar/route";
 import { POST as foto } from "@/app/api/d/foto/route";
 import { closePools } from "@/server/db";
-import { buscarPorCedula, guardarDocumento, leerDocumento, LIMITE_PUBLICO } from "@/server/documentos";
+import type { Sesion } from "@/server/auth";
+import { borrarTodasLasFotos, buscarPorCedula, estadoDocumentos, guardarDocumento, leerDocumento, LIMITE_PUBLICO, resumenFotos } from "@/server/documentos";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 // Foto ficticia de ruido: pesa lo bastante y cada una es distinta.
@@ -70,5 +71,32 @@ describe("documentos de identidad", () => {
     expect((await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "0000000001" }), "203.0.113.77", true))).status).toBe(429);
     // Otra IP no se ve afectada.
     expect((await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "0000000001" }), "203.0.113.78", true))).status).toBe(200);
+  });
+
+  describe("D13 · borrar todas las fotos (superadmin)", () => {
+    const sup: Sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "Superadmin Prueba", tipo: "superadmin", debeCambiar: false, mfaVerificada: true };
+    it("sin la frase exacta no borra nada; solo la superadmin", async () => {
+      await guardarDocumento({ mjrvId: id, lado: "anverso", imagen: await imagen(), origen: "estacion" });
+      await guardarDocumento({ mjrvId: id, lado: "reverso", imagen: await imagen(), origen: "estacion" });
+      const antes = (await consultarDueno("SELECT 1 FROM cne.documentos_mjrv")).length;
+      expect(antes).toBeGreaterThanOrEqual(2);
+      await expect(borrarTodasLasFotos({ ...sup, tipo: "madrid_admin" }, "BORRAR FOTOS")).rejects.toThrow("superadministración");
+      expect(await borrarTodasLasFotos(sup, "borrar")).toMatchObject({ ok: false });
+      expect((await consultarDueno("SELECT 1 FROM cne.documentos_mjrv")).length).toBe(antes);
+      expect(await resumenFotos()).toMatchObject({ fotos: antes, personas: 1, sinPago: 1 });
+    });
+
+    it("con la frase borra solo las fotos del modo actual, deja auditoría con el recuento y las fotos se piden de nuevo", async () => {
+      // Una foto «real» (otro modo) debe sobrevivir: se simula pasándola a es_prueba = false.
+      await consultarDueno("INSERT INTO cne.documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, bytes, ancho, alto, sha256, origen, es_prueba) VALUES ($1,'anverso','\\x00','\\x00',30000,10,10,decode(md5('real'),'hex'),'estacion', false) ON CONFLICT DO NOTHING", [id]);
+      const prueba = (await consultarDueno("SELECT 1 FROM cne.documentos_mjrv WHERE es_prueba")).length;
+      expect(await borrarTodasLasFotos(sup, "Borrar  fotos")).toEqual({ ok: true, borradas: prueba, personas: 1 });
+      expect((await consultarDueno("SELECT 1 FROM cne.documentos_mjrv WHERE es_prueba")).length).toBe(0);
+      expect((await consultarDueno("SELECT 1 FROM cne.documentos_mjrv WHERE NOT es_prueba")).length).toBe(1);
+      const [a] = await consultarDueno<{ datos: { fotos: number; personas: number; sin_pago_confirmado: number }; actor_nombre: string }>("SELECT datos, actor_nombre FROM cne.auditoria WHERE accion = 'fotos_cedula_borradas'");
+      expect(a).toMatchObject({ actor_nombre: "Superadmin Prueba", datos: { fotos: prueba, personas: 1, sin_pago_confirmado: 1 } });
+      expect(await estadoDocumentos(id)).toMatchObject({ anverso: false, reverso: false, completos: false });
+      expect(await resumenFotos()).toMatchObject({ fotos: 0, personas: 0 });
+    });
   });
 });

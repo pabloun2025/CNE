@@ -5,6 +5,7 @@ import { filtrarJuntas, type Filtro, type JuntaMando, type Indicadores } from "@
 import { ZONA_HEX, ZONA_NOMBRE, type ZonaColor } from "@/domain/juntas";
 import { horaCorta, useSondeo } from "./sondeo";
 import { FichaJunta } from "./ficha-junta";
+import { FormIncorporar } from "./form-incorporar";
 import { TarjetaPropuesta } from "./tarjeta-propuesta";
 
 type Estado = { generado_en: string; indicadores: Indicadores; juntas: JuntaMando[] };
@@ -20,6 +21,7 @@ export function CentroMando() {
   const [filtro, setFiltro] = useState<Filtro>("faltan");
   const [agrupar, setAgrupar] = useState<"ninguno" | "zona" | "serie">("ninguno");
   const [abierta, setAbierta] = useState<number | null>(null);
+  const [incorporando, setIncorporando] = useState(false);
 
   if (!datos) return <p>{falla ? "No se pudo cargar el centro de mando. Reintentando…" : "Cargando…"}</p>;
   const lista = filtrarJuntas(datos.juntas, filtro);
@@ -31,13 +33,14 @@ export function CentroMando() {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Indicadores">
-        {[["Ingresados", `${i.ingresados} / ${i.total}`], ["Juntas con 3 o más", i.completas], ["Incompletas", i.incompletas], ["Sin nadie", i.sinNadie], ["Suplentes transferibles", i.transferibles]].map(([t, v]) => (
+        {[["Ingresados", `${i.ingresados} / ${i.total}`], ["Juntas completas", i.completas], ["Incompletas", i.incompletas], ["Sin nadie", i.sinNadie], ["Suplentes transferibles", i.transferibles]].map(([t, v]) => (
           <div key={String(t)} className="rounded border bg-slate-50 p-2 text-center"><div className="text-2xl font-bold">{v}</div><div className="text-xs">{t}</div></div>
         ))}
       </div>
       <p className={`text-xs ${falla ? "font-bold text-red-700" : "text-slate-600"}`}>{falla ? `Sin actualizar desde ${ultima ? horaCorta(ultima) : "—"}` : `Actualizado ${ultima ? horaCorta(ultima) : ""}`}</p>
 
       <TarjetaPropuesta onCambio={refrescar} />
+      <button onClick={() => setIncorporando(true)} className="rounded border-2 border-blue-700 px-4 py-3 font-semibold text-blue-800">Incorporar votante</button>
 
       <div className="flex flex-wrap items-center gap-2">
         {FILTROS.map((f) => <button key={f.id} onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id} className={`rounded border px-3 py-2 text-sm font-semibold ${filtro === f.id ? "border-blue-700 bg-blue-700 text-white" : "border-slate-400"}`}>{f.texto}</button>)}
@@ -62,6 +65,7 @@ export function CentroMando() {
           </div>
         </section>
       ))}
+      {incorporando && <FormIncorporar juntas={datos.juntas} onCerrar={() => setIncorporando(false)} onCambio={refrescar} />}
       {abierta !== null && <FichaJunta juntaId={abierta} onCerrar={() => setAbierta(null)} onCambio={refrescar} />}
     </div>
   );
