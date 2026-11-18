@@ -55,6 +55,18 @@ body {
   font-size: 1.125rem;
 }
 
+.funcionario input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]):read-only {
+  background: #f5f5f4;
+}
+
+.funcionario input:not([type="checkbox"]):not([type="file"]):focus,
+.funcionario select:focus,
+.funcionario textarea:focus,
+.funcionario button:focus-visible {
+  outline: 3px solid var(--tinta);
+  outline-offset: 2px;
+}
+
 .funcionario .bg-blue-700,
 .funcionario .bg-blue-600,
 .funcionario .bg-slate-800 {

@@ -66,8 +66,8 @@ describe("superadmin de Pablo", () => {
     await expect(a.accederSuperadmin(null, datos({ correo: PABLO, nueva: "Mi-clave-segura-1", repetir: "Mi-clave-segura-1" }))).rejects.toThrow("REDIRECT:/superadmin");
     expect(jar.get("cne_super")).toBeTruthy();
     // Ya definida: no hay vuelta atrás por esta vía.
-    expect(await a.accederSuperadmin(null, datos({ correo: PABLO, password: "" }))).toEqual({ error: "Correo o contraseña incorrectos." });
-    expect(await a.accederSuperadmin(null, datos({ correo: PABLO, nueva: "Otra-clave-nueva-2", repetir: "Otra-clave-nueva-2" }))).toEqual({ error: "Correo o contraseña incorrectos." });
+    expect(await a.accederSuperadmin(null, datos({ correo: PABLO, password: "" }))).toEqual({ error: "Correo o contraseña incorrectos.", correo: PABLO });
+    expect(await a.accederSuperadmin(null, datos({ correo: PABLO, nueva: "Otra-clave-nueva-2", repetir: "Otra-clave-nueva-2" }))).toEqual({ error: "Correo o contraseña incorrectos.", correo: PABLO });
     expect((await login({ correo: PABLO, password: "Mi-clave-segura-1", portal: "superadmin", ip: null, agente: null })).ok).toBe(true);
   });
 
@@ -75,12 +75,12 @@ describe("superadmin de Pablo", () => {
     await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar) VALUES ('madrid_admin','m@prueba.cne','M','x',false)");
     await preparar();
     const a = await acciones();
-    expect(await a.accederSuperadmin(null, datos({ correo: "m@prueba.cne", nueva: "Mi-clave-segura-1", repetir: "Mi-clave-segura-1" }))).toEqual({ error: "Correo o contraseña incorrectos." });
-    expect(await a.accederAdmin(null, datos({ correo: PABLO, password: "" }))).toEqual({ error: "Correo o contraseña incorrectos." });
+    expect(await a.accederSuperadmin(null, datos({ correo: "m@prueba.cne", nueva: "Mi-clave-segura-1", repetir: "Mi-clave-segura-1" }))).toEqual({ error: "Correo o contraseña incorrectos.", correo: "m@prueba.cne" });
+    expect(await a.accederAdmin(null, datos({ correo: PABLO, password: "" }))).toEqual({ error: "Correo o contraseña incorrectos.", correo: PABLO });
     for (let i = 0; i < 10; i++) await a.accederSuperadmin(null, datos({ correo: PABLO, nueva: "a", repetir: "b" }));
     // Bloqueado: ya no ofrece definir ni deja hacerlo.
-    expect(await a.accederSuperadmin(null, datos({ correo: PABLO, password: "" }))).toEqual({ error: "Correo o contraseña incorrectos." });
-    expect(await a.accederSuperadmin(null, datos({ correo: PABLO, nueva: "Mi-clave-segura-1", repetir: "Mi-clave-segura-1" }))).toEqual({ error: "Correo o contraseña incorrectos." });
+    expect(await a.accederSuperadmin(null, datos({ correo: PABLO, password: "" }))).toEqual({ error: "Correo o contraseña incorrectos.", correo: PABLO });
+    expect(await a.accederSuperadmin(null, datos({ correo: PABLO, nueva: "Mi-clave-segura-1", repetir: "Mi-clave-segura-1" }))).toEqual({ error: "Correo o contraseña incorrectos.", correo: PABLO });
     expect((await supers())[0].password_pendiente).toBe(true);
   });
 });
