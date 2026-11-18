@@ -22,7 +22,7 @@ export default async function Finanzas() {
         {faltan.length > 0 ? (
           <p role="alert" className="rounded bg-amber-100 p-2 font-medium text-amber-900">Parámetros de pago pendientes de aprobación. Faltan: {faltan.join(", ")}. Mientras tanto no se pueden confirmar pagos y las actas salen como borrador.</p>
         ) : (
-          <p className="rounded bg-green-100 p-2 font-medium text-green-900">Parámetros completos. Monto recibido y monto entregado: {imp.estado === "ok" ? `${imp.usd} USD` : "—"}. Tipo de cambio del día: {imp.estado === "ok" ? imp.tipoCambio : "—"}.</p>
+          <p className="rounded bg-green-100 p-2 font-medium text-green-900">Parámetros completos. Valor en euros: {imp.estado === "ok" ? `${imp.eur} EUR` : "—"}. Monto en dólares: {imp.estado === "ok" ? `${imp.usd} USD` : "—"}.</p>
         )}
         <FormParametrosPago valores={p} />
       </section>

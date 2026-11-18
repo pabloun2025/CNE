@@ -21,7 +21,8 @@ CREATE FUNCTION en_prueba() RETURNS boolean LANGUAGE sql STABLE AS
 CREATE TABLE parametros_pago (
   id              int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   importe_usd     numeric(12,2) CHECK (importe_usd > 0),
-  tipo_cambio     numeric(14,6) CHECK (tipo_cambio > 0),
+  importe_eur     numeric(12,2) CHECK (importe_eur > 0), -- escrito a mano; no se calcula
+  tipo_cambio     numeric(14,6) CHECK (tipo_cambio > 0), -- sin uso: no hay tipo de cambio
   sentido_cambio  text CHECK (sentido_cambio IN ('eur_por_usd','usd_por_eur')),
   decimales_eur   int  CHECK (decimales_eur IN (0,2)),
   redondeo        text CHECK (redondeo IN ('mitad_arriba','truncar')),
@@ -240,8 +241,8 @@ CREATE TABLE actas_pago (                  -- §13.8: generar/imprimir no es pag
   mjrv_id      bigint NOT NULL REFERENCES mjrv(id),
   operador_id  bigint NOT NULL REFERENCES operadores_madrid(id),
   importe_usd  numeric(12,2) NOT NULL,
-  tipo_cambio  numeric(14,6) NOT NULL,
-  importe_eur  numeric(12,2),            -- la fórmula con el tipo de cambio sigue abierta: las actas nuevas lo dejan vacío
+  tipo_cambio  numeric(14,6),            -- sin uso: no hay tipo de cambio
+  importe_eur  numeric(12,2),            -- copia del valor escrito en parametros_pago; no es un cálculo
   parametros   jsonb NOT NULL,             -- copia de parametros_pago usada (trazabilidad)
   impresion_n  int NOT NULL,               -- 1 = original; >1 = «REIMPRESIÓN n»
   creado_en    timestamptz NOT NULL DEFAULT now(),
@@ -254,8 +255,8 @@ CREATE TABLE pagos_confirmados (           -- §7.5 requisito de control
   mjrv_id       bigint NOT NULL REFERENCES mjrv(id),
   acta_id       bigint NOT NULL REFERENCES actas_pago(id),
   importe_usd   numeric(12,2) NOT NULL,
-  tipo_cambio   numeric(14,6) NOT NULL,
-  importe_eur   numeric(12,2),             -- vacío mientras la fórmula entre dólares y euros siga abierta
+  tipo_cambio   numeric(14,6),             -- sin uso: no hay tipo de cambio
+  importe_eur   numeric(12,2),             -- copia del valor escrito; no es un cálculo
   funciones_verificadas boolean NOT NULL CHECK (funciones_verificadas),
   operador_id   bigint NOT NULL REFERENCES operadores_madrid(id),
   enlace_id     bigint NOT NULL REFERENCES enlaces_estacion(id),

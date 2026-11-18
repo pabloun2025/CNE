@@ -6,8 +6,8 @@ import { Documentacion } from "./documentacion";
 
 type Ficha = {
   mjrvId: number; cedula: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
-  anverso: boolean; reverso: boolean; documentosCompletos: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; tipoCambio: string | null;
-  acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeUsd: string; tipoCambio: string | null; simulado: boolean } | null;
+  anverso: boolean; reverso: boolean; documentosCompletos: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null;
+  acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
   estado: string; modoPrueba: boolean; otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
 };
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
@@ -68,7 +68,7 @@ export function Finanzas() {
       </div>
     );
   }
-  const montos = ficha?.importeUsd ? `${ficha.importeUsd} USD${ficha.tipoCambio ? ` · tipo de cambio ${ficha.tipoCambio}` : ""}` : "";
+  const montos = ficha?.importeEur ? `${ficha.importeEur} EUR${ficha.importeUsd ? ` · ${ficha.importeUsd} USD` : ""}` : "";
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <form onSubmit={(e) => { e.preventDefault(); void cargar(cedula); }} className="flex gap-2">
@@ -86,7 +86,7 @@ export function Finanzas() {
           ))}
           {ficha.pago && (
             <p role="alert" className="bg-red-700 p-3 text-center text-lg font-extrabold text-white">
-              YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeUsd} USD{ficha.pago.tipoCambio ? ` · tipo de cambio ${ficha.pago.tipoCambio}` : ""}. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
+              YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeEur ? `${ficha.pago.importeEur} EUR` : `${ficha.pago.importeUsd} USD`}{ficha.pago.importeEur && ficha.pago.importeUsd ? ` · ${ficha.pago.importeUsd} USD` : ""}. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
             </p>
           )}
           <div><p className="text-xl font-bold">{ficha.nombre}</p><p>Cédula {ficha.cedula} · {ficha.cargo} · junta {ficha.juntaVigente}{ficha.juntaVigente !== ficha.juntaOrigen ? ` (origen ${ficha.juntaOrigen})` : ""}</p></div>

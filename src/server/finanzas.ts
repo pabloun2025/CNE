@@ -1,4 +1,4 @@
-import { faltanParametros, montosParaActa, textoCambio } from "../domain/pago";
+import { faltanParametros, montosParaActa } from "../domain/pago";
 import { registrarAuditoria } from "./auditoria";
 import { leerDocumento } from "./documentos";
 import { query, withTx } from "./db";
@@ -12,9 +12,9 @@ export type EstadoPago = "documentacion_incompleta" | "lista" | "acta_preparada"
 export type FichaPago = {
   mjrvId: number; cedula: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
   anverso: boolean; reverso: boolean; documentosCompletos: boolean;
-  parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; tipoCambio: string | null;
+  parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null;
   acta: { id: number; impresionN: number } | null;
-  pago: { en: string; operador: string; importeUsd: string; tipoCambio: string | null; simulado: boolean } | null;
+  pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
   estado: EstadoPago; modoPrueba: boolean;
   // Otros puestos de finanzas que abrieron esta misma ficha hace menos de 5 minutos (solo aviso, nunca bloquea).
   otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
@@ -37,8 +37,8 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion): Promis
   const params = await leerParametros();
   const imp = montosParaActa(params);
   const acta = (await query<{ id: number; impresion_n: number }>("SELECT id, impresion_n FROM actas_pago WHERE mjrv_id = $1 ORDER BY id DESC LIMIT 1", [m.id]))[0];
-  const pago = (await query<{ en: string; operador: string; importe_usd: string | null; tipo_cambio: string | null; es_prueba: boolean }>(
-    "SELECT p.confirmado_en::text AS en, btrim(o.nombre || ' ' || o.apellido) AS operador, p.importe_usd::text, p.tipo_cambio::text, p.es_prueba FROM pagos_confirmados p JOIN operadores_madrid o ON o.id = p.operador_id WHERE p.mjrv_id = $1", [m.id]))[0];
+  const pago = (await query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null; es_prueba: boolean }>(
+    "SELECT p.confirmado_en::text AS en, btrim(o.nombre || ' ' || o.apellido) AS operador, p.importe_usd::text, p.importe_eur::text, p.es_prueba FROM pagos_confirmados p JOIN operadores_madrid o ON o.id = p.operador_id WHERE p.mjrv_id = $1", [m.id]))[0];
   const documentosCompletos = lados.includes("anverso") && lados.includes("reverso");
   const estado: EstadoPago = pago ? "pagada" : !documentosCompletos ? "documentacion_incompleta" : acta ? "acta_preparada" : "lista";
   const faltan = faltanParametros(params);
@@ -56,9 +56,9 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion): Promis
   return {
     mjrvId: m.id, cedula: m.cedula, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
     anverso: lados.includes("anverso"), reverso: lados.includes("reverso"), documentosCompletos,
-    parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeUsd: imp.estado === "ok" ? imp.usd : null, tipoCambio: imp.estado === "ok" ? imp.tipoCambio : null,
+    parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeUsd: imp.estado === "ok" ? imp.usd : null, importeEur: imp.estado === "ok" ? imp.eur : null,
     acta: acta ? { id: acta.id, impresionN: acta.impresion_n } : null,
-    pago: pago ? { en: pago.en, operador: pago.operador, importeUsd: pago.importe_usd ?? "", tipoCambio: pago.tipo_cambio ? textoCambio(pago.tipo_cambio) : null, simulado: pago.es_prueba } : null,
+    pago: pago ? { en: pago.en, operador: pago.operador, importeUsd: pago.importe_usd ?? "", importeEur: pago.importe_eur, simulado: pago.es_prueba } : null,
     estado, modoPrueba: (await leerModo()) === "prueba", otrosPuestos,
   };
 }
@@ -85,8 +85,8 @@ export async function generarActa(s: SesionEstacion, mjrvId: number, verificado:
     if (completos && imp.estado === "ok") {
       impresionN = (await client.query<{ n: number }>("SELECT count(*)::int + 1 AS n FROM actas_pago WHERE mjrv_id = $1", [mjrvId])).rows[0].n;
       actaId = (await client.query<{ id: number }>(
-        "INSERT INTO actas_pago (mjrv_id, operador_id, importe_usd, tipo_cambio, importe_eur, parametros, impresion_n) VALUES ($1,$2,$3,$4,NULL,$5::jsonb,$6) RETURNING id",
-        [mjrvId, s.operadorId, imp.usd, imp.tipoCambio, JSON.stringify(params), impresionN])).rows[0].id;
+        "INSERT INTO actas_pago (mjrv_id, operador_id, importe_usd, tipo_cambio, importe_eur, parametros, impresion_n) VALUES ($1,$2,$3,NULL,$4,$5::jsonb,$6) RETURNING id",
+        [mjrvId, s.operadorId, imp.usd, imp.eur, JSON.stringify(params), impresionN])).rows[0].id;
       await registrarAuditoria({ portal: "finanzas", actorTipo: "operador", actorId: s.operadorId, actorNombre: s.operadorNombre, accion: "acta_generada", entidad: "actas_pago", entidadId: actaId, datos: { mjrv: mjrvId, impresion: impresionN } }, client);
     }
     return { m, j, actaId, impresionN };
@@ -99,7 +99,7 @@ export async function generarActa(s: SesionEstacion, mjrvId: number, verificado:
   const pdf = await actaPago({
     numero, impresionN, prueba, borrador: !completos, lugar: params.lugar, emitidaEn: new Date(), operador: s.operadorNombre,
     persona: { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaOrigen: j.origen, juntaVigente: j.vigente },
-    importe: completos && imp.estado === "ok" ? { recibido: imp.usd, entregado: imp.usd, tipoCambio: imp.tipoCambio } : null,
+    importe: completos && imp.estado === "ok" ? { eur: imp.eur } : null,
     pagador: params.pagador_nombre ? { nombre: params.pagador_nombre, cargo: params.pagador_cargo ?? "" } : null,
     anverso, reverso,
   });
@@ -107,8 +107,8 @@ export async function generarActa(s: SesionEstacion, mjrvId: number, verificado:
 }
 
 export type ResultadoPago =
-  | { ok: true; confirmadoEn: string; simulado: boolean; importeUsd: string; tipoCambio: string | null }
-  | { ok: false; yaPagado?: { en: string; operador: string; importeUsd: string; tipoCambio: string | null }; mensaje: string };
+  | { ok: true; confirmadoEn: string; simulado: boolean; importeUsd: string; importeEur: string | null }
+  | { ok: false; yaPagado?: { en: string; operador: string; importeUsd: string; importeEur: string | null }; mensaje: string };
 
 // Confirmación atómica (01 §5): bloqueo de la ficha + índice único (mjrv_id, es_prueba). Dos puestos a la vez: solo uno inserta.
 export async function confirmarPago(s: SesionEstacion, d: { mjrvId: number; actaId: number; verificado: boolean }): Promise<ResultadoPago> {
@@ -120,17 +120,17 @@ export async function confirmarPago(s: SesionEstacion, d: { mjrvId: number; acta
     if (!m) return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
     const docs = (await client.query<{ n: number }>("SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = $1", [d.mjrvId])).rows[0].n;
     if (docs < 2) return { ok: false as const, mensaje: "Faltan fotos de la cédula." };
-    const r = await client.query<{ id: number; confirmado_en: string; es_prueba: boolean; importe_usd: string | null; tipo_cambio: string | null }>(
+    const r = await client.query<{ id: number; confirmado_en: string; es_prueba: boolean; importe_usd: string | null; importe_eur: string | null }>(
       `INSERT INTO pagos_confirmados (mjrv_id, acta_id, importe_usd, tipo_cambio, importe_eur, funciones_verificadas, operador_id, enlace_id)
        SELECT $1, a.id, a.importe_usd, a.tipo_cambio, a.importe_eur, true, $3, $4 FROM actas_pago a WHERE a.id = $2 AND a.mjrv_id = $1
-       ON CONFLICT (mjrv_id, es_prueba) DO NOTHING RETURNING id, confirmado_en::text, es_prueba, importe_usd::text, tipo_cambio::text`,
+       ON CONFLICT (mjrv_id, es_prueba) DO NOTHING RETURNING id, confirmado_en::text, es_prueba, importe_usd::text, importe_eur::text`,
       [d.mjrvId, d.actaId, s.operadorId, s.enlaceId]);
     if (!r.rows[0]) {
-      const previo = (await client.query<{ en: string; operador: string; importe_usd: string | null; tipo_cambio: string | null }>("SELECT p.confirmado_en::text AS en, btrim(o.nombre || ' ' || o.apellido) AS operador, p.importe_usd::text, p.tipo_cambio::text FROM pagos_confirmados p JOIN operadores_madrid o ON o.id = p.operador_id WHERE p.mjrv_id = $1", [d.mjrvId])).rows[0];
-      if (previo) return { ok: false as const, yaPagado: { en: previo.en, operador: previo.operador, importeUsd: previo.importe_usd ?? "", tipoCambio: previo.tipo_cambio ? textoCambio(previo.tipo_cambio) : null }, mensaje: "Ya pagado. No vuelva a pagar." };
+      const previo = (await client.query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null }>("SELECT p.confirmado_en::text AS en, btrim(o.nombre || ' ' || o.apellido) AS operador, p.importe_usd::text, p.importe_eur::text FROM pagos_confirmados p JOIN operadores_madrid o ON o.id = p.operador_id WHERE p.mjrv_id = $1", [d.mjrvId])).rows[0];
+      if (previo) return { ok: false as const, yaPagado: { en: previo.en, operador: previo.operador, importeUsd: previo.importe_usd ?? "", importeEur: previo.importe_eur }, mensaje: "Ya pagado. No vuelva a pagar." };
       return { ok: false as const, mensaje: "El acta indicada no corresponde a esta persona. Genere el acta de nuevo." };
     }
     await registrarAuditoria({ portal: "finanzas", actorTipo: "operador", actorId: s.operadorId, actorNombre: s.operadorNombre, accion: "pago_confirmado", entidad: "pagos_confirmados", entidadId: r.rows[0].id, datos: { mjrv: d.mjrvId, simulado: r.rows[0].es_prueba } }, client);
-    return { ok: true as const, confirmadoEn: r.rows[0].confirmado_en, simulado: r.rows[0].es_prueba, importeUsd: r.rows[0].importe_usd ?? "", tipoCambio: r.rows[0].tipo_cambio ? textoCambio(r.rows[0].tipo_cambio) : null };
+    return { ok: true as const, confirmadoEn: r.rows[0].confirmado_en, simulado: r.rows[0].es_prueba, importeUsd: r.rows[0].importe_usd ?? "", importeEur: r.rows[0].importe_eur };
   });
 }

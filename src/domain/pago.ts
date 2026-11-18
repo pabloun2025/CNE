@@ -1,22 +1,21 @@
-// Un monto en dólares, el tipo de cambio del día y el nombre de quien paga. Los escribe el administrador.
-// La fórmula que une ese monto, el tipo de cambio, el monto recibido y el monto entregado sigue abierta:
-// no se multiplica. El acta repite el monto escrito en las dos líneas e imprime el tipo de cambio tal cual.
+// Un monto en dólares, un valor en euros y el nombre de quien paga. Los escribe el administrador.
+// No hay fórmula: el euro no sale del dólar ni de un tipo de cambio. El acta imprime el euro escrito.
 
 export type ParametrosPago = {
   importe_usd: string | null;
-  tipo_cambio: string | null;
+  importe_eur: string | null;
   pagador_nombre: string | null;
   pagador_cargo: string | null;
   lugar: string | null;
 };
 
 export const PARAMETROS_VACIOS: ParametrosPago = {
-  importe_usd: null, tipo_cambio: null, pagador_nombre: null, pagador_cargo: null, lugar: null,
+  importe_usd: null, importe_eur: null, pagador_nombre: null, pagador_cargo: null, lugar: null,
 };
 
 const ETIQUETAS = {
   importe_usd: "monto en dólares",
-  tipo_cambio: "tipo de cambio del día",
+  importe_eur: "valor en euros",
   pagador_nombre: "nombre de quien paga",
 } as const;
 
@@ -37,26 +36,16 @@ function aCentimos(texto: string): bigint | null {
 
 export const centimosATexto = (c: bigint): string => `${c / 100n}.${String(c % 100n).padStart(2, "0")}`;
 
-// Tipo de cambio escrito por el administrador. Hasta 6 decimales. No se usa para convertir.
-export function textoCambio(valor: string): string | null {
-  const m = /^(\d+)(?:\.(\d{1,6}))?$/.exec(valor.trim().replace(",", "."));
-  if (!m) return null;
-  const entera = m[1].replace(/^0+(?=\d)/, "");
-  const frac = (m[2] ?? "").replace(/0+$/, "");
-  if (entera === "0" && frac === "") return null;
-  return frac ? `${entera}.${frac}` : entera;
-}
+export type MontosActa = { estado: "ok"; usd: string; eur: string } | { estado: "pendiente"; faltan: string[] };
 
-export type MontosActa = { estado: "ok"; usd: string; tipoCambio: string } | { estado: "pendiente"; faltan: string[] };
-
-// Los dos montos del acta son el mismo monto en dólares que escribió el administrador. El tipo de cambio se imprime al lado, sin aplicarlo.
+// Las dos cifras son las que escribió el administrador. No se multiplican.
 export function montosParaActa(p: ParametrosPago): MontosActa {
   const faltan = faltanParametros(p);
   if (faltan.length) return { estado: "pendiente", faltan };
-  const centimos = aCentimos(String(p.importe_usd));
-  const cambio = textoCambio(String(p.tipo_cambio));
-  if (centimos === null || cambio === null) return { estado: "pendiente", faltan: ["monto o tipo de cambio"] };
-  return { estado: "ok", usd: centimosATexto(centimos), tipoCambio: cambio };
+  const usd = aCentimos(String(p.importe_usd));
+  const eur = aCentimos(String(p.importe_eur));
+  if (usd === null || eur === null) return { estado: "pendiente", faltan: ["monto en dólares o valor en euros"] };
+  return { estado: "ok", usd: centimosATexto(usd), eur: centimosATexto(eur) };
 }
 
 export type ParametrosValidados = { ok: true; valores: ParametrosPago } | { ok: false; mensaje: string };
@@ -64,9 +53,9 @@ export type ParametrosValidados = { ok: true; valores: ParametrosPago } | { ok: 
 export function validarParametros(e: Record<keyof ParametrosPago, string>): ParametrosValidados {
   const o = (v: string) => (v.trim() === "" ? null : v.trim());
   const usdBruto = o(e.importe_usd);
-  const cambioBruto = o(e.tipo_cambio);
+  const eurBruto = o(e.importe_eur);
   if (usdBruto !== null && aCentimos(usdBruto) === null) return { ok: false, mensaje: "El monto en dólares debe ser mayor que 0, con hasta 2 decimales." };
-  if (cambioBruto !== null && textoCambio(cambioBruto) === null) return { ok: false, mensaje: "El tipo de cambio del día debe ser mayor que 0, con hasta 6 decimales." };
+  if (eurBruto !== null && aCentimos(eurBruto) === null) return { ok: false, mensaje: "El valor en euros debe ser mayor que 0, con hasta 2 decimales." };
   const nombre = o(e.pagador_nombre), cargo = o(e.pagador_cargo), lugar = o(e.lugar);
   const largo = (v: string | null, n: number) => v === null || v.length <= n;
   if (!largo(nombre, 120) || !largo(cargo, 120) || !largo(lugar, 160)) return { ok: false, mensaje: "Algún texto es demasiado largo." };
@@ -74,7 +63,7 @@ export function validarParametros(e: Record<keyof ParametrosPago, string>): Para
     ok: true,
     valores: {
       importe_usd: usdBruto === null ? null : centimosATexto(aCentimos(usdBruto)!),
-      tipo_cambio: cambioBruto === null ? null : textoCambio(cambioBruto),
+      importe_eur: eurBruto === null ? null : centimosATexto(aCentimos(eurBruto)!),
       pagador_nombre: nombre, pagador_cargo: cargo, lugar,
     },
   };

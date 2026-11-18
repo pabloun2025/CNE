@@ -36,7 +36,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
         <p><strong>Llegada:</strong> {m.incorporado_en ? `${hora(m.incorporado_en)} (incorporada)` : m.ingreso_en ? hora(m.ingreso_en) : "no registrada"}</p>
         <p><strong>Documentos:</strong> {m.anverso && m.reverso ? "completos" : `faltan ${[!m.anverso && "anverso", !m.reverso && "reverso"].filter(Boolean).join(" y ")}`}</p>
         <p><strong>Actas generadas:</strong> {m.actas}</p>
-        <p className="sm:col-span-2"><strong>Pago:</strong> {m.pago ? `Pagado el ${hora(m.pago.en)} por ${m.pago.operador}: ${m.pago.importe_usd ?? "—"} USD${m.pago.tipo_cambio ? ` · tipo de cambio ${m.pago.tipo_cambio}` : ""}` : "sin pago confirmado"}</p>
+        <p className="sm:col-span-2"><strong>Pago:</strong> {m.pago ? `Pagado el ${hora(m.pago.en)} por ${m.pago.operador}: ${m.pago.importe_eur ? `${m.pago.importe_eur} EUR` : `${m.pago.importe_usd ?? "—"} USD`}${m.pago.importe_eur && m.pago.importe_usd ? ` · ${m.pago.importe_usd} USD` : ""}` : "sin pago confirmado"}</p>
       </section>
 
       {(m.anverso || m.reverso) && (
