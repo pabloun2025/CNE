@@ -98,17 +98,20 @@ if llegada and existing.get("APP_MASTER_KEY") and existing["APP_MASTER_KEY"] != 
     raise SystemExit("APP_MASTER_KEY del paquete difiere de la del servidor. Despliegue detenido; no se ha cambiado nada.")
 clave = existing.get("APP_MASTER_KEY") or llegada or base64.b64encode(secrets.token_bytes(32)).decode()
 
-# La contraseña inicial de la superadmin solo se usa si aún no existe ninguna; la cuenta obliga a cambiarla al entrar.
-# Si no llega, se genera y queda únicamente en este archivo (600). Nunca se imprime.
+# La superadmin define su contraseña en el primer acceso: ya no hay contraseña inicial (si quedó una en el archivo, se descarta).
+# El correo antiguo por defecto (superadmin@cne.local) se sustituye por el de Pablo.
 def elegir(key: str, defecto: str = "") -> str:
     return bootstrap.get(key) or existing.get(key) or defecto
+
+correo_superadmin = elegir("SUPERADMIN_EMAIL")
+if not correo_superadmin or correo_superadmin == "superadmin@cne.local":
+    correo_superadmin = "pabloun@gmail.com"
 
 values = {
     "POSTGRES_PASSWORD": existing.get("POSTGRES_PASSWORD") or secrets.token_hex(32),
     "CNE_APP_PASSWORD": existing.get("CNE_APP_PASSWORD") or secrets.token_hex(32),
     "APP_MASTER_KEY": clave,
-    "SUPERADMIN_EMAIL": elegir("SUPERADMIN_EMAIL", "superadmin@cne.local"),
-    "SUPERADMIN_PASSWORD_INICIAL": elegir("SUPERADMIN_PASSWORD_INICIAL") or secrets.token_urlsafe(18),
+    "SUPERADMIN_EMAIL": correo_superadmin,
     "APP_VERSION": bootstrap["APP_VERSION"],
     # El host puede estar aún sin decidir (Q-R1): la aplicación no depende de él.
     "HOST_MADRID": elegir("HOST_MADRID"),

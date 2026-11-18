@@ -7,7 +7,7 @@ import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
 export type PortalSesion = "admin" | "superadmin";
 const TIPO_DE_PORTAL: Record<PortalSesion, string> = { admin: "madrid_admin", superadmin: "superadmin" };
 const HORAS_SESION = 16;
-const GENERICO = "Correo o contraseña incorrectos.";
+export const GENERICO = "Correo o contraseña incorrectos.";
 
 export type Sesion = {
   sesionId: string;
@@ -32,7 +32,7 @@ export async function login(entrada: { correo: string; password: string; portal:
   const claveCorreo = `correo:${sha256Hex(correo)}`;
   const claveIp = entrada.ip ? `ip:${entrada.ip}` : null;
   // Límites: 10 fallos por correo y 30 por IP en 15 minutos. El mensaje no dice cuál saltó.
-  if ((await contarFallos(claveCorreo)) >= 10 || (claveIp && (await contarFallos(claveIp)) >= 30)) {
+  if (await bloqueado(claveCorreo, entrada.ip)) {
     await verifyPassword(DUMMY_PASSWORD_HASH, entrada.password);
     return { ok: false, mensaje: GENERICO };
   }
@@ -47,15 +47,58 @@ export async function login(entrada: { correo: string; password: string; portal:
     if (claveIp) await anotar(claveIp, false);
     return { ok: false, mensaje: GENERICO };
   }
+  const token = await abrirSesion(usuario.id, entrada.portal, entrada.ip, entrada.agente);
+  await anotar(claveCorreo, true);
+  return { ok: true, token, debeCambiar: usuario.debe_cambiar };
+}
+
+async function abrirSesion(usuarioId: number, portal: PortalSesion, ip: string | null, agente: string | null): Promise<string> {
   const token = randomToken();
   await query(
     `INSERT INTO sesiones (token_hash, usuario_id, portal, expira_en, ip, agente)
      VALUES ($1, $2, $3, now() + make_interval(hours => $4), NULLIF($5,'')::inet, $6)`,
-    [sha256Bytes(token), usuario.id, entrada.portal, HORAS_SESION, entrada.ip ?? "", (entrada.agente ?? "").slice(0, 300)],
+    [sha256Bytes(token), usuarioId, portal, HORAS_SESION, ip ?? "", (agente ?? "").slice(0, 300)],
   );
-  await query("UPDATE usuarios SET ultimo_acceso_en = now() WHERE id = $1", [usuario.id]);
+  await query("UPDATE usuarios SET ultimo_acceso_en = now() WHERE id = $1", [usuarioId]);
+  return token;
+}
+
+async function bloqueado(claveCorreo: string, ip: string | null): Promise<boolean> {
+  return (await contarFallos(claveCorreo)) >= 10 || (!!ip && (await contarFallos(`ip:${ip}`)) >= 30);
+}
+
+// ¿Esta cuenta de superadministración tiene la contraseña pendiente de definir? Solo responde sí si no está bloqueada por intentos.
+export async function pideDefinirContrasena(correoCrudo: string, ip: string | null): Promise<boolean> {
+  const correo = correoCrudo.trim().toLowerCase();
+  if (await bloqueado(`correo:${sha256Hex(correo)}`, ip)) return false;
+  const f = await query("SELECT 1 FROM usuarios WHERE correo = $1 AND tipo = 'superadmin' AND activo AND password_pendiente AND password_hash IS NULL AND mfa_activada_en IS NULL", [correo]);
+  return f.length > 0;
+}
+
+// Primer acceso de la superadmin: define su contraseña (una sola vez) y abre sesión; la 2FA sigue siendo obligatoria.
+export async function definirContrasenaInicial(entrada: { correo: string; nueva: string; repetir: string; ip: string | null; agente: string | null }): Promise<ResultadoLogin> {
+  const correo = entrada.correo.trim().toLowerCase();
+  const claveCorreo = `correo:${sha256Hex(correo)}`;
+  const claveIp = entrada.ip ? `ip:${entrada.ip}` : null;
+  const fallar = async (mensaje: string): Promise<ResultadoLogin> => {
+    await anotar(claveCorreo, false);
+    if (claveIp) await anotar(claveIp, false);
+    return { ok: false, mensaje };
+  };
+  if (await bloqueado(claveCorreo, entrada.ip)) return { ok: false, mensaje: GENERICO };
+  if (entrada.nueva !== entrada.repetir) return fallar("Las dos contraseñas no coinciden.");
+  const problema = passwordProblem(entrada.nueva, correo);
+  if (problema) return fallar(problema);
+  // La condición va en el UPDATE: si dos personas llegan a la vez, solo una gana.
+  const f = await query<{ id: number }>(
+    `UPDATE usuarios SET password_hash = $1, password_pendiente = false, debe_cambiar = false
+      WHERE correo = $2 AND tipo = 'superadmin' AND activo AND password_pendiente AND password_hash IS NULL AND mfa_activada_en IS NULL RETURNING id`,
+    [await hashPassword(entrada.nueva), correo],
+  );
+  if (!f[0]) return fallar(GENERICO);
+  const token = await abrirSesion(f[0].id, "superadmin", entrada.ip, entrada.agente);
   await anotar(claveCorreo, true);
-  return { ok: true, token, debeCambiar: usuario.debe_cambiar };
+  return { ok: true, token, debeCambiar: false };
 }
 
 // Una cookie solo vale en el portal que la creó: se comprueba portal de la sesión y tipo del usuario.
