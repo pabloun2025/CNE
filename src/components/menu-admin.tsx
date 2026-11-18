@@ -7,6 +7,7 @@ export const ENLACES_ADMIN: { href: string; texto: string }[] = [
   { href: "/admin/credenciales", texto: "Credenciales" },
   { href: "/admin/mando", texto: "Centro de mando" },
   { href: "/admin/finanzas", texto: "Finanzas" },
+  { href: "/admin/informes", texto: "Informes" },
   { href: "/admin/documentos", texto: "Documentos (QR)" },
   { href: "/admin/operadores", texto: "Operadores y enlaces" },
 ];

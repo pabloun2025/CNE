@@ -6,6 +6,9 @@ import { guardarDocumento } from "@/server/documentos";
 import type { SesionEstacion } from "@/server/estaciones";
 import { confirmarPago, generarActa } from "@/server/finanzas";
 import { resumenFinanzas } from "@/server/finanzas-resumen";
+import * as XLSX from "xlsx";
+import { informeCierreExcel } from "@/server/informe-excel";
+import { informeCierrePdf } from "@/server/pdf/informe";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const foto = () => sharp(randomBytes(900 * 600 * 3), { raw: { width: 900, height: 600, channels: 3 } }).jpeg({ quality: 70 }).toBuffer();
@@ -52,5 +55,22 @@ describe("panel financiero", () => {
     await confirmarPago(s, { mjrvId: ids[1], actaId: acta.id, verificado: true });
     expect((await resumenFinanzas()).totalEur).toBe("200.00");
     expect((await resumenFinanzas()).filas.map((f) => f.estado)).toEqual(["documentacion_incompleta", "pagada", "pagada"]);
+  });
+
+  it("informe de cierre: PDF y Excel con las mismas filas, total solo de confirmados y sin fotos", async () => {
+    const r = await resumenFinanzas();
+    const datos = { generadoEn: r.generado_en, modoPrueba: r.modoPrueba, totalEur: r.totalEur, filas: r.filas };
+    const pdf = Buffer.from(await informeCierrePdf(datos));
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    const xlsx = informeCierreExcel(datos);
+    const hoja = XLSX.read(xlsx, { type: "buffer" }).Sheets["Informe"];
+    const filas = XLSX.utils.sheet_to_json<(string | number)[]>(hoja, { header: 1, blankrows: false });
+    const cabecera = filas.findIndex((f) => f[0] === "Cédula");
+    const datosFilas = filas.slice(cabecera + 1, cabecera + 1 + 3);
+    expect(datosFilas.map((f) => f[0]).sort()).toEqual(["0000000001", "0000000002", "0000000003"]); // cédula como texto
+    expect(datosFilas.every((f) => typeof f[0] === "string" && String(f[0]).startsWith("0000"))).toBe(true);
+    expect(datosFilas.filter((f) => String(f[3]) === "Pagada")).toHaveLength(2);
+    expect(filas.find((f) => String(f[0]).startsWith("TOTAL"))?.[1]).toBe(200);
+    expect(filas.some((f) => String(f[0]).includes("PRUEBA"))).toBe(true); // marca de informe de prueba
   });
 });
