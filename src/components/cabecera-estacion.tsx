@@ -14,13 +14,13 @@ export function CabeceraEstacion({ token, funcion, etiqueta, operador }: { token
     return () => { window.removeEventListener("online", a); window.removeEventListener("offline", a); };
   }, []);
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-slate-100 px-3 py-2 text-sm">
+    <header className="cabecera-puesto">
       <strong>{funcion}</strong>
-      <span className="text-slate-600">{etiqueta}</span>
-      <span>· {operador}</span>
-      <span className={enLinea ? "text-green-800" : "font-bold text-red-700"}>{enLinea ? "● Conectado" : "● Sin conexión"}</span>
-      <form action={cambiarOperadorAccion.bind(null, token)} className="ml-auto">
-        <button className="rounded border border-slate-500 px-3 py-2 font-medium">Cambiar operador</button>
+      <span>{etiqueta}</span>
+      <span>{operador}</span>
+      <span className={enLinea ? "en-linea" : "sin-linea"}>{enLinea ? "● Conectado" : "● Sin conexión"}</span>
+      <form action={cambiarOperadorAccion.bind(null, token)}>
+        <button>Cambiar operador</button>
       </form>
     </header>
   );

@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import type { ParametrosPago } from "@/domain/pago";
 import { guardarParametrosAccion, type EstadoPago } from "@/server/pago-actions";
 
-const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
+const campo = "mt-1 block w-full";
 
 // Todos los campos nacen vacíos: la interfaz no propone ningún valor (P-7).
 export function FormParametrosPago({ valores }: { valores: ParametrosPago }) {
@@ -18,7 +18,7 @@ export function FormParametrosPago({ valores }: { valores: ParametrosPago }) {
       <label className="text-sm font-medium">Lugar del pago<input name="lugar" defaultValue={valores.lugar ?? ""} className={campo} /></label>
       {e?.error && <p role="alert" className="font-medium text-red-700">{e.error}</p>}
       {e?.aviso && <p role="status" className="font-medium text-green-800">{e.aviso}</p>}
-      <button disabled={p} className="rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Guardar parámetros</button>
+      <button disabled={p} className="bg-stone-900 px-4 py-3 text-white disabled:opacity-60">Guardar parámetros</button>
     </form>
   );
 }

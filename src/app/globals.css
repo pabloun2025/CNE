@@ -1,5 +1,231 @@
 @import "tailwindcss";
 
+/* Sistema del funcionario de Madrid. Plano: sin degradados.
+   El aro de cada ficha y el recorte de la foto usan sombra porque son la marca y el encuadre, no adorno. */
+:root {
+  --tinta: #1c1917;
+  --papel: #ffffff;
+  --linea: #d6d3d1;
+  --verde: #166534;
+  --rojo: #b91c1c;
+}
+
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--tinta);
+  background: var(--papel);
+}
+
+.funcionario {
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  color: var(--tinta);
+}
+
+.funcionario h1 {
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.funcionario h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.funcionario button,
+.funcionario input,
+.funcionario select,
+.funcionario textarea,
+.funcionario [class*="rounded"] {
+  border-radius: 0;
+}
+
+.funcionario button {
+  font-weight: 700;
+}
+
+.funcionario input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]),
+.funcionario select,
+.funcionario textarea {
+  border: 2px solid var(--tinta);
+  background: #fff;
+  min-height: 3rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 1.125rem;
+}
+
+.funcionario .bg-blue-700,
+.funcionario .bg-blue-600,
+.funcionario .bg-slate-800 {
+  background-color: var(--tinta);
+}
+
+.funcionario .border-blue-700,
+.funcionario .border-slate-600,
+.funcionario .border-slate-500,
+.funcionario .border-slate-400 {
+  border-color: var(--tinta);
+}
+
+.funcionario .bg-blue-50,
+.funcionario .bg-slate-100,
+.funcionario .bg-slate-50,
+.funcionario .bg-slate-200 {
+  background-color: #f5f5f4;
+}
+
+.funcionario .text-blue-800,
+.funcionario .text-blue-700 {
+  color: var(--tinta);
+}
+
+.cabecera-puesto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  border-bottom: 2px solid var(--tinta);
+  background: var(--tinta);
+  color: #fff;
+  padding: 0.75rem 0.85rem;
+  font-size: 1.05rem;
+}
+
+.cabecera-puesto button {
+  margin-left: auto;
+  background: #fff;
+  color: var(--tinta);
+  border: 0;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.8rem;
+}
+
+.cabecera-puesto .en-linea { color: #bbf7d0; }
+.cabecera-puesto .sin-linea { color: #fecaca; font-weight: 800; }
+
+.tecla {
+  min-height: 4.25rem;
+  border: 2px solid var(--tinta);
+  background: #fff;
+  font-size: 1.65rem;
+  font-weight: 800;
+}
+
+.tecla-borrar {
+  font-size: 1rem;
+  background: #f5f5f4;
+}
+
+.pantalla-lectura {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  text-align: center;
+  color: #fff;
+}
+
+.pantalla-ok { background: var(--verde); }
+.pantalla-no { background: var(--rojo); }
+.pantalla-error { background: #44403c; }
+
+.fila-fichas {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding: 0.4rem 0.1rem 0.75rem;
+}
+
+.ficha {
+  position: relative;
+  flex: 0 0 auto;
+  width: 4.7rem;
+  min-height: 4.6rem;
+  border: 0;
+  padding: 0.3rem 0.35rem 0.4rem;
+  text-align: left;
+}
+
+.ficha-serie {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.ficha-num {
+  display: block;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ficha-estado {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.ficha-marca {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.3rem;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.indicadores div {
+  border: 2px solid var(--tinta);
+  background: #fff;
+  padding: 0.35rem 0.5rem;
+}
+
+.indicadores dd {
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.indicadores dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.propuesta {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 2px solid var(--tinta);
+  background: #fff;
+  padding: 0.75rem;
+}
+
+.entrada-fila {
+  margin: 0.8rem 0 0.15rem;
+  border-top: 2px solid var(--tinta);
+  padding-top: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 640px) {
+  .indicadores { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }

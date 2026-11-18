@@ -112,8 +112,8 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={previa.url} alt={`Vista previa del ${rotulo}`} className="w-full rounded border" />
         <div className="flex gap-3">
-          <button disabled={enviando} onClick={usar} className="flex-1 rounded bg-green-700 px-4 py-4 text-lg font-bold text-white disabled:opacity-60">Usar esta foto</button>
-          <button disabled={enviando} onClick={repetir} className="flex-1 rounded border-2 border-slate-600 px-4 py-4 text-lg font-bold">Repetir</button>
+          <button disabled={enviando} onClick={usar} className="flex-1 bg-green-800 px-4 py-4 text-lg text-white disabled:opacity-60">Usar esta foto</button>
+          <button disabled={enviando} onClick={repetir} className="flex-1 border-2 border-stone-900 px-4 py-4 text-lg">Repetir</button>
         </div>
       </div>
     );
@@ -140,8 +140,8 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
         </div>
       )}
       {sinCamara && <p role="status" className="text-sm">No se pudo abrir la cámara. Use el botón de abajo para hacer o elegir la foto.</p>}
-      {!sinCamara && <button onClick={tomar} disabled={!lista} className="w-full rounded bg-blue-700 px-4 py-4 text-lg font-bold text-white disabled:opacity-60">Tomar foto</button>}
-      <label className="block w-full cursor-pointer rounded border-2 border-slate-600 px-4 py-3 text-center font-semibold">
+      {!sinCamara && <button onClick={tomar} disabled={!lista} className="w-full bg-stone-900 px-4 py-4 text-lg text-white disabled:opacity-60">Tomar foto</button>}
+      <label className="block w-full cursor-pointer border-2 border-stone-900 px-4 py-3 text-center">
         {sinCamara ? "Hacer o elegir foto" : "O elegir una foto del teléfono"}
         <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => deArchivo(e.target.files?.[0])} />
       </label>

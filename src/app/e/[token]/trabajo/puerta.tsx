@@ -51,18 +51,18 @@ export function Puerta() {
     }
   }, [mostrar]);
 
-  const color = !pantalla ? "" : pantalla.resultado === "valido" ? "bg-green-700" : pantalla.resultado === "error" ? "bg-slate-600" : "bg-red-700";
+  const color = !pantalla ? "" : pantalla.resultado === "valido" ? "pantalla-ok" : pantalla.resultado === "error" ? "pantalla-error" : "pantalla-no";
   return (
     <div className="mx-auto max-w-xl space-y-3">
-      <p className="text-center text-lg font-semibold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="font-normal text-slate-600">(este puesto: {cont?.esteEnlace ?? "—"})</span></p>
+      <p className="text-center text-2xl font-bold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="block text-base font-semibold">Este puesto: {cont?.esteEnlace ?? "—"}</span></p>
       <LectorQr onCodigo={enviar} onError={() => mostrar({ resultado: "error" })} />
       <form onSubmit={(e) => { e.preventDefault(); if (manual.trim()) { void enviar(manual); setManual(""); } }} className="flex gap-2">
-        <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Escribir cédula" inputMode="text" autoComplete="off" className="min-w-0 flex-1 rounded border border-slate-400 px-3 py-3 text-lg" />
-        <button className="rounded bg-slate-800 px-5 py-3 font-semibold text-white">Comprobar</button>
+        <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Escribir cédula" inputMode="text" autoComplete="off" className="min-w-0 flex-1" />
+        <button className="bg-stone-900 px-4 text-white">Comprobar</button>
       </form>
       {pantalla && (
-        <div role="alert" className={`fixed inset-0 z-40 flex flex-col items-center justify-center gap-3 p-6 text-center text-white ${color}`}>
-          {pantalla.resultado === "valido" && (<><p className="text-5xl font-extrabold">Válida</p><p className="text-3xl font-bold">{pantalla.nombre}</p><p className="text-3xl">{pantalla.junta} · {pantalla.zona}</p></>)}
+        <div role="alert" className={`pantalla-lectura ${color}`}>
+          {pantalla.resultado === "valido" && (<><p className="text-6xl font-extrabold">Válida</p><p className="text-3xl font-bold">{pantalla.nombre}</p><p className="text-3xl">{pantalla.junta} · {pantalla.zona}</p></>)}
           {pantalla.resultado === "duplicado" && <p className="text-4xl font-extrabold">Ya usada</p>}
           {pantalla.resultado === "desconocido" && <p className="text-4xl font-extrabold">QR no reconocido</p>}
           {pantalla.resultado === "bloqueado" && <p className="text-4xl font-extrabold">Dada de baja en la lista</p>}

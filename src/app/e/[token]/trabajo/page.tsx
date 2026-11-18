@@ -11,14 +11,14 @@ export default async function Trabajo({ params }: { params: Promise<{ token: str
   const { token } = await params;
   const s = await requireEstacion(token, FUNCIONES);
   return (
-    <>
+    <div className="funcionario">
       <CabeceraEstacion token={token} funcion={FUNCION_NOMBRE[s.funcion]} etiqueta={s.etiqueta} operador={s.operadorNombre} />
-      <main className="p-4">
+      <main className="p-3">
         {s.funcion === "puerta" && <Puerta />}
         {s.funcion === "mando" && <Mando />}
         {s.funcion === "documentacion" && <Documentacion />}
         {s.funcion === "finanzas" && <Finanzas />}
       </main>
-    </>
+    </div>
   );
 }
