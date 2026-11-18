@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
+import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
 const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
 const boton = "rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60";
@@ -128,5 +128,20 @@ export function FormRemitente({ direccion, nombre }: { direccion: string; nombre
       <button disabled={pendiente} className={boton}>Guardar remitente</button>
       <Resultado estado={estado} />
     </form>
+  );
+}
+
+export function FormBorrarFotos({ fotos, personas, sinPago }: { fotos: number; personas: number; sinPago: number }) {
+  const [estado, enviar, pendiente] = useActionState(borrarFotosAccion, null);
+  return (
+    <div className="space-y-3">
+      <p className="text-sm">Hay <strong>{fotos}</strong> fotos de <strong>{personas}</strong> personas; <strong>{sinPago}</strong> de ellas aún sin pago confirmado. Las fotos se conservan hasta que usted las borre aquí.</p>
+      <p className="text-sm font-medium text-red-800">Borrar es definitivo: finanzas volverá a pedir las fotos. Las copias de seguridad diarias guardan las fotos cifradas hasta 14 días.</p>
+      <form action={enviar} className="max-w-sm space-y-3">
+        <label className="block text-sm font-medium">Para confirmar escriba «BORRAR FOTOS»<input name="confirmacion" autoComplete="off" required className={campo} /></label>
+        <button disabled={pendiente || fotos === 0} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar todas las fotos de cédula</button>
+      </form>
+      <Resultado estado={estado} />
+    </div>
   );
 }

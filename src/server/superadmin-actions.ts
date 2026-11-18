@@ -6,6 +6,7 @@ import { activarAdmin, cambiarModo, crearAdmin, restablecerAdmin } from "./super
 import type { Modo } from "./config";
 import { cargarDemo, quitarDemo } from "./demo";
 import { prepararEleccion } from "./preparar-eleccion";
+import { borrarTodasLasFotos } from "./documentos";
 import { crearRespaldo } from "./respaldo";
 import { crearLinea, desvincularLinea } from "./whatsapp-linea";
 import { cambiarInterruptor, guardarRemitente, reanudarEnvios } from "./envios-config";
@@ -125,4 +126,12 @@ export async function guardarRemitenteAccion(_: EstadoSuper, f: FormData): Promi
   const r = await guardarRemitente(sesion, String(f.get("direccion") ?? ""), String(f.get("nombre") ?? ""));
   revalidatePath("/superadmin/envios");
   return r.ok ? { aviso: "Remitente guardado." } : { error: r.mensaje };
+}
+
+// Borra todas las fotos de cédula del modo actual. Exige la frase «BORRAR FOTOS»; queda en la auditoría con el recuento.
+export async function borrarFotosAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const r = await borrarTodasLasFotos(sesion, String(f.get("confirmacion") ?? ""));
+  revalidatePath("/superadmin");
+  return r.ok ? { aviso: `Se borraron ${r.borradas} fotos de ${r.personas} personas. Finanzas volverá a pedir las fotos.` } : { error: r.mensaje };
 }

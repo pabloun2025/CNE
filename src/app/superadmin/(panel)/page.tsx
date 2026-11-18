@@ -1,6 +1,7 @@
-import { FormCrearAdmin, FormDemo, FormModo, FormPreparar, FormRestablecer } from "@/components/superadmin-formularios";
+import { FormBorrarFotos, FormCrearAdmin, FormDemo, FormModo, FormPreparar, FormRestablecer } from "@/components/superadmin-formularios";
 import { leerModo } from "@/server/config";
 import { contarDemo } from "@/server/demo";
+import { resumenFotos } from "@/server/documentos";
 import { CONSERVA } from "@/domain/limpieza";
 import { resumenLimpieza } from "@/server/preparar-eleccion";
 import { requireSuperadmin } from "@/server/guard";
@@ -9,7 +10,7 @@ import { FRASE_MODO, listarAdmins } from "@/server/superadmin";
 
 export default async function SuperInicio() {
   const sesion = await requireSuperadmin();
-  const [modo, admins, demo, resumen] = await Promise.all([leerModo(), listarAdmins(sesion), contarDemo(), resumenLimpieza()]);
+  const [modo, admins, demo, resumen, fotos] = await Promise.all([leerModo(), listarAdmins(sesion), contarDemo(), resumenLimpieza(), resumenFotos()]);
   const destino = modo === "prueba" ? "eleccion" : "prueba";
   return (
     <main className="mx-auto max-w-3xl space-y-8">
@@ -34,6 +35,11 @@ export default async function SuperInicio() {
       <section>
         <h2 className="text-lg font-semibold">Preparar elección</h2>
         <div className="mt-2"><FormPreparar resumen={resumen} conserva={CONSERVA} /></div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Fotos de cédula</h2>
+        <div className="mt-2"><FormBorrarFotos fotos={fotos.fotos} personas={fotos.personas} sinPago={fotos.sinPago} /></div>
       </section>
 
       <section>
