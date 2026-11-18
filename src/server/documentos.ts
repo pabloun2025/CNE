@@ -74,8 +74,9 @@ export async function formularioAbierto(): Promise<boolean> {
   return (await query<{ a: boolean }>("SELECT documentos_publico_abierto AS a FROM configuracion WHERE id = 1"))[0]?.a ?? false;
 }
 
-export const LIMITE_PUBLICO = 10; // consultas por IP en 15 minutos (§16.2)
-export const LIMITE_FOTOS_PUBLICO = 30;
+// Holgado: en la Caja Mágica muchos MJRV pueden salir por la misma IP de la Wi-Fi.
+export const LIMITE_PUBLICO = 150; // consultas por IP en 15 minutos
+export const LIMITE_FOTOS_PUBLICO = 400;
 
 // Cuenta y anota el intento; devuelve false si la IP ya llegó al límite.
 export async function permitirPublico(ip: string | null, tipo: "buscar" | "foto"): Promise<boolean> {
