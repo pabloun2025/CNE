@@ -54,14 +54,16 @@ test -f "$BOOTSTRAP_FILE"
 install -d -m 700 "$APP_DIR/backups" "$APP_DIR/backups/pre-despliegue"
 chmod 700 "$APP_DIR/backups"
 
-python3 - "$BOOTSTRAP_FILE" "$ENV_FILE" <<'PY'
+python3 - "$BOOTSTRAP_FILE" "$ENV_FILE" "${CONSULARES_DIR:-/home/ubuntu/consulares}" <<'PY'
 import json
 import secrets
 import base64
 import sys
 from pathlib import Path
 
-bootstrap_path, output_path = map(Path, sys.argv[1:])
+bootstrap_path, output_path = map(Path, sys.argv[1:3])
+# Carpeta de consulares (solo lectura): de ahí se copian las claves de envío. Nunca se escribe en ella.
+consulares_dir = Path(sys.argv[3]) if len(sys.argv) > 3 else Path("/home/ubuntu/consulares")
 
 def dotenv(path: Path) -> dict[str, str]:
     result: dict[str, str] = {}
@@ -115,8 +117,31 @@ values = {
     "BACKUP_INTERVAL_SECONDS": existing.get("BACKUP_INTERVAL_SECONDS") or "86400",
 }
 
+# Claves de WhatsApp (Evolution API compartida) y correo (Brevo) de consulares. Se copian sin imprimirlas; si no se pueden
+# leer, quedan las que ya hubiera o vacías y la aplicación sigue en modo simulado. La línea de CNE es una instancia propia.
+def legible(path: Path) -> dict[str, str]:
+    try:
+        return dotenv(path)
+    except OSError:
+        return {}
+
+fuente = legible(consulares_dir / ".env.production")
+evolucion = legible(consulares_dir / "docker" / "evolution.env")
+
+def copiada(key: str, valor: str) -> str:
+    valor = (valor or "").strip()
+    if any(char in valor for char in "\r\n'"):
+        valor = ""
+    return valor or existing.get(key, "")
+
+values["EVOLUTION_API_URL"] = "http://evolution-api:8080"
+values["EVOLUTION_API_KEY"] = copiada("EVOLUTION_API_KEY", fuente.get("EVOLUTION_API_KEY") or evolucion.get("AUTHENTICATION_API_KEY") or "")
+values["BREVO_API_KEY"] = copiada("BREVO_API_KEY", fuente.get("BREVO_API_KEY", ""))
+values["MAIL_FROM_ADDRESS"] = copiada("MAIL_FROM_ADDRESS", fuente.get("MAIL_FROM_ADDRESS", ""))
+
 output_path.write_text("\n".join(f"{key}={quoted(value)}" for key, value in values.items()) + "\n")
 output_path.chmod(0o600)
+print(f"Claves de envío: WhatsApp {'sí' if values['EVOLUTION_API_KEY'] else 'no'}, correo {'sí' if values['BREVO_API_KEY'] and values['MAIL_FROM_ADDRESS'] else 'no'}")
 PY
 
 rm -f "$BOOTSTRAP_FILE"
