@@ -27,9 +27,10 @@ function vibrate(pattern: number | number[]): void {
   try { navigator.vibrate?.(pattern); } catch { /* iPhone no vibra */ }
 }
 
-// Válida: pitido agudo corto. Rechazada: dos tonos graves.
-export function feedback(tipo: "valido" | "rechazo"): void {
+// Válida: pitido agudo corto. Reingreso (amarillo): un pitido medio. Rechazada: dos tonos graves.
+export function feedback(tipo: "valido" | "reingreso" | "rechazo"): void {
   unlockAudio();
   if (tipo === "valido") { tone(880, 0, 0.14); vibrate(120); }
+  else if (tipo === "reingreso") { tone(520, 0, 0.3); vibrate(250); }
   else { tone(300, 0, 0.18); tone(220, 0.22, 0.25); vibrate([200, 100, 200]); }
 }

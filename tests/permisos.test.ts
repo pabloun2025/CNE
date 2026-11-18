@@ -37,6 +37,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/mando/estado": MANDO,
   "GET /api/e/puerta": ["e_puerta"],
   "POST /api/e/puerta": ["e_puerta"],
+  "POST /api/e/puerta/pase": ["e_puerta"],
   "POST /api/e/documentacion/foto": ["e_documentacion", "e_finanzas"],
   "POST /api/e/documentacion/buscar": ["e_documentacion", "e_finanzas"],
   "POST /api/e/finanzas/acta/[mjrvId]": ["e_finanzas"],
