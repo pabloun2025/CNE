@@ -30,13 +30,14 @@ describe("documentos de identidad", () => {
     const r = await guardarDocumento({ mjrvId: id, lado: "anverso", imagen: original, origen: "estacion" });
     expect(r).toMatchObject({ ok: true, estado: { anverso: true, reverso: false, completos: false } });
     const [fila] = await consultarDueno<{ imagen_cifrada: Buffer; bytes: number; ancho: number; es_prueba: boolean }>("SELECT imagen_cifrada, bytes, ancho, es_prueba FROM cne.documentos_mjrv");
-    expect(fila.imagen_cifrada.subarray(16, 18).toString("hex")).not.toBe("ffd8"); // tras la etiqueta de 16 bytes no empieza como JPEG
-    expect(fila.imagen_cifrada.includes(Buffer.from([0xff, 0xd8, 0xff]))).toBe(false);
+    expect(fila.imagen_cifrada.subarray(16, 19).toString("hex")).not.toBe("ffd8ff"); // tras la etiqueta de 16 bytes no empieza como JPEG
     expect(fila.ancho).toBeLessThanOrEqual(1200);
     expect(fila.es_prueba).toBe(true);
     const claro = (await leerDocumento(id, "anverso"))!;
     expect(claro.subarray(0, 3).toString("hex")).toBe("ffd8ff");
     expect(claro.length).toBe(fila.bytes);
+    // El texto cifrado no contiene el principio de la imagen en claro.
+    expect(fila.imagen_cifrada.includes(claro.subarray(0, 64))).toBe(false);
   });
 
   it("el reverso idéntico al anverso se rechaza; uno distinto completa el expediente y repetir sustituye", async () => {
