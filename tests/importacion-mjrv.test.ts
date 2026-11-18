@@ -95,3 +95,43 @@ describe("importación de MJRV contra la base (todo o nada)", () => {
     expect(filas[0].cedula).toBe("0000000009");
   });
 });
+
+describe("D02 · rótulo del Excel y nomenclatura M/F", () => {
+  it("con columna «Rótulo» se imprime ese texto tal cual", () => {
+    const v = normalizarFilas([fila({ "Rótulo": "ABC-7" }), fila({ cedula: "0000000002", "Rótulo": "" })]);
+    expect(v.sinColumnaRotulo).toBe(false);
+    expect(v.filas.map((f) => f.datos.rotulo)).toEqual(["ABC-7", null]);
+  });
+  it("sin columna de rótulo, el rótulo es el texto de la junta y se avisa", () => {
+    const v = normalizarFilas([fila({ serie: "", junta: "H12" })]);
+    expect(v.sinColumnaRotulo).toBe(true);
+    expect(v.filas[0].datos.rotulo).toBe("H12");
+    // Serie y número en columnas separadas: no hay texto de junta que imprimir.
+    expect(normalizarFilas([fila()]).filas[0].datos.rotulo).toBeNull();
+  });
+  it("M01 y F01: M = masculino (H1) y F = femenino (M1), con aviso y recuento", () => {
+    const v = normalizarFilas([fila({ serie: "", junta: "M01" }), fila({ cedula: "0000000002", serie: "", junta: "F01" })]);
+    expect(v.nomenclaturaMF).toBe(true);
+    expect(v.filas.map((f) => [f.datos.serie, f.datos.numero, f.datos.rotulo])).toEqual([["H", 1, "M01"], ["M", 1, "F01"]]);
+    expect(v.porSerie).toEqual({ H: 1, M: 1 });
+    expect(v.errores).toBe(0);
+  });
+  it("sin ninguna F se mantiene H/M como hoy", () => {
+    const v = normalizarFilas([fila({ serie: "", junta: "H12" }), fila({ cedula: "0000000002", serie: "", junta: "M3" })]);
+    expect(v.nomenclaturaMF).toBe(false);
+    expect(v.filas.map((f) => [f.datos.serie, f.datos.numero])).toEqual([["H", 12], ["M", 3]]);
+  });
+  it("columna serie con F/M también activa la nomenclatura", () => {
+    const v = normalizarFilas([fila({ serie: "M", junta: 2 }), fila({ cedula: "0000000002", serie: "F", junta: 2 })]);
+    expect(v.filas.map((f) => f.datos.serie)).toEqual(["H", "M"]);
+  });
+  it("reimportar sin rótulo no pisa con NULL el rótulo ya guardado", async () => {
+    await reiniciarBase();
+    await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash) VALUES ('madrid_admin','a@x.y','A','x')");
+    const con = excel([fila({ "Rótulo": "ROT-1" })]);
+    await aplicarImportacion(sesion, con, "con.xlsx", []);
+    await aplicarImportacion(sesion, excel([fila()]), "sin.xlsx", []);
+    expect((await consultarDueno<{ rotulo_credencial: string }>("SELECT rotulo_credencial FROM cne.mjrv"))[0].rotulo_credencial).toBe("ROT-1");
+    await closePools();
+  });
+});
