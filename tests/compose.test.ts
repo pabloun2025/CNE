@@ -38,6 +38,14 @@ describe("docker-compose.oracle.yml", () => {
     expect(redApp[nombreExterna].aliases).toContain("cne-app");
   });
 
+  it("solo cne-app entra en la red del Ollama de teinvito", () => {
+    const red = Object.entries(compose.networks).find(([, v]) => v?.name === "teinvito-prod_interna");
+    expect(red?.[1]).toMatchObject({ external: true, name: "teinvito-prod_interna" });
+    const unidos = Object.entries(compose.services).filter(([, s]) => redes(s).includes(red![0])).map(([n]) => n);
+    expect(unidos).toEqual(["cne-app"]);
+    expect(compose.services["cne-app"].environment!.LOCAL_AI_URL).toBe("http://teinvito-ollama:11434");
+  });
+
   it("la base se configura como indica el diseño y no hay envíos reales", () => {
     const env = compose.services["cne-app"].environment!;
     expect(env.DATABASE_URL).toBe("postgres://cne_app:${CNE_APP_PASSWORD}@cne-postgres:5432/cne");

@@ -17,6 +17,8 @@ x-app: &app
     NODE_ENV: production
     DATABASE_URL: postgres://cne_app:${CNE_APP_PASSWORD}@cne-postgres:5432/cne
     DATABASE_OWNER_URL: postgres://cne_owner:${POSTGRES_PASSWORD}@cne-postgres:5432/cne
+    # Ollama de teinvito. El puerto no está publicado: cne-app entra en su red.
+    LOCAL_AI_URL: http://teinvito-ollama:11434
 
 services:
   cne-postgres:
@@ -64,6 +66,7 @@ services:
       cne_interna: {}
       citas_compartida:
         aliases: [cne-app]
+      teinvito_interna: {}
 
   cne-backup:
     logging: *logs
@@ -90,3 +93,6 @@ networks:
   citas_compartida:
     external: true
     name: citas-prod_interna
+  teinvito_interna:
+    external: true
+    name: teinvito-prod_interna
