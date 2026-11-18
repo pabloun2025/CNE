@@ -44,6 +44,7 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/e/finanzas/ficha": ["e_finanzas"],
   "POST /api/e/finanzas/confirmar": ["e_finanzas"],
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
+  "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
   "POST /api/d/foto": "publica", // pública pero cerrada por el interruptor del admin
   "POST /api/d/buscar": "publica",
@@ -67,6 +68,7 @@ const ACCIONES: Record<string, Regla> = {
   "superadmin-actions#crearAdminAccion": SOLO_SUPER, "superadmin-actions#restablecerAdminAccion": SOLO_SUPER, "superadmin-actions#activarAdminAccion": SOLO_SUPER,
   "superadmin-actions#cambiarModoAccion": SOLO_SUPER, "superadmin-actions#cargarDemoAccion": SOLO_SUPER, "superadmin-actions#quitarDemoAccion": SOLO_SUPER,
   "superadmin-actions#respaldarAccion": SOLO_SUPER, "superadmin-actions#prepararEleccionAccion": SOLO_SUPER,
+  "superadmin-actions#crearLineaAccion": SOLO_SUPER, "superadmin-actions#desvincularLineaAccion": SOLO_SUPER,
   // La verificación en dos pasos se hace con la contraseña ya puesta y antes de tener el segundo factor.
   "mfa-actions#comenzarMfaAccion": ["super_sin_2fa", "superadmin"], "mfa-actions#completarMfaAccion": ["super_sin_2fa", "superadmin"],
   "mfa-actions#verificarMfaAccion": ["super_sin_2fa", "superadmin"], "mfa-actions#recuperarMfaAccion": ["super_sin_2fa", "superadmin"],

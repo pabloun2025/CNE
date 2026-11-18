@@ -7,8 +7,9 @@ import type { Modo } from "./config";
 import { cargarDemo, quitarDemo } from "./demo";
 import { prepararEleccion } from "./preparar-eleccion";
 import { crearRespaldo } from "./respaldo";
+import { crearLinea, desvincularLinea } from "./whatsapp-linea";
 
-export type EstadoSuper = { error?: string; aviso?: string; password?: string; enlace?: string; detalle?: string[] } | null;
+export type EstadoSuper = { error?: string; aviso?: string; password?: string; enlace?: string; detalle?: string[]; qr?: string } | null;
 
 export async function crearAdminAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
@@ -82,4 +83,20 @@ export async function prepararEleccionAccion(_: EstadoSuper, f: FormData): Promi
     enlace: rutaDescarga(r.respaldo.archivo),
     detalle: [...r.antes.map((a) => `${a.etiqueta}: ${a.n} borradas`), `Lote de copia interna: ${r.lote}`],
   };
+}
+
+// Línea de WhatsApp de CNE (instancia fija «cne-madrid»).
+export async function crearLineaAccion(): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const l = await crearLinea(sesion);
+  revalidatePath("/superadmin/envios");
+  if (l.error) return { error: l.error };
+  return l.estado === "vinculada" ? { aviso: `La línea ya está vinculada${l.numero ? ` con ${l.numero}` : ""}.` } : { aviso: "Escanee el código con el WhatsApp del teléfono de CNE.", qr: l.qr ?? undefined };
+}
+
+export async function desvincularLineaAccion(): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const r = await desvincularLinea(sesion);
+  revalidatePath("/superadmin/envios");
+  return r.ok ? { aviso: "Línea desvinculada. El envío real por WhatsApp quedó apagado." } : { error: r.mensaje };
 }
