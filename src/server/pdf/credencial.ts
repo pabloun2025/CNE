@@ -7,7 +7,8 @@ import { A4, CR80, MM, POR_HOJA, huecosA4 } from "../../domain/credencial-layout
 export type DatosCredencial = { cedula: string; apellidos: string; nombres: string; cargo: string; rotulo: string; serie: "H" | "M"; prueba: boolean };
 
 // Helvetica solo codifica WinAnsi: lo demás se sustituye para no romper la generación.
-const latin = (t: string) => t.replace(/[^ -ÿ]/g, "?");
+// WinAnsi: Latin-1 más guiones, comillas, viñeta, euro y puntos suspensivos.
+const latin = (t: string) => t.replace(/[^\u0020-\u00ff\u2013\u2014\u2018\u2019\u201c\u201d\u2022\u20ac\u2026]/g, "?");
 const AZUL = rgb(0x1f / 255, 0x5f / 255, 0xa8 / 255);
 const NARANJA = rgb(0xf4 / 255, 0xb1 / 255, 0x83 / 255);
 const ROJO = rgb(0xe0 / 255, 0, 0);

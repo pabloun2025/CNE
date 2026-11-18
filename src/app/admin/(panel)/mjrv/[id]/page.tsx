@@ -34,6 +34,19 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
         <p className="sm:col-span-2"><strong>Pago:</strong> {m.pago ? `Pagado el ${hora(m.pago.en)} por ${m.pago.operador}: ${m.pago.importe_eur} EUR` : "sin pago confirmado"}</p>
       </section>
 
+      {(m.anverso || m.reverso) && (
+        <section>
+          <h2 className="font-semibold">Fotos de la cédula</h2>
+          <div className="mt-1 flex flex-wrap gap-3">
+            {(["anverso", "reverso"] as const).filter((l) => m[l]).map((l) => (
+              <a key={l} href={`/api/admin/documentos/${m.id}/${l}`} target="_blank" rel="noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/api/admin/documentos/${m.id}/${l}`} alt={`Miniatura del ${l}`} width={160} className="rounded border" />
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
       <p><a className="underline" target="_blank" href={`/admin/credenciales/pdf?formato=individual&ids=${m.id}`}>Descargar credencial (PDF)</a></p>
 
       <section>

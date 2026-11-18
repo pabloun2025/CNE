@@ -1,0 +1,40 @@
+"use server";
+
+import { adminOEstacionApi } from "./guard";
+import { aceptarPropuesta, descartarPropuesta, marcarNoDisponible, moverManual, quitarExcepcion, rehabilitar, type Actor, type Resultado } from "./movimientos";
+
+// Solo administración Madrid o una estación con función «mando». Cada acción lo comprueba en el servidor.
+async function actor(): Promise<Actor | null> {
+  const s = await adminOEstacionApi(["mando"]);
+  if (!s) return null;
+  return s.tipo === "admin" ? { tipo: "madrid_admin", id: s.sesion.usuarioId, nombre: s.sesion.nombre } : { tipo: "operador", id: s.sesion.operadorId, nombre: s.sesion.operadorNombre };
+}
+const NO_AUT: Resultado = { ok: false, mensaje: "Su sesión ya no es válida. Vuelva a identificarse." };
+const num = (f: FormData, k: string) => Number(f.get(k));
+const propuesta = (f: FormData) => ({ mjrvId: num(f, "mjrvId"), origenId: num(f, "origenId"), destinoId: num(f, "destinoId") });
+
+export async function aceptarAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  return a ? aceptarPropuesta(a, propuesta(f)) : NO_AUT;
+}
+export async function pasarAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  return a ? descartarPropuesta(a, propuesta(f), "pasada") : NO_AUT;
+}
+export async function noViableAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  return a ? descartarPropuesta(a, propuesta(f), "no_viable", String(f.get("motivo") ?? "")) : NO_AUT;
+}
+export async function moverManualAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  return a ? moverManual(a, { mjrvId: num(f, "mjrvId"), destino: String(f.get("destino") ?? ""), confirmar: f.get("confirmar") === "1" }) : NO_AUT;
+}
+export async function excepcionAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  if (!a) return NO_AUT;
+  return f.get("quitar") === "1" ? quitarExcepcion(num(f, "mjrvId")) : marcarNoDisponible(a, num(f, "mjrvId"), String(f.get("motivo") ?? ""));
+}
+export async function rehabilitarAccion(f: FormData): Promise<Resultado> {
+  const a = await actor();
+  return a ? rehabilitar(num(f, "mjrvId")) : NO_AUT;
+}
