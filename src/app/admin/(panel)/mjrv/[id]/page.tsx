@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BotonesEnvio } from "@/components/envios-credenciales";
+import { ETIQUETA_ESTADO, enviosDe } from "@/server/envios";
 import { FormMjrv } from "@/components/form-mjrv";
 import { requireAdmin } from "@/server/guard";
 import { obtenerFicha } from "@/server/mjrv";
@@ -12,6 +14,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
   const id = Number((await params).id);
   const m = Number.isInteger(id) ? await obtenerFicha(id) : null;
   if (!m) notFound();
+  const envios = await enviosDe(m.id);
   return (
     <main className="max-w-3xl space-y-6">
       <div>
@@ -48,6 +51,15 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
         </section>
       )}
       <p><a className="underline" target="_blank" href={`/admin/credenciales/pdf?formato=individual&ids=${m.id}`}>Descargar credencial (PDF)</a></p>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Envío de la credencial</h2>
+        <p role="note" className="text-sm font-medium text-amber-900">Envío simulado: se registra pero no sale ningún mensaje.</p>
+        <BotonesEnvio id={m.id} tieneTelefono={!!m.telefono_e164} tieneCorreo={!!m.correo} />
+        {envios.length > 0 && (
+          <ul className="text-sm">{envios.map((x) => <li key={x.id}>{hora(x.creado_en)} · {x.canal === "whatsapp" ? "WhatsApp" : "Correo"} · {ETIQUETA_ESTADO[x.estado]}{x.simulado ? " (simulado)" : ""}{x.error ? ` · ${x.error}` : ""}</li>)}</ul>
+        )}
+      </section>
 
       <section>
         <h2 className="font-semibold">Movimientos</h2>

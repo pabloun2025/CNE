@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { aGrises, DetectorCaptura, diferenciaMedia, varianzaLaplaciano } from "@/domain/captura-auto";
 
 const ID1 = 85.6 / 54; // proporción de la tarjeta de identidad
 const MAX_PX = 1600;
 
 // Cámara trasera con recuadro de proporción ID-1, «Tomar foto», vista previa «Usar / Repetir», recorte al recuadro
 // y reducción a ≤ 1.600 px en canvas. Si no hay cámara se ofrece elegir/hacer la foto con el selector del móvil.
-// La captura automática llega en M23: el botón manual siempre está visible.
+// Captura automática (M23): cuando la imagen del recuadro está quieta y nítida ~1 s, toma la foto sola. El botón manual siempre está visible.
 export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (imagen: Blob) => void | Promise<void> }) {
   const video = useRef<HTMLVideoElement>(null);
   const [lista, setLista] = useState(false);
@@ -15,6 +16,12 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
   const [dim, setDim] = useState({ w: 4, h: 3 });
   const [previa, setPrevia] = useState<{ blob: Blob; url: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [auto, setAuto] = useState(true);
+  const [progreso, setProgreso] = useState(0);
+  const detector = useRef(new DetectorCaptura());
+  const anterior = useRef<Uint8ClampedArray | null>(null);
+  const enfriarHasta = useRef(0);
+  const alTomar = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     let flujo: MediaStream | null = null;
@@ -48,6 +55,31 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
       c.toBlob(resolve, "image/jpeg", 0.85);
     });
 
+  // Muestreo cada 150 ms de una miniatura del recuadro: nitidez (laplaciano) y movimiento frente al fotograma anterior.
+  useEffect(() => {
+    if (!lista || previa || !auto) return;
+    const mini = document.createElement("canvas");
+    const id = window.setInterval(() => {
+      const v = video.current;
+      if (!v || v.readyState < 2) return;
+      let w = dim.w * 0.92, h = w / ID1;
+      if (h > dim.h * 0.92) { h = dim.h * 0.92; w = h * ID1; }
+      mini.width = 320; mini.height = Math.round(320 / ID1);
+      const ctx = mini.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.drawImage(v, (dim.w - w) / 2, (dim.h - h) / 2, w, h, 0, 0, mini.width, mini.height);
+      const g = aGrises(ctx.getImageData(0, 0, mini.width, mini.height).data);
+      const movimiento = anterior.current?.length === g.length ? diferenciaMedia(anterior.current, g) : 255;
+      anterior.current = g;
+      const ahora = performance.now();
+      if (ahora < enfriarHasta.current) return;
+      const e = detector.current.evaluar({ t: ahora, nitidez: varianzaLaplaciano(g, mini.width, mini.height), movimiento });
+      setProgreso(e.progreso);
+      if (e.dispara) { detector.current.reiniciar(); setProgreso(0); alTomar.current(); }
+    }, 150);
+    return () => window.clearInterval(id);
+  }, [lista, previa, auto, dim]);
+
   const mostrar = (blob: Blob | null) => { if (blob) setPrevia({ blob, url: URL.createObjectURL(blob) }); };
   const tomar = async () => {
     const v = video.current;
@@ -55,12 +87,18 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
     const r = recuadro();
     mostrar(await aBlob(v, r.x, r.y, r.w, r.h));
   };
+  useEffect(() => { alTomar.current = () => { void tomar(); }; });
   const deArchivo = async (f: File | undefined) => {
     if (!f) return;
     const bmp = await createImageBitmap(f);
     mostrar(await aBlob(bmp, 0, 0, bmp.width, bmp.height));
   };
-  const repetir = () => { if (previa) URL.revokeObjectURL(previa.url); setPrevia(null); };
+  const repetir = () => {
+    if (previa) URL.revokeObjectURL(previa.url);
+    setPrevia(null);
+    // Pausa para recolocar el documento antes de otra captura automática.
+    detector.current.reiniciar(); anterior.current = null; enfriarHasta.current = performance.now() + 2000; setProgreso(0);
+  };
   const usar = async () => {
     if (!previa) return;
     setEnviando(true);
@@ -88,6 +126,17 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
         <div className="relative w-full overflow-hidden rounded bg-black" style={{ aspectRatio: `${dim.w} / ${dim.h}` }}>
           <video ref={video} playsInline muted className="h-full w-full object-cover" />
           {lista && <div aria-hidden className="absolute border-4 border-white shadow-[0_0_0_999px_rgba(0,0,0,0.45)]" style={{ left: `${(r.x / dim.w) * 100}%`, top: `${(r.y / dim.h) * 100}%`, width: `${(r.w / dim.w) * 100}%`, height: `${(r.h / dim.h) * 100}%` }} />}
+        </div>
+      )}
+      {!sinCamara && lista && (
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); setProgreso(0); detector.current.reiniciar(); }} className="h-5 w-5" />Captura automática</label>
+          {auto && (
+            <div role="status" aria-live="polite" className="text-sm">
+              <div className="h-2 w-full overflow-hidden rounded bg-slate-200"><div className="h-full bg-green-600" style={{ width: `${Math.round(progreso * 100)}%` }} /></div>
+              {progreso > 0 ? "Mantenga el documento quieto…" : "Se toma sola cuando el documento esté quieto y nítido. También puede pulsar «Tomar foto»."}
+            </div>
+          )}
         </div>
       )}
       {sinCamara && <p role="status" className="text-sm">No se pudo abrir la cámara. Use el botón de abajo para hacer o elegir la foto.</p>}

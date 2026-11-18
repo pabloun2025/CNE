@@ -35,3 +35,9 @@ export async function consultarDueno<T extends object = Record<string, unknown>>
     await cliente.end();
   }
 }
+
+// Marca la sesión como verificada en dos pasos (atajo de pruebas ajenas a M18).
+export async function marcarMfaVerificada(token: string): Promise<void> {
+  const { sha256Bytes } = await import("@/domain/text");
+  await consultarDueno("UPDATE cne.sesiones SET mfa_verificada = true WHERE token_hash = $1", [sha256Bytes(token)]);
+}

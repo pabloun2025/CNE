@@ -1,12 +1,14 @@
 import { ZONAS, ZONA_NOMBRE } from "@/domain/juntas";
 import { requireAdmin } from "@/server/guard";
 import { resumenCredenciales } from "@/server/credenciales";
+import { EnvioLote } from "@/components/envios-credenciales";
+import { resumenEnvios } from "@/server/envios";
 
 const campo = "rounded border border-slate-400 px-2 py-2 text-base";
 
 export default async function Credenciales() {
   await requireAdmin();
-  const r = await resumenCredenciales();
+  const [r, e] = await Promise.all([resumenCredenciales(), resumenEnvios()]);
   return (
     <main className="max-w-2xl space-y-4">
       <h1 className="text-xl font-semibold">Credenciales</h1>
@@ -31,6 +33,15 @@ export default async function Credenciales() {
           <button name="formato" value="individual" className="rounded border border-slate-500 px-4 py-3 font-semibold">PDF individual (una por página)</button>
         </div>
       </form>
+      <section className="space-y-2 rounded border p-3">
+        <h2 className="text-lg font-semibold">Envío por WhatsApp y correo</h2>
+        <p role="note" className="rounded bg-amber-100 p-2 text-sm font-medium text-amber-900">Envío SIMULADO: queda registrado pero no sale ningún mensaje. El envío real se conectará más adelante.</p>
+        <p className="text-sm">Con teléfono: {e.conTelefono} (ya enviadas: {e.whatsapp}). Con correo: {e.conCorreo} (ya enviadas: {e.correo}). No se repite un envío ya hecho.</p>
+        <div className="flex flex-wrap gap-3">
+          <EnvioLote canal="whatsapp" titulo="Enviar por WhatsApp a quienes falten" pendientes={e.conTelefono - e.whatsapp} />
+          <EnvioLote canal="correo" titulo="Enviar por correo a quienes falten" pendientes={e.conCorreo - e.correo} />
+        </div>
+      </section>
       <p className="text-sm">Comprobar la lectura del QR con un móvil antes de imprimir todas. En modo prueba las credenciales llevan la marca «PRUEBA».</p>
     </main>
   );

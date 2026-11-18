@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { cambiarModoAccion, cargarDemoAccion, quitarDemoAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
+import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, quitarDemoAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
 const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
 const boton = "rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60";
@@ -12,6 +12,8 @@ function Resultado({ estado }: { estado: EstadoSuper }) {
     <div role="status" className="mt-2 text-sm">
       {estado.error && <p className="font-medium text-red-700">{estado.error}</p>}
       {estado.aviso && <p className="font-medium text-green-800">{estado.aviso}</p>}
+      {estado.detalle && <ul className="mt-1 list-disc pl-5">{estado.detalle.map((d) => <li key={d}>{d}</li>)}</ul>}
+      {estado.enlace && <p className="mt-2"><a href={estado.enlace} className="inline-block rounded bg-slate-800 px-4 py-3 font-semibold text-white">Descargar respaldo</a></p>}
       {estado.password && <p className="mt-1 break-all rounded bg-yellow-100 p-2 font-mono text-base">{estado.password}</p>}
     </div>
   );
@@ -66,6 +68,29 @@ export function FormDemo({ cargadas }: { cargadas: number }) {
       </div>
       <Resultado estado={cargar} />
       <Resultado estado={quitar} />
+    </div>
+  );
+}
+
+export function FormPreparar({ resumen, conserva }: { resumen: { etiqueta: string; n: number }[]; conserva: string[] }) {
+  const [estado, enviar, pendiente] = useActionState(prepararEleccionAccion, null);
+  const [respaldo, enviarRespaldo, p2] = useActionState(respaldarAccion, null);
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium">Se borrará solo lo marcado como prueba:</p>
+      <ul className="list-disc pl-5 text-sm">{resumen.map((r) => <li key={r.etiqueta}>{r.etiqueta}: <strong>{r.n}</strong></li>)}</ul>
+      <p className="text-sm font-medium">Se conserva:</p>
+      <ul className="list-disc pl-5 text-sm">{conserva.map((c) => <li key={c}>{c}</li>)}</ul>
+      <p className="text-sm">Antes de borrar se hace un respaldo completo de la base y se comprueba. Si el respaldo falla, no se borra nada. Después el sistema pasa a modo elección.</p>
+      <form action={enviarRespaldo}><button disabled={p2} className="rounded border border-slate-500 px-4 py-3 font-semibold disabled:opacity-60">Solo crear respaldo para descargar</button></form>
+      <Resultado estado={respaldo} />
+      <form action={enviar} className="max-w-sm space-y-3">
+        <label className="block text-sm font-medium">Para confirmar escriba «PREPARAR ELECCIÓN»
+          <input name="confirmacion" autoComplete="off" required className={campo} />
+        </label>
+        <button disabled={pendiente} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar datos de prueba y preparar para elección</button>
+      </form>
+      <Resultado estado={estado} />
     </div>
   );
 }
