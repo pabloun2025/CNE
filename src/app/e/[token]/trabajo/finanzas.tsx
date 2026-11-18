@@ -8,7 +8,7 @@ type Ficha = {
   mjrvId: number; cedula: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
   anverso: boolean; reverso: boolean; documentosCompletos: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeEur: string | null;
   acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeEur: string; simulado: boolean } | null;
-  estado: string; modoPrueba: boolean;
+  estado: string; modoPrueba: boolean; otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
 };
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
 const Req = ({ ok, texto }: { ok: boolean; texto: string }) => <li className={ok ? "text-green-800" : "font-semibold text-red-700"}>{ok ? "✔" : "✘"} {texto}</li>;
@@ -73,6 +73,11 @@ export function Finanzas() {
       {mensaje && <p role="alert" className="font-semibold text-red-700">{mensaje}</p>}
       {ficha && (
         <section className="space-y-3 rounded border p-3">
+          {ficha.otrosPuestos.map((o) => (
+            <p key={o.etiqueta} role="status" className="rounded border-2 border-amber-600 bg-amber-100 p-3 font-semibold text-amber-900">
+              {o.etiqueta} ({o.operador}) abrió esta ficha {o.haceMin < 1 ? "hace menos de 1 min" : `hace ${o.haceMin} min`}. Compruebe que no la está pagando.
+            </p>
+          ))}
           {ficha.pago && (
             <p role="alert" className="rounded bg-red-700 p-3 text-center text-lg font-extrabold text-white">
               YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeEur} EUR. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}

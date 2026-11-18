@@ -16,11 +16,16 @@ export type FichaPago = {
   acta: { id: number; impresionN: number } | null;
   pago: { en: string; operador: string; importeEur: string; simulado: boolean } | null;
   estado: EstadoPago; modoPrueba: boolean;
+  // Otros puestos de finanzas que abrieron esta misma ficha hace menos de 5 minutos (solo aviso, nunca bloquea).
+  otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
 };
 
 const cedulaNorm = (c: string) => c.trim().toUpperCase().replace(/\s+/g, "").slice(0, 20);
 
-export async function fichaPago(cedulaBruta: string): Promise<FichaPago | null> {
+export const MINUTOS_AVISO = 5;
+
+// Con la sesión de la estación, abrir la ficha queda anotado (aviso a otros puestos, 10c). El doble pago lo impide la confirmación atómica.
+export async function fichaPago(cedulaBruta: string, s?: SesionEstacion): Promise<FichaPago | null> {
   const m = (await query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string }>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.activo, jo.serie || jo.numero AS origen,
             jv.serie || jv.numero AS vigente
@@ -37,13 +42,24 @@ export async function fichaPago(cedulaBruta: string): Promise<FichaPago | null> 
   const documentosCompletos = lados.includes("anverso") && lados.includes("reverso");
   const estado: EstadoPago = pago ? "pagada" : !documentosCompletos ? "documentacion_incompleta" : acta ? "acta_preparada" : "lista";
   const faltan = faltanParametros(params);
+  let otrosPuestos: FichaPago["otrosPuestos"] = [];
+  if (s) {
+    await query(
+      `INSERT INTO fichas_abiertas_finanzas (mjrv_id, enlace_id, operador_nombre) VALUES ($1, $2, $3)
+       ON CONFLICT (mjrv_id, enlace_id, es_prueba) DO UPDATE SET operador_nombre = EXCLUDED.operador_nombre, abierta_en = now()`, [m.id, s.enlaceId, s.operadorNombre]);
+    otrosPuestos = (await query<{ etiqueta: string; operador: string; hace_min: number }>(
+      `SELECT e.etiqueta, f.operador_nombre AS operador, floor(extract(epoch FROM now() - f.abierta_en) / 60)::int AS hace_min
+         FROM fichas_abiertas_finanzas f JOIN enlaces_estacion e ON e.id = f.enlace_id
+        WHERE f.mjrv_id = $1 AND f.enlace_id <> $2 AND f.abierta_en > now() - make_interval(mins => $3) ORDER BY f.abierta_en DESC`, [m.id, s.enlaceId, MINUTOS_AVISO]))
+      .map((x) => ({ etiqueta: x.etiqueta, operador: x.operador, haceMin: x.hace_min }));
+  }
   return {
     mjrvId: m.id, cedula: m.cedula, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
     anverso: lados.includes("anverso"), reverso: lados.includes("reverso"), documentosCompletos,
     parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeEur: imp.estado === "ok" ? imp.texto : null,
     acta: acta ? { id: acta.id, impresionN: acta.impresion_n } : null,
     pago: pago ? { en: pago.en, operador: pago.operador, importeEur: pago.importe_eur, simulado: pago.es_prueba } : null,
-    estado, modoPrueba: (await leerModo()) === "prueba",
+    estado, modoPrueba: (await leerModo()) === "prueba", otrosPuestos,
   };
 }
 
