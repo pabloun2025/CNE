@@ -18,8 +18,8 @@ async function conFotos(id: number) {
   await guardarDocumento({ mjrvId: id, lado: "anverso", imagen: await foto(), origen: "estacion" });
   await guardarDocumento({ mjrvId: id, lado: "reverso", imagen: await foto(), origen: "estacion" });
 }
-const completarParametros = () => consultarDueno("UPDATE cne.parametros_pago SET importe_usd=100, tipo_cambio=1, sentido_cambio='eur_por_usd', decimales_eur=2, redondeo='truncar', pagador_nombre='PAGADOR PRUEBA', pagador_cargo='CARGO PRUEBA', lugar='LUGAR PRUEBA'");
-const vaciarParametros = () => consultarDueno("UPDATE cne.parametros_pago SET importe_usd=NULL, tipo_cambio=NULL, sentido_cambio=NULL, decimales_eur=NULL, redondeo=NULL, pagador_nombre=NULL, pagador_cargo=NULL, lugar=NULL");
+const completarParametros = () => consultarDueno("UPDATE cne.parametros_pago SET importe_eur=100, pagador_nombre='PAGADOR PRUEBA', pagador_cargo='CARGO PRUEBA', lugar='LUGAR PRUEBA'");
+const vaciarParametros = () => consultarDueno("UPDATE cne.parametros_pago SET importe_eur=NULL, pagador_nombre=NULL, pagador_cargo=NULL, lugar=NULL");
 
 describe("finanzas: acta y confirmación", () => {
   beforeAll(async () => {
@@ -62,6 +62,8 @@ describe("finanzas: acta y confirmación", () => {
     const f = (await fichaPago("0000000001"))!;
     expect(f).toMatchObject({ estado: "acta_preparada", importeEur: "100.00", pago: null });
     expect((await consultarDueno("SELECT 1 FROM cne.pagos_confirmados")).length).toBe(0);
+    // D03: importe fijo en EUR; USD y tipo de cambio ya no se rellenan.
+    expect(await consultarDueno("SELECT importe_eur::text, importe_usd, tipo_cambio FROM cne.actas_pago WHERE mjrv_id = $1 LIMIT 1", [a])).toEqual([{ importe_eur: "100.00", importe_usd: null, tipo_cambio: null }]);
   });
 
   it("un acta ajena se rechaza", async () => {
@@ -76,6 +78,7 @@ describe("finanzas: acta y confirmación", () => {
     const r = await Promise.all([confirmarPago(s, { mjrvId: a, actaId: acta.id, verificado: true }), confirmarPago(s, { mjrvId: a, actaId: acta.id, verificado: true }), confirmarPago(s, { mjrvId: a, actaId: acta.id, verificado: true })]);
     expect(r.filter((x) => x.ok)).toHaveLength(1);
     expect(r.find((x) => x.ok)).toMatchObject({ simulado: true, importeEur: "100.00" });
+    expect(await consultarDueno("SELECT importe_usd, tipo_cambio FROM cne.pagos_confirmados WHERE mjrv_id = $1", [a])).toEqual([{ importe_usd: null, tipo_cambio: null }]);
     for (const x of r.filter((y) => !y.ok)) expect(x).toMatchObject({ ok: false, yaPagado: { importeEur: "100.00", operador: "Fin Prueba" } });
     expect((await consultarDueno("SELECT 1 FROM cne.pagos_confirmados")).length).toBe(1);
     expect((await fichaPago("0000000001"))).toMatchObject({ estado: "pagada", pago: { simulado: true } });

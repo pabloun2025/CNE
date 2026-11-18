@@ -69,8 +69,8 @@ export async function generarActa(s: SesionEstacion, mjrvId: number, verificado:
     if (completos && imp.estado === "ok") {
       impresionN = (await client.query<{ n: number }>("SELECT count(*)::int + 1 AS n FROM actas_pago WHERE mjrv_id = $1", [mjrvId])).rows[0].n;
       actaId = (await client.query<{ id: number }>(
-        "INSERT INTO actas_pago (mjrv_id, operador_id, importe_usd, tipo_cambio, importe_eur, parametros, impresion_n) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7) RETURNING id",
-        [mjrvId, s.operadorId, params.importe_usd, params.tipo_cambio, imp.texto, JSON.stringify(params), impresionN])).rows[0].id;
+        "INSERT INTO actas_pago (mjrv_id, operador_id, importe_eur, parametros, impresion_n) VALUES ($1,$2,$3,$4::jsonb,$5) RETURNING id",
+        [mjrvId, s.operadorId, imp.texto, JSON.stringify(params), impresionN])).rows[0].id;
       await registrarAuditoria({ portal: "finanzas", actorTipo: "operador", actorId: s.operadorId, actorNombre: s.operadorNombre, accion: "acta_generada", entidad: "actas_pago", entidadId: actaId, datos: { mjrv: mjrvId, impresion: impresionN } }, client);
     }
     return { m, j, actaId, impresionN };
@@ -80,11 +80,10 @@ export async function generarActa(s: SesionEstacion, mjrvId: number, verificado:
   const [anverso, reverso] = [await leerDocumento(mjrvId, "anverso"), await leerDocumento(mjrvId, "reverso")];
   if (!anverso || !reverso) return { ok: false, status: 409, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." };
   const numero = completos ? `${prueba ? "PRUEBA" : "MAD"}-${String(actaId).padStart(6, "0")}` : `${prueba ? "PRUEBA" : "MAD"}-BORRADOR`;
-  const redondeo = params.redondeo === "truncar" ? "truncado" : "mitad hacia arriba";
   const pdf = await actaPago({
     numero, impresionN, prueba, borrador: !completos, lugar: params.lugar, emitidaEn: new Date(), operador: s.operadorNombre,
     persona: { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaOrigen: j.origen, juntaVigente: j.vigente },
-    importe: completos && imp.estado === "ok" ? { usd: String(params.importe_usd), cambio: String(params.tipo_cambio), sentido: String(params.sentido_cambio), eur: imp.texto, redondeo, decimales: Number(params.decimales_eur) } : null,
+    importe: completos && imp.estado === "ok" ? { eur: imp.texto } : null,
     pagador: params.pagador_nombre ? { nombre: params.pagador_nombre, cargo: params.pagador_cargo ?? "" } : null,
     anverso, reverso,
   });
@@ -106,8 +105,8 @@ export async function confirmarPago(s: SesionEstacion, d: { mjrvId: number; acta
     const docs = (await client.query<{ n: number }>("SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = $1", [d.mjrvId])).rows[0].n;
     if (docs < 2) return { ok: false as const, mensaje: "Faltan fotos de la cédula." };
     const r = await client.query<{ id: number; confirmado_en: string; es_prueba: boolean; importe_eur: string }>(
-      `INSERT INTO pagos_confirmados (mjrv_id, acta_id, importe_usd, tipo_cambio, importe_eur, funciones_verificadas, operador_id, enlace_id)
-       SELECT $1, a.id, a.importe_usd, a.tipo_cambio, a.importe_eur, true, $3, $4 FROM actas_pago a WHERE a.id = $2 AND a.mjrv_id = $1
+      `INSERT INTO pagos_confirmados (mjrv_id, acta_id, importe_eur, funciones_verificadas, operador_id, enlace_id)
+       SELECT $1, a.id, a.importe_eur, true, $3, $4 FROM actas_pago a WHERE a.id = $2 AND a.mjrv_id = $1
        ON CONFLICT (mjrv_id, es_prueba) DO NOTHING RETURNING id, confirmado_en::text, es_prueba, importe_eur::text`,
       [d.mjrvId, d.actaId, s.operadorId, s.enlaceId]);
     if (!r.rows[0]) {

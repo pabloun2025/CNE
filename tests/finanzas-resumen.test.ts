@@ -20,7 +20,7 @@ describe("panel financiero", () => {
     await reiniciarBase();
     await consultarDueno("INSERT INTO cne.operadores_madrid (nombre, pin_hash, funciones) VALUES ('Fin Prueba','x','{finanzas}')");
     await consultarDueno("INSERT INTO cne.enlaces_estacion (funcion, etiqueta, token_hash) VALUES ('finanzas','Finanzas 1','\\x01')");
-    await consultarDueno("UPDATE cne.parametros_pago SET importe_usd=100, tipo_cambio=1, sentido_cambio='eur_por_usd', decimales_eur=2, redondeo='truncar', pagador_nombre='P', pagador_cargo='C', lugar='L'");
+    await consultarDueno("UPDATE cne.parametros_pago SET importe_eur=100, pagador_nombre='P', pagador_cargo='C', lugar='L'");
     const [o] = await consultarDueno<{ id: number }>("SELECT id FROM cne.operadores_madrid");
     const [e] = await consultarDueno<{ id: number }>("SELECT id FROM cne.enlaces_estacion");
     s = { sesionId: "x", funcion: "finanzas", operadorId: o.id, operadorNombre: "Fin Prueba", enlaceId: e.id, etiqueta: "F1" };
@@ -67,6 +67,7 @@ describe("panel financiero", () => {
     const filas = XLSX.utils.sheet_to_json<(string | number)[]>(hoja, { header: 1, blankrows: false });
     const cabecera = filas.findIndex((f) => f[0] === "Cédula");
     const datosFilas = filas.slice(cabecera + 1, cabecera + 1 + 3);
+    expect(filas[cabecera]).toEqual(["Cédula", "Persona", "Junta", "Condición", "EUR pagados", "Momento (Madrid)", "Operador pagador"]); // sin USD ni cambio
     expect(datosFilas.map((f) => f[0]).sort()).toEqual(["0000000001", "0000000002", "0000000003"]); // cédula como texto
     expect(datosFilas.every((f) => typeof f[0] === "string" && String(f[0]).startsWith("0000"))).toBe(true);
     expect(datosFilas.filter((f) => String(f[3]) === "Pagada")).toHaveLength(2);

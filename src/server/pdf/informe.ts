@@ -12,7 +12,7 @@ export async function informeCierrePdf(d: DatosInforme): Promise<Uint8Array> {
   const normal = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const W = A4.alto * MM, H = A4.ancho * MM, M = 30; // apaisado
-  const anchos = [62, 170, 38, 140, 44, 58, 58, 92, 100]; // suma 762 ≤ W - 2M
+  const anchos = [62, 190, 40, 170, 70, 110, 120]; // suma 762 ≤ W - 2M
   const totales = resumenTotales(d.filas, d.totalEur);
   const negro = rgb(0.1, 0.1, 0.1);
   let page!: PDFPage;
