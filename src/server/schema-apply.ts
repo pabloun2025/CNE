@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { Client } from "pg";
+import type { RolAdmin } from "../domain/roles";
 import { masterKey } from "./crypto";
 import { loadEnv } from "./env";
 import { hashPassword } from "./passwords";
@@ -16,7 +17,7 @@ export function correoSuperadmin(): string {
   return env && env !== CORREO_ANTIGUO ? env : CORREO_SUPERADMIN;
 }
 
-export type ResultadoPreparar = { esquemaNuevo: boolean; migraciones: string[]; juntas: number; superadminCreada: boolean };
+export type ResultadoPreparar = { esquemaNuevo: boolean; migraciones: string[]; juntas: number; superadminCreada: boolean; cuentasMadridCreadas: number };
 
 // La superadmin pasa al correo indicado. Sin 2FA configurada, su contraseña queda pendiente de definir en el primer acceso
 // (y se cierran sus sesiones); con 2FA ya configurada solo cambia el correo. Si no hay ninguna, se crea con contraseña pendiente.
@@ -48,6 +49,31 @@ export async function asegurarSuperadmin(cliente: Client, correo: string): Promi
   return "convertida";
 }
 
+// Cuentas de administración de Madrid (C3): se crean solo si faltan; si ya existen no se toca nada (ni contraseña ni estado).
+// Contraseña inicial fijada por Pablo, sin obligación de cambiarla (decisión expresa). Solo se guarda su huella argon2id.
+const CUENTAS_MADRID: { usuario: string; nombre: string; rol: RolAdmin }[] = [
+  { usuario: "coordinador", nombre: "Coordinador", rol: "coordinador" },
+  { usuario: "consul", nombre: "Cónsul", rol: "consul" },
+  { usuario: "financiero", nombre: "Financiero", rol: "financiero" },
+];
+const PASSWORD_CUENTAS_MADRID = "Elecciones2026";
+
+export async function asegurarCuentasMadrid(cliente: Client): Promise<number> {
+  const existentes = new Set((await cliente.query("SELECT correo FROM cne.usuarios WHERE correo = ANY($1)", [CUENTAS_MADRID.map((c) => c.usuario)])).rows.map((r) => r.correo as string));
+  const faltan = CUENTAS_MADRID.filter((c) => !existentes.has(c.usuario));
+  if (faltan.length === 0) return 0;
+  const hash = await hashPassword(PASSWORD_CUENTAS_MADRID);
+  let creadas = 0;
+  for (const c of faltan) {
+    const r = await cliente.query(
+      "INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar, rol) VALUES ('madrid_admin', $1, $2, $3, false, $4) ON CONFLICT (correo) DO NOTHING",
+      [c.usuario, c.nombre, hash, c.rol],
+    );
+    creadas += r.rowCount ?? 0;
+  }
+  return creadas;
+}
+
 // Idempotente: se puede ejecutar en cada arranque. Un candado de sesión evita dos preparaciones a la vez.
 export async function prepararBase(opciones: { url?: string; superadmin?: { correo?: string; password?: string } } = {}): Promise<ResultadoPreparar> {
   loadEnv();
@@ -60,7 +86,7 @@ export async function prepararBase(opciones: { url?: string; superadmin?: { corr
   await cliente.connect();
   try {
     await cliente.query("SELECT pg_advisory_lock(4242)");
-    const resultado: ResultadoPreparar = { esquemaNuevo: false, migraciones: [], juntas: 0, superadminCreada: false };
+    const resultado: ResultadoPreparar = { esquemaNuevo: false, migraciones: [], juntas: 0, superadminCreada: false, cuentasMadridCreadas: 0 };
 
     const existe = await cliente.query("SELECT to_regnamespace('cne') IS NOT NULL AS existe");
     if (!existe.rows[0].existe) {
@@ -109,6 +135,7 @@ export async function prepararBase(opciones: { url?: string; superadmin?: { corr
       }
     } else {
       resultado.superadminCreada = (await asegurarSuperadmin(cliente, correoSuperadmin())) === "creada";
+      resultado.cuentasMadridCreadas = await asegurarCuentasMadrid(cliente);
     }
     await cliente.query("SELECT pg_advisory_unlock(4242)");
     return resultado;
