@@ -2,65 +2,69 @@
 
 import { useActionState } from "react";
 import type { EstadoFormulario } from "@/server/acceso-actions";
+import { Masthead } from "./marca";
 
 type Props = { accion: (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>; titulo: string; etiquetaCorreo?: string; permitirDefinir?: boolean; empezarDefiniendo?: boolean; usuarioInicial?: string };
-
-const campo = "mt-1 block w-full";
-const etiqueta = "block text-base font-bold";
 
 export function FormularioAcceso({ accion, titulo, etiquetaCorreo = "Correo", permitirDefinir = false, empezarDefiniendo = false, usuarioInicial }: Props) {
   const [estado, enviar, pendiente] = useActionState(accion, null);
   // Si la cuenta aún no tiene contraseña, el formulario ya pide definirla. No hay un campo vacío para entrar.
   const definir = estado ? !!estado.definir : empezarDefiniendo;
   return (
-    <main className="funcionario mx-auto max-w-sm p-6">
-      <h1>{titulo}</h1>
-      {/* La clave rehace el formulario tras el envío: así el correo escrito se conserva y la contraseña no. */}
-      <form action={enviar} key={`${definir ? "definir" : "entrar"}-${estado?.correo ?? ""}-${estado?.error ?? ""}`} className="mt-4 space-y-4">
-        <label className={etiqueta}>{etiquetaCorreo}
-          <input name="correo" type="text" autoComplete="username" required readOnly={definir} defaultValue={estado?.correo ?? (definir ? usuarioInicial : undefined)} className={campo} />
-        </label>
-        {definir ? (
-          <>
-            <p className="text-base font-bold">Defina su contraseña</p>
-            <label className={etiqueta}>Contraseña nueva (mínimo 8 caracteres)
-              <input name="nueva" type="password" autoComplete="new-password" required minLength={8} className={campo} />
-            </label>
-            <label className={etiqueta}>Repita la contraseña
-              <input name="repetir" type="password" autoComplete="new-password" required minLength={8} className={campo} />
-            </label>
-          </>
-        ) : (
-          <label className={etiqueta}>Contraseña
-            <input name="password" type="password" autoComplete="current-password" required={!permitirDefinir} className={campo} />
+    <div className="funcionario sheet">
+      <Masthead titulo={titulo} />
+      <main>
+        <header className="hero"><h1>{titulo}</h1></header>
+        {/* La clave rehace el formulario tras el envío: así el correo escrito se conserva y la contraseña no. */}
+        <form action={enviar} key={`${definir ? "definir" : "entrar"}-${estado?.correo ?? ""}-${estado?.error ?? ""}`} className="card stack">
+          <label className="field">{etiquetaCorreo}
+            <input name="correo" type="text" autoComplete="username" required readOnly={definir} defaultValue={estado?.correo ?? (definir ? usuarioInicial : undefined)} />
           </label>
-        )}
-        {estado?.error && <p role="alert" className="text-base font-medium text-red-700">{estado.error}</p>}
-        <button disabled={pendiente} className="min-h-12 w-full bg-stone-900 px-4 py-3 text-lg text-white disabled:opacity-60">{definir ? "Guardar y entrar" : "Entrar"}</button>
-      </form>
-    </main>
+          {definir ? (
+            <>
+              <p>Defina su contraseña</p>
+              <label className="field">Contraseña nueva (mínimo 8 caracteres)
+                <input name="nueva" type="password" autoComplete="new-password" required minLength={8} />
+              </label>
+              <label className="field">Repita la contraseña
+                <input name="repetir" type="password" autoComplete="new-password" required minLength={8} />
+              </label>
+            </>
+          ) : (
+            <label className="field">Contraseña
+              <input name="password" type="password" autoComplete="current-password" required={!permitirDefinir} />
+            </label>
+          )}
+          {estado?.error && <p role="alert" className="banner bad">{estado.error}</p>}
+          <button disabled={pendiente}>{definir ? "Guardar y entrar" : "Entrar"}</button>
+        </form>
+      </main>
+    </div>
   );
 }
 
 export function FormularioCambio({ accion, obligatorio }: { accion: Props["accion"]; obligatorio: boolean }) {
   const [estado, enviar, pendiente] = useActionState(accion, null);
   return (
-    <main className="funcionario mx-auto max-w-sm p-6">
-      <h1>Cambiar contraseña</h1>
-      {obligatorio && <p className="mt-2 text-base">Debe elegir una contraseña propia antes de continuar.</p>}
-      <form action={enviar} className="mt-4 space-y-4">
-        <label className={etiqueta}>Contraseña actual
-          <input name="actual" type="password" autoComplete="current-password" required className={campo} />
-        </label>
-        <label className={etiqueta}>Contraseña nueva (mínimo 8 caracteres)
-          <input name="nueva" type="password" autoComplete="new-password" required minLength={8} className={campo} />
-        </label>
-        <label className={etiqueta}>Repita la contraseña nueva
-          <input name="repetir" type="password" autoComplete="new-password" required minLength={8} className={campo} />
-        </label>
-        {estado?.error && <p role="alert" className="text-base font-medium text-red-700">{estado.error}</p>}
-        <button disabled={pendiente} className="min-h-12 w-full bg-stone-900 px-4 py-3 text-lg text-white disabled:opacity-60">Guardar</button>
-      </form>
-    </main>
+    <div className="funcionario sheet">
+      <Masthead titulo="CNE 2026" detalle="Cambiar contraseña" />
+      <main>
+        <header className="hero"><h1>Cambiar contraseña</h1></header>
+        {obligatorio && <p>Debe elegir una contraseña propia antes de continuar.</p>}
+        <form action={enviar} className="card stack">
+          <label className="field">Contraseña actual
+            <input name="actual" type="password" autoComplete="current-password" required />
+          </label>
+          <label className="field">Contraseña nueva (mínimo 8 caracteres)
+            <input name="nueva" type="password" autoComplete="new-password" required minLength={8} />
+          </label>
+          <label className="field">Repita la contraseña nueva
+            <input name="repetir" type="password" autoComplete="new-password" required minLength={8} />
+          </label>
+          {estado?.error && <p role="alert" className="banner bad">{estado.error}</p>}
+          <button disabled={pendiente}>Guardar</button>
+        </form>
+      </main>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
+import { PestanasFinanzas } from "@/components/pestanas-finanzas";
 import { PanelFinanciero } from "@/components/panel-financiero";
 import { faltanParametros, montosParaActa } from "@/domain/pago";
 import { requireAdmin } from "@/server/guard";
@@ -11,13 +12,9 @@ export default async function Finanzas() {
   const faltan = faltanParametros(p);
   const imp = montosParaActa(p);
   return (
-    <main className="max-w-3xl space-y-6">
-      <h1 className="text-xl font-semibold">Finanzas</h1>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Link href="/admin/finanzas/pagar" className="border-2 border-stone-900 bg-stone-900 px-4 py-5 text-center text-lg font-semibold text-white">Módulo de pago</Link>
-        <Link href="/admin/finanzas/escanear" className="border-2 border-stone-900 px-4 py-5 text-center text-lg font-semibold">Escanear QR</Link>
-        <Link href="/admin/finanzas/imprimir" className="border-2 border-stone-900 px-4 py-5 text-center text-lg font-semibold sm:col-span-2">Impresión de actas</Link>
-      </div>
+    <main className="stack-lg">
+      <h1>Finanzas</h1>
+      <PestanasFinanzas />
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Panel financiero</h2>
         <PanelFinanciero />

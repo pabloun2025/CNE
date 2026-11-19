@@ -2,6 +2,8 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
+**Codex, 19-11-2026:** continúe por la sección 9. La estética de DEMP está en la rama `cursor/estetica-demp-madrid-08cc` y no está en producción.
+
 ## 1. Qué es y qué alcance tiene hoy
 
 - Repositorio privado `pabloun2025/CNE`. Rama de trabajo `claude/optimistic-wozniak-ksg62y`; **producción se publica solo desde `main`** (Pablo autorizó trabajar sobre `main`).
@@ -103,3 +105,45 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 
 - Memorando, ERS y descripción funcional del tablero DGSMH y portal consular (ya fuera de alcance).
 - «Sistema operativo de Madrid» (4 páginas) e infografía **«Así funciona el sistema de Madrid»** (2 páginas, vigente): tres funciones principales, recorrido, tres cargos por junta, cómo se completa una junta, pago.
+
+## 9. Traspaso a Codex (19-11-2026) — estética DEMP, sin publicar
+
+Pablo pidió commit de este trabajo y que Codex se haga cargo de lo que sigue. La sección 3 está atrasada: el `main` publicado el 19-11-2026 a las 21:39 (Madrid) es `f63e6f5` (Action «Deploy to Oracle», run 14, éxito). Ese despliegue no incluye esta estética.
+
+### Qué está hecho
+
+Solo presentación, copiada de DEMP (repositorio de solo lectura; no se editó ningún archivo allí). Textos, rutas, permisos y reglas quedan como estaban. El protocolo unslop se aplicó a la interfaz, no al tono de los textos.
+
+Archivos nuevos: `src/components/marca.tsx` (marca, tricolor, masthead) y `src/components/pestanas-finanzas.tsx`.
+
+Pantallas tocadas:
+
+- Acceso de admin y cambio de contraseña (`formulario-acceso.tsx`): hoja centrada, tricolor y marca.
+- Cascarón del personal (`menu-admin.tsx`, layout del panel): barra en el móvil y menú lateral en escritorio, agrupado en Preparación, Jornada y Cierre. El rol sigue decidiendo qué enlaces se ven; el servidor sigue comprobando cada pantalla.
+- Inicio `/admin`: orden del día en circuito y tarjetas de cifras.
+- Finanzas, módulo de pago, escanear QR e impresión de actas: pestañas entre esas cuatro rutas.
+- Panel financiero: las cifras van en tarjetas.
+- Identificación de estación `/e/[token]` y cabecera del puesto.
+- Formulario público `/d`: masthead. Sigue pidiendo solo el número de cédula.
+- Superadmin: hoja, masthead y pestañas.
+- `globals.css` y `layout.tsx`: tokens y fuentes de DEMP (Public Sans y Archivo). La banda de prueba sigue visible en modo prueba.
+
+### Qué no se toca
+
+- La cuenta `admin` y su primer ingreso.
+- Reglas de pago, puerta y constitución de juntas.
+- No añadir nombre, teléfono ni correo en `/d`.
+- No imprimir secretos. No reiniciar contenedores ajenos en la VM.
+
+### Comprobado el 19-11-2026
+
+`npx tsc --noEmit -p .` y `npm run lint` terminaron sin errores. No se ejecutaron `npm test` ni `npm run build` en este cierre: los corre el CI del pull request. No está desplegado, así que madrid.consulado.app sigue con el aspecto anterior.
+
+### Qué hace Codex
+
+1. Revisar el diff: tiene que ser presentación. Si aparece un cambio de pago, puerta, constitución o de la cuenta admin, no lo una.
+2. Esperar el CI en verde (`ci.yml`: tipos, lint, pruebas, compilación).
+3. Unir el pull request a `main`.
+4. Publicar desde `main` con la Action `oracle-deploy.yml`, entrada `accion` = `desplegar`. Después, `verificar-sitios.yml`.
+5. El token de la app de GitHub que usa Cursor en el agente responde HTTP 403 en `workflow_dispatch` (le falta `actions:write`). Se probó el 19-11 y no cambió. No reintentar el disparo con ese token.
+6. Pablo guardó un secreto de Cloud Agents con el nombre exacto `GH_TOKEN` (mayúsculas), token fino de GitHub para este repositorio. Esta sesión no lo ve: el secreto entra al arrancar el agente, y este ya estaba en marcha. En un agente nuevo, usarlo solo para lanzar la Action, sin imprimirlo y sin escribirlo en el repositorio. Si no está en el entorno, parar y decirle a Pablo que pulse **Run workflow** en https://github.com/pabloun2025/CNE/actions/workflows/oracle-deploy.yml con la rama `main`.

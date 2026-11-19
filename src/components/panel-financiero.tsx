@@ -43,9 +43,9 @@ export function PanelFinanciero() {
   return (
     <div className="space-y-3">
       {datos.modoPrueba && <p className="border-2 border-stone-900 bg-stone-100 p-2 text-sm font-semibold">Modo prueba: los pagos y los importes son simulados.</p>}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="home-cards">
         {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Sin cédula validada", datos.sinCedulaValidada], ["Total entregado USD", datos.totalUsd]].map(([t, v]) => (
-          <div key={String(t)} className="border-2 border-stone-900 p-2 text-center"><div className="cifra text-2xl font-bold">{v}</div><div className="text-xs">{t}</div></div>
+          <article key={String(t)} className="home-card stat"><h3>{t}</h3><p className="stat-figure">{v}</p></article>
         ))}
       </div>
       <p className={`text-xs ${falla ? "font-bold text-red-700" : "text-slate-600"}`}>{falla ? `Sin actualizar desde ${ultima ? horaCorta(ultima) : "—"}` : `Actualizado ${ultima ? horaCorta(ultima) : ""}`}</p>
@@ -57,7 +57,7 @@ export function PanelFinanciero() {
         <label className="flex items-center gap-2 px-2 py-2 text-sm font-medium"><input type="checkbox" checked={soloSinValidar} onChange={(e) => setSoloSinValidar(e.target.checked)} /> Solo sin cédula validada</label>
       </div>
       {aviso && <p role="status" className="font-semibold">{aviso}</p>}
-      {filas.length === 0 ? <p>No hay personas con ese criterio.</p> : (
+      {filas.length === 0 ? <p className="empty">No hay personas con ese criterio.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead><tr className="border-b"><th className="p-2">Persona</th><th className="p-2">Junta</th><th className="p-2">Estado</th><th className="p-2">USD</th><th className="p-2">Hora y operador</th></tr></thead>
