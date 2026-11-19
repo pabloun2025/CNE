@@ -219,24 +219,6 @@ body {
   background: var(--surface);
 }
 
-.pantalla-lectura {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 1.5rem;
-  text-align: center;
-  color: var(--on-ink);
-}
-
-.pantalla-ok { background: var(--ok); }
-.pantalla-no { background: var(--danger); }
-.pantalla-error { background: var(--ink-soft); color: var(--on-ink); }
-
 .fila-fichas {
   display: flex;
   flex-wrap: wrap;

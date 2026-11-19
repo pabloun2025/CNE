@@ -1,7 +1,7 @@
 "use client";
 
 import jsQR from "jsqr";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { unlockAudio } from "./sonidos";
 
 type Detector = { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
@@ -41,7 +41,8 @@ async function leerNombreImpreso(video: HTMLVideoElement): Promise<string> {
 // Cámara trasera con BarcodeDetector o, si no existe (Safari, Firefox), jsQR sobre cada fotograma.
 // «Activar cámara» es un toque del usuario: también desbloquea el audio. No decide nada: entrega el texto leído.
 // leerNombre: en la puerta, si no hay QR, intenta el nombre impreso.
-export function LectorQr({ onCodigo, onError, leerNombre = false }: { onCodigo: (texto: string, origen?: "qr" | "nombre") => void; onError?: () => void; leerNombre?: boolean }) {
+// encuadre: la puerta usa el visor cuadrado de teinvito. Pago y documentación no.
+export function LectorQr({ onCodigo, onError, leerNombre = false, encuadre = false, children }: { onCodigo: (texto: string, origen?: "qr" | "nombre") => void; onError?: () => void; leerNombre?: boolean; encuadre?: boolean; children?: ReactNode }) {
   const video = useRef<HTMLVideoElement>(null);
   const [activa, setActiva] = useState(false);
   const [falloCamara, setFalloCamara] = useState(false);
@@ -111,10 +112,19 @@ export function LectorQr({ onCodigo, onError, leerNombre = false }: { onCodigo: 
   }, [activa]);
 
   return (
-    <div className="relative overflow-hidden border-2 border-stone-900 bg-black" style={{ minHeight: 240 }}>
-      <video ref={video} playsInline muted className="h-full max-h-[60vh] w-full object-cover" />
+    <div className={encuadre ? "relative mx-auto aspect-square max-h-[45vh] w-full max-w-[45vh] overflow-hidden border-2 border-stone-900 bg-black" : "relative overflow-hidden border-2 border-stone-900 bg-black"} style={encuadre ? undefined : { minHeight: 240 }}>
+      <video ref={video} playsInline muted className={encuadre ? "h-full w-full object-cover" : "h-full max-h-[60vh] w-full object-cover"} />
+      {encuadre && activa && (
+        <>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+            <div className="aspect-square w-[65%] border-4 border-[#f2b705] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
+          </div>
+          <p className="pointer-events-none absolute inset-x-0 bottom-1 px-2 text-center text-xs font-medium text-white [text-shadow:0_1px_2px_#000]">Encuadre el QR en el recuadro amarillo</p>
+        </>
+      )}
+      {children}
       {!activa && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-800 p-4 text-center text-white">
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-slate-800 p-4 text-center text-white">
           {falloCamara && <p role="alert">{leerNombre ? "No se pudo usar la cámara. Revise el permiso o escriba el nombre." : "No se pudo usar la cámara. Revise el permiso o escriba la cédula."}</p>}
           <button onClick={() => { unlockAudio(); setFalloCamara(false); setActiva(true); }} className="bg-white px-6 py-4 text-xl text-stone-900">Activar cámara</button>
         </div>
