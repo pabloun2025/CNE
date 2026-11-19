@@ -259,10 +259,12 @@ El 2FA se quitó.
 
 El desplegable de incidentes no entra en el sistema interno de Madrid. Era del tablero de consulados. (19-11-2026)
 
-El QR de la credencial sigue siendo la cédula. Un segundo QR abre una URL de autoservicio: cada MJRV completa sus datos y escanea su cédula para preparar el acta financiera. No es un cartel ni un WhatsApp. (19-11-2026)
+Un segundo QR abre una URL de autoservicio: cada MJRV completa sus datos y escanea su cédula para preparar el acta financiera. No es un cartel ni un WhatsApp. (19-11-2026)
 
 El visor de la constitución lo usan la cuenta de cónsul y la de coordinador. (19-11-2026, 9:55 Madrid)
 
 El PIN se usa una sola vez, para entrar a su cuenta. No se pide en cada estación. (19-11-2026, 10:17 Madrid)
 
 El personal de puerta no tiene cuenta. Entra por un enlace que crea el sistema y se puede revocar. Su acceso y su trabajo deben ser lo más simples posible. (19-11-2026, 10:24 Madrid)
+
+Credencial sin QR, opción C. La cámara intenta leer el nombre impreso. Si no puede, se teclea. (19-11-2026, 10:30 Madrid)
