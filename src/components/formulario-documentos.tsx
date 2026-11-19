@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CapturaCedula } from "./captura-cedula";
+import { Masthead } from "./marca";
 
 type Hallada = { iniciales: string; junta: string; anverso: boolean; reverso: boolean };
 type Paso = "cedula" | "confirmar" | "anverso" | "reverso" | "fin";
@@ -38,8 +39,10 @@ export function FormularioDocumentos() {
   };
 
   return (
-    <main className="funcionario mx-auto max-w-md space-y-4 p-4">
-      <h1 className="text-2xl font-bold">Foto de su cédula</h1>
+    <div className="funcionario sheet">
+      <Masthead titulo="CNE 2026" detalle="Madrid" />
+      <main>
+      <h1>Foto de su cédula</h1>
       {paso === "cedula" && (
         <form onSubmit={(e) => { e.preventDefault(); void buscar(); }} className="space-y-3">
           <label className="block font-medium">Escriba su número de cédula
@@ -60,7 +63,8 @@ export function FormularioDocumentos() {
       {paso === "anverso" && <CapturaCedula rotulo="Anverso (la cara con su foto)" onUsar={subir("anverso")} />}
       {paso === "reverso" && <CapturaCedula rotulo="Reverso (la otra cara)" onUsar={subir("reverso")} />}
       {paso === "fin" && <p role="status" className="border-2 border-stone-900 p-4 text-lg font-semibold">Listo. Sus dos fotos se guardaron.</p>}
-      {mensaje && <p role="alert" className="font-semibold text-red-700">{mensaje}</p>}
-    </main>
+      {mensaje && <p role="alert" className="banner bad">{mensaje}</p>}
+      </main>
+    </div>
   );
 }

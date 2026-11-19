@@ -1,4 +1,5 @@
 import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
+import { PestanasFinanzas } from "@/components/pestanas-finanzas";
 import { ModuloPago } from "@/components/modulo-pago";
 import { requireAdmin } from "@/server/guard";
 
@@ -7,7 +8,8 @@ export default async function Pagar({ searchParams }: { searchParams: Promise<{ 
   const cedula = (await searchParams).cedula ?? "";
   return (
     <main className="space-y-4">
-      <h1 className="text-xl font-semibold">Módulo de pago</h1>
+      <h1>Módulo de pago</h1>
+      <PestanasFinanzas />
       <ModuloPago cedulaInicial={cedula} />
     </main>
   );
