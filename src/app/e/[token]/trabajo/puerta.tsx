@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { LectorQr } from "@/components/lector-qr";
 import { feedback, unlockAudio } from "@/components/sonidos";
+import { COLOR_LECTURA, tonoLectura } from "@/domain/puerta-aviso";
 import { pareceCedula } from "@/domain/puerta-nombre";
 
 type Lectura =
@@ -15,8 +16,19 @@ type Lectura =
 type Pantalla = Lectura | { resultado: "error" };
 type Contadores = { total: number; esteEnlace: number };
 
+function Aviso({ p, porNombre }: { p: Pantalla; porNombre: boolean }) {
+  if (p.resultado === "valido") return (<><p className="text-4xl font-extrabold leading-tight">Válida</p><p className="text-2xl font-bold leading-tight">{p.nombre}</p><p className="text-2xl leading-tight">{p.junta} · {p.zona}</p></>);
+  if (p.resultado === "duplicado") return <p className="text-4xl font-extrabold leading-tight">Ya usada</p>;
+  if (p.resultado === "desconocido") return <p className="text-4xl font-extrabold leading-tight">{porNombre ? "No está en la lista" : "QR no reconocido"}</p>;
+  if (p.resultado === "ambiguo") return <p className="text-3xl font-extrabold leading-tight">Hay varias personas. Escriba el nombre completo.</p>;
+  if (p.resultado === "bloqueado") return <p className="text-4xl font-extrabold leading-tight">Dada de baja en la lista</p>;
+  if (p.resultado === "revocado") return <p className="text-4xl font-extrabold leading-tight">Credencial revocada</p>;
+  return (<><p className="text-4xl font-extrabold leading-tight">No se pudo comprobar</p><p className="text-2xl">Repita la lectura.</p></>);
+}
+
 export function Puerta() {
   const [pantalla, setPantalla] = useState<Pantalla | null>(null);
+  const [encima, setEncima] = useState(false);
   const [cont, setCont] = useState<Contadores | null>(null);
   const [manual, setManual] = useState("");
   const [ultimo, setUltimo] = useState<{ origen: "qr" | "nombre" | "teclado"; codigo: string }>({ origen: "qr", codigo: "" });
@@ -36,10 +48,11 @@ export function Puerta() {
 
   const mostrar = useCallback((p: Pantalla) => {
     setPantalla(p);
+    setEncima(true);
     window.clearTimeout(cierre.current);
-    // El resultado se queda 1,5 s (4 s si hay que precisar el nombre) y vuelve solo a la lectura.
-    const ms = "resultado" in p && p.resultado === "ambiguo" ? 4000 : 1500;
-    cierre.current = window.setTimeout(() => setPantalla(null), ms);
+    // El color tapa el visor un momento (como teinvito) y el recuadro de abajo se queda hasta la siguiente lectura.
+    const ms = p.resultado === "valido" ? 3500 : 6000;
+    cierre.current = window.setTimeout(() => setEncima(false), ms);
   }, []);
 
   const enviar = useCallback(async (codigo: string, origen: "qr" | "nombre" | "teclado" = "teclado") => {
@@ -50,8 +63,9 @@ export function Puerta() {
       const d = (await r.json()) as { lectura: Lectura | null; contadores: Contadores };
       setCont(d.contadores);
       if (!d.lectura) return;
-      if (d.lectura.resultado === "valido") feedback("valido");
-      else if (d.lectura.resultado !== "ambiguo") feedback("rechazo");
+      const tono = tonoLectura(d.lectura.resultado);
+      if (tono === "valido") feedback("valido");
+      else if (tono === "rechazo") feedback("rechazo");
       mostrar(d.lectura);
     } catch {
       // Un fallo de red o de servidor es un error de operación, no un rechazo de identidad.
@@ -60,26 +74,19 @@ export function Puerta() {
     }
   }, [mostrar]);
 
-  const color = !pantalla ? "" : pantalla.resultado === "valido" ? "pantalla-ok" : pantalla.resultado === "error" || pantalla.resultado === "ambiguo" ? "pantalla-error" : "pantalla-no";
+  const aviso: ReactNode = pantalla ? <Aviso p={pantalla} porNombre={ultimo.origen === "teclado" && !pareceCedula(ultimo.codigo)} /> : null;
+  const color = pantalla ? COLOR_LECTURA[tonoLectura(pantalla.resultado)] : "";
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <p className="cifra text-center text-2xl font-bold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="block text-base font-semibold">Este puesto: {cont?.esteEnlace ?? "—"}</span></p>
-      <LectorQr leerNombre onCodigo={(c, origen) => void enviar(c, origen ?? "qr")} />
+      <LectorQr encuadre leerNombre onCodigo={(c, origen) => void enviar(c, origen ?? "qr")}>
+        {encima && aviso && <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 overflow-y-auto p-3 text-center ${color}`}>{aviso}</div>}
+      </LectorQr>
+      {pantalla && <div role="alert" className={`p-4 text-center ${color}`}>{aviso}</div>}
       <form onSubmit={(e) => { e.preventDefault(); if (manual.trim()) { void enviar(manual, "teclado"); setManual(""); } }} className="flex gap-2">
         <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Escribir nombre o cédula" aria-label="Nombre o cédula" inputMode="text" autoComplete="off" className="min-w-0 flex-1" />
         <button className="bg-stone-900 px-4 text-white">Comprobar</button>
       </form>
-      {pantalla && (
-        <div role="alert" className={`pantalla-lectura ${color}`}>
-          {pantalla.resultado === "valido" && (<><p className="text-6xl font-extrabold">Válida</p><p className="text-3xl font-bold">{pantalla.nombre}</p><p className="text-3xl">{pantalla.junta} · {pantalla.zona}</p></>)}
-          {pantalla.resultado === "duplicado" && <p className="text-4xl font-extrabold">Ya usada</p>}
-          {pantalla.resultado === "desconocido" && <p className="text-4xl font-extrabold">{ultimo.origen === "teclado" && !pareceCedula(ultimo.codigo) ? "No está en la lista" : "QR no reconocido"}</p>}
-          {pantalla.resultado === "ambiguo" && <p className="text-4xl font-extrabold">Hay varias personas. Escriba el nombre completo.</p>}
-          {pantalla.resultado === "bloqueado" && <p className="text-4xl font-extrabold">Dada de baja en la lista</p>}
-          {pantalla.resultado === "revocado" && <p className="text-4xl font-extrabold">Credencial revocada</p>}
-          {pantalla.resultado === "error" && (<><p className="text-4xl font-extrabold">No se pudo comprobar</p><p className="text-2xl">Repita la lectura.</p></>)}
-        </div>
-      )}
     </div>
   );
 }
