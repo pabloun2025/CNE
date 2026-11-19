@@ -1,8 +1,8 @@
-# Traspaso del Proyecto CNE — estado al 18-11-2026
+# Traspaso del Proyecto CNE — estado al 19-11-2026
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Codex, 19-11-2026:** continúe por la sección 9. La estética de DEMP está en la rama `cursor/estetica-demp-madrid-08cc` y no está en producción.
+**Último estado, 19-11-2026.** Continúe por la [sección 10](#10-entrega-de-credenciales-y-pagos-19-11-2026). Las secciones 3 y 9 recogen hitos anteriores.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -106,7 +106,7 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 - Memorando, ERS y descripción funcional del tablero DGSMH y portal consular (ya fuera de alcance).
 - «Sistema operativo de Madrid» (4 páginas) e infografía **«Así funciona el sistema de Madrid»** (2 páginas, vigente): tres funciones principales, recorrido, tres cargos por junta, cómo se completa una junta, pago.
 
-## 9. Traspaso a Codex (19-11-2026) — estética DEMP, sin publicar
+## 9. Traspaso a Codex (19-11-2026) — historial de la estética DEMP
 
 Pablo pidió commit de este trabajo y que Codex se haga cargo de lo que sigue. La sección 3 está atrasada: el `main` publicado el 19-11-2026 a las 21:39 (Madrid) es `f63e6f5` (Action «Deploy to Oracle», run 14, éxito). Ese despliegue no incluye esta estética.
 
@@ -147,3 +147,12 @@ Pantallas tocadas:
 4. Publicar desde `main` con la Action `oracle-deploy.yml`, entrada `accion` = `desplegar`. Después, `verificar-sitios.yml`.
 5. El token de la app de GitHub que usa Cursor en el agente responde HTTP 403 en `workflow_dispatch` (le falta `actions:write`). Se probó el 19-11 y no cambió. No reintentar el disparo con ese token.
 6. Pablo guardó un secreto de Cloud Agents con el nombre exacto `GH_TOKEN` (mayúsculas), token fino de GitHub para este repositorio. Esta sesión no lo ve: el secreto entra al arrancar el agente, y este ya estaba en marcha. En un agente nuevo, usarlo solo para lanzar la Action, sin imprimirlo y sin escribirlo en el repositorio. Si no está en el entorno, parar y decirle a Pablo que pulse **Run workflow** en https://github.com/pabloun2025/CNE/actions/workflows/oracle-deploy.yml con la rama `main`.
+
+
+## 10. Entrega de credenciales y pagos (19-11-2026)
+
+- **Integrado en GitHub.** `main` incorporó `4e5a60b`, con los envíos, la impresión y el circuito de pagos en EUR. Pasaron 1.033 pruebas locales en Node 22, la comprobación de tipos, la compilación y el [CI de main](https://github.com/pabloun2025/CNE/actions/runs/44629945951).
+- **Producción.** El último [despliegue confirmado en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44620571210) corresponde a `5b0e25a` e incluye la estética de DEMP. El proxy del entorno devolvió 403 al consultar la API de GitHub para lanzar la publicación de la entrega. En los ajustes del entorno quedó guardado un borrador de acceso a `api.github.com`, `madrid.consulado.app` y `recordatorio.consulado.app`, pendiente de aplicar.
+- **Publicación pendiente.** Ejecutar [Deploy to Oracle](https://github.com/pabloun2025/CNE/actions/workflows/oracle-deploy.yml) desde `main` con la acción `desplegar`. Confirmar el resultado, la versión en `/api/salud` y el flujo [Verificar sitios](https://github.com/pabloun2025/CNE/actions/workflows/verificar-sitios.yml). El despliegue aplica la migración que separa la deduplicación de los envíos simulados y reales.
+- **Comprobaciones operativas.** En Superadministración → Envíos, vincular el teléfono de CNE a la instancia `cne-madrid` de Evolution y verificar el remitente de Brevo. En Credenciales, se puede enviar desde una ficha o por junta, zona, todas las fichas activas o selección manual, por uno o ambos canales. Probar una hoja A4 con hasta 10 tarjetas de 54 × 85,6 mm a tamaño real (100 %) y comprobar el corte y el QR. Las pruebas de la entrega usaron datos sintéticos y envíos simulados.
+- **Finanzas.** La configuración y el acta emplean el importe fijo en EUR. Los informes indican cuántos pagos confirmados históricos carecen de importe EUR. El total suma los importes registrados.

@@ -12,6 +12,7 @@
 
 ## Reglas que no se negocian
 
+- **Traspaso.** Actualice `docs/TRASPASO.md` al cerrar un bloque importante, integrar una entrega o cambiar el estado de producción. Indique el commit, las comprobaciones, la versión desplegada y lo que queda pendiente. Suba el documento a GitHub con la entrega o en un commit de documentación.
 - **Pautas Karpathy** (`.claude/skills/karpathy-guidelines/SKILL.md`): pensar antes de programar, simplicidad primero, cambios quirúrgicos, ejecución guiada por metas verificables.
 - **No inventar datos.** Ni recintos, ni electores, ni MJRV, ni importes, ni tipo de cambio, ni catálogos de incidencias. Lo que no está aportado se marca como **pendiente** y el sistema funciona sin él (importación posterior). Los datos de ejemplo para pruebas son evidentemente ficticios (p. ej. «APELLIDO PRUEBA 001», cédulas 0000000001…) y llevan la etiqueta de prueba.
 - **Distinguir siempre confirmado / pendiente** con fuente y fecha en los datos importados.
