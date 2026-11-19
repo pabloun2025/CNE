@@ -274,3 +274,5 @@ El orden físico de las filas de color no es relevante para la pantalla. El orde
 Si una persona no quiere cubrir un hueco, desiste de su deber y no se propone para ningún hueco. No es un rechazo de un solo hueco. (19-11-2026, 10:36 Madrid)
 
 La cuenta de financiero sí entra. En el pago hay varias sesiones abiertas en laptops para imprimir recibos y pagar. El financiero corrige nombres de MJRV a mano, ve quién no tiene la cédula validada y los faltantes, hace las tareas previas al pago, genera los recibos e imprime los expedientes. (19-11-2026, 10:38 Madrid)
+
+Al pagar se escanea el QR del MJRV. Si no hay foto de la cédula guardada, el pago no se activa y el financiero puede capturarla en ese momento. Si ese QR ya se pagó, se alerta. Si otra persona está haciendo el mismo pago, no deja. (19-11-2026, 10:40 Madrid)
