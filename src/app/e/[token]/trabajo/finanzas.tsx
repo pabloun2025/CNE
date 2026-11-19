@@ -72,7 +72,7 @@ export function Finanzas() {
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <form onSubmit={(e) => { e.preventDefault(); void cargar(cedula); }} className="flex gap-2">
-        <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Escribir cédula" autoComplete="off" className="min-w-0 flex-1" />
+        <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Escribir cédula" aria-label="Cédula" autoComplete="off" className="min-w-0 flex-1" />
         <button className="bg-stone-900 px-4 text-white">Buscar</button>
       </form>
       {!ficha && <LectorQr onCodigo={(c) => { setCedula(c); void cargar(c); }} />}
@@ -85,7 +85,7 @@ export function Finanzas() {
             </p>
           ))}
           {ficha.pago && (
-            <p role="alert" className="bg-red-700 p-3 text-center text-lg font-extrabold text-white">
+            <p role="alert" className="cifra bg-red-700 p-3 text-center text-lg font-extrabold text-white">
               YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeEur ? `${ficha.pago.importeEur} EUR` : `${ficha.pago.importeUsd} USD`}{ficha.pago.importeEur && ficha.pago.importeUsd ? ` · ${ficha.pago.importeUsd} USD` : ""}. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
             </p>
           )}
@@ -112,7 +112,7 @@ export function Finanzas() {
                     <button disabled={!verificado || ocupado} onClick={() => setConfirmando(true)} className="w-full bg-green-800 px-4 py-5 text-xl font-extrabold text-white disabled:opacity-50">Confirmar pago entregado</button>
                   ) : (
                     <div role="dialog" aria-label="Confirmar pago" className="space-y-3 border-2 border-green-800 p-3">
-                      <p className="text-lg">Confirme que el acta está firmada y el dinero entregado: <strong>{montos}</strong> a <strong>{ficha.nombre}</strong>.{ficha.modoPrueba ? " (Pago simulado: modo prueba)" : ""}</p>
+                      <p className="text-lg">Confirme que el acta está firmada y el dinero entregado: <strong className="cifra">{montos}</strong> a <strong>{ficha.nombre}</strong>.{ficha.modoPrueba ? " (Pago simulado: modo prueba)" : ""}</p>
                       <div className="flex gap-3">
                         <button disabled={ocupado} onClick={confirmar} className="flex-1 bg-green-800 px-4 py-4 text-lg text-white">Sí, confirmar</button>
                         <button disabled={ocupado} onClick={() => setConfirmando(false)} className="flex-1 border-2 border-stone-900 px-4 py-4 text-lg">Cancelar</button>

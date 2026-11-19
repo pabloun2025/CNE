@@ -53,7 +53,7 @@ export function Documentacion({ inicial, abrirFaltante, alCompletar }: { inicial
   return (
     <div className="mx-auto max-w-md space-y-3">
       <form onSubmit={(e) => { e.preventDefault(); void buscar(cedula); }} className="flex gap-2">
-        <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Número de cédula" autoComplete="off" className="min-w-0 flex-1" />
+        <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Número de cédula" aria-label="Número de cédula" autoComplete="off" className="min-w-0 flex-1" />
         <button className="bg-stone-900 px-4 text-white">Buscar</button>
       </form>
       {!ficha && <LectorQr onCodigo={(c) => { setCedula(c); void buscar(c); }} />}

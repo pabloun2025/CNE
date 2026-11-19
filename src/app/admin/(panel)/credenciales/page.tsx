@@ -17,10 +17,10 @@ export default async function Credenciales() {
     <main className="max-w-2xl space-y-4">
       <h1 className="text-xl font-semibold">Credenciales</h1>
       {r.activos === 0 && <p>Cargue el Excel de MJRV para empezar.</p>}
-      <p>{r.activos} fichas activas · {r.preparadas} preparadas · {r.pendientes} pendientes.</p>
-      {r.sinRotulo > 0 && <p role="alert" className="rounded bg-amber-100 p-2 font-medium text-amber-900">Falta el rótulo de credencial de {r.sinRotulo} personas. No se imprimirán hasta tenerlo.</p>}
+      <p className="cifra">{r.activos} fichas activas · {r.preparadas} preparadas · {r.pendientes} pendientes.</p>
+      {r.sinRotulo > 0 && <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 font-medium">Falta el rótulo de credencial de {r.sinRotulo} personas. No se imprimirán hasta tenerlo.</p>}
       <form method="get" action="/admin/credenciales/pdf" target="_blank" className="space-y-3 border-2 border-stone-900 p-3">
-        <label className="block text-sm font-medium">Quién
+        <label className="block text-base font-bold">Quién
           <select name="alcance" className={`${campo} mt-1 block w-full`}>
             <option value="todas">Todas las fichas activas</option>
             <option value="sin_generar">Las que aún no tienen credencial preparada</option>
@@ -28,7 +28,7 @@ export default async function Credenciales() {
             <option value="zona">Una zona (escriba abajo el color)</option>
           </select>
         </label>
-        <label className="block text-sm font-medium">Junta o zona
+        <label className="block text-base font-bold">Junta o zona
           <input name="valor" list="zonas" placeholder="H12 o amarillo" className={`${campo} mt-1 block w-full`} />
           <datalist id="zonas">{ZONAS.map((z) => <option key={z} value={z}>{ZONA_NOMBRE[z]}</option>)}</datalist>
         </label>
@@ -40,11 +40,11 @@ export default async function Credenciales() {
       <section className="space-y-2 border-2 border-stone-900 p-3">
         <h2 className="text-lg font-semibold">Envío por WhatsApp y correo</h2>
         {cfg.whatsappReal || cfg.correoReal ? (
-          <p role="note" className="rounded bg-red-100 p-2 text-sm font-medium text-red-900">Envío REAL encendido ({[cfg.whatsappReal && "WhatsApp", cfg.correoReal && "correo"].filter(Boolean).join(" y ")}): los mensajes a fichas reales quedan en cola y salen poco a poco, de 9 a 21 h. Las fichas de demostración siguen siendo simuladas.</p>
+          <p role="note" className="border-2 border-stone-900 bg-stone-100 p-2 text-sm font-medium">Envío REAL encendido ({[cfg.whatsappReal && "WhatsApp", cfg.correoReal && "correo"].filter(Boolean).join(" y ")}): los mensajes a fichas reales quedan en cola y salen poco a poco, de 9 a 21 h. Las fichas de demostración siguen siendo simuladas.</p>
         ) : (
-          <p role="note" className="rounded bg-amber-100 p-2 text-sm font-medium text-amber-900">Envío SIMULADO: queda registrado pero no sale ningún mensaje. Solo la superadministración puede encender el envío real.</p>
+          <p role="note" className="border-2 border-stone-900 p-2 text-sm font-medium">Envío SIMULADO: queda registrado pero no sale ningún mensaje. Solo la superadministración puede encender el envío real.</p>
         )}
-        {hayHost && !abierto && <p role="alert" className="rounded bg-amber-100 p-2 text-sm font-medium text-amber-900">El enlace del mensaje lleva al formulario de la cédula, que ahora está cerrado. Ábralo en Documentos antes de enviar.</p>}
+        {hayHost && !abierto && <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 text-sm font-medium">El enlace del mensaje lleva al formulario de la cédula, que ahora está cerrado. Ábralo en Documentos antes de enviar.</p>}
         <p className="text-sm">Con teléfono: {e.conTelefono} (enviadas o en cola: {e.whatsapp}). Con correo: {e.conCorreo} (enviadas o en cola: {e.correo}). No se repite un envío ya hecho.</p>
         <div className="flex flex-wrap gap-3">
           <EnvioLote canal="whatsapp" titulo="Enviar por WhatsApp a quienes falten" pendientes={e.conTelefono - e.whatsapp} />

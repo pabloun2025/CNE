@@ -256,3 +256,7 @@ Pase de flujo del sistema interno de Madrid, sin cerrar preguntas: la credencial
 El euro es manual, no hay fórmula.
 
 El 2FA se quitó.
+
+El desplegable de incidentes no entra en el sistema interno de Madrid. Era del tablero de consulados. (19-11-2026)
+
+El QR de la credencial sigue siendo la cédula. Un segundo QR abre una URL de autoservicio: cada MJRV completa sus datos y escanea su cédula para preparar el acta financiera. No es un cartel ni un WhatsApp. (19-11-2026)

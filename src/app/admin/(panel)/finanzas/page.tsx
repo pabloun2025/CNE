@@ -20,9 +20,9 @@ export default async function Finanzas() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Parámetros de pago</h2>
         {faltan.length > 0 ? (
-          <p role="alert" className="rounded bg-amber-100 p-2 font-medium text-amber-900">Parámetros de pago pendientes de aprobación. Faltan: {faltan.join(", ")}. Mientras tanto no se pueden confirmar pagos y las actas salen como borrador.</p>
+          <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 font-medium">Parámetros de pago pendientes de aprobación. Faltan: {faltan.join(", ")}. Mientras tanto no se pueden confirmar pagos y las actas salen como borrador.</p>
         ) : (
-          <p className="rounded bg-green-100 p-2 font-medium text-green-900">Parámetros completos. Valor en euros: {imp.estado === "ok" ? `${imp.eur} EUR` : "—"}. Monto en dólares: {imp.estado === "ok" ? `${imp.usd} USD` : "—"}.</p>
+          <p className="cifra border-2 border-stone-900 p-2 font-medium">Parámetros completos. Valor en euros: {imp.estado === "ok" ? `${imp.eur} EUR` : "—"}. Monto en dólares: {imp.estado === "ok" ? `${imp.usd} USD` : "—"}.</p>
         )}
         <FormParametrosPago valores={p} />
       </section>

@@ -1,19 +1,56 @@
 @import "tailwindcss";
 
 /* Sistema del funcionario de Madrid. Plano: sin degradados.
-   El aro de cada ficha y el recorte de la foto usan sombra porque son la marca y el encuadre, no adorno. */
+   Dirección: monocromo de día de elección (tinta sobre papel). El radio es 0 a propósito:
+   los controles se leen de pie. El aro de cada ficha y el recorte de la foto usan sombra
+   porque son la marca y el encuadre, no adorno. .dark existe para paridad de tokens;
+   la jornada no lo activa. */
 :root {
-  --tinta: #1c1917;
-  --papel: #ffffff;
-  --linea: #d6d3d1;
-  --verde: #166534;
-  --rojo: #b91c1c;
+  --canvas: #ffffff;
+  --surface: #f5f5f4;
+  --surface-2: #e7e5e4;
+  --ink: #1c1917;
+  --ink-soft: #44403c;
+  --line: #d6d3d1;
+  --ok: #166534;
+  --danger: #b91c1c;
+  --focus: #1c1917;
+  --on-ink: #ffffff;
+  --ok-on-ink: #bbf7d0;
+  --danger-on-ink: #fecaca;
+  --radius: 0px;
+  --duration: 120ms;
+  --tinta: var(--ink);
+  --papel: var(--canvas);
+  --linea: var(--line);
+  --verde: var(--ok);
+  --rojo: var(--danger);
+}
+
+.dark {
+  --canvas: #1c1917;
+  --surface: #292524;
+  --surface-2: #44403c;
+  --ink: #fafaf9;
+  --ink-soft: #d6d3d1;
+  --line: #57534e;
+  --ok: #4ade80;
+  --danger: #fca5a5;
+  --focus: #fafaf9;
+  --on-ink: #1c1917;
+  --ok-on-ink: #14532d;
+  --danger-on-ink: #7f1d1d;
+  --tinta: var(--ink);
+  --papel: var(--canvas);
+  --linea: var(--line);
+  --verde: var(--ok);
+  --rojo: var(--danger);
 }
 
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: var(--tinta);
-  background: var(--papel);
+  color: var(--ink);
+  background: var(--canvas);
 }
 
 .funcionario {
@@ -23,9 +60,10 @@ body {
 }
 
 .funcionario h1 {
-  font-size: 1.65rem;
+  font-size: clamp(1.45rem, 2.4vw, 1.65rem);
   font-weight: 700;
   line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .funcionario h2 {
@@ -41,30 +79,70 @@ body {
   border-radius: 0;
 }
 
-.funcionario button {
+.funcionario button,
+.tecla {
   font-weight: 700;
+  transition: background-color var(--duration) cubic-bezier(0.2, 0, 0, 1), color var(--duration) cubic-bezier(0.2, 0, 0, 1), border-color var(--duration) cubic-bezier(0.2, 0, 0, 1);
 }
 
 .funcionario input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]),
 .funcionario select,
 .funcionario textarea {
-  border: 2px solid var(--tinta);
-  background: #fff;
+  border: 2px solid var(--ink);
+  background: var(--canvas);
   min-height: 3rem;
   padding: 0.55rem 0.75rem;
   font-size: 1.125rem;
+  transition: background-color var(--duration) cubic-bezier(0.2, 0, 0, 1), border-color var(--duration) cubic-bezier(0.2, 0, 0, 1);
 }
 
+.funcionario input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]):hover,
+.funcionario select:hover,
+.funcionario textarea:hover,
 .funcionario input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]):read-only {
-  background: #f5f5f4;
+  background: var(--surface);
 }
 
-.funcionario input:not([type="checkbox"]):not([type="file"]):focus,
-.funcionario select:focus,
-.funcionario textarea:focus,
-.funcionario button:focus-visible {
-  outline: 3px solid var(--tinta);
+.funcionario button:hover:not(.bg-stone-900):not(.bg-green-800):not(.bg-green-700):not(.bg-red-800):not(.bg-red-700):not(.bg-blue-700),
+.tecla:hover {
+  background: var(--surface);
+}
+
+.funcionario button:active,
+.tecla:active {
+  transform: translateY(1px);
+}
+
+.funcionario button:disabled,
+.funcionario input:disabled,
+.funcionario select:disabled,
+.tecla:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.funcionario input:not([type="checkbox"]):not([type="file"]):focus-visible,
+.funcionario select:focus-visible,
+.funcionario textarea:focus-visible,
+.funcionario button:focus-visible,
+.tecla:focus-visible {
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .funcionario button,
+  .funcionario input,
+  .funcionario select,
+  .funcionario textarea,
+  .tecla {
+    transition: none;
+  }
+
+  .funcionario button:active,
+  .tecla:active {
+    transform: none;
+  }
 }
 
 .funcionario .bg-blue-700,
@@ -84,7 +162,19 @@ body {
 .funcionario .bg-slate-100,
 .funcionario .bg-slate-50,
 .funcionario .bg-slate-200 {
-  background-color: #f5f5f4;
+  background-color: var(--surface);
+}
+
+.funcionario .bg-stone-900:hover,
+.funcionario .bg-green-800:hover,
+.funcionario .bg-green-700:hover,
+.funcionario .bg-red-800:hover,
+.funcionario .bg-red-700:hover {
+  filter: brightness(1.12);
+}
+
+.cifra {
+  font-variant-numeric: tabular-nums;
 }
 
 .funcionario .text-blue-800,
@@ -98,35 +188,35 @@ body {
   align-items: center;
   gap: 0.35rem 0.75rem;
   border-bottom: 2px solid var(--tinta);
-  background: var(--tinta);
-  color: #fff;
+  background: var(--ink);
+  color: var(--on-ink);
   padding: 0.75rem 0.85rem;
   font-size: 1.05rem;
 }
 
 .cabecera-puesto button {
   margin-left: auto;
-  background: #fff;
-  color: var(--tinta);
+  background: var(--canvas);
+  color: var(--ink);
   border: 0;
   min-height: 2.75rem;
   padding: 0.45rem 0.8rem;
 }
 
-.cabecera-puesto .en-linea { color: #bbf7d0; }
-.cabecera-puesto .sin-linea { color: #fecaca; font-weight: 800; }
+.cabecera-puesto .en-linea { color: var(--ok-on-ink); }
+.cabecera-puesto .sin-linea { color: var(--danger-on-ink); font-weight: 700; }
 
 .tecla {
   min-height: 4.25rem;
   border: 2px solid var(--tinta);
-  background: #fff;
+  background: var(--canvas);
   font-size: 1.65rem;
   font-weight: 800;
 }
 
 .tecla-borrar {
   font-size: 1rem;
-  background: #f5f5f4;
+  background: var(--surface);
 }
 
 .pantalla-lectura {
@@ -140,12 +230,12 @@ body {
   gap: 0.75rem;
   padding: 1.5rem;
   text-align: center;
-  color: #fff;
+  color: var(--on-ink);
 }
 
-.pantalla-ok { background: var(--verde); }
-.pantalla-no { background: var(--rojo); }
-.pantalla-error { background: #44403c; }
+.pantalla-ok { background: var(--ok); }
+.pantalla-no { background: var(--danger); }
+.pantalla-error { background: var(--ink-soft); color: var(--on-ink); }
 
 .fila-fichas {
   display: flex;
@@ -174,6 +264,7 @@ body {
   display: block;
   font-size: 1.6rem;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
@@ -201,7 +292,7 @@ body {
 
 .indicadores div {
   border: 2px solid var(--tinta);
-  background: #fff;
+  background: var(--canvas);
   padding: 0.35rem 0.5rem;
 }
 
@@ -209,6 +300,7 @@ body {
   font-size: 1.45rem;
   font-weight: 800;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .indicadores dt {
@@ -224,7 +316,7 @@ body {
   flex-direction: column;
   gap: 0.6rem;
   border: 2px solid var(--tinta);
-  background: #fff;
+  background: var(--canvas);
   padding: 0.75rem;
 }
 

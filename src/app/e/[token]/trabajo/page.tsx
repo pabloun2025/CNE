@@ -13,7 +13,7 @@ export default async function Trabajo({ params }: { params: Promise<{ token: str
   return (
     <div className="funcionario">
       <CabeceraEstacion token={token} funcion={FUNCION_NOMBRE[s.funcion]} etiqueta={s.etiqueta} operador={s.operadorNombre} />
-      <main className="p-3">
+      <main className="mx-auto max-w-7xl p-3">
         {s.funcion === "puerta" && <Puerta />}
         {s.funcion === "mando" && <Mando />}
         {s.funcion === "documentacion" && <Documentacion />}

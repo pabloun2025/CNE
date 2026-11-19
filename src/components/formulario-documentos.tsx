@@ -38,7 +38,7 @@ export function FormularioDocumentos() {
   };
 
   return (
-    <main className="mx-auto max-w-md space-y-4 p-4">
+    <main className="funcionario mx-auto max-w-md space-y-4 p-4">
       <h1 className="text-2xl font-bold">Foto de su cédula</h1>
       {paso === "cedula" && (
         <form onSubmit={(e) => { e.preventDefault(); void buscar(); }} className="space-y-3">
@@ -59,7 +59,7 @@ export function FormularioDocumentos() {
       )}
       {paso === "anverso" && <CapturaCedula rotulo="Anverso (la cara con su foto)" onUsar={subir("anverso")} />}
       {paso === "reverso" && <CapturaCedula rotulo="Reverso (la otra cara)" onUsar={subir("reverso")} />}
-      {paso === "fin" && <p role="status" className="rounded bg-green-100 p-4 text-lg font-semibold text-green-900">Listo. Sus dos fotos se guardaron.</p>}
+      {paso === "fin" && <p role="status" className="border-2 border-stone-900 p-4 text-lg font-semibold">Listo. Sus dos fotos se guardaron.</p>}
       {mensaje && <p role="alert" className="font-semibold text-red-700">{mensaje}</p>}
     </main>
   );

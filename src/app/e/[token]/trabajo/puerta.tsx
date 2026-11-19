@@ -54,10 +54,10 @@ export function Puerta() {
   const color = !pantalla ? "" : pantalla.resultado === "valido" ? "pantalla-ok" : pantalla.resultado === "error" ? "pantalla-error" : "pantalla-no";
   return (
     <div className="mx-auto max-w-xl space-y-3">
-      <p className="text-center text-2xl font-bold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="block text-base font-semibold">Este puesto: {cont?.esteEnlace ?? "—"}</span></p>
+      <p className="cifra text-center text-2xl font-bold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="block text-base font-semibold">Este puesto: {cont?.esteEnlace ?? "—"}</span></p>
       <LectorQr onCodigo={enviar} onError={() => mostrar({ resultado: "error" })} />
       <form onSubmit={(e) => { e.preventDefault(); if (manual.trim()) { void enviar(manual); setManual(""); } }} className="flex gap-2">
-        <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Escribir cédula" inputMode="text" autoComplete="off" className="min-w-0 flex-1" />
+        <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Escribir cédula" aria-label="Cédula" inputMode="text" autoComplete="off" className="min-w-0 flex-1" />
         <button className="bg-stone-900 px-4 text-white">Comprobar</button>
       </form>
       {pantalla && (

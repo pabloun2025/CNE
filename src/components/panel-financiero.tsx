@@ -16,16 +16,16 @@ export function PanelFinanciero() {
   const filas = datos.filas.filter((f) => (!filtro || f.estado === filtro) && (!q.trim() || `${f.nombre} ${f.cedula}`.toLowerCase().includes(q.trim().toLowerCase())));
   return (
     <div className="space-y-3">
-      {datos.modoPrueba && <p className="rounded bg-red-100 p-2 text-sm font-semibold text-red-900">Modo prueba: los pagos y los importes son simulados.</p>}
+      {datos.modoPrueba && <p className="border-2 border-stone-900 bg-stone-100 p-2 text-sm font-semibold">Modo prueba: los pagos y los importes son simulados.</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Total entregado USD", datos.totalUsd]].map(([t, v]) => (
-          <div key={String(t)} className="rounded border bg-slate-50 p-2 text-center"><div className="text-2xl font-bold">{v}</div><div className="text-xs">{t}</div></div>
+          <div key={String(t)} className="border-2 border-stone-900 p-2 text-center"><div className="cifra text-2xl font-bold">{v}</div><div className="text-xs">{t}</div></div>
         ))}
       </div>
       <p className={`text-xs ${falla ? "font-bold text-red-700" : "text-slate-600"}`}>{falla ? `Sin actualizar desde ${ultima ? horaCorta(ultima) : "—"}` : `Actualizado ${ultima ? horaCorta(ultima) : ""}`}</p>
       <div className="flex flex-wrap gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Apellidos o cédula" className="rounded border border-slate-400 px-2 py-2" />
-        <select value={filtro} onChange={(e) => setFiltro(e.target.value)} className="rounded border border-slate-400 px-2 py-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Apellidos o cédula" aria-label="Apellidos o cédula" className="px-2 py-2" />
+        <select value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Estado" className="px-2 py-2">
           <option value="">Todos los estados</option>{Object.entries(ESTADO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
@@ -38,7 +38,7 @@ export function PanelFinanciero() {
                 <td className="p-2">{f.nombre}<div className="text-slate-600">{f.cedula}</div></td>
                 <td className="p-2">{f.junta}</td>
                 <td className="p-2">{ESTADO[f.estado]}{f.simulado ? " (simulado)" : ""}</td>
-                <td className="p-2">{f.usd ?? "—"}</td>
+                <td className="cifra p-2">{f.usd ?? "—"}</td>
                 <td className="p-2">{f.hora ? `${hora(f.hora)} · ${f.operador}` : "—"}</td>
               </tr>))}</tbody>
           </table>
