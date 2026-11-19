@@ -8,7 +8,8 @@ type Lectura =
   | { resultado: "valido"; nombre: string; junta: string; zona: string }
   | { resultado: "duplicado"; desde: string; mjrvId: number; nombre: string; junta: string }
   | { resultado: "desconocido" }
-  | { resultado: "bloqueado" };
+  | { resultado: "bloqueado" }
+  | { resultado: "revocado" };
 type Pantalla = Lectura | { resultado: "error" };
 type Contadores = { total: number; esteEnlace: number };
 
@@ -66,6 +67,7 @@ export function Puerta() {
           {pantalla.resultado === "duplicado" && <p className="text-4xl font-extrabold">Ya usada</p>}
           {pantalla.resultado === "desconocido" && <p className="text-4xl font-extrabold">QR no reconocido</p>}
           {pantalla.resultado === "bloqueado" && <p className="text-4xl font-extrabold">Dada de baja en la lista</p>}
+          {pantalla.resultado === "revocado" && <p className="text-4xl font-extrabold">Credencial revocada</p>}
           {pantalla.resultado === "error" && (<><p className="text-4xl font-extrabold">No se pudo comprobar</p><p className="text-2xl">Repita la lectura.</p></>)}
         </div>
       )}
