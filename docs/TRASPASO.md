@@ -94,9 +94,9 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 
 ### Técnico (para la siguiente IA)
 1. **Ensayo con dispositivos reales** (lista `docs/diseno/08-comprobacion-primera-version.md`, secciones C, D, G, H): cámara y lector QR en móviles, captura automática (calibrar `src/domain/captura-auto.ts`), impresión de credenciales A4/CR80 y del acta, vinculación de WhatsApp y un envío real controlado a teléfonos de prueba de Pablo, «Preparar elección» en modo prueba.
-2. **Vulnerabilidad alta** que reporta `npm audit` en una dependencia: revisar y corregir antes del 29-11 sin romper la compilación.
-3. **Respaldo de «Preparar elección»** queda en `/tmp` del contenedor (se pierde al reiniciar); la copia válida es la que se descarga. Valorar montarlo en `/home/ubuntu/cne/backups`.
-4. Restablecer la 2FA de la superadmin no tiene pantalla (requiere `UPDATE` manual con autorización de Pablo; SQL en 08 §G).
+2. **`npm audit` (19-11-2026).** La alta era `xlsx` (SheetJS, sin parche). La lectura y el informe usan `exceljs`. Quedan avisos de `vitest`/`tinypool` (solo el entorno de pruebas; la imagen de producción hace `npm prune --omit=dev`) y uno moderado de `uuid` que arrastra `exceljs`.
+3. **Respaldo de «Preparar elección».** `RESPALDO_DIR=/respaldos`, montado en `/home/ubuntu/cne/backups/preparar`. Sobrevive a recrear el contenedor. Se conservan los tres últimos. La copia que hay que guardar fuera sigue siendo la descarga.
+4. **2FA.** Ya no existe (`db/migrations/2026-11-22-sin-2fa.sql` y la especificación: sin doble factor). No hay pantalla de restablecimiento que construir.
 5. Si `pabloun@gmail.com` coincidiera con una cuenta admin, el arranque fallaría por unicidad (improbable).
 6. Copias externas: las diarias quedan solo en la VM; valorar copia cifrada fuera (R2 ya se usa en teinvito).
 7. La noche del 28-11: comprobar que no queda actividad de prueba, ejecutar «Borrar datos de prueba y preparar para elección», descargar el respaldo y verificar el modo elección.

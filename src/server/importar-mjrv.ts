@@ -1,4 +1,5 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { Readable } from "node:stream";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import { query, withTx } from "./db";
@@ -7,13 +8,80 @@ import { normalizarFilas, type Vista } from "../domain/importacion/mjrv";
 export const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_FILAS = 3000;
 
-// Excel o CSV: primera hoja, valores tal cual (la cédula como texto).
-export function leerArchivo(buffer: Buffer, nombre: string): Record<string, unknown>[] {
+// Valor de celda tal cual: texto, número o fecha. Sin la librería que el auditor marca y no se puede parchear.
+function valorCelda(v: ExcelJS.CellValue): unknown {
+  if (v == null) return "";
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "object") {
+    if ("richText" in v) return v.richText.map((t) => t.text).join("");
+    if ("text" in v && "hyperlink" in v) return v.text;
+    if ("result" in v) return valorCelda(v.result);
+  }
+  return v;
+}
+
+function filasDeHoja(hoja: ExcelJS.Worksheet): Record<string, unknown>[] {
+  const encabezado = hoja.getRow(1);
+  const claves: string[] = [];
+  encabezado.eachCell({ includeEmpty: false }, (cell) => {
+    claves[Number(cell.col) - 1] = String(valorCelda(cell.value));
+  });
+  const objetos: Record<string, unknown>[] = [];
+  hoja.eachRow({ includeEmpty: false }, (row, n) => {
+    if (n === 1) return;
+    const o: Record<string, unknown> = {};
+    claves.forEach((clave, i) => {
+      if (clave) o[clave] = valorCelda(row.getCell(i + 1).value);
+    });
+    objetos.push(o);
+  });
+  return objetos;
+}
+
+// El lector de CSV de exceljs convierte 0000000009 en el número 9. Aquí cada celda sigue siendo texto.
+function filasCsv(texto: string): Record<string, unknown>[] {
+  const filas: string[][] = [];
+  let fila: string[] = [];
+  let celda = "";
+  let comillas = false;
+  const cerrarCelda = () => { fila.push(celda); celda = ""; };
+  const cerrarFila = () => { cerrarCelda(); if (fila.some((c) => c !== "")) filas.push(fila); fila = []; };
+  const s = texto.replace(/^\uFEFF/, "");
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (comillas) {
+      if (c === '"' && s[i + 1] === '"') { celda += '"'; i++; }
+      else if (c === '"') comillas = false;
+      else celda += c;
+    } else if (c === '"') comillas = true;
+    else if (c === ",") cerrarCelda();
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && s[i + 1] === "\n") i++;
+      cerrarFila();
+    } else celda += c;
+  }
+  if (celda.length > 0 || fila.length > 0) cerrarFila();
+  if (filas.length === 0) return [];
+  const claves = filas[0];
+  return filas.slice(1).map((f) => {
+    const o: Record<string, unknown> = {};
+    claves.forEach((clave, i) => { if (clave) o[clave] = f[i] ?? ""; });
+    return o;
+  });
+}
+
+// Excel (.xlsx) o CSV. El .xls antiguo no se acepta.
+export async function leerArchivo(buffer: Buffer, nombre: string): Promise<Record<string, unknown>[]> {
   if (buffer.length > MAX_BYTES) throw new Error("El archivo supera 5 MB.");
-  const libro = XLSX.read(buffer, { type: "buffer", raw: true });
-  const hoja = libro.Sheets[libro.SheetNames[0]];
-  if (!hoja) throw new Error(`El archivo ${nombre} no tiene hojas.`);
-  const filas = XLSX.utils.sheet_to_json<Record<string, unknown>>(hoja, { defval: "", raw: true });
+  const bajo = nombre.toLowerCase();
+  if (bajo.endsWith(".xls") && !bajo.endsWith(".xlsx")) throw new Error("Use un archivo .xlsx o CSV.");
+  let filas: Record<string, unknown>[];
+  if (bajo.endsWith(".csv")) filas = filasCsv(buffer.toString("utf8"));
+  else {
+    const hoja = (await new ExcelJS.Workbook().xlsx.read(Readable.from(buffer))).worksheets[0];
+    if (!hoja) throw new Error(`El archivo ${nombre} no tiene hojas.`);
+    filas = filasDeHoja(hoja);
+  }
   if (filas.length > MAX_FILAS) throw new Error(`Máximo ${MAX_FILAS} filas por archivo.`);
   return filas;
 }
@@ -22,7 +90,7 @@ export type Ausente = { id: number; cedula: string; apellidos: string; nombres: 
 export type VistaImportacion = Vista & { nuevas: number; actualizadas: number; ausentes: Ausente[] };
 
 export async function prepararVista(buffer: Buffer, nombre: string): Promise<VistaImportacion> {
-  const vista = normalizarFilas(leerArchivo(buffer, nombre));
+  const vista = normalizarFilas(await leerArchivo(buffer, nombre));
   const cedulas = vista.filas.map((f) => f.datos.cedula).filter(Boolean);
   const existentes = new Set((await query<{ cedula: string }>("SELECT cedula FROM mjrv WHERE cedula = ANY($1)", [cedulas])).map((r) => r.cedula));
   const enArchivo = vista.filas.filter((f) => !f.errores.length);

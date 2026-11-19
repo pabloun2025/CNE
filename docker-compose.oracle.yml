@@ -19,6 +19,8 @@ x-app: &app
     DATABASE_OWNER_URL: postgres://cne_owner:${POSTGRES_PASSWORD}@cne-postgres:5432/cne
     # Ollama de teinvito. El puerto no está publicado: cne-app entra en su red.
     LOCAL_AI_URL: http://teinvito-ollama:11434
+    # Respaldo de «Preparar elección». El disco del servidor sobrevive al recrear el contenedor.
+    RESPALDO_DIR: /respaldos
 
 services:
   cne-postgres:
@@ -67,6 +69,8 @@ services:
       citas_compartida:
         aliases: [cne-app]
       teinvito_interna: {}
+    volumes:
+      - ./backups/preparar:/respaldos
 
   cne-backup:
     logging: *logs

@@ -7,6 +7,7 @@ type Servicio = {
   mem_limit?: string;
   logging?: { options?: Record<string, string> };
   environment?: Record<string, string>;
+  volumes?: string[];
   command?: string[];
 };
 const compose = parse(readFileSync("docker-compose.oracle.yml", "utf8"), { merge: true }) as {
@@ -57,6 +58,12 @@ describe("docker-compose.oracle.yml", () => {
     expect(compose.services["cne-app"].mem_limit).toBe("768m");
     expect(compose.services["cne-postgres"].mem_limit).toBe("512m");
     for (const s of Object.values(compose.services)) expect(s.logging?.options?.["max-size"]).toBe("10m");
+  });
+
+  it("el respaldo de preparar elección queda en el disco del servidor", () => {
+    expect(compose.services["cne-app"].environment!.RESPALDO_DIR).toBe("/respaldos");
+    expect(compose.services["cne-app"].volumes).toContain("./backups/preparar:/respaldos");
+    expect(readFileSync("scripts/deploy-oracle.sh", "utf8")).toMatch(/backups\/preparar/);
   });
 
   it("ningún servicio nombra recursos ajenos", () => {

@@ -24,7 +24,7 @@ export function ImportadorMjrv() {
   return (
     <div className="space-y-4">
       <p className="text-sm">Columnas: cédula, apellidos, nombres, cargo, serie, junta, correo, teléfono, rótulo. <a className="underline" href="/plantillas/mjrv.xlsx">Descargar plantilla</a>.</p>
-      <input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => { setArchivo(e.target.files?.[0] ?? null); setVista(null); setResultado(null); }} className="block w-full text-base" />
+      <input type="file" accept=".xlsx,.csv" onChange={(e) => { setArchivo(e.target.files?.[0] ?? null); setVista(null); setResultado(null); }} className="block w-full text-base" />
       <button onClick={revisar} disabled={!archivo || pendiente} className="rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Revisar archivo</button>
 
       {vista && !vista.ok && <p role="alert" className="font-medium text-red-700">{vista.mensaje}</p>}

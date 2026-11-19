@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { loadEnv } from "./env";
 
-// Respaldo pg_dump previo a la limpieza (§14.3 paso 3). Vive en el contenedor (se pierde al reiniciarlo): la copia que cuenta es la que se descarga.
+// Respaldo pg_dump previo a la limpieza (§14.3 paso 3). En producción RESPALDO_DIR apunta al disco del servidor; si no, queda en el temporal.
 export const PATRON_RESPALDO = /^cne-prep-\d{8}T\d{6}Z\.dump$/;
 export const carpetaRespaldos = () => process.env.RESPALDO_DIR || path.join(os.tmpdir(), "cne-respaldos");
 

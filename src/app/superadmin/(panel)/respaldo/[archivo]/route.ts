@@ -9,7 +9,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ archivo: s
   if (!sesion) return new Response("No autorizado.", { status: 401 });
   const { archivo } = await params;
   const ruta = rutaRespaldo(archivo);
-  if (!ruta) return new Response("No existe ese respaldo (se borra al reiniciar el servidor).", { status: 404 });
+  if (!ruta) return new Response("No existe ese respaldo. Se conservan los tres últimos.", { status: 404 });
   return new Response(Readable.toWeb(createReadStream(ruta)) as ReadableStream, {
     headers: {
       "Content-Type": "application/octet-stream",
