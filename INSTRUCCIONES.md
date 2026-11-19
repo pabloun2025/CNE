@@ -282,3 +282,5 @@ Una credencial se puede revocar, como una entrada en teinvito, si no consta en l
 El acta de pago de Madrid sale del modelo entregado (Paquete_modelo_recibo_pago_MJRV_2026): dos páginas, el euro escrito a mano y las fotos de la cédula en el anexo. El cuadro de tipo de cambio del modelo queda en blanco, porque no hay fórmula. Siguen los tres frenos: sin foto no se activa el pago, si ya se pagó se alerta, y si otro lo está pagando no deja. (19-11-2026)
 
 En el acta van escritos los dos valores, dólares y euros. Los dirá en breve. No hay fórmula. (19-11-2026, 11:27 Madrid)
+
+En administración, pestaña de configuración, se deja el nombre del funcionario que firma los recibos y los montos en dólares y euros. Esos valores escritos salen en el acta. (19-11-2026, 11:32 Madrid)

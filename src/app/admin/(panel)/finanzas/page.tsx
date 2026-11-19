@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
 import { PanelFinanciero } from "@/components/panel-financiero";
-import { FormParametrosPago } from "@/components/form-parametros-pago";
 import { faltanParametros, montosParaActa } from "@/domain/pago";
 import { requireAdmin } from "@/server/guard";
 import { leerParametros } from "@/server/pago";
@@ -20,11 +20,10 @@ export default async function Finanzas() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Parámetros de pago</h2>
         {faltan.length > 0 ? (
-          <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 font-medium">Parámetros de pago pendientes de aprobación. Faltan: {faltan.join(", ")}. Mientras tanto no se pueden confirmar pagos y las actas salen como borrador.</p>
+          <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 font-medium">Faltan en configuración: {faltan.join(", ")}. Mientras tanto no se pueden confirmar pagos y las actas salen como borrador. <Link href="/admin/configuracion" className="underline">Ir a configuración</Link></p>
         ) : (
-          <p className="cifra border-2 border-stone-900 p-2 font-medium">Parámetros completos. Valor en euros: {imp.estado === "ok" ? `${imp.eur} EUR` : "—"}. Monto en dólares: {imp.estado === "ok" ? `${imp.usd} USD` : "—"}.</p>
+          <p className="cifra border-2 border-stone-900 p-2 font-medium">Montos escritos. Euros: {imp.estado === "ok" ? `${imp.eur} EUR` : "—"}. Dólares: {imp.estado === "ok" ? `${imp.usd} USD` : "—"}. <Link href="/admin/configuracion" className="underline">Cambiar en configuración</Link></p>
         )}
-        <FormParametrosPago valores={p} />
       </section>
     </main>
   );

@@ -1,5 +1,5 @@
-// Un monto en dólares, un valor en euros y el nombre de quien paga. Los escribe el administrador.
-// No hay fórmula: el euro no sale del dólar ni de un tipo de cambio. El acta imprime el euro escrito.
+// En administración, pestaña de configuración: el nombre de quien firma y los dos montos.
+// No hay fórmula. El acta imprime esos valores tal como se escribieron.
 
 export type ParametrosPago = {
   importe_usd: string | null;
@@ -15,8 +15,8 @@ export const PARAMETROS_VACIOS: ParametrosPago = {
 
 const ETIQUETAS = {
   importe_usd: "monto en dólares",
-  importe_eur: "valor en euros",
-  pagador_nombre: "nombre de quien paga",
+  importe_eur: "monto en euros",
+  pagador_nombre: "nombre del funcionario que firma",
 } as const;
 
 const vacio = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
@@ -91,7 +91,7 @@ export function validarParametros(e: Record<keyof ParametrosPago, string>): Para
   const usdBruto = o(e.importe_usd);
   const eurBruto = o(e.importe_eur);
   if (usdBruto !== null && aCentimos(usdBruto) === null) return { ok: false, mensaje: "El monto en dólares debe ser mayor que 0, con hasta 2 decimales." };
-  if (eurBruto !== null && aCentimos(eurBruto) === null) return { ok: false, mensaje: "El valor en euros debe ser mayor que 0, con hasta 2 decimales." };
+  if (eurBruto !== null && aCentimos(eurBruto) === null) return { ok: false, mensaje: "El monto en euros debe ser mayor que 0, con hasta 2 decimales." };
   const nombre = o(e.pagador_nombre), cargo = o(e.pagador_cargo), lugar = o(e.lugar);
   const largo = (v: string | null, n: number) => v === null || v.length <= n;
   if (!largo(nombre, 120) || !largo(cargo, 120) || !largo(lugar, 160)) return { ok: false, mensaje: "Algún texto es demasiado largo." };

@@ -22,6 +22,7 @@ export const ENLACES_ADMIN: { href: string; texto: string; roles: RolAdmin[] }[]
   { href: "/admin/operadores", texto: "Operadores y enlaces", roles: SOLO_CONSUL },
   { href: "/admin/documentos", texto: "Documentos (QR)", roles: SOLO_CONSUL },
   { href: "/admin/finanzas", texto: "Finanzas", roles: CONSUL_Y_FINANCIERO },
+  { href: "/admin/configuracion", texto: "Configuración", roles: CONSUL_Y_FINANCIERO },
   { href: "/admin/mando", texto: "Centro de mando", roles: CONSUL_Y_COORDINADOR },
   { href: "/admin/informes", texto: "Informes", roles: CONSUL_Y_FINANCIERO },
 ];

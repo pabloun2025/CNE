@@ -16,10 +16,10 @@ describe("monto en dólares y valor en euros escrito", () => {
     for (const v of [null, " ", "0", "-1", "10.123", "abc", "1,5"]) expect(montos({ importe_usd: v }).estado).toBe("pendiente");
     for (const v of [null, " ", "0", "-1", "10.123", "abc", "1,5"]) expect(montos({ importe_eur: v }).estado).toBe("pendiente");
   });
-  it("para el acta hacen falta el monto, el valor en euros y el nombre de quien paga", () => {
+  it("para el acta hacen falta los dos montos y el nombre de quien firma", () => {
     expect(faltanParametros(base)).toEqual([]);
-    expect(faltanParametros({ ...base, pagador_nombre: null, lugar: " " })).toEqual(["nombre de quien paga"]);
-    expect(faltanParametros(PARAMETROS_VACIOS)).toEqual(["monto en dólares", "valor en euros", "nombre de quien paga"]);
+    expect(faltanParametros({ ...base, pagador_nombre: null, lugar: " " })).toEqual(["nombre del funcionario que firma"]);
+    expect(faltanParametros(PARAMETROS_VACIOS)).toEqual(["monto en dólares", "monto en euros", "nombre del funcionario que firma"]);
   });
 });
 
