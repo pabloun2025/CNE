@@ -251,9 +251,9 @@ Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, m
 
 ## Recorrido del funcionario de Madrid (18-11-2026)
 
-Pase de flujo del sistema interno de Madrid, sin cerrar preguntas: la credencial sigue antes del día y, el día, el orden es puerta, foto de la cédula, pago y constitución. En la puerta el operador escribe nombre, apellido y PIN antes de leer la cédula; una segunda lectura el mismo día sale en rojo con dos pitidos graves, igual que una cédula desconocida o bloqueada. El acta de pago no se imprime sin anverso y reverso, y si faltan la ventanilla los toma primero. El administrador escribe un monto en dólares, el valor en euros y el nombre de quien paga; el acta usa ese valor en euros, sin calcularlo. La constitución muestra las fichas en filas por color, con el aro según haya 3 presentes, menos o nadie, y una sola propuesta para aceptar, pasar o marcar que no se puede. Esa propuesta se pide al Ollama de teinvito (qwen2.5:7b, y qwen2.5:1.5b si el primero no está); si no contesta, queda la primera opción legal. Siguen abiertas la regla de «bloqueada» y el segundo y el tercer conteo de suplentes.
+Pase de flujo del sistema interno de Madrid, sin cerrar preguntas: la credencial sigue antes del día y, el día, el orden es puerta, foto de la cédula, pago y constitución. En la puerta el operador escribe nombre, apellido y PIN antes de leer la cédula; una segunda lectura el mismo día sale en rojo con dos pitidos graves, igual que una cédula desconocida o bloqueada. El acta de pago no se imprime sin anverso y reverso, y si faltan la ventanilla los toma primero. El administrador escribe un monto en dólares, el valor en euros y el nombre de quien paga; en el acta van los dos valores, sin calcularlos. Las cifras las dirá Pablo. La constitución muestra las fichas en filas por color, con el aro según haya 3 presentes, menos o nadie, y una sola propuesta para aceptar, pasar o marcar que no se puede. Esa propuesta se pide al Ollama de teinvito (qwen2.5:7b, y qwen2.5:1.5b si el primero no está); si no contesta, queda la primera opción legal. Siguen abiertas la regla de «bloqueada» y el segundo y el tercer conteo de suplentes.
 
-El euro es manual, no hay fórmula.
+Los dos valores, dólares y euros, se escriben a mano. No hay fórmula. Las cifras aún no están.
 
 El 2FA se quitó.
 
@@ -280,3 +280,5 @@ Al pagar se escanea el QR del MJRV. Si no hay foto de la cédula guardada, el pa
 Una credencial se puede revocar, como una entrada en teinvito, si no consta en la lista de MJRV aprobada. Hay un panel con la lista de MJRV activos y, de forma simple, se les revoca el acceso. En la puerta una credencial revocada no pasa. (19-11-2026, 10:46 Madrid)
 
 El acta de pago de Madrid sale del modelo entregado (Paquete_modelo_recibo_pago_MJRV_2026): dos páginas, el euro escrito a mano y las fotos de la cédula en el anexo. El cuadro de tipo de cambio del modelo queda en blanco, porque no hay fórmula. Siguen los tres frenos: sin foto no se activa el pago, si ya se pagó se alerta, y si otro lo está pagando no deja. (19-11-2026)
+
+En el acta van escritos los dos valores, dólares y euros. Los dirá en breve. No hay fórmula. (19-11-2026, 11:27 Madrid)
