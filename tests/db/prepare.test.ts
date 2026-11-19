@@ -36,10 +36,15 @@ describe("db:prepare", () => {
     expect(mapa).toEqual({ celeste: 1, rojo: 2, azul: 3, amarillo: 4, verde: 5, rosado: 6 });
   });
 
-  it("la superadmin queda con cambio de contraseña obligatorio y la base arranca en modo prueba", async () => {
+  it("la superadmin queda con cambio de contraseña obligatorio", async () => {
     const [s] = await consultarDueno<{ debe_cambiar: boolean; correo: string }>("SELECT debe_cambiar, correo FROM cne.usuarios WHERE tipo = 'superadmin'");
     expect(s).toEqual({ debe_cambiar: true, correo: "pabloun@gmail.com" }); // la segunda preparación la pasó a Pablo (C1)
-    expect((await consultarDueno<{ modo: string }>("SELECT modo FROM cne.configuracion"))[0].modo).toBe("prueba");
+  });
+
+  it("una instalación nueva queda en modo elección, sin datos de demostración", async () => {
+    await reiniciarBase({ correo: "super@prueba.cne", password: "clave-de-prueba-1", modo: "eleccion" });
+    expect((await consultarDueno<{ modo: string }>("SELECT modo FROM cne.configuracion"))[0].modo).toBe("eleccion");
+    expect((await consultarDueno<{ n: number }>("SELECT count(*)::int AS n FROM cne.mjrv"))[0].n).toBe(0);
   });
 
   it("falla con mensaje claro si APP_MASTER_KEY no da 32 bytes", async () => {
