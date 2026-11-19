@@ -42,9 +42,10 @@ export function PanelFinanciero() {
   };
   return (
     <div className="space-y-3">
+      {datos.pagosSinImporteEur > 0 && <p role="status">Pagos confirmados sin importe EUR registrado: {datos.pagosSinImporteEur}. El total solo incluye importes conocidos.</p>}
       {datos.modoPrueba && <p className="border-2 border-stone-900 bg-stone-100 p-2 text-sm font-semibold">Modo prueba: los pagos y los importes son simulados.</p>}
       <div className="home-cards">
-        {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Sin cédula validada", datos.sinCedulaValidada], ["Total entregado USD", datos.totalUsd]].map(([t, v]) => (
+        {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Sin cédula validada", datos.sinCedulaValidada], ["Total entregado EUR", datos.totalEur]].map(([t, v]) => (
           <article key={String(t)} className="home-card stat"><h3>{t}</h3><p className="stat-figure">{v}</p></article>
         ))}
       </div>
@@ -60,13 +61,13 @@ export function PanelFinanciero() {
       {filas.length === 0 ? <p className="empty">No hay personas con ese criterio.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b"><th className="p-2">Persona</th><th className="p-2">Junta</th><th className="p-2">Estado</th><th className="p-2">USD</th><th className="p-2">Hora y operador</th></tr></thead>
+            <thead><tr className="border-b"><th className="p-2">Persona</th><th className="p-2">Junta</th><th className="p-2">Estado</th><th className="p-2">EUR</th><th className="p-2">Hora y operador</th></tr></thead>
             <tbody>{filas.slice(0, 700).map((f) => (
               <tr key={f.id} className="border-b">
                 <td className="p-2"><PersonaFila f={f} editando={editando === f.id} apellidos={apellidos} nombres={nombres} ocupado={ocupado} onApellidos={setApellidos} onNombres={setNombres} onEditar={() => { setEditando(f.id); setApellidos(f.apellidos); setNombres(f.nombres); setAviso(""); }} onCancelar={() => setEditando(null)} onGuardar={() => void guardarNombre(f.id)} onValidar={() => void validar(f.id)} /></td>
                 <td className="p-2">{f.junta}</td>
                 <td className="p-2">{ESTADO[f.estado]}{f.simulado ? " (simulado)" : ""}</td>
-                <td className="cifra p-2">{f.usd ?? "—"}</td>
+                <td className="cifra p-2">{f.eur ?? "—"}</td>
                 <td className="p-2">{f.hora ? `${hora(f.hora)} · ${f.operador}` : "—"}</td>
               </tr>))}</tbody>
           </table>

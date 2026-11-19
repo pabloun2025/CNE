@@ -12,7 +12,6 @@ export function FormParametrosPago({ valores }: { valores: ParametrosPago }) {
   return (
     <form action={enviar} className="grid max-w-xl gap-3">
       <label className="block text-base font-bold">Nombre del funcionario que firma los recibos<input name="pagador_nombre" defaultValue={valores.pagador_nombre ?? ""} className={campo} /></label>
-      <label className="block text-base font-bold">Monto en dólares<input name="importe_usd" inputMode="decimal" defaultValue={valores.importe_usd ?? ""} className={`${campo} cifra`} /></label>
       <label className="block text-base font-bold">Monto en euros<input name="importe_eur" inputMode="decimal" defaultValue={valores.importe_eur ?? ""} className={`${campo} cifra`} /></label>
       {e?.error && <p role="alert" className="font-medium text-red-700">{e.error}</p>}
       {e?.aviso && <p role="status" className="font-medium text-green-800">{e.aviso}</p>}

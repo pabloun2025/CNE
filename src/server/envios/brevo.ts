@@ -6,6 +6,7 @@ export type Correo = { para: string; asunto: string; texto: string; remitente: {
 
 export interface ClienteCorreo {
   readonly simulado: boolean;
+  verificarRemitente(direccion: string): Promise<boolean>;
   enviar(c: Correo): Promise<ResultadoProveedor>;
 }
 
@@ -35,8 +36,25 @@ export class BrevoHttp implements ClienteCorreo {
   readonly simulado = false;
   constructor(private readonly opciones: { apiKey: string; baseUrl?: string; timeoutMs?: number; fetch?: FetchLike }) {}
 
+  private get base(): string {
+    return (this.opciones.baseUrl ?? "https://api.brevo.com").replace(/\/$/, "");
+  }
+
+  async verificarRemitente(direccion: string): Promise<boolean> {
+    const raw = await pedirJson(this.opciones.fetch, `${this.base}/v3/senders`, {
+      method: "GET", headers: { "api-key": this.opciones.apiKey }, timeoutMs: this.opciones.timeoutMs ?? 8000,
+    });
+    if (raw.kind === "network") throw new Error("No se pudo conectar con Brevo.");
+    if (raw.status !== 200) throw new Error(`Brevo no permitió comprobar el remitente (HTTP ${raw.status}).`);
+    const senders = (raw.json as { senders?: unknown } | null)?.senders;
+    if (!Array.isArray(senders)) throw new Error("Brevo no devolvió la lista de remitentes.");
+    const correo = direccion.trim().toLowerCase();
+    return senders.some((s: { email?: unknown; active?: unknown } | null) =>
+      s?.active === true && typeof s.email === "string" && s.email.trim().toLowerCase() === correo);
+  }
+
   async enviar(c: Correo): Promise<ResultadoProveedor> {
-    const raw = await pedirJson(this.opciones.fetch, `${(this.opciones.baseUrl ?? "https://api.brevo.com").replace(/\/$/, "")}/v3/smtp/email`, {
+    const raw = await pedirJson(this.opciones.fetch, `${this.base}/v3/smtp/email`, {
       method: "POST",
       headers: { "api-key": this.opciones.apiKey },
       timeoutMs: this.opciones.timeoutMs ?? 30000,
@@ -56,6 +74,7 @@ export class BrevoHttp implements ClienteCorreo {
 
 export class CorreoSimulado implements ClienteCorreo {
   readonly simulado = true;
+  async verificarRemitente(): Promise<boolean> { return false; }
   async enviar(): Promise<ResultadoProveedor> { return { ok: true, idExterno: `SIMULADO-correo-${Date.now().toString(36)}` }; }
 }
 

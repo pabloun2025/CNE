@@ -12,7 +12,6 @@ export async function guardarParametrosAccion(_: EstadoPago, f: FormData): Promi
   const sesion = await requireAdmin({ roles: CONSUL_Y_FINANCIERO });
   const actuales = await leerParametros();
   const entrada: Record<keyof ParametrosPago, string> = {
-    importe_usd: String(f.get("importe_usd") ?? ""),
     importe_eur: String(f.get("importe_eur") ?? ""),
     pagador_nombre: String(f.get("pagador_nombre") ?? ""),
     pagador_cargo: actuales.pagador_cargo ?? "",

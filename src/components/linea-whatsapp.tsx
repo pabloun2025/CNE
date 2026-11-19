@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { LineaWhatsApp } from "@/server/whatsapp-linea";
 import { crearLineaAccion, desvincularLineaAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
@@ -10,22 +11,33 @@ const TEXTO: Record<LineaWhatsApp["estado"], string> = {
 
 // Línea de WhatsApp de CNE (instancia cne-madrid). El código QR se renueva cada 3 s mientras se espera la vinculación.
 export function LineaWhatsAppPanel({ inicial }: { inicial: LineaWhatsApp }) {
+  const router = useRouter();
   const [linea, setLinea] = useState<LineaWhatsApp>(inicial);
   const [resultado, setResultado] = useState<EstadoSuper>(null);
   const [pendiente, iniciar] = useTransition();
   const esperando = linea.estado === "esperando_qr";
 
   useEffect(() => {
-    if (!esperando) return;
+    if (!esperando || pendiente) return;
     let vivo = true;
-    const id = window.setInterval(async () => {
+    let id: number;
+    const abortar = new AbortController();
+    const consultar = async () => {
       try {
-        const r = await fetch("/api/superadmin/whatsapp/estado?qr=1", { cache: "no-store" });
-        if (r.ok && vivo) setLinea((await r.json()) as LineaWhatsApp);
-      } catch { /* se reintenta en 3 s */ }
-    }, 3000);
-    return () => { vivo = false; window.clearInterval(id); };
-  }, [esperando]);
+        const r = await fetch("/api/superadmin/whatsapp/estado?qr=1", { cache: "no-store", signal: abortar.signal });
+        if (r.ok) {
+          const actual = await r.json() as LineaWhatsApp;
+          if (vivo) {
+            setLinea(actual);
+            if (actual.estado === "vinculada") router.refresh();
+          }
+        }
+      } catch { /* se reintenta cuando termina esta consulta */ }
+      if (vivo) id = window.setTimeout(consultar, 3000);
+    };
+    id = window.setTimeout(consultar, 3000);
+    return () => { vivo = false; abortar.abort(); window.clearTimeout(id); };
+  }, [esperando, pendiente, router]);
 
   const crear = () => iniciar(async () => {
     const r = await crearLineaAccion();
@@ -50,14 +62,17 @@ export function LineaWhatsAppPanel({ inicial }: { inicial: LineaWhatsApp }) {
       {linea.simulada && <p className="rounded bg-amber-100 p-2 text-sm font-medium text-amber-900">Modo simulado: no hay claves de Evolution API en este servidor. El código no vincula ninguna cuenta real.</p>}
       {linea.error && <p role="alert" className="text-sm font-medium text-red-700">{linea.error}</p>}
       {linea.estado === "esperando_qr" && !linea.qr && !linea.error && (
-        <p className="text-sm">El código se está preparando. Si no aparece, pulse Crear y vincular otra vez.</p>
+        <p role="status">Preparando el código QR…</p>
       )}
       {linea.estado === "esperando_qr" && linea.qr && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={linea.qr} alt="Código QR para vincular la línea de WhatsApp de CNE" width={264} height={264} className="rounded bg-white p-2" />
+        <div className="stack">
+          <p>En el teléfono de CNE, abra WhatsApp y vaya a <strong>Dispositivos vinculados → Vincular un dispositivo</strong>. Escanee este código.</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={linea.qr} alt="Código QR de vinculación de WhatsApp" width={264} height={264} className="max-w-full rounded bg-white p-2" />
+        </div>
       )}
       <div className="flex flex-wrap gap-2">
-        {linea.estado !== "vinculada" && <button onClick={crear} disabled={pendiente} className="rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Crear y vincular</button>}
+        {linea.estado !== "vinculada" && <button onClick={crear} disabled={pendiente} className="rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60">{pendiente ? "Conectando…" : esperando ? "Renovar código QR" : "Vincular teléfono"}</button>}
         {linea.estado !== "sin_crear" && <button onClick={quitar} disabled={pendiente} className="rounded border border-red-700 px-4 py-3 font-semibold text-red-700 disabled:opacity-60">Desvincular</button>}
       </div>
       {resultado?.error && <p role="alert" className="text-sm font-medium text-red-700">{resultado.error}</p>}

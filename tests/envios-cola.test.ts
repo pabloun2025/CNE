@@ -1,4 +1,6 @@
 import { Client } from "pg";
+import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
+import { inflateSync } from "node:zlib";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
@@ -28,17 +30,17 @@ function falsos(): Falsos {
     resumen: async () => ({ estado: abierta.v ? "open" : "close", numero: "+34000000000", existe: true }), cerrarSesion: async () => undefined,
     enviarDocumento: async (d) => { wa.push(d); return resp(`WA${wa.length}`); },
   };
-  const correo: ClienteCorreo = { simulado: false, enviar: async (c) => { mail.push(c); return resp(`MAIL${mail.length}`); } };
+  const correo: ClienteCorreo = { simulado: false, verificarRemitente: async () => true, enviar: async (c) => { mail.push(c); return resp(`MAIL${mail.length}`); } };
   return { clientes: { whatsapp, correo }, wa, mail, abierta, fallar };
 }
 
 let n = 0;
-async function ficha(extra: { prueba?: boolean; tel?: string; correo?: string } = {}): Promise<number> {
+async function ficha(extra: { prueba?: boolean; tel?: string; correo?: string; junta?: number } = {}): Promise<number> {
   n++;
   const cedula = String(9000000000 + n);
   const [r] = await consultarDueno<{ id: number }>(
-    "INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, correo, telefono_e164, rotulo_credencial, es_prueba) SELECT $1,'APELLIDO PRUEBA','NOMBRE PRUEBA','VOCAL','vocal',id,$2,$3,'H01',$4 FROM cne.juntas_madrid WHERE serie='H' AND numero=1 RETURNING id",
-    [cedula, extra.correo ?? `prueba${n}@ejemplo.invalid`, extra.tel ?? `+346000${String(n).padStart(5, "0")}`, !!extra.prueba]);
+    "INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, correo, telefono_e164, rotulo_credencial, es_prueba) SELECT $1,'APELLIDO PRUEBA','NOMBRE PRUEBA','VOCAL','vocal',id,$2,$3,'H' || lpad(numero::text, 2, '0'),$4 FROM cne.juntas_madrid WHERE serie='H' AND numero=$5 RETURNING id",
+    [cedula, extra.correo ?? `prueba${n}@ejemplo.invalid`, extra.tel ?? `+346000${String(n).padStart(5, "0")}`, !!extra.prueba, extra.junta ?? 1]);
   return r.id;
 }
 const filas = (canal = "whatsapp") => consultarDueno<{ mjrv_id: number; estado: string; simulado: boolean; intentos: number; error: string | null }>("SELECT mjrv_id, estado, simulado, intentos, error FROM cne.envios_credencial WHERE canal = $1 ORDER BY id", [canal]);
@@ -66,6 +68,57 @@ describe("cola de envío real", () => {
     expect(await procesarCola({ ahora: base, clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "omitido", motivo: "interruptor apagado" } });
     expect(f.wa).toHaveLength(0);
     expect((await filas())[0]).toMatchObject({ estado: "enviada_al_servicio", simulado: true });
+  });
+
+  it("una simulación previa no bloquea el envío real, pero el envío real sí se protege de duplicados", async () => {
+    const id = await ficha();
+    expect(await enviarCredencial(admin, id, "whatsapp")).toMatchObject({ ok: true, simulado: true });
+    await encender("whatsapp");
+    expect(await enviarLote(admin, "whatsapp")).toMatchObject({ enCola: 1 });
+    expect(await enviarCredencial(admin, id, "whatsapp")).toMatchObject({ ok: false });
+    expect((await filas()).map(({ estado, simulado }) => ({ estado, simulado }))).toEqual([
+      { estado: "enviada_al_servicio", simulado: true },
+      { estado: "en_cola", simulado: false },
+    ]);
+  });
+
+  it("un lote manual solo encola las fichas seleccionadas, incluso con identificadores repetidos", async () => {
+    await encender("whatsapp");
+    await ficha();
+    const elegida = await ficha();
+    expect(await enviarLote(admin, "whatsapp", undefined, { alcance: "ids", ids: [elegida, elegida] })).toMatchObject({ enCola: 1 });
+    expect((await filas()).map((fila) => fila.mjrv_id)).toEqual([elegida]);
+  });
+
+  it("la junta filtra una ficha y la zona incluye solo sus juntas", async () => {
+    await encender("whatsapp");
+    await encender("correo");
+    const h1 = await ficha(), h2 = await ficha({ junta: 2 });
+    await ficha({ junta: 22 });
+    await enviarLote(admin, "whatsapp", undefined, { alcance: "junta", valor: "H2" });
+    await enviarLote(admin, "correo", undefined, { alcance: "zona", valor: "amarillo" });
+    expect((await filas("whatsapp")).map((fila) => fila.mjrv_id)).toEqual([h2]);
+    expect((await filas("correo")).map((fila) => fila.mjrv_id)).toEqual([h1, h2]);
+  });
+
+  it("conserva el envío en cola si falta la configuración real del proveedor", async () => {
+    await encender("correo");
+    const id = await ficha();
+    await enviarCredencial(admin, id, "correo");
+    const { clientes } = falsos();
+    const simulado = { ...clientes.correo, simulado: true };
+    expect((await procesarCola({ ahora: base, clientes: { ...clientes, correo: simulado }, canales: ["correo"] })).correo.accion).toBe("pausado");
+    expect(await filas("correo")).toMatchObject([{ mjrv_id: id, estado: "en_cola", simulado: false, intentos: 0 }]);
+  });
+
+  it("no transmite una credencial al número anterior si cambió después de encolarla", async () => {
+    await encender("whatsapp");
+    const id = await ficha();
+    await enviarCredencial(admin, id, "whatsapp");
+    await consultarDueno("UPDATE cne.mjrv SET telefono_e164 = '+34699999999' WHERE id = $1", [id]);
+    const f = falsos();
+    expect((await procesarCola({ ahora: base, clientes: f.clientes, canales: ["whatsapp"] })).whatsapp.accion).toBe("fallo");
+    expect(f.wa).toHaveLength(0);
   });
 
   it("encendido, el lote solo encola fichas reales (las de demostración salen simuladas) y la cola envía una cada 20–45 s", async () => {
@@ -100,6 +153,18 @@ describe("cola de envío real", () => {
     const f = falsos();
     expect((await procesarCola({ ahora: base, clientes: f.clientes })).whatsapp.accion).toBe("omitido");
     expect(f.wa).toHaveLength(0);
+  });
+
+  it("un envío real autorizado adjunta una credencial sin marca PRUEBA aunque Madrid siga en modo prueba", async () => {
+    await encender("whatsapp");
+    await enviarCredencial(admin, await ficha(), "whatsapp");
+    const f = falsos();
+    await procesarCola({ ahora: base, clientes: f.clientes, canales: ["whatsapp"] });
+    const pdf = await PDFDocument.load(Buffer.from(f.wa[0].pdfBase64, "base64"));
+    const contenido = pdf.getPage(0).node.Contents();
+    expect(contenido).toBeInstanceOf(PDFArray);
+    const texto = inflateSync((contenido as PDFArray).lookup(0, PDFRawStream).getContents()).toString("ascii");
+    expect(texto).not.toContain("<505255454241>");
   });
 
   it("no envía fuera de 9–21 h de Madrid", async () => {
@@ -205,7 +270,10 @@ describe("interruptores", () => {
   beforeEach(async () => { await limpiar(); process.env.HOST_MADRID = "madrid.ejemplo.invalid"; });
   afterAll(async () => { if (guardado === undefined) delete process.env.HOST_MADRID; else process.env.HOST_MADRID = guardado; await closePools(); });
 
-  const simulados = (): Clientes => ({ ...falsos().clientes, whatsapp: { ...falsos().clientes.whatsapp, simulado: true }, correo: { simulado: true, enviar: async () => ({ ok: true, idExterno: "x" }) } });
+  const simulados = (): Clientes => {
+    const { clientes } = falsos();
+    return { whatsapp: { ...clientes.whatsapp, simulado: true }, correo: { ...clientes.correo, simulado: true } };
+  };
   const estado = async () => (await consultarDueno<{ whatsapp_real: boolean; correo_real: boolean }>("SELECT whatsapp_real, correo_real FROM cne.configuracion"))[0];
 
   it("nacen apagados y solo la superadmin los toca", async () => {

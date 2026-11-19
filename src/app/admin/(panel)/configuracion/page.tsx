@@ -9,7 +9,7 @@ export default async function Configuracion() {
   return (
     <main className="max-w-xl space-y-4">
       <h1 className="text-xl font-semibold">Configuración</h1>
-      <p>El nombre y los dos montos se escriben aquí. Esos valores salen en el acta. No hay fórmula.</p>
+      <p>El nombre del firmante y el importe fijo en euros aparecen en el acta.</p>
       <FormParametrosPago valores={p} />
     </main>
   );

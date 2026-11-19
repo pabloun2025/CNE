@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const formato = new URL(request.url).searchParams.get("formato");
   if (formato !== "pdf" && formato !== "xlsx") return new Response("Formato no válido", { status: 400 });
   const r = await resumenFinanzas();
-  const datos = { generadoEn: r.generado_en, modoPrueba: r.modoPrueba, totalUsd: r.totalUsd, filas: r.filas };
+  const datos = { generadoEn: r.generado_en, modoPrueba: r.modoPrueba, totalEur: r.totalEur, filas: r.filas };
   const sello = r.generado_en.slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
   const cuerpo = formato === "pdf" ? Buffer.from(await informeCierrePdf(datos)) : informeCierreExcel(datos);
   return new Response(new Uint8Array(cuerpo), {

@@ -2,9 +2,9 @@ import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import { query } from "./db";
 import { credencialesIndividuales } from "./pdf/credencial";
-import { seleccionarParaCredencial } from "./credenciales";
+import { seleccionarParaCredencial, type Seleccion } from "./credenciales";
 import { textoCredencial } from "../domain/mensaje-credencial";
-import { canalEnReal } from "./envios-config";
+import { canalEnReal, leerConfigEnvios } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
 import type { DatosCredencial } from "./pdf/credencial";
 
@@ -69,13 +69,17 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
 export type ResumenLote = { intentadas: number; enviadas: number; omitidas: number; fallidas: number; enCola: number };
 
 // Envío a todas las personas con dato de contacto que aún no tienen envío vivo por ese canal.
-export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: ProveedorEnvio): Promise<ResumenLote | { error: string }> {
+export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: ProveedorEnvio, seleccion: Seleccion = { alcance: "todas" }): Promise<ResumenLote> {
   if (sesion.tipo !== "madrid_admin") throw new Error("Solo la administración Madrid envía credenciales.");
   const col = canal === "whatsapp" ? "telefono_e164" : "correo";
+  const ids = seleccion.alcance === "todas" ? null : (await seleccionarParaCredencial(seleccion)).ids;
+  const real = !proveedor && await canalEnReal(canal);
   const pendientes = await query<{ id: number }>(
     `SELECT m.id FROM mjrv m WHERE m.activo AND m.${col} IS NOT NULL AND btrim(m.${col}) <> ''
-        AND NOT EXISTS (SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = $1 AND e.estado IN ('en_cola','enviada_al_servicio','entregada'))
-      ORDER BY m.id LIMIT 700`, [canal]);
+        AND ($2::bigint[] IS NULL OR m.id = ANY($2::bigint[]))
+        AND NOT EXISTS (SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = $1
+          AND e.simulado = (NOT $3::boolean OR m.es_prueba) AND e.estado IN ('en_cola','enviada_al_servicio','entregada'))
+      ORDER BY m.id`, [canal, ids, real]);
   const r: ResumenLote = { intentadas: pendientes.length, enviadas: 0, omitidas: 0, fallidas: 0, enCola: 0 };
   for (const p of pendientes) {
     const x = await enviarCredencial(sesion, p.id, canal, proveedor);
@@ -92,10 +96,15 @@ export const enviosDe = (mjrvId: number) =>
   query<EnvioFila>("SELECT id, canal, destino, estado, simulado, error, creado_en::text, enviado_en::text FROM envios_credencial WHERE mjrv_id = $1 ORDER BY id DESC", [mjrvId]);
 
 export async function resumenEnvios(): Promise<{ conTelefono: number; conCorreo: number; whatsapp: number; correo: number }> {
+  const { whatsappReal, correoReal } = await leerConfigEnvios();
   const f = await query<{ tel: number; cor: number; w: number; c: number }>(
-    `SELECT count(*) FILTER (WHERE telefono_e164 IS NOT NULL)::int AS tel, count(*) FILTER (WHERE correo IS NOT NULL)::int AS cor,
-            (SELECT count(DISTINCT mjrv_id)::int FROM envios_credencial WHERE canal = 'whatsapp' AND estado <> 'fallo') AS w,
-            (SELECT count(DISTINCT mjrv_id)::int FROM envios_credencial WHERE canal = 'correo' AND estado <> 'fallo') AS c
-       FROM mjrv WHERE activo`);
+    `SELECT count(*) FILTER (WHERE m.telefono_e164 IS NOT NULL)::int AS tel, count(*) FILTER (WHERE m.correo IS NOT NULL)::int AS cor,
+            count(*) FILTER (WHERE m.telefono_e164 IS NOT NULL AND EXISTS (
+              SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = 'whatsapp'
+              AND e.simulado = (NOT $1::boolean OR m.es_prueba) AND e.estado <> 'fallo'))::int AS w,
+            count(*) FILTER (WHERE m.correo IS NOT NULL AND EXISTS (
+              SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = 'correo'
+              AND e.simulado = (NOT $2::boolean OR m.es_prueba) AND e.estado <> 'fallo'))::int AS c
+       FROM mjrv m WHERE m.activo`, [whatsappReal, correoReal]);
   return { conTelefono: f[0].tel, conCorreo: f[0].cor, whatsapp: f[0].w, correo: f[0].c };
 }

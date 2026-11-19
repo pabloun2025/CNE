@@ -24,7 +24,7 @@ describe("D01 · migración de las decisiones del 18-11", () => {
   it("es idempotente: aplicarla otra vez no falla", async () => {
     await consultarDueno(MIGRACION);
     await consultarDueno(MIGRACION);
-    const r = await consultarDueno<{ nombre: string }>("SELECT nombre FROM cne.migraciones WHERE nombre LIKE '2026-11-19%'");
+    const r = await consultarDueno<{ nombre: string }>("SELECT nombre FROM cne.migraciones WHERE nombre = $1", ["2026-11-19-decisiones-18-11.sql"]);
     expect(r).toHaveLength(1);
   });
 

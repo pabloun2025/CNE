@@ -115,7 +115,7 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
   return {
     mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
     anverso: lados.includes("anverso"), reverso: lados.includes("reverso"), documentosCompletos, cedulaValidada: m.cedula_validada_en != null,
-    parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeUsd: imp.estado === "ok" ? imp.usd : null, importeEur: imp.estado === "ok" ? imp.eur : null,
+    parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeUsd: null, importeEur: imp.estado === "ok" ? imp.eur : null,
     acta: acta ? { id: acta.id, impresionN: acta.impresion_n } : null,
     pago: pago ? { en: pago.en, operador: pago.operador, importeUsd: pago.importe_usd ?? "", importeEur: pago.importe_eur, simulado: pago.es_prueba } : null,
     estado, modoPrueba: (await leerModo()) === "prueba", otrosPuestos,
@@ -146,8 +146,8 @@ export async function generarActa(s: SesionEstacion | ActorPago, mjrvId: number,
     if (completos && imp.estado === "ok") {
       impresionN = (await client.query<{ n: number }>("SELECT count(*)::int + 1 AS n FROM actas_pago WHERE mjrv_id = $1", [mjrvId])).rows[0].n;
       actaId = (await client.query<{ id: number }>(
-        "INSERT INTO actas_pago (mjrv_id, operador_id, usuario_id, importe_usd, tipo_cambio, importe_eur, parametros, impresion_n) VALUES ($1,$2,$3,$4,NULL,$5,$6::jsonb,$7) RETURNING id",
-        [mjrvId, quien.operadorId, quien.usuarioId, imp.usd, imp.eur, JSON.stringify(params), impresionN])).rows[0].id;
+        "INSERT INTO actas_pago (mjrv_id, operador_id, usuario_id, importe_eur, parametros, impresion_n) VALUES ($1,$2,$3,$4,$5::jsonb,$6) RETURNING id",
+        [mjrvId, quien.operadorId, quien.usuarioId, imp.eur, JSON.stringify(params), impresionN])).rows[0].id;
       await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId, actorNombre: quien.nombre, accion: "acta_generada", entidad: "actas_pago", entidadId: actaId, datos: { mjrv: mjrvId, impresion: impresionN } }, client);
     }
     return { m, j, actaId, impresionN };
@@ -160,7 +160,7 @@ export async function generarActa(s: SesionEstacion | ActorPago, mjrvId: number,
   const pdf = await actaPago({
     numero, impresionN, prueba, borrador: !completos, emitidaEn: new Date(),
     persona: { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaVigente: j.vigente },
-    importe: completos && imp.estado === "ok" ? { usd: imp.usd, eur: imp.eur } : null,
+    importe: completos && imp.estado === "ok" ? { eur: imp.eur } : null,
     pagador: params.pagador_nombre ? { nombre: params.pagador_nombre, cargo: params.pagador_cargo ?? "" } : null,
     anverso, reverso, firmaReceptor: firma,
   });
@@ -189,13 +189,13 @@ export async function confirmarPago(s: SesionEstacion | ActorPago, d: { mjrvId: 
     if (docs < 2) return { ok: false as const, mensaje: "Faltan fotos de la cédula." };
     const r = await client.query<{ id: number; confirmado_en: string; es_prueba: boolean; importe_usd: string | null; importe_eur: string | null }>(
       `INSERT INTO pagos_confirmados (mjrv_id, acta_id, importe_usd, tipo_cambio, importe_eur, funciones_verificadas, operador_id, enlace_id, usuario_id)
-       SELECT $1, a.id, a.importe_usd, a.tipo_cambio, a.importe_eur, true, $3, $4, $5 FROM actas_pago a WHERE a.id = $2 AND a.mjrv_id = $1
+       SELECT $1, a.id, a.importe_usd, a.tipo_cambio, a.importe_eur, true, $3, $4, $5 FROM actas_pago a WHERE a.id = $2 AND a.mjrv_id = $1 AND a.importe_eur > 0
        ON CONFLICT (mjrv_id, es_prueba) DO NOTHING RETURNING id, confirmado_en::text, es_prueba, importe_usd::text, importe_eur::text`,
       [d.mjrvId, d.actaId, quien.operadorId, quien.enlaceId, quien.usuarioId]);
     if (!r.rows[0]) {
       const previo = (await client.query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null }>(SQL_PAGO_PREVIO, [d.mjrvId])).rows[0];
       if (previo) return { ok: false as const, yaPagado: { en: previo.en, operador: previo.operador, importeUsd: previo.importe_usd ?? "", importeEur: previo.importe_eur }, mensaje: "Ya pagado. No vuelva a pagar." };
-      return { ok: false as const, mensaje: "El acta indicada no corresponde a esta persona. Genere el acta de nuevo." };
+      return { ok: false as const, mensaje: "El acta no corresponde a esta persona o carece de importe en EUR. Genere el acta de nuevo." };
     }
     await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId, actorNombre: quien.nombre, accion: "pago_confirmado", entidad: "pagos_confirmados", entidadId: r.rows[0].id, datos: { mjrv: d.mjrvId, simulado: r.rows[0].es_prueba } }, client);
     return { ok: true as const, confirmadoEn: r.rows[0].confirmado_en, simulado: r.rows[0].es_prueba, importeUsd: r.rows[0].importe_usd ?? "", importeEur: r.rows[0].importe_eur };

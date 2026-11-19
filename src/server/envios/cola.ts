@@ -73,6 +73,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date,
   const hay = (await client.query(
     `SELECT 1 FROM envios_credencial e JOIN mjrv m ON m.id = e.mjrv_id WHERE e.canal = $1 AND e.estado = 'en_cola' AND NOT e.simulado AND e.intentos = 0 AND NOT m.es_prueba LIMIT 1`, [canal])).rowCount;
   if (!hay) return { accion: "omitido", motivo: "cola vacía" };
+  if (clientes[canal].simulado) return pausar(client, canal, canal === "whatsapp" ? "Falta la configuración de Evolution API." : "Falta la clave de Brevo.");
 
   if (canal === "whatsapp") {
     try {
@@ -95,19 +96,22 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date,
   if (!fila) return { accion: "omitido", motivo: "cola vacía" };
 
   let r: ResultadoProveedor;
-  let simulado = false;
   try {
     const sel = await seleccionarParaCredencial({ alcance: "ids", ids: [fila.mjrv_id] });
     if (sel.datos.length === 0) r = { ok: false, permanente: true, error: "La ficha está de baja o le falta el rótulo de la credencial." };
     else {
       const d = sel.datos[0];
       const m = mensajeCredencial(d);
-      const pdfBase64 = Buffer.from(await credencialesIndividuales(sel.datos)).toString("base64");
-      if (canal === "whatsapp") {
-        simulado = clientes.whatsapp.simulado;
+      // El interruptor autoriza credenciales definitivas para fichas reales incluso durante el ensayo operativo.
+      const pdfBase64 = Buffer.from(await credencialesIndividuales([{ ...d, prueba: false }])).toString("base64");
+      const actual = (await client.query<{ destino: string | null }>(
+        "SELECT CASE WHEN $2 = 'whatsapp' THEN telefono_e164 ELSE correo END AS destino FROM mjrv WHERE id = $1 AND activo AND NOT es_prueba",
+        [fila.mjrv_id, canal])).rows[0];
+      if (actual?.destino !== fila.destino) {
+        r = { ok: false, permanente: true, error: "El contacto o la ficha cambió después de ponerla en cola. Revise la ficha y vuelva a encolarla." };
+      } else if (canal === "whatsapp") {
         r = await clientes.whatsapp.enviarDocumento({ numero: fila.destino, texto: m.texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
       } else {
-        simulado = clientes.correo.simulado;
         r = await clientes.correo.enviar({ para: fila.destino, asunto: m.asunto, texto: m.texto, remitente, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
       }
     }
@@ -117,7 +121,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date,
 
   // «enviado_en» es el momento del intento (también en los fallos): sirve para contar los fallos seguidos.
   if (r.ok) {
-    await client.query("UPDATE envios_credencial SET estado = 'enviada_al_servicio', simulado = $2, id_externo = $3, enviado_en = $4 WHERE id = $1", [fila.id, simulado, r.idExterno, ahora]);
+    await client.query("UPDATE envios_credencial SET estado = 'enviada_al_servicio', id_externo = $2, enviado_en = $3 WHERE id = $1", [fila.id, r.idExterno, ahora]);
   } else {
     await client.query("UPDATE envios_credencial SET estado = 'fallo', error = $2, enviado_en = $3 WHERE id = $1", [fila.id, r.error.slice(0, 300), ahora]);
   }

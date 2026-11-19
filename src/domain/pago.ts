@@ -1,8 +1,6 @@
-// En administración, pestaña de configuración: el nombre de quien firma y los dos montos.
-// No hay fórmula. El acta imprime esos valores tal como se escribieron.
+// El acta usa el importe fijo en euros y el nombre de quien firma.
 
 export type ParametrosPago = {
-  importe_usd: string | null;
   importe_eur: string | null;
   pagador_nombre: string | null;
   pagador_cargo: string | null;
@@ -10,11 +8,10 @@ export type ParametrosPago = {
 };
 
 export const PARAMETROS_VACIOS: ParametrosPago = {
-  importe_usd: null, importe_eur: null, pagador_nombre: null, pagador_cargo: null, lugar: null,
+  importe_eur: null, pagador_nombre: null, pagador_cargo: null, lugar: null,
 };
 
 const ETIQUETAS = {
-  importe_usd: "monto en dólares",
   importe_eur: "monto en euros",
   pagador_nombre: "nombre del funcionario que firma",
 } as const;
@@ -72,25 +69,22 @@ export function eurosEnLetras(importe: string): string {
   return `${palabra} con ${cents === 1 ? "un céntimo" : `${cardinal(cents)} céntimos`}`;
 }
 
-export type MontosActa = { estado: "ok"; usd: string; eur: string } | { estado: "pendiente"; faltan: string[] };
+export type MontosActa = { estado: "ok"; eur: string } | { estado: "pendiente"; faltan: string[] };
 
-// Las dos cifras son las que escribió el administrador. No se multiplican.
+// El importe se toma de la configuración, sin conversión.
 export function montosParaActa(p: ParametrosPago): MontosActa {
   const faltan = faltanParametros(p);
   if (faltan.length) return { estado: "pendiente", faltan };
-  const usd = aCentimos(String(p.importe_usd));
   const eur = aCentimos(String(p.importe_eur));
-  if (usd === null || eur === null) return { estado: "pendiente", faltan: ["monto en dólares o valor en euros"] };
-  return { estado: "ok", usd: centimosATexto(usd), eur: centimosATexto(eur) };
+  if (eur === null) return { estado: "pendiente", faltan: ["monto en euros válido"] };
+  return { estado: "ok", eur: centimosATexto(eur) };
 }
 
 export type ParametrosValidados = { ok: true; valores: ParametrosPago } | { ok: false; mensaje: string };
 
 export function validarParametros(e: Record<keyof ParametrosPago, string>): ParametrosValidados {
   const o = (v: string) => (v.trim() === "" ? null : v.trim());
-  const usdBruto = o(e.importe_usd);
   const eurBruto = o(e.importe_eur);
-  if (usdBruto !== null && aCentimos(usdBruto) === null) return { ok: false, mensaje: "El monto en dólares debe ser mayor que 0, con hasta 2 decimales." };
   if (eurBruto !== null && aCentimos(eurBruto) === null) return { ok: false, mensaje: "El monto en euros debe ser mayor que 0, con hasta 2 decimales." };
   const nombre = o(e.pagador_nombre), cargo = o(e.pagador_cargo), lugar = o(e.lugar);
   const largo = (v: string | null, n: number) => v === null || v.length <= n;
@@ -98,7 +92,6 @@ export function validarParametros(e: Record<keyof ParametrosPago, string>): Para
   return {
     ok: true,
     valores: {
-      importe_usd: usdBruto === null ? null : centimosATexto(aCentimos(usdBruto)!),
       importe_eur: eurBruto === null ? null : centimosATexto(aCentimos(eurBruto)!),
       pagador_nombre: nombre, pagador_cargo: cargo, lugar,
     },

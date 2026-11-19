@@ -69,7 +69,7 @@ export function Finanzas() {
       </div>
     );
   }
-  const montos = ficha?.importeEur ? `${ficha.importeEur} EUR${ficha.importeUsd ? ` · ${ficha.importeUsd} USD` : ""}` : "";
+  const montos = ficha?.importeEur ? `${ficha.importeEur} EUR` : "";
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <form onSubmit={(e) => { e.preventDefault(); void cargar(cedula); }} className="flex gap-2">
@@ -87,7 +87,7 @@ export function Finanzas() {
           ))}
           {ficha.pago && (
             <p role="alert" className="cifra bg-red-700 p-3 text-center text-lg font-extrabold text-white">
-              YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeEur ? `${ficha.pago.importeEur} EUR` : `${ficha.pago.importeUsd} USD`}{ficha.pago.importeEur && ficha.pago.importeUsd ? ` · ${ficha.pago.importeUsd} USD` : ""}. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
+              YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeEur ? `${ficha.pago.importeEur} EUR` : "importe EUR no registrado"}. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
             </p>
           )}
           <div><p className="text-xl font-bold">{ficha.nombre}</p><p>Cédula {ficha.cedula} · {ficha.cargo} · junta {ficha.juntaVigente}{ficha.juntaVigente !== ficha.juntaOrigen ? ` (origen ${ficha.juntaOrigen})` : ""}</p></div>
