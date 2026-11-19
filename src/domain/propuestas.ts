@@ -6,7 +6,16 @@ import type { Serie, ZonaColor } from "./juntas";
 
 export type JuntaProp = { id: number; serie: Serie; numero: number; zona: ZonaColor; orden_cercania: number };
 export type PersonaProp = PersonaCargo & { apellidos: string; nombres: string; cedula: string };
-export type DecisionProp = { mjrv_id: number; junta_destino_id: number; decision: "aceptada" | "pasada" | "no_viable"; rehabilitada: boolean };
+export type DecisionProp = { mjrv_id: number; junta_destino_id: number; decision: "aceptada" | "pasada" | "no_viable"; rehabilitada: boolean; motivo?: string | null };
+
+// «No quiere» saca a la persona de todos los huecos. «No contesta» y «ya no está» solo cierran ese hueco.
+// Un motivo que no se reconoce sigue sacándola de todos, como antes de separar las tres frases.
+export function efectoNoViable(motivo: string | null | undefined): "desiste" | "hueco" {
+  const t = (motivo ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  if (/\bquiere\b|negativa/.test(t)) return "desiste";
+  if (/contesta|sin_respuesta|\brespuesta\b|ya no esta|ausente/.test(t)) return "hueco";
+  return "desiste";
+}
 
 export type Propuesta = {
   mjrvId: number; persona: string; cedula: string; rol: string;
@@ -38,7 +47,9 @@ export function opcionesPropuesta(juntas: JuntaProp[], personas: PersonaProp[], 
   const persona = new Map(personas.map((p) => [p.id, p]));
 
   const pasadas = new Set(decisiones.filter((d) => d.decision === "pasada").map((d) => `${d.mjrv_id}:${d.junta_destino_id}`));
-  const fuera = new Set(decisiones.filter((d) => d.decision === "no_viable" && !d.rehabilitada).map((d) => d.mjrv_id));
+  const noViable = decisiones.filter((d) => d.decision === "no_viable" && !d.rehabilitada);
+  const fuera = new Set(noViable.filter((d) => efectoNoViable(d.motivo) === "desiste").map((d) => d.mjrv_id));
+  const huecoCerrado = new Set(noViable.filter((d) => efectoNoViable(d.motivo) === "hueco").map((d) => `${d.mjrv_id}:${d.junta_destino_id}`));
 
   // Destinos: con una vacante primero, después dos, después tres.
   const destinos = juntas.filter((j) => cob.get(j.id)!.vacantes.length > 0);
@@ -49,7 +60,7 @@ export function opcionesPropuesta(juntas: JuntaProp[], personas: PersonaProp[], 
   const pares: (OpcionProp & { clave: (string | number)[] })[] = [];
   for (const d of destinos) {
     for (const { p, o } of candidatos) {
-      if (o.id === d.id || pasadas.has(`${p.id}:${d.id}`)) continue;
+      if (o.id === d.id || pasadas.has(`${p.id}:${d.id}`) || huecoCerrado.has(`${p.id}:${d.id}`)) continue;
       const mismaZona = o.zona === d.zona;
       const distancia = Math.abs(o.orden_cercania - d.orden_cercania);
       pares.push({

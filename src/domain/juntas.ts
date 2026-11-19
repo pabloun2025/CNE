@@ -25,14 +25,6 @@ export const TRAMOS: { serie: Serie; desde: number; hasta: number; zona: ZonaCol
 
 export const TOTAL_JUNTAS = 95;
 
-// Dos filas por color, ya en el orden de la serie. No asigna qué número queda en cada extremo: ese orden sigue abierto.
-export function dosFilas<T>(items: T[]): T[][] {
-  if (items.length === 0) return [];
-  const corte = Math.ceil(items.length / 2);
-  const resto = items.slice(corte);
-  return resto.length === 0 ? [items] : [items.slice(0, corte), resto];
-}
-
 export function etiquetaJunta(serie: Serie, numero: number): string {
   return `${serie}${numero}`;
 }

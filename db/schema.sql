@@ -145,6 +145,7 @@ CREATE TABLE mjrv (
   telefono_e164   text,
   activo          boolean NOT NULL DEFAULT true,                  -- baja administrativa = false → «bloqueado» en puerta
   baja_motivo     text,
+  cedula_validada_en timestamptz,                                 -- el financiero comprobó anverso y reverso; NULL = sin validar
   credencial_generada_en timestamptz,
   fuente_archivo  text,
   fila_origen     int,

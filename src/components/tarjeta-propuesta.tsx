@@ -63,6 +63,7 @@ export function TarjetaPropuesta({ onCambio }: { onCambio: () => void }) {
           <label className="text-sm font-medium">Motivo
             <select value={motivo} onChange={(e) => setMotivo(e.target.value)} className="mt-1 block">{MOTIVOS.map((m) => <option key={m}>{m}</option>)}</select>
           </label>
+          <p className="text-sm">{motivo === "No quiere" ? "Desiste: no se propone para ningún hueco." : "No se propone para este hueco y suelta el asiento."}</p>
           <button disabled={pendiente} onClick={() => ejecutar(noViableAccion, { motivo })} className="bg-red-800 px-4 py-3 text-white disabled:opacity-60">Confirmar</button>
         </div>
       )}

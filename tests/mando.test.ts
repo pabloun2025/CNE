@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dosFilas } from "@/domain/juntas";
-import { calcularMando, filtrarJuntas, type JuntaEntrada, type PersonaEntrada } from "@/domain/mando";
+import { calcularMando, filtrarJuntas, gruposInfograma, type JuntaEntrada, type PersonaEntrada } from "@/domain/mando";
 
 const juntas: JuntaEntrada[] = [
   { id: 1, serie: "H", numero: 12, zona: "amarillo" },
@@ -70,11 +69,18 @@ describe("estado de las juntas (tres presentes)", () => {
   });
 });
 
-describe("filas por color", () => {
-  it("parte cada serie en dos filas, sin decidir el extremo", () => {
-    expect(dosFilas([1, 2, 3, 4, 5, 6, 7, 8]).map((f) => f.length)).toEqual([4, 4]);
-    expect(dosFilas(Array.from({ length: 21 }, (_, i) => i + 1)).map((f) => f.length)).toEqual([11, 10]);
-    expect(dosFilas(Array.from({ length: 15 }, (_, i) => i + 1)).map((f) => f.length)).toEqual([8, 7]);
-    expect(dosFilas([1]).map((f) => f.length)).toEqual([1]);
+describe("infograma para la asignación", () => {
+  it("pone primero la zona con más cargos vacíos y, dentro, la junta con menos vacantes", () => {
+    const mapa: JuntaEntrada[] = [
+      { id: 1, serie: "H", numero: 12, zona: "amarillo" },
+      { id: 2, serie: "H", numero: 13, zona: "amarillo" },
+      { id: 3, serie: "M", numero: 1, zona: "rojo" },
+    ];
+    // H12 completa (0 vacantes), H13 con una persona (2 vacantes), M1 sin nadie (3 vacantes).
+    const juntas = calcularMando(mapa, [...completa(1), ...roles(2, "presidente")], []).juntas;
+    const grupos = gruposInfograma(juntas);
+    expect(grupos.map((g) => g.zona)).toEqual(["rojo", "amarillo"]);
+    expect(grupos[1].fichas.map((f) => f.numero)).toEqual([13, 12]);
+    expect(grupos.every((g) => g.fichas.length >= 1)).toBe(true);
   });
 });

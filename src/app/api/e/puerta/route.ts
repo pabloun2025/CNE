@@ -12,8 +12,11 @@ export async function GET() {
 export async function POST(request: Request) {
   const e = await estacionApi(["puerta"]);
   if (!e.ok) return Response.json({ error: "No autorizado" }, { status: e.status });
-  const cuerpo = (await request.json().catch(() => null)) as { codigo?: unknown; dispositivo?: unknown } | null;
+  const cuerpo = (await request.json().catch(() => null)) as { codigo?: unknown; dispositivo?: unknown; origen?: unknown } | null;
   if (!cuerpo || typeof cuerpo.codigo !== "string" || !cuerpo.codigo.trim()) return Response.json({ error: "Falta el código" }, { status: 400 });
-  const lectura = await registrarLectura(e.sesion, cuerpo.codigo, typeof cuerpo.dispositivo === "string" ? cuerpo.dispositivo : null);
+  const dispositivo = typeof cuerpo.dispositivo === "string" ? cuerpo.dispositivo : null;
+  const lectura = cuerpo.origen === "nombre"
+    ? await registrarLectura(e.sesion, cuerpo.codigo, dispositivo, true)
+    : await registrarLectura(e.sesion, cuerpo.codigo, dispositivo);
   return Response.json({ lectura, contadores: await contadoresPuerta(e.sesion.enlaceId) });
 }

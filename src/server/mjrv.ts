@@ -132,6 +132,37 @@ export async function editarMjrv(sesion: Sesion, id: number, d: DatosMjrv): Prom
   }
 }
 
+export type ActorFicha = { tipo: "usuario" | "operador"; id: number; nombre: string; portal: "admin" | "finanzas" };
+
+const nombreLimpio = (t: string) => t.trim().replace(/\s+/g, " ");
+
+// Solo apellidos y nombres: la cédula, el cargo y la junta no se tocan desde el pago.
+export async function corregirNombres(actor: ActorFicha, id: number, apellidosBrutos: string, nombresBrutos: string): Promise<Resultado> {
+  const apellidos = nombreLimpio(apellidosBrutos);
+  const nombres = nombreLimpio(nombresBrutos);
+  if (apellidos.length < 2 || apellidos.length > 120 || nombres.length < 2 || nombres.length > 120) {
+    return { ok: false, mensaje: "Escriba apellidos y nombres (2 a 120 caracteres)." };
+  }
+  return withTx(async (client) => {
+    const r = await client.query("UPDATE mjrv SET apellidos = $2, nombres = $3, actualizado_en = now() WHERE id = $1 RETURNING id", [id, apellidos, nombres]);
+    if (!r.rows[0]) return { ok: false as const, mensaje: "La ficha no existe." };
+    await registrarAuditoria({ portal: actor.portal, actorTipo: actor.tipo, actorId: actor.id, actorNombre: actor.nombre, accion: "mjrv_nombres", entidad: "mjrv", entidadId: id }, client);
+    return { ok: true as const, id };
+  });
+}
+
+// La cédula queda validada cuando el financiero comprobó las dos fotos. Sin fotos no hay nada que validar.
+export async function validarCedula(actor: ActorFicha, id: number): Promise<Resultado> {
+  const lados = (await query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [id])).map((x) => x.lado);
+  if (!lados.includes("anverso") || !lados.includes("reverso")) return { ok: false, mensaje: "Faltan fotos de la cédula. No se puede validar." };
+  return withTx(async (client) => {
+    const r = await client.query("UPDATE mjrv SET cedula_validada_en = coalesce(cedula_validada_en, now()), actualizado_en = now() WHERE id = $1 RETURNING id", [id]);
+    if (!r.rows[0]) return { ok: false as const, mensaje: "La ficha no existe." };
+    await registrarAuditoria({ portal: actor.portal, actorTipo: actor.tipo, actorId: actor.id, actorNombre: actor.nombre, accion: "cedula_validada", entidad: "mjrv", entidadId: id }, client);
+    return { ok: true as const, id };
+  });
+}
+
 // La baja no borra historial: solo bloquea usos nuevos (la puerta responde «bloqueado»).
 export async function cambiarBaja(sesion: Sesion, id: number, baja: boolean, motivo: string): Promise<void> {
   const r = await query("UPDATE mjrv SET activo = $2, baja_motivo = $3, actualizado_en = now() WHERE id = $1 RETURNING id", [id, !baja, baja ? motivo.trim().slice(0, 200) || "Baja administrativa" : null]);

@@ -1,6 +1,6 @@
 // Estado de las 95 juntas (especificación §7.3, §13.5; decisión 9 del 18-11-2026). Puro: sin base de datos.
 import { cubrirCargos, type AsignacionCargo, type Cargo, type PersonaCargo } from "./cargos";
-import type { Serie, ZonaColor } from "./juntas";
+import { ZONA_NOMBRE, ZONAS, type Serie, type ZonaColor } from "./juntas";
 
 export type JuntaEntrada = { id: number; serie: Serie; numero: number; zona: ZonaColor };
 export type PersonaEntrada = PersonaCargo;
@@ -47,6 +47,22 @@ export function calcularMando(juntas: JuntaEntrada[], personas: PersonaEntrada[]
 }
 
 export type Filtro = "faltan" | "transferibles" | "completas" | "todas";
+
+// Infograma, no plano: una faja por color, sin partir en dos filas ni marcar la entrada.
+// Primero la zona con más cargos por cubrir; dentro, la junta con menos vacantes (la que la asignación mira antes) y al final las que ya no piden a nadie.
+export function gruposInfograma(juntas: JuntaMando[]): { zona: ZonaColor; titulo: string; fichas: JuntaMando[] }[] {
+  const porZona = new Map<ZonaColor, JuntaMando[]>();
+  for (const j of juntas) porZona.set(j.zona, [...(porZona.get(j.zona) ?? []), j]);
+  const urgencia = (j: JuntaMando) => (j.vacantes.length === 0 ? 99 : j.vacantes.length);
+  const serie = (j: JuntaMando) => (j.serie === "H" ? 0 : 1);
+  return [...porZona.entries()]
+    .map(([zona, fichas]) => {
+      const ordenadas = [...fichas].sort((a, b) => urgencia(a) - urgencia(b) || serie(a) - serie(b) || a.numero - b.numero);
+      return { zona, titulo: ZONA_NOMBRE[zona], fichas: ordenadas, necesidad: ordenadas.reduce((s, j) => s + j.vacantes.length, 0) };
+    })
+    .sort((a, b) => b.necesidad - a.necesidad || ZONAS.indexOf(a.zona) - ZONAS.indexOf(b.zona))
+    .map(({ zona, titulo, fichas }) => ({ zona, titulo, fichas }));
+}
 
 // «Faltan miembros»: primero a las que les falta un cargo, después dos, después tres (nadie).
 export function filtrarJuntas(juntas: JuntaMando[], filtro: Filtro): JuntaMando[] {

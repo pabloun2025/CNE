@@ -5,8 +5,8 @@ import { LectorQr } from "@/components/lector-qr";
 import { Documentacion } from "./documentacion";
 
 type Ficha = {
-  mjrvId: number; cedula: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
-  anverso: boolean; reverso: boolean; documentosCompletos: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null;
+  mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
+  anverso: boolean; reverso: boolean; documentosCompletos: boolean; cedulaValidada: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null;
   acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
   estado: string; modoPrueba: boolean; otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
 };
@@ -63,6 +63,7 @@ export function Finanzas() {
     return (
       <div className="mx-auto max-w-md space-y-3">
         <p className="text-lg font-bold">Faltan las fotos de la cédula. Tome el anverso y el reverso antes de continuar.</p>
+        <NombrePago ficha={ficha} onListo={() => void cargar(ficha.cedula)} />
         <Documentacion inicial={ficha.cedula} abrirFaltante alCompletar={() => void cargar(ficha.cedula)} />
         <button onClick={() => { setFicha(null); setCedula(""); setMensaje(""); }} className="w-full border-2 border-stone-900 px-4 py-3">Otra persona</button>
       </div>
@@ -90,8 +91,10 @@ export function Finanzas() {
             </p>
           )}
           <div><p className="text-xl font-bold">{ficha.nombre}</p><p>Cédula {ficha.cedula} · {ficha.cargo} · junta {ficha.juntaVigente}{ficha.juntaVigente !== ficha.juntaOrigen ? ` (origen ${ficha.juntaOrigen})` : ""}</p></div>
+          <NombrePago ficha={ficha} onListo={() => void cargar(ficha.cedula)} />
           <ul className="space-y-1">
             <Req ok={ficha.activo} texto="Ficha activa" />
+            <Req ok={ficha.cedulaValidada} texto={ficha.cedulaValidada ? "Cédula validada" : "Cédula sin validar"} />
             <Req ok={ficha.anverso} texto="Documento: anverso" />
             <Req ok={ficha.reverso} texto="Documento: reverso" />
             <Req ok={!ficha.pago} texto="Sin pago previo" />
@@ -127,6 +130,53 @@ export function Finanzas() {
           <button onClick={() => { setFicha(null); setCedula(""); setMensaje(""); }} className="w-full border-2 border-stone-900 px-4 py-3">Otra persona</button>
         </section>
       )}
+    </div>
+  );
+}
+
+function NombrePago({ ficha, onListo }: { ficha: Ficha; onListo: () => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const [apellidos, setApellidos] = useState(ficha.apellidos);
+  const [nombres, setNombres] = useState(ficha.nombres);
+  const [aviso, setAviso] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+  const guardar = async () => {
+    setOcupado(true);
+    try {
+      const r = await fetch("/api/e/finanzas/nombres", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mjrvId: ficha.mjrvId, apellidos, nombres }) });
+      const d = await r.json();
+      setAviso(d.ok ? "Nombre guardado." : d.mensaje ?? "No se pudo guardar.");
+      if (d.ok) { setAbierto(false); onListo(); }
+    } catch { setAviso("No hay conexión."); } finally { setOcupado(false); }
+  };
+  const validar = async () => {
+    setOcupado(true);
+    try {
+      const r = await fetch("/api/e/finanzas/validar-cedula", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mjrvId: ficha.mjrvId }) });
+      const d = await r.json();
+      setAviso(d.ok ? "Cédula validada." : d.mensaje ?? "No se pudo validar.");
+      if (d.ok) onListo();
+    } catch { setAviso("No hay conexión."); } finally { setOcupado(false); }
+  };
+  return (
+    <div className="space-y-2">
+      <p className={ficha.cedulaValidada ? "font-semibold text-green-800" : "font-semibold text-red-700"}>{ficha.cedulaValidada ? "Cédula validada" : "Cédula sin validar"}</p>
+      {abierto ? (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">Apellidos<input value={apellidos} onChange={(e) => setApellidos(e.target.value)} className="mt-1 w-full" /></label>
+          <label className="block text-sm font-medium">Nombres<input value={nombres} onChange={(e) => setNombres(e.target.value)} className="mt-1 w-full" /></label>
+          <div className="flex gap-2">
+            <button type="button" disabled={ocupado} onClick={() => void guardar()} className="bg-stone-900 px-3 py-2 text-white disabled:opacity-60">Guardar nombre</button>
+            <button type="button" disabled={ocupado} onClick={() => setAbierto(false)} className="border-2 border-stone-900 px-3 py-2">Cancelar</button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => { setApellidos(ficha.apellidos); setNombres(ficha.nombres); setAbierto(true); }} className="border-2 border-stone-900 px-3 py-2">Corregir nombre</button>
+          {!ficha.cedulaValidada && <button type="button" disabled={ocupado || !ficha.documentosCompletos} onClick={() => void validar()} className="border-2 border-stone-900 px-3 py-2 disabled:opacity-50">Validar cédula</button>}
+        </div>
+      )}
+      {aviso && <p role="status" className="font-semibold">{aviso}</p>}
     </div>
   );
 }

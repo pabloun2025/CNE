@@ -122,6 +122,7 @@ describe("movimientos con cargos", () => {
     expect(b.mjrvId).toBe(s2);
     expect(await descartarPropuesta(actor, b, "no_viable", "")).toMatchObject({ ok: false });
     expect(await descartarPropuesta(actor, b, "no_viable", "no responde")).toEqual({ ok: true });
+    expect((await consultarDueno("SELECT 1 FROM cne.excepciones_disponibilidad WHERE activa")).length).toBe(0);
     // La primera persona sigue disponible para otros destinos (otras juntas sin nadie); la segunda queda fuera.
     const c = (await propuestaActual())!;
     expect(c.mjrvId).toBe(s1);
@@ -160,5 +161,23 @@ describe("movimientos con cargos", () => {
     expect(await moverManual(actor, { mjrvId: b, destino: "H15", confirmar: false })).toEqual({ ok: true });
     // Mover a «a» (que cubre el vocal) sí pide confirmación: nadie lo reemplazaría.
     expect(await moverManual(actor, { mjrvId: a, destino: "H15", confirmar: false })).toMatchObject({ ok: false, confirmar: true, mensaje: "H7 quedará sin vocal. ¿Continuar?" });
+  });
+
+  it("no contesta suelta el asiento y no quiere no; el hueco no se vuelve a proponer", async () => {
+    const [s1, s2] = await sembrar(2);
+    const a = (await propuestaActual())!;
+    expect(a.mjrvId).toBe(s1);
+    expect(await descartarPropuesta(actor, a, "no_viable", "No contesta")).toEqual({ ok: true });
+    expect((await consultarDueno("SELECT 1 FROM cne.excepciones_disponibilidad WHERE activa AND mjrv_id = $1", [s1])).length).toBe(1);
+    const h7 = (await estadoMando()).juntas.find((j) => j.serie === "H" && j.numero === 7)!;
+    expect(h7.presentes).toBe(4);
+    const b = (await propuestaActual())!;
+    expect(b.mjrvId).toBe(s2);
+    expect(await descartarPropuesta(actor, b, "no_viable", "No quiere")).toEqual({ ok: true });
+    expect((await consultarDueno("SELECT 1 FROM cne.excepciones_disponibilidad WHERE activa")).length).toBe(1);
+    await quitarExcepcion(s1);
+    const c = (await propuestaActual())!;
+    expect(c.mjrvId).toBe(s1);
+    expect(c.destino).not.toBe("H15");
   });
 });

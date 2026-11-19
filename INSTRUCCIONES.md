@@ -290,3 +290,11 @@ El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio. El 
 El QR impreso en la credencial es la cédula. Va sobre el modelo, sin redibujar la tarjeta. (19-11-2026)
 
 No quiere modo prueba. La instalación arranca en modo elección. No se borra la base al cambiar el modo. (19-11-2026, 13:50 Madrid)
+
+La puerta sigue aceptando el QR de la cédula. Si no hay QR, la cámara intenta leer el nombre impreso y, si no puede, se teclea; el nombre se busca en la lista. La generación de la credencial no se toca aquí. (19-11-2026)
+
+El mapa de juntas es un infograma: una faja por color, sin la entrada ni las dos filas del plano. El orden de las fichas pone primero la zona y la junta que aún piden gente para la asignación. (19-11-2026, 10:32 Madrid)
+
+Quien no quiere cubrir un hueco desiste y no se propone para ninguno. Quien no contesta o ya no está no se propone para ese hueco y suelta el asiento. (19-11-2026, 10:36 Madrid)
+
+El financiero corrige apellidos y nombres y ve quién no tiene la cédula validada. Validar exige las dos fotos. No se inventan montos, recintos ni plantillas. (19-11-2026, 10:38 Madrid)

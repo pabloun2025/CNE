@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { filtrarJuntas, type Filtro, type JuntaMando, type Indicadores } from "@/domain/mando";
-import { dosFilas, ZONA_HEX, ZONA_NOMBRE, ZONAS, type ZonaColor } from "@/domain/juntas";
+import { filtrarJuntas, gruposInfograma, type Filtro, type JuntaMando, type Indicadores } from "@/domain/mando";
+import { ZONA_HEX, type ZonaColor } from "@/domain/juntas";
 import { horaCorta, useSondeo } from "./sondeo";
 import { FichaJunta } from "./ficha-junta";
 import { FormIncorporar } from "./form-incorporar";
@@ -24,7 +24,7 @@ export function CentroMando() {
 
   if (!datos) return <p>{falla ? "No se pudo cargar el centro de mando. Reintentando…" : "Cargando…"}</p>;
   const lista = filtrarJuntas(datos.juntas, filtro);
-  const grupos = ZONAS.map((z) => ({ zona: z, titulo: ZONA_NOMBRE[z], filas: dosFilas(lista.filter((j) => j.zona === z).sort((a, b) => a.numero - b.numero)) })).filter((g) => g.filas.length > 0);
+  const grupos = gruposInfograma(lista);
   const i = datos.indicadores;
   return (
     <div className="space-y-3">
@@ -45,20 +45,17 @@ export function CentroMando() {
       {lista.length === 0 && <p>No hay juntas con este filtro.</p>}
       {grupos.map((g) => (
         <section key={g.zona}>
-          {g.zona === "rosado" && <p className="entrada-fila">Entrada</p>}
-          <h2 className="mb-1 mt-2">{g.titulo} ({g.filas.reduce((n, f) => n + f.length, 0)})</h2>
-          {g.filas.map((fila, i) => (
-            <div key={i} className="fila-fichas">
-              {fila.map((j) => (
-                <button key={j.id} onClick={() => setAbierta(j.id)} className="ficha" style={{ background: ZONA_HEX[j.zona], color: TEXTO_ZONA[j.zona], boxShadow: `0 0 0 2px #fff, 0 0 0 5px ${ARO[j.estado]}` }}>
-                  <span className="ficha-serie">{j.serie}</span>
-                  {j.movimiento && <span className="ficha-marca" title="Hubo traslado" aria-label="Hubo traslado">⇄</span>}
-                  <span className="ficha-num">{j.numero}</span>
-                  <span className="ficha-estado">{j.texto}</span>
-                </button>
-              ))}
-            </div>
-          ))}
+          <h2 className="mb-1 mt-2">{g.titulo} ({g.fichas.length})</h2>
+          <div className="fila-fichas">
+            {g.fichas.map((j) => (
+              <button key={j.id} onClick={() => setAbierta(j.id)} className="ficha" style={{ background: ZONA_HEX[j.zona], color: TEXTO_ZONA[j.zona], boxShadow: `0 0 0 2px #fff, 0 0 0 5px ${ARO[j.estado]}` }}>
+                <span className="ficha-serie">{j.serie}</span>
+                {j.movimiento && <span className="ficha-marca" title="Hubo traslado" aria-label="Hubo traslado">⇄</span>}
+                <span className="ficha-num">{j.numero}</span>
+                <span className="ficha-estado">{j.texto}</span>
+              </button>
+            ))}
+          </div>
         </section>
       ))}
       {incorporando && <FormIncorporar juntas={datos.juntas} onCerrar={() => setIncorporando(false)} onCambio={refrescar} />}

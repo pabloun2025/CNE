@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { juntasConVacantes, proponer, type DecisionProp, type JuntaProp, type PersonaProp } from "@/domain/propuestas";
+import { efectoNoViable, juntasConVacantes, proponer, type DecisionProp, type JuntaProp, type PersonaProp } from "@/domain/propuestas";
 
 const J = (id: number, serie: "H" | "M", numero: number, zona: JuntaProp["zona"], orden: number): JuntaProp => ({ id, serie, numero, zona, orden_cercania: orden });
 const juntas = [J(1, "H", 7, "amarillo", 4), J(2, "H", 15, "amarillo", 4), J(3, "H", 30, "azul", 3), J(4, "M", 12, "celeste", 1), J(5, "M", 35, "verde", 5)];
@@ -63,6 +63,23 @@ describe("propuestas de redistribución por cargos", () => {
     const sinNadie = proponer(juntas, personas, [pasada, noViable, { ...noViable, mjrv_id: primera.mjrvId }]);
     expect(sinNadie).toBeNull();
     expect(proponer(juntas, personas, [pasada, { ...noViable, mjrv_id: primera.mjrvId }, { ...noViable, rehabilitada: true }])!.mjrvId).toBe(segunda.mjrvId);
+  });
+
+  it("no quiere cierra todos los huecos; no contesta o ya no está solo cierran ese", () => {
+    expect(efectoNoViable("No quiere")).toBe("desiste");
+    expect(efectoNoViable("Ya no está")).toBe("hueco");
+    expect(efectoNoViable("No contesta")).toBe("hueco");
+    const personas = [...faltaVocal(2), ...faltaVocal(3), ...conSobrantes(1, 2)];
+    const [a, b] = personas.filter((p) => p.rol === "suplente" && p.junta_origen_id === 1);
+    const primera = proponer(juntas, personas, [])!;
+    expect(primera).toMatchObject({ mjrvId: a.id, destino: "H15" });
+    const cierra = (id: number, destino: number, motivo: string): DecisionProp => ({ mjrv_id: id, junta_destino_id: destino, decision: "no_viable", motivo, rehabilitada: false });
+    const trasA = proponer(juntas, personas, [cierra(a.id, primera.destinoId, "No contesta")])!;
+    expect(trasA).toMatchObject({ mjrvId: b.id, destino: "H15" });
+    const trasB = proponer(juntas, personas, [cierra(a.id, primera.destinoId, "Ya no está"), cierra(b.id, trasA.destinoId, "No contesta")])!;
+    expect(trasB).toMatchObject({ mjrvId: a.id, destino: "H30" });
+    expect(proponer(juntas, personas, [cierra(a.id, primera.destinoId, "No quiere"), cierra(b.id, trasA.destinoId, "No contesta")])!.mjrvId).toBe(b.id);
+    expect(proponer(juntas, personas, [cierra(a.id, primera.destinoId, "No quiere"), cierra(b.id, trasB.destinoId, "No quiere")])).toBeNull();
   });
 
   it("no propone a quien tiene excepción o no ha ingresado, ni titulares", () => {

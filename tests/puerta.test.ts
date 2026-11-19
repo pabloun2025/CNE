@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closePools } from "@/server/db";
 import type { SesionEstacion } from "@/server/estaciones";
-import { contadoresPuerta, dejarPasar, normalizarCodigo, registrarLectura } from "@/server/puerta";
+import { normalizarCodigo } from "@/domain/puerta-nombre";
+import { contadoresPuerta, dejarPasar, registrarLectura } from "@/server/puerta";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 let s1: SesionEstacion, s2: SesionEstacion;
@@ -66,5 +67,18 @@ describe("puerta", () => {
 
   it("normaliza espacios y mayúsculas", () => {
     expect(normalizarCodigo(" ab 12 ")).toBe("AB12");
+  });
+
+  it("el nombre encuentra a la persona de la lista y el QR de la cédula sigue valiendo", async () => {
+    const j = "(SELECT id FROM cne.juntas_madrid WHERE serie='H' AND numero=12)";
+    await consultarDueno(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id) VALUES ('0000000004','APELLIDO UNICO','NOMBRE SOLO','VOCAL','vocal',${j})`);
+    expect(await registrarLectura(s1, "0000000004", null)).toMatchObject({ resultado: "valido", nombre: "APELLIDO UNICO, NOMBRE SOLO", junta: "H12" });
+    expect(await registrarLectura(s1, "Apellido Único", null)).toMatchObject({ resultado: "duplicado", nombre: "APELLIDO UNICO, NOMBRE SOLO" });
+    expect(await registrarLectura(s1, "APELLIDO PRUEBA 003", null)).toEqual({ resultado: "bloqueado" });
+    expect(await registrarLectura(s1, "APELLIDO PRUEBA", null)).toEqual({ resultado: "ambiguo" });
+    expect(await registrarLectura(s1, "persona que no existe", null)).toEqual({ resultado: "desconocido" });
+    const antes = (await consultarDueno<{ n: number }>("SELECT count(*)::int AS n FROM cne.lecturas_puerta"))[0].n;
+    expect(await registrarLectura(s1, "APELLIDO PRUEBA NOMBRE PRUEBA", "cam", true)).toBeNull();
+    expect((await consultarDueno<{ n: number }>("SELECT count(*)::int AS n FROM cne.lecturas_puerta"))[0].n).toBe(antes);
   });
 });
