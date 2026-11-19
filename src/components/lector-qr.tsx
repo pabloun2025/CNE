@@ -42,9 +42,10 @@ async function leerNombreImpreso(video: HTMLVideoElement): Promise<string> {
 // «Activar cámara» es un toque del usuario: también desbloquea el audio. No decide nada: entrega el texto leído.
 // leerNombre: en la puerta, si no hay QR, intenta el nombre impreso.
 // encuadre: la puerta usa el visor cuadrado de teinvito. Pago y documentación no.
-export function LectorQr({ onCodigo, onError, leerNombre = false, encuadre = false, children }: { onCodigo: (texto: string, origen?: "qr" | "nombre") => void; onError?: () => void; leerNombre?: boolean; encuadre?: boolean; children?: ReactNode }) {
+// abrirAlEntrar: solo el escáner del financiero intenta la cámara al entrar. La puerta sigue esperando el toque.
+export function LectorQr({ onCodigo, onError, leerNombre = false, encuadre = false, abrirAlEntrar = false, children }: { onCodigo: (texto: string, origen?: "qr" | "nombre") => void; onError?: () => void; leerNombre?: boolean; encuadre?: boolean; abrirAlEntrar?: boolean; children?: ReactNode }) {
   const video = useRef<HTMLVideoElement>(null);
-  const [activa, setActiva] = useState(false);
+  const [activa, setActiva] = useState(abrirAlEntrar);
   const [falloCamara, setFalloCamara] = useState(false);
   const ultimo = useRef("");
   const alCodigo = useRef(onCodigo);

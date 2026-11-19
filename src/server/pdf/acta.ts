@@ -15,6 +15,7 @@ export type DatosActa = {
   pagador: { nombre: string; cargo: string } | null;
   anverso: Buffer;
   reverso: Buffer;
+  firmaReceptor?: Buffer;
 };
 
 // El concepto es el del título del modelo entregado. No se añade otra declaración.
@@ -179,6 +180,10 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
   const lineaFirma = 46 * MM;
   if (y > lineaFirma) y = lineaFirma;
 
+  let firmaImg: PDFImage | null = null;
+  if (d.firmaReceptor) {
+    try { firmaImg = await pdf.embedPng(d.firmaReceptor); } catch { firmaImg = null; }
+  }
   const pag = d.pagador ?? { nombre: "(pendiente)", cargo: "" };
   const firmas: [string, string, string][] = [
     [pag.nombre, pag.cargo, "Firma de quien entrega el pago"],
@@ -192,6 +197,11 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
   };
   firmas.forEach((f, i) => {
     const x = ML + i * (anchoFirma + 12 * MM);
+    if (i === 1 && firmaImg) {
+      const alto = 16 * MM;
+      const anchoImg = Math.min(anchoFirma - 6 * MM, (firmaImg.width / firmaImg.height) * alto);
+      p1.drawImage(firmaImg, { x: x + (anchoFirma - anchoImg) / 2, y: y + 1.5 * MM, width: anchoImg, height: alto });
+    }
     p1.drawLine({ start: { x, y }, end: { x: x + anchoFirma, y }, thickness: 0.8, color: suave });
     centrado(f[0], x, y - 16, bold, 9);
     if (f[1]) centrado(f[1], x, y - 28, normal, 9);

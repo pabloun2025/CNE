@@ -105,13 +105,14 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
     try { await onUsar(previa.blob); repetir(); } finally { setEnviando(false); }
   };
 
+  const marco = (relacion: number) => ({ width: `min(100%, calc((100dvh - 14rem) * ${relacion}))`, maxHeight: "calc(100dvh - 14rem)" });
   if (previa) {
     return (
-      <div className="space-y-3">
-        <p className="font-semibold">{rotulo}: ¿se lee bien?</p>
+      <div className="flex flex-col gap-2">
+        <p className="shrink-0 font-semibold">{rotulo}: ¿se lee bien?</p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={previa.url} alt={`Vista previa del ${rotulo}`} className="w-full rounded border" />
-        <div className="flex gap-3">
+        <img src={previa.url} alt={`Vista previa del ${rotulo}`} className="mx-auto min-h-0 w-full rounded border object-contain" style={marco(ID1)} />
+        <div className="flex shrink-0 gap-3">
           <button disabled={enviando} onClick={usar} className="flex-1 bg-green-800 px-4 py-4 text-lg text-white disabled:opacity-60">Usar esta foto</button>
           <button disabled={enviando} onClick={repetir} className="flex-1 border-2 border-stone-900 px-4 py-4 text-lg">Repetir</button>
         </div>
@@ -119,15 +120,18 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
     );
   }
   const r = recuadro();
+  const relacion = dim.h > 0 ? dim.w / dim.h : 4 / 3;
   return (
-    <div className="space-y-3">
-      <p className="font-semibold">{rotulo}</p>
+    <div className="flex flex-col gap-2">
+      <p className="shrink-0 font-semibold">{rotulo}</p>
       {!sinCamara && (
-        <div className="relative w-full overflow-hidden rounded bg-black" style={{ aspectRatio: `${dim.w} / ${dim.h}` }}>
+        <div className="relative mx-auto w-full overflow-hidden rounded bg-black" style={{ aspectRatio: `${dim.w} / ${dim.h}`, ...marco(relacion) }}>
           <video ref={video} playsInline muted className="h-full w-full object-cover" />
           {lista && <div aria-hidden className="absolute border-4 border-white shadow-[0_0_0_999px_rgba(0,0,0,0.45)]" style={{ left: `${(r.x / dim.w) * 100}%`, top: `${(r.y / dim.h) * 100}%`, width: `${(r.w / dim.w) * 100}%`, height: `${(r.h / dim.h) * 100}%` }} />}
         </div>
       )}
+      {sinCamara && <p role="status" className="text-sm">No se pudo abrir la cámara. Use el botón de abajo para hacer o elegir la foto.</p>}
+      {!sinCamara && <button onClick={tomar} disabled={!lista} className="w-full shrink-0 bg-stone-900 px-4 py-4 text-lg text-white disabled:opacity-60">Tomar foto</button>}
       {!sinCamara && lista && (
         <div className="space-y-1">
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); setProgreso(0); detector.current.reiniciar(); }} className="h-5 w-5" />Captura automática</label>
@@ -139,9 +143,7 @@ export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (ima
           )}
         </div>
       )}
-      {sinCamara && <p role="status" className="text-sm">No se pudo abrir la cámara. Use el botón de abajo para hacer o elegir la foto.</p>}
-      {!sinCamara && <button onClick={tomar} disabled={!lista} className="w-full bg-stone-900 px-4 py-4 text-lg text-white disabled:opacity-60">Tomar foto</button>}
-      <label className="block w-full cursor-pointer border-2 border-stone-900 px-4 py-3 text-center">
+      <label className="block w-full shrink-0 cursor-pointer border-2 border-stone-900 px-4 py-3 text-center">
         {sinCamara ? "Hacer o elegir foto" : "O elegir una foto del teléfono"}
         <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => deArchivo(e.target.files?.[0])} />
       </label>

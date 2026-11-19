@@ -19,7 +19,7 @@ describe("roles de administración", () => {
     const de = (rol: "consul" | "coordinador" | "financiero") => ENLACES_ADMIN.filter((e) => e.roles.includes(rol)).map((e) => e.href);
     expect(de("consul")).toHaveLength(ENLACES_ADMIN.length);
     expect(de("coordinador")).toEqual(["/admin", "/admin/mando"]);
-    expect(de("financiero")).toEqual(["/admin", "/admin/finanzas", "/admin/configuracion", "/admin/informes"]);
+    expect(de("financiero")).toEqual(["/admin", "/admin/finanzas", "/admin/finanzas/pagar", "/admin/finanzas/escanear", "/admin/finanzas/imprimir", "/admin/configuracion", "/admin/informes"]);
   });
 
   it("el inicio del coordinador no lleva pagos y el del financiero no lleva juntas", () => {
