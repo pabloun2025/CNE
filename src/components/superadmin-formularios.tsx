@@ -1,8 +1,8 @@
 "use client";
 
-import { ETIQUETA_ROL, ROLES_ADMIN } from "@/domain/roles";
+import { ETIQUETA_ROL, ROLES_ADMIN, type RolAdmin } from "@/domain/roles";
 import { useActionState } from "react";
-import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
+import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, cambiarRolAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
 const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
 const boton = "rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60";
@@ -26,13 +26,35 @@ export function FormCrearAdmin() {
     <form action={enviar} className="space-y-3">
       <label className="block text-sm font-medium">Correo o nombre de usuario<input name="correo" type="text" autoComplete="off" required className={campo} /></label>
       <label className="block text-sm font-medium">Nombre<input name="nombre" required className={campo} /></label>
-      <label className="block text-sm font-medium">Rol
+      <label className="block text-sm font-medium">Permiso
         <select name="rol" required defaultValue="" className={campo}>
-          <option value="" disabled>Elija un rol</option>
+          <option value="" disabled>Elija un permiso</option>
           {ROLES_ADMIN.map((r) => <option key={r} value={r}>{ETIQUETA_ROL[r]}</option>)}
         </select>
       </label>
+      <label className="block text-sm font-medium">Contraseña inicial (mínimo 8 caracteres)
+        <input name="password" type="password" autoComplete="new-password" required minLength={8} className={campo} />
+      </label>
+      <label className="block text-sm font-medium">Repita la contraseña
+        <input name="repetir" type="password" autoComplete="new-password" required minLength={8} className={campo} />
+      </label>
       <button disabled={pendiente} className={boton}>Crear cuenta</button>
+      <Resultado estado={estado} />
+    </form>
+  );
+}
+
+export function FormCambiarRol({ id, rol }: { id: number; rol: RolAdmin }) {
+  const [estado, enviar, pendiente] = useActionState(cambiarRolAccion, null);
+  return (
+    <form action={enviar} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="id" value={id} />
+      <label className="text-sm font-medium">Permiso
+        <select name="rol" defaultValue={rol} className="mt-1 block rounded border border-slate-400 px-2 py-2 text-sm">
+          {ROLES_ADMIN.map((r) => <option key={r} value={r}>{ETIQUETA_ROL[r]}</option>)}
+        </select>
+      </label>
+      <button disabled={pendiente} className="rounded border border-slate-500 px-3 py-2 text-sm font-medium">Guardar permiso</button>
       <Resultado estado={estado} />
     </form>
   );

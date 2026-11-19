@@ -27,18 +27,17 @@ Producción: **https://madrid.consulado.app** — versión `c6134f4` (main), pub
 | M18–M23, M25 (2FA TOTP obligatoria superadmin, «Borrar datos de prueba y preparar para elección» con respaldo verificado, informe de cierre PDF/Excel, envío de credenciales, inicio admin, captura automática de cédula, matriz de permisos) | Publicado |
 | M24 (reserva en finanzas) | Sustituido por D12 (aviso no bloqueante) |
 | D01–D13 decisiones del 18-11 (importe fijo EUR, «Comprobante de pago», reingreso amarillo, baja = rojo, tres cargos por junta, incorporar votantes, traslados con cargo, línea WhatsApp propia de CNE, cola de envío real con interruptor, enlace `/d` en el mensaje, aviso en finanzas, borrar fotos) | Publicado |
-| C1–C3 cuentas: superadmin `pabloun@gmail.com` con contraseña definida en el primer acceso; roles `consul` / `coordinador` / `financiero`; cuentas `consul`, `coordinador`, `financiero` | Publicado |
+| C1–C3 cuentas: la cuenta `admin` define su contraseña en el primer ingreso; roles `consul` / `coordinador` / `financiero`; las otras cuentas las crea la superadmin | Publicado |
 
 ### Cuentas
 
 | Cuenta | Acceso | Permisos |
 |---|---|---|
-| `pabloun@gmail.com` (superadmin) | `/superadmin/acceso`; la contraseña se define en el primer acceso, luego 2FA obligatoria con 10 códigos de recuperación | Todo |
-| `consul` | `/admin/acceso`, contraseña `Elecciones2026` (decisión expresa de Pablo: sin cambio obligatorio) | Administración completa de Madrid |
-| `coordinador` | ídem | Solo centro de mando |
-| `financiero` | ídem | Solo finanzas, parámetros de pago e informes |
+| superadmin | `/superadmin/acceso` | Todo, incluida la creación de las otras cuentas |
+| `admin` | `/admin/acceso`; el primer ingreso pide definir la contraseña. No se toca esa cuenta ni ese flujo | Administración completa de Madrid (rol cónsul) |
+| cónsul, coordinador, financiero | Los crea la superadmin en `/superadmin`. Ella escribe la contraseña inicial y elige el permiso; puede cambiarlo o desactivar la cuenta | Según el permiso: todo, solo centro de mando, o finanzas e informes |
 
-La contraseña compartida está en `src/server/schema-apply.ts` (constante); se crean solo si no existen. **Verificar con Pablo si ya definió su contraseña de superadmin**: hasta entonces la cuenta queda sin contraseña.
+No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es una cuenta: sigue siendo un enlace revocable.
 
 ### Rutas principales
 
