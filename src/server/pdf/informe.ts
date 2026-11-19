@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } 
 import { A4, MM } from "../../domain/credencial-layout";
 import { COLUMNAS_INFORME, filaComoTexto, horaDeCorte, resumenTotales, type FilaInforme } from "../../domain/informe";
 
-export type DatosInforme = { generadoEn: string; modoPrueba: boolean; totalUsd: string; filas: FilaInforme[] };
+export type DatosInforme = { generadoEn: string; modoPrueba: boolean; totalEur: string; filas: FilaInforme[] };
 
 const latin = (t: string) => t.replace(/[^ -ÿ–—‘’“”•€…]/g, "?");
 
@@ -13,7 +13,7 @@ export async function informeCierrePdf(d: DatosInforme): Promise<Uint8Array> {
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const W = A4.alto * MM, H = A4.ancho * MM, M = 30; // apaisado
   const anchos = [62, 190, 40, 170, 70, 110, 120]; // suma 762 ≤ W - 2M
-  const totales = resumenTotales(d.filas, d.totalUsd);
+  const totales = resumenTotales(d.filas, d.totalEur);
   const negro = rgb(0.1, 0.1, 0.1);
   let page!: PDFPage;
   let y = 0;
@@ -56,7 +56,7 @@ export async function informeCierrePdf(d: DatosInforme): Promise<Uint8Array> {
   page.drawLine({ start: { x: M, y: y + 10 }, end: { x: W - M, y: y + 10 }, thickness: 0.5, color: negro });
   const linea = (t: string, f = normal) => { page.drawText(latin(t), { x: M, y, size: 10, font: f, color: negro }); y -= 14; };
   linea(`Personas: ${totales.personas} · Pagadas: ${totales.pagadas} · Pendientes: ${totales.pendientes}`);
-  linea(`TOTAL ENTREGADO: ${totales.totalUsd} USD (solo pagos confirmados; las actas preparadas no cuentan).`, bold);
+  linea(`TOTAL ENTREGADO: ${totales.totalEur} EUR (solo pagos confirmados; las actas preparadas no cuentan).`, bold);
   if (d.modoPrueba) linea("Informe de PRUEBA: las confirmaciones son simuladas y no implican entrega de dinero.", bold);
   pdf.getPages().forEach((p, i) => p.drawText(`Página ${i + 1} de ${n}`, { x: W - M - 70, y: 14, size: 8, font: normal, color: negro }));
   return pdf.save();

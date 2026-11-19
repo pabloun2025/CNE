@@ -33,7 +33,7 @@ const papel = rgb(0xf7 / 255, 0xf9 / 255, 0xfb / 255);
 
 const latin = (t: string) => t.replace(/[^\u0020-\u00ff\u2013\u2014\u2018\u2019\u201c\u201d\u2022\u20ac\u2026]/g, "?");
 const fechaMadrid = (d: Date) => new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(d);
-const logoBytes = readFileSync(join(process.cwd(), "src/server/pdf/logo-cne.jpg"));
+const logoBytes = Uint8Array.from(readFileSync(join(process.cwd(), "src/server/pdf/logo-cne.jpg")));
 
 function partir(texto: string, f: PDFFont, size: number, ancho: number): string[] {
   const out: string[] = [];
@@ -228,7 +228,7 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
     p2.drawRectangle({ x: ML, y: y2 - altoPanel, width: ancho, height: altoPanel, borderColor: linea, borderWidth: 0.8 });
     p2.drawRectangle({ x: ML, y: y2 - 8 * MM, width: ancho, height: 8 * MM, color: fondo });
     p2.drawText(rotulo, { x: ML + 8, y: y2 - 5.2 * MM, size: 9, font: bold, color: azul });
-    const img: PDFImage = await pdf.embedJpg(buf);
+    const img: PDFImage = await pdf.embedJpg(Uint8Array.from(buf));
     const esc = Math.min((ancho - 8 * MM) / img.width, (altoImg - 4 * MM) / img.height);
     const iw = img.width * esc, ih = img.height * esc;
     p2.drawImage(img, { x: ML + (ancho - iw) / 2, y: y2 - altoPanel + (altoImg - ih) / 2, width: iw, height: ih });

@@ -20,24 +20,27 @@ export default async function Envios() {
     { id: "correo" as const, titulo: "Envío real por correo", encendido: cfg.correoReal, falta: faltaC },
   ];
   return (
-    <main className="mx-auto max-w-3xl space-y-8">
-      <h1 className="text-xl font-semibold">Envíos de credenciales</h1>
-      <p className="rounded bg-slate-100 p-3 text-sm">Claves de envío: WhatsApp {clientes.whatsapp.simulado ? "no" : "sí"}, correo {clientes.correo.simulado ? "no" : "sí"}. Con los interruptores apagados todo es simulado: no sale ningún mensaje.</p>
+    <main className="mx-auto max-w-3xl stack-lg">
+      <h1>Configuración de envíos</h1>
+      <p>Active cada canal cuando esté listo para enviar. Los canales apagados funcionan en simulación.</p>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Línea de WhatsApp de CNE</h2>
+      <section className="card stack">
+        <h2>WhatsApp · Evolution API</h2>
         <LineaWhatsAppPanel inicial={linea} />
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Remitente del correo</h2>
+      <section className="card stack">
+        <h2>Correo · Brevo</h2>
+        {faltaC.length === 0
+          ? <p role="status">Remitente verificado en Brevo.</p>
+          : <ul className="list-disc pl-5 text-sm text-amber-900">{faltaC.map((f) => <li key={f}>{f}</li>)}</ul>}
         <FormRemitente direccion={rem.direccion} nombre={rem.nombre} />
       </section>
 
       {canales.map((c) => (
-        <section key={c.id} className="space-y-3 rounded border p-3">
+        <section key={c.id} className="card stack">
           <h2 className="text-lg font-semibold">{c.titulo}: {c.encendido ? "ENCENDIDO" : "apagado"}</h2>
-          {!c.encendido && c.falta.length > 0 && <ul className="list-disc pl-5 text-sm text-amber-900">{c.falta.map((f) => <li key={f}>{f}</li>)}</ul>}
+          {c.id === "whatsapp" && c.falta.length > 0 && <ul className="list-disc pl-5 text-sm text-amber-900">{c.falta.map((f) => <li key={f}>{f}</li>)}</ul>}
           <FormInterruptor canal={c.id} encendido={c.encendido} />
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
             <div><dt className="text-slate-600">En cola</dt><dd className="font-semibold">{cola[c.id].enCola}</dd></div>

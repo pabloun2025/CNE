@@ -9,7 +9,7 @@ import { consultarDueno, reiniciarBase } from "./helpers/db";
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }), headers: async () => new Headers() }));
 
 // C2 · Roles de la administración de Madrid.
-const resumen = { generado_en: "x", modoPrueba: true, apertura: { preparadas: 1, pendientes: 0, ingresados: 0, total: 3, completas: 0, incompletas: 0, sinNadie: 0 }, pagos: { documentosCompletos: 0, documentosIncompletos: 0, pagados: 0, totalUsd: "0" } } as ResumenAdmin;
+const resumen = { generado_en: "x", modoPrueba: true, apertura: { preparadas: 1, pendientes: 0, ingresados: 0, total: 3, completas: 0, incompletas: 0, sinNadie: 0 }, pagos: { documentosCompletos: 0, documentosIncompletos: 0, pagados: 0, totalEur: "0" } } as ResumenAdmin;
 
 describe("roles de administración", () => {
   beforeAll(() => reiniciarBase({ correo: "super@prueba.cne", password: "clave-super-1" }));
@@ -24,8 +24,8 @@ describe("roles de administración", () => {
 
   it("el inicio del coordinador no lleva pagos y el del financiero no lleva juntas", () => {
     expect(resumenParaRol(resumen, "coordinador")).toMatchObject({ pagos: null, apertura: { total: 3 } });
-    expect(resumenParaRol(resumen, "financiero")).toMatchObject({ apertura: null, pagos: { totalUsd: "0" } });
-    expect(resumenParaRol(resumen, "consul")).toMatchObject({ apertura: { total: 3 }, pagos: { totalUsd: "0" } });
+    expect(resumenParaRol(resumen, "financiero")).toMatchObject({ apertura: null, pagos: { totalEur: "0" } });
+    expect(resumenParaRol(resumen, "consul")).toMatchObject({ apertura: { total: 3 }, pagos: { totalEur: "0" } });
   });
 
   it("la superadmin elige el rol y la contraseña al crear la cuenta; sin rol válido no se crea; admite nombre de usuario", async () => {

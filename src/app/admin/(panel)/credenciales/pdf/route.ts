@@ -10,7 +10,8 @@ export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   const alcance = (q.get("alcance") || (q.get("ids") ? "ids" : "todas")) as Seleccion["alcance"];
   if (!["ids", "todas", "junta", "zona", "sin_generar"].includes(alcance)) return new Response("Alcance no válido", { status: 400 });
-  const ids = (q.get("ids") ?? "").split(",").map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 3000);
+  const ids = [...new Set(q.getAll("ids").flatMap((valor) => valor.split(",")).map(Number))]
+    .filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 3000);
   const sel = await seleccionarParaCredencial({ alcance, valor: q.get("valor") ?? undefined, ids });
   if (sel.datos.length === 0) {
     return new Response(sel.sinRotulo ? `Falta el rótulo de credencial de ${sel.sinRotulo} personas.` : "No hay fichas que imprimir con ese criterio.", { status: 422 });

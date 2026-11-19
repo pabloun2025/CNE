@@ -6,6 +6,7 @@ import { guardarDocumento } from "@/server/documentos";
 import type { SesionEstacion } from "@/server/estaciones";
 import { confirmarPago, generarActa } from "@/server/finanzas";
 import { resumenFinanzas } from "@/server/finanzas-resumen";
+import { resumenAdmin } from "@/server/resumen-admin";
 import { corregirNombres, validarCedula } from "@/server/mjrv";
 import * as XLSX from "xlsx";
 import { informeCierreExcel } from "@/server/informe-excel";
@@ -37,30 +38,31 @@ describe("panel financiero", () => {
 
   it("generar actas no cambia «pagados» ni el total; confirmar sí", async () => {
     let r = await resumenFinanzas();
-    expect(r).toMatchObject({ pagados: 0, pendientes: 3, documentacionIncompleta: 1, totalUsd: "0", modoPrueba: true });
+    expect(r).toMatchObject({ pagados: 0, pendientes: 3, documentacionIncompleta: 1, totalEur: "0", modoPrueba: true });
     await generarActa(s, ids[0], true);
     await generarActa(s, ids[1], true);
     r = await resumenFinanzas();
-    expect(r).toMatchObject({ pagados: 0, pendientes: 3, totalUsd: "0" });
+    expect(r).toMatchObject({ pagados: 0, pendientes: 3, totalEur: "0" });
     expect(r.filas.filter((f) => f.estado === "acta_preparada")).toHaveLength(2);
     const [acta] = await consultarDueno<{ id: number }>("SELECT id FROM cne.actas_pago WHERE mjrv_id = $1", [ids[0]]);
     await confirmarPago(s, { mjrvId: ids[0], actaId: acta.id, verificado: true });
     r = await resumenFinanzas();
-    expect(r).toMatchObject({ pagados: 1, pendientes: 2, totalUsd: "100.00", documentacionIncompleta: 1 });
+    expect(r).toMatchObject({ pagados: 1, pendientes: 2, totalEur: "55.00", documentacionIncompleta: 1 });
     const pagada = r.filas.find((f) => f.estado === "pagada")!;
-    expect(pagada).toMatchObject({ usd: "100.00", operador: "Fin Prueba", simulado: true, junta: "H1" });
+    expect(pagada).toMatchObject({ eur: "55.00", operador: "Fin Prueba", simulado: true, junta: "H1" });
   });
 
   it("el total suma solo confirmaciones", async () => {
     const [acta] = await consultarDueno<{ id: number }>("SELECT id FROM cne.actas_pago WHERE mjrv_id = $1", [ids[1]]);
     await confirmarPago(s, { mjrvId: ids[1], actaId: acta.id, verificado: true });
-    expect((await resumenFinanzas()).totalUsd).toBe("200.00");
+    expect((await resumenFinanzas()).totalEur).toBe("110.00");
+    expect((await resumenAdmin()).pagos.totalEur).toBe("110.00");
     expect((await resumenFinanzas()).filas.map((f) => f.estado)).toEqual(["documentacion_incompleta", "pagada", "pagada"]);
   });
 
   it("informe de cierre: PDF y Excel con las mismas filas, total solo de confirmados y sin fotos", async () => {
     const r = await resumenFinanzas();
-    const datos = { generadoEn: r.generado_en, modoPrueba: r.modoPrueba, totalUsd: r.totalUsd, filas: r.filas };
+    const datos = { generadoEn: r.generado_en, modoPrueba: r.modoPrueba, totalEur: r.totalEur, filas: r.filas };
     const pdf = Buffer.from(await informeCierrePdf(datos));
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     const xlsx = informeCierreExcel(datos);
@@ -68,11 +70,11 @@ describe("panel financiero", () => {
     const filas = XLSX.utils.sheet_to_json<(string | number)[]>(hoja, { header: 1, blankrows: false });
     const cabecera = filas.findIndex((f) => f[0] === "Cédula");
     const datosFilas = filas.slice(cabecera + 1, cabecera + 1 + 3);
-    expect(filas[cabecera]).toEqual(["Cédula", "Persona", "Junta", "Condición", "USD", "Momento (Madrid)", "Operador pagador"]);
+    expect(filas[cabecera]).toEqual(["Cédula", "Persona", "Junta", "Condición", "EUR", "Momento (Madrid)", "Operador pagador"]);
     expect(datosFilas.map((f) => f[0]).sort()).toEqual(["0000000001", "0000000002", "0000000003"]); // cédula como texto
     expect(datosFilas.every((f) => typeof f[0] === "string" && String(f[0]).startsWith("0000"))).toBe(true);
     expect(datosFilas.filter((f) => String(f[3]) === "Pagada")).toHaveLength(2);
-    expect(filas.find((f) => String(f[0]).startsWith("TOTAL"))?.[1]).toBe(200);
+    expect(filas.find((f) => String(f[0]).startsWith("TOTAL ENTREGADO EUR"))?.[1]).toBe(110);
     expect(filas.some((f) => String(f[0]).includes("PRUEBA"))).toBe(true); // marca de informe de prueba
   });
 

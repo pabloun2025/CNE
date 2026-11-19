@@ -6,7 +6,7 @@ const momento = (t: string | null) => (t ? new Intl.DateTimeFormat("es-ES", { ti
 
 // Excel del informe de cierre: cédula como texto (conserva ceros) e importes como números.
 export function informeCierreExcel(d: DatosInforme): Buffer {
-  const t = resumenTotales(d.filas, d.totalUsd);
+  const t = resumenTotales(d.filas, d.totalEur);
   const num = (v: string | null) => (v === null || v === "" ? "" : Number(v));
   const filas: (string | number)[][] = [
     ["Informe de cierre de finanzas · Madrid"],
@@ -14,10 +14,10 @@ export function informeCierreExcel(d: DatosInforme): Buffer {
     ...(d.modoPrueba ? [["INFORME DE PRUEBA — SIN VALIDEZ: confirmaciones simuladas"]] : []),
     [],
     [...COLUMNAS_INFORME],
-    ...d.filas.map((f) => [f.cedula, f.nombre, f.junta, ESTADO_INFORME[f.estado] ?? f.estado, num(f.usd), momento(f.hora), f.operador ?? ""]),
+    ...d.filas.map((f) => [f.cedula, f.nombre, f.junta, ESTADO_INFORME[f.estado] ?? f.estado, num(f.eur), momento(f.hora), f.operador ?? ""]),
     [],
     ["Personas", t.personas], ["Pagadas", t.pagadas], ["Pendientes", t.pendientes],
-    ["TOTAL ENTREGADO USD (solo pagos confirmados)", Number(t.totalUsd)],
+    ["TOTAL ENTREGADO EUR (solo pagos confirmados)", Number(t.totalEur)],
   ];
   const hoja = XLSX.utils.aoa_to_sheet(filas);
   hoja["!cols"] = [14, 36, 8, 34, 14, 20, 24].map((wch) => ({ wch }));

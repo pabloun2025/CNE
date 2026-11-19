@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
 import jsQR from "jsqr";
-import { PDFDocument } from "pdf-lib";
+import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
@@ -39,6 +39,14 @@ describe("PDF de credenciales", () => {
   it("nombres largos y caracteres fuera de WinAnsi no rompen la generación", async () => {
     const bytes = await credencialesIndividuales([ficha(1, { apellidos: "DE LA CRUZ Y FERNÁNDEZ-ESPINOSA DE LOS MONTEROS Ω", nombres: "MARÍA DEL CARMEN JOSEFA", rotulo: "M54", cargo: "VOCAL SUPLENTE TERCERO" })]);
     expect(bytes.length).toBeGreaterThan(1000);
+  });
+
+  it("la última hoja solo tiene guías de corte para las credenciales que contiene", async () => {
+    const pdf = await PDFDocument.load(await hojasA4(Array.from({ length: 11 }, (_, i) => ficha(i + 1))));
+    const contenido = pdf.getPage(1).node.Contents();
+    const flujo = contenido instanceof PDFArray ? contenido.lookup(0, PDFRawStream) : contenido instanceof PDFRawStream ? contenido : undefined;
+    expect(flujo).toBeDefined();
+    expect(inflateSync(flujo!.getContents()).toString("ascii").match(/\bd\n/g)).toHaveLength(1);
   });
 
   it("sale del modelo y el QR impreso es la cédula", async () => {

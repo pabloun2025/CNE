@@ -18,20 +18,20 @@ const negro = rgb(0, 0, 0);
 const blanco = rgb(1, 1, 1);
 
 // En el PDF van en este orden: logotipo, credencial de hombres, credencial de mujeres.
-function imagenesDelModelo(): [Buffer, Buffer, Buffer] {
+function imagenesDelModelo(): [Uint8Array, Uint8Array, Uint8Array] {
   const d = readFileSync(path.join(process.cwd(), RUTA_MODELO_CREDENCIAL));
-  const out: Buffer[] = [];
+  const out: Uint8Array[] = [];
   let i = 0;
   while (out.length < 3) {
     const s = d.indexOf(Buffer.from([0xff, 0xd8, 0xff]), i);
     const e = s < 0 ? -1 : d.indexOf(Buffer.from([0xff, 0xd9]), s + 2);
     if (s < 0 || e < 0) break;
-    // Copia propia: pdf-lib lee el JPEG desde el inicio del buffer.
-    out.push(Buffer.from(d.subarray(s, e + 2)));
+    // pdf-lib ignora el desplazamiento que puede tener un Buffer de Node.
+    out.push(Uint8Array.from(d.subarray(s, e + 2)));
     i = e + 2;
   }
   if (out.length < 3) throw new Error("El modelo de credencial no trae el logotipo y las dos credenciales.");
-  return out as [Buffer, Buffer, Buffer];
+  return out as [Uint8Array, Uint8Array, Uint8Array];
 }
 
 function ajustar(texto: string, fuente: PDFFont, ancho: number, max: number, min: number, lineas: number): { size: number; lineas: string[] } {
@@ -145,7 +145,7 @@ export async function credencialesIndividuales(datos: DatosCredencial[]): Promis
   return (await documentoDeCredenciales(datos)).save();
 }
 
-// Hojas A4 con 10 credenciales giradas 90°, líneas de corte grises de 0,2 pt en los bordes de cada hueco.
+// Hasta 10 credenciales giradas 90° en A4. Solo se marcan los cortes de las credenciales impresas.
 export async function hojasA4(datos: DatosCredencial[]): Promise<Uint8Array> {
   const tarjetas = await PDFDocument.load(await (await documentoDeCredenciales(datos)).save());
   const hoja = await PDFDocument.create();
@@ -156,8 +156,10 @@ export async function hojasA4(datos: DatosCredencial[]): Promise<Uint8Array> {
     const page = hoja.addPage([A4.ancho * MM, alto]);
     huecos.forEach((h, i) => {
       const e = embebidas[inicio + i];
-      if (e) page.drawPage(e, { x: (h.x + h.w) * MM, y: alto - (h.y + h.h) * MM, width: CR80.ancho * MM, height: CR80.alto * MM, rotate: degrees(90) });
-      page.drawRectangle({ x: h.x * MM, y: alto - (h.y + h.h) * MM, width: h.w * MM, height: h.h * MM, borderColor: rgb(0.6, 0.6, 0.6), borderWidth: 0.2 });
+      if (!e) return;
+      const x = h.x * MM, y = alto - (h.y + h.h) * MM;
+      page.drawPage(e, { x: x + h.w * MM, y, width: CR80.ancho * MM, height: CR80.alto * MM, rotate: degrees(90) });
+      page.drawRectangle({ x, y, width: h.w * MM, height: h.h * MM, borderColor: rgb(0.42, 0.42, 0.42), borderDashArray: [3, 2], borderWidth: 0.5 });
     });
   }
   return hoja.save();

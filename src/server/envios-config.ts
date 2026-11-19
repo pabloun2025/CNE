@@ -60,6 +60,13 @@ export async function impedimentos(canal: CanalEnvio, clientes: Clientes = clien
     if (clientes.correo.simulado) falta.push("Falta la clave de Brevo en el servidor.");
     const r = remitenteEfectivo(c);
     if (!EMAIL.test(r.direccion)) falta.push("Falta la dirección del remitente del correo.");
+    else if (!clientes.correo.simulado) {
+      try {
+        if (!(await clientes.correo.verificarRemitente(r.direccion))) falta.push("La dirección no es un remitente activo en Brevo.");
+      } catch {
+        falta.push("No se pudo verificar el remitente en Brevo. Revise la clave y la conexión.");
+      }
+    }
     if (!r.nombre) falta.push("Falta el nombre del remitente del correo.");
   }
   return falta;

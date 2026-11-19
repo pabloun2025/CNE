@@ -90,6 +90,17 @@ describe("cliente de Evolution API (instancia propia cne-madrid)", () => {
 });
 
 describe("cliente de Brevo", () => {
+  it("comprueba por lectura que el remitente está activo sin enviar un correo", async () => {
+    const { f, llamadas } = falso([{ status: 200, json: { senders: [
+      { email: "activa@ejemplo.invalid", active: true }, { email: "inactiva@ejemplo.invalid", active: false },
+    ] } }]);
+    const c = new BrevoHttp({ apiKey: CLAVE, fetch: f });
+    expect(await c.verificarRemitente("Activa@ejemplo.invalid")).toBe(true);
+    expect(await c.verificarRemitente("inactiva@ejemplo.invalid")).toBe(false);
+    expect(llamadas.map(({ method, url }) => [method, url])).toEqual([
+      ["GET", "https://api.brevo.com/v3/senders"], ["GET", "https://api.brevo.com/v3/senders"],
+    ]);
+  });
   const correo = { para: "persona@ejemplo.invalid", asunto: "Asunto", texto: "Hola <b>", remitente: { nombre: "Nombre", direccion: "remitente@ejemplo.invalid" }, adjunto: { nombre: "c.pdf", base64: "UERG" } };
   it("POST a /v3/smtp/email con api-key, remitente, adjunto y texto escapado en el html", async () => {
     const { f, llamadas } = falso([{ status: 201, json: { messageId: "<id@brevo>" } }]);
