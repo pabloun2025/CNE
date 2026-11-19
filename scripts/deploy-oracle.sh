@@ -51,7 +51,7 @@ if [ "$ACCION" = revertir ]; then
 fi
 
 test -f "$BOOTSTRAP_FILE"
-install -d -m 700 "$APP_DIR/backups" "$APP_DIR/backups/pre-despliegue"
+install -d -m 700 "$APP_DIR/backups" "$APP_DIR/backups/pre-despliegue" "$APP_DIR/backups/preparar"
 chmod 700 "$APP_DIR/backups"
 
 python3 - "$BOOTSTRAP_FILE" "$ENV_FILE" "${CONSULARES_DIR:-/home/ubuntu/consulares}" <<'PY'
@@ -165,6 +165,9 @@ if docker image inspect cne:local >/dev/null 2>&1; then
 fi
 
 dc build cne-app
+# La aplicación corre como usuario cne: la carpeta del respaldo tiene que ser suya.
+owner=$(docker run --rm --entrypoint sh cne:local -c 'printf "%s:%s" "$(id -u)" "$(id -g)"')
+chown "$owner" "$APP_DIR/backups/preparar"
 dc up -d cne-postgres
 dc run --rm cne-migrate
 dc up -d cne-app

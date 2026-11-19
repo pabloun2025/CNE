@@ -3,7 +3,7 @@ import { cedulaEcuatorianaValida, normalizarFilas, rolDeCargo } from "@/domain/i
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
 import { aplicarImportacion, leerArchivo, prepararVista } from "@/server/importar-mjrv";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const fila = (o: Record<string, unknown> = {}) => ({ cedula: "0000000001", apellidos: "APELLIDO PRUEBA 001", nombres: "NOMBRE PRUEBA", cargo: "Presidente", serie: "H", junta: 12, correo: "", telefono: "", ...o });
@@ -53,10 +53,13 @@ describe("dominio de la importación de MJRV", () => {
 });
 
 const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
-function excel(filas: object[]): Buffer {
-  const libro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), "MJRV");
-  return Buffer.from(XLSX.write(libro, { type: "buffer", bookType: "xlsx" }));
+async function excel(filas: object[]): Promise<Buffer> {
+  const libro = new ExcelJS.Workbook();
+  const hoja = libro.addWorksheet("MJRV");
+  const claves = Object.keys(filas[0] ?? {});
+  hoja.addRow(claves);
+  for (const f of filas) hoja.addRow(claves.map((k) => (f as Record<string, unknown>)[k] ?? ""));
+  return Buffer.from(await libro.xlsx.writeBuffer());
 }
 
 describe("importación de MJRV contra la base (todo o nada)", () => {
@@ -67,18 +70,18 @@ describe("importación de MJRV contra la base (todo o nada)", () => {
   afterAll(closePools);
 
   it("un archivo con errores no se aplica y no escribe nada", async () => {
-    const archivo = excel([fila(), fila({ cedula: "0000000002", junta: 42 })]);
+    const archivo = await excel([fila(), fila({ cedula: "0000000002", junta: 42 })]);
     const r = await aplicarImportacion(sesion, archivo, "malo.xlsx", []);
     expect(r.ok).toBe(false);
     expect((await consultarDueno("SELECT 1 FROM cne.mjrv")).length).toBe(0);
   });
 
   it("un archivo válido se aplica entero y una reimportación actualiza por cédula", async () => {
-    const archivo = excel([fila(), fila({ cedula: "0000000002", cargo: "Vocal", telefono: "612345678", junta: 12 })]);
+    const archivo = await excel([fila(), fila({ cedula: "0000000002", cargo: "Vocal", telefono: "612345678", junta: 12 })]);
     expect(await aplicarImportacion(sesion, archivo, "ok.xlsx", [])).toMatchObject({ ok: true, nuevas: 2, actualizadas: 0 });
     const [m] = await consultarDueno<{ es_prueba: boolean; fuente_archivo: string; fila_origen: number; telefono_e164: string }>("SELECT es_prueba, fuente_archivo, fila_origen, telefono_e164 FROM cne.mjrv WHERE cedula = '0000000002'");
     expect(m).toEqual({ es_prueba: false, fuente_archivo: "ok.xlsx", fila_origen: 3, telefono_e164: "+34612345678" });
-    const segundo = excel([fila({ apellidos: "APELLIDO CAMBIADO" })]);
+    const segundo = await excel([fila({ apellidos: "APELLIDO CAMBIADO" })]);
     const vista = await prepararVista(segundo, "segundo.xlsx");
     expect(vista.ausentes.map((a) => a.cedula)).toEqual(["0000000002"]);
     expect(await aplicarImportacion(sesion, segundo, "segundo.xlsx", [])).toMatchObject({ ok: true, nuevas: 0, actualizadas: 1 });
@@ -91,7 +94,7 @@ describe("importación de MJRV contra la base (todo o nada)", () => {
   });
 
   it("lee CSV", async () => {
-    const filas = leerArchivo(Buffer.from("cedula,apellidos,nombres,cargo,serie,junta\n0000000009,A,B,Vocal,M,3\n"), "x.csv");
+    const filas = await leerArchivo(Buffer.from("cedula,apellidos,nombres,cargo,serie,junta\n0000000009,A,B,Vocal,M,3\n"), "x.csv");
     expect(filas[0].cedula).toBe("0000000009");
   });
 });
@@ -128,9 +131,9 @@ describe("D02 · rótulo del Excel y nomenclatura M/F", () => {
   it("reimportar sin rótulo no pisa con NULL el rótulo ya guardado", async () => {
     await reiniciarBase();
     await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash) VALUES ('madrid_admin','a@x.y','A','x')");
-    const con = excel([fila({ "Rótulo": "ROT-1" })]);
+    const con = await excel([fila({ "Rótulo": "ROT-1" })]);
     await aplicarImportacion(sesion, con, "con.xlsx", []);
-    await aplicarImportacion(sesion, excel([fila()]), "sin.xlsx", []);
+    await aplicarImportacion(sesion, await excel([fila()]), "sin.xlsx", []);
     expect((await consultarDueno<{ rotulo_credencial: string }>("SELECT rotulo_credencial FROM cne.mjrv"))[0].rotulo_credencial).toBe("ROT-1");
     await closePools();
   });

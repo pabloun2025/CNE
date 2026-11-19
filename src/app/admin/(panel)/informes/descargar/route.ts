@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const r = await resumenFinanzas();
   const datos = { generadoEn: r.generado_en, modoPrueba: r.modoPrueba, totalUsd: r.totalUsd, filas: r.filas };
   const sello = r.generado_en.slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
-  const cuerpo = formato === "pdf" ? Buffer.from(await informeCierrePdf(datos)) : informeCierreExcel(datos);
+  const cuerpo = formato === "pdf" ? Buffer.from(await informeCierrePdf(datos)) : await informeCierreExcel(datos);
   return new Response(new Uint8Array(cuerpo), {
     headers: {
       "content-type": formato === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
