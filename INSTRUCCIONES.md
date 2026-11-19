@@ -300,3 +300,5 @@ Quien no quiere cubrir un hueco desiste y no se propone para ninguno. Quien no c
 El financiero corrige apellidos y nombres y ve quién no tiene la cédula validada. Validar exige las dos fotos. No se inventan montos, recintos ni plantillas. (19-11-2026, 10:38 Madrid)
 
 El usuario de acceso es admin, no un correo. En /admin/acceso el primer ingreso pide definir la contraseña. Una contraseña vacía no entra. (19-11-2026, 14:35 Madrid)
+
+La superadmin crea las otras cuentas en su pantalla y elige el permiso de cada una: cónsul, coordinador o financiero. Puede cambiar ese permiso después y desactivar la cuenta. La contraseña inicial la escribe ella al crear la cuenta; no hay usuarios ni contraseñas de fábrica. La cuenta admin, su contraseña y el primer ingreso no se tocan. La puerta no es una cuenta: sigue siendo un enlace que se puede revocar. (19-11-2026)

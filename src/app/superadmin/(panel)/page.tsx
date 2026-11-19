@@ -1,4 +1,4 @@
-import { FormBorrarFotos, FormCrearAdmin, FormDemo, FormModo, FormPreparar, FormRestablecer } from "@/components/superadmin-formularios";
+import { FormBorrarFotos, FormCambiarRol, FormCrearAdmin, FormDemo, FormModo, FormPreparar, FormRestablecer } from "@/components/superadmin-formularios";
 import { ETIQUETA_ROL } from "@/domain/roles";
 import { leerModo } from "@/server/config";
 import { contarDemo } from "@/server/demo";
@@ -45,6 +45,7 @@ export default async function SuperInicio() {
 
       <section>
         <h2 className="text-lg font-semibold">Cuentas de administración Madrid</h2>
+        <p className="mt-1 text-sm">Cree las cuentas de cónsul, coordinador y financiero, y elija el permiso de cada una. Usted escribe la contraseña inicial. La puerta no es una cuenta: sigue siendo un enlace que se puede revocar.</p>
         {admins.length === 0 && <p className="mt-2">Aún no hay cuentas. Cree la primera.</p>}
         <ul className="mt-2 divide-y">
           {admins.map((a) => (
@@ -52,6 +53,7 @@ export default async function SuperInicio() {
               <p className="font-medium">{a.nombre} <span className="font-normal text-slate-600">· {a.correo}</span></p>
               <p className="text-sm">{ETIQUETA_ROL[a.rol]} · {a.activo ? "Activa" : "Desactivada"}{a.debe_cambiar ? " · debe cambiar la contraseña" : ""}</p>
               <div className="flex flex-wrap items-start gap-2">
+                <FormCambiarRol key={`${a.id}-${a.rol}`} id={a.id} rol={a.rol} />
                 <form action={activarAdminAccion}>
                   <input type="hidden" name="id" value={a.id} />
                   <input type="hidden" name="activo" value={a.activo ? "0" : "1"} />

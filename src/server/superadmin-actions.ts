@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSuperadmin } from "./guard";
-import { activarAdmin, cambiarModo, crearAdmin, restablecerAdmin } from "./superadmin";
+import { activarAdmin, cambiarModo, cambiarRolAdmin, crearAdmin, restablecerAdmin } from "./superadmin";
 import type { Modo } from "./config";
 import { cargarDemo, quitarDemo } from "./demo";
 import { prepararEleccion } from "./preparar-eleccion";
@@ -15,9 +15,16 @@ export type EstadoSuper = { error?: string; aviso?: string; password?: string; e
 
 export async function crearAdminAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
-  const r = await crearAdmin(sesion, String(f.get("correo") ?? ""), String(f.get("nombre") ?? ""), String(f.get("rol") ?? ""));
+  const r = await crearAdmin(sesion, String(f.get("correo") ?? ""), String(f.get("nombre") ?? ""), String(f.get("rol") ?? ""), String(f.get("password") ?? ""), String(f.get("repetir") ?? ""));
   revalidatePath("/superadmin");
-  return r.ok ? { aviso: "Cuenta creada. Entregue esta contraseña temporal; no se vuelve a mostrar.", password: r.password } : { error: r.mensaje };
+  return r.ok ? { aviso: "Cuenta creada. La persona entra con el usuario y la contraseña que usted definió." } : { error: r.mensaje };
+}
+
+export async function cambiarRolAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const r = await cambiarRolAdmin(sesion, Number(f.get("id")), String(f.get("rol") ?? ""));
+  revalidatePath("/superadmin");
+  return r.ok ? { aviso: "Permiso actualizado." } : { error: r.mensaje };
 }
 
 export async function restablecerAdminAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
