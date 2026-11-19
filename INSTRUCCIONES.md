@@ -276,3 +276,5 @@ Si una persona no quiere cubrir un hueco, desiste de su deber y no se propone pa
 La cuenta de financiero sí entra. En el pago hay varias sesiones abiertas en laptops para imprimir recibos y pagar. El financiero corrige nombres de MJRV a mano, ve quién no tiene la cédula validada y los faltantes, hace las tareas previas al pago, genera los recibos e imprime los expedientes. (19-11-2026, 10:38 Madrid)
 
 Al pagar se escanea el QR del MJRV. Si no hay foto de la cédula guardada, el pago no se activa y el financiero puede capturarla en ese momento. Si ese QR ya se pagó, se alerta. Si otra persona está haciendo el mismo pago, no deja. (19-11-2026, 10:40 Madrid)
+
+Una credencial se puede revocar, como una entrada en teinvito, si no consta en la lista de MJRV aprobada. Hay un panel con la lista de MJRV activos y, de forma simple, se les revoca el acceso. En la puerta una credencial revocada no pasa. (19-11-2026, 10:46 Madrid)
