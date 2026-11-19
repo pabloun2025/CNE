@@ -9,39 +9,21 @@ import { hashPassword } from "./passwords";
 const RAIZ = process.cwd();
 const leer = (...partes: string[]) => readFileSync(path.join(RAIZ, ...partes), "utf8");
 
-// Correo de la superadmin (Pablo). Un SUPERADMIN_EMAIL antiguo con el valor por defecto de antes se ignora.
-export const CORREO_SUPERADMIN = "pabloun@gmail.com";
-const CORREO_ANTIGUO = "superadmin@cne.local";
-export function correoSuperadmin(): string {
-  const env = (process.env.SUPERADMIN_EMAIL || "").trim().toLowerCase();
-  return env && env !== CORREO_ANTIGUO ? env : CORREO_SUPERADMIN;
-}
+// El usuario de acceso es «admin», no un correo. Entra por la administración de Madrid.
+export const CORREO_ADMIN = "admin";
 
-export type ResultadoPreparar = { esquemaNuevo: boolean; migraciones: string[]; juntas: number; superadminCreada: boolean; cuentasMadridCreadas: number };
+export type ResultadoPreparar = { esquemaNuevo: boolean; migraciones: string[]; juntas: number; superadminCreada: boolean; adminCreada: boolean; cuentasMadridCreadas: number };
 
-// La superadmin pasa al correo indicado. Al cambiar el correo, la contraseña queda pendiente de definir
-// en el primer acceso y se cierran las sesiones. Si no hay ninguna, se crea igual. Repetir el arranque no la vuelve a dejar pendiente.
-export async function asegurarSuperadmin(cliente: Client, correo: string): Promise<"creada" | "convertida" | "sin_cambios"> {
-  const filas = (await cliente.query("SELECT id, correo FROM cne.usuarios WHERE tipo = 'superadmin' ORDER BY id")).rows;
-  if (filas.length === 0) {
-    await cliente.query(
-      "INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, password_pendiente, debe_cambiar) VALUES ('superadmin', $1, 'Superadministración', NULL, true, false) ON CONFLICT (correo) DO NOTHING",
-      [correo],
-    );
-    return "creada";
-  }
-  if (filas.some((f) => f.correo === correo)) return "sin_cambios";
-  const f = filas[0];
-  await cliente.query("BEGIN");
-  try {
-    await cliente.query("UPDATE cne.usuarios SET correo = $1, password_hash = NULL, password_pendiente = true, fallos = 0, bloqueado_hasta = NULL WHERE id = $2", [correo, f.id]);
-    await cliente.query("UPDATE cne.sesiones SET revocada_en = now() WHERE usuario_id = $1 AND revocada_en IS NULL", [f.id]);
-    await cliente.query("COMMIT");
-  } catch (error) {
-    await cliente.query("ROLLBACK");
-    throw error;
-  }
-  return "convertida";
+// Si la cuenta no existe, se crea sin contraseña guardada. El primer ingreso muestra el formulario
+// para definirla; una contraseña vacía no abre sesión. Si ya existe, no se toca.
+export async function asegurarAdminPablo(cliente: Client): Promise<boolean> {
+  const r = await cliente.query(
+    `INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, password_pendiente, debe_cambiar, rol)
+     VALUES ('madrid_admin', $1, 'Administración', NULL, true, false, 'consul')
+     ON CONFLICT (correo) DO NOTHING`,
+    [CORREO_ADMIN],
+  );
+  return (r.rowCount ?? 0) > 0;
 }
 
 // Cuentas de administración de Madrid (C3): se crean solo si faltan; si ya existen no se toca nada (ni contraseña ni estado).
@@ -81,7 +63,7 @@ export async function prepararBase(opciones: { url?: string; superadmin?: { corr
   await cliente.connect();
   try {
     await cliente.query("SELECT pg_advisory_lock(4242)");
-    const resultado: ResultadoPreparar = { esquemaNuevo: false, migraciones: [], juntas: 0, superadminCreada: false, cuentasMadridCreadas: 0 };
+    const resultado: ResultadoPreparar = { esquemaNuevo: false, migraciones: [], juntas: 0, superadminCreada: false, adminCreada: false, cuentasMadridCreadas: 0 };
 
     const existe = await cliente.query("SELECT to_regnamespace('cne') IS NOT NULL AS existe");
     if (!existe.rows[0].existe) {
@@ -121,7 +103,8 @@ export async function prepararBase(opciones: { url?: string; superadmin?: { corr
       // Camino de las pruebas: superadmin con contraseña explícita, sin conversión.
       const hay = await cliente.query("SELECT 1 FROM cne.usuarios WHERE tipo = 'superadmin' LIMIT 1");
       if (hay.rowCount === 0) {
-        const correo = (opciones.superadmin.correo || correoSuperadmin()).trim().toLowerCase();
+        const correo = (opciones.superadmin.correo || "").trim().toLowerCase();
+        if (!correo) throw new Error("Falta el correo de la superadmin de prueba.");
         await cliente.query(
           "INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar) VALUES ('superadmin', $1, 'Superadministración', $2, true) ON CONFLICT (correo) DO NOTHING",
           [correo, await hashPassword(opciones.superadmin.password)],
@@ -129,7 +112,7 @@ export async function prepararBase(opciones: { url?: string; superadmin?: { corr
         resultado.superadminCreada = true;
       }
     } else {
-      resultado.superadminCreada = (await asegurarSuperadmin(cliente, correoSuperadmin())) === "creada";
+      resultado.adminCreada = await asegurarAdminPablo(cliente);
       resultado.cuentasMadridCreadas = await asegurarCuentasMadrid(cliente);
     }
     await cliente.query("SELECT pg_advisory_unlock(4242)");

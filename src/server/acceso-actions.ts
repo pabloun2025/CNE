@@ -16,10 +16,10 @@ async function entrar(portal: PortalSesion, formData: FormData): Promise<EstadoF
   const password = String(formData.get("password") ?? "");
   const agente = (await headers()).get("user-agent");
   let r: ResultadoLogin;
-  if (portal === "superadmin" && formData.has("nueva")) {
-    r = await definirContrasenaInicial({ correo, nueva: String(formData.get("nueva")), repetir: String(formData.get("repetir") ?? ""), ip, agente });
+  if (formData.has("nueva")) {
+    r = await definirContrasenaInicial({ correo, nueva: String(formData.get("nueva")), repetir: String(formData.get("repetir") ?? ""), ip, agente, portal });
     if (!r.ok && r.mensaje !== GENERICO) return { error: r.mensaje, definir: true, correo };
-  } else if (portal === "superadmin" && !password && (await pideDefinirContrasena(correo, ip))) {
+  } else if (portal === "superadmin" && !password && (await pideDefinirContrasena(correo, ip, portal))) {
     return { definir: true, correo };
   } else {
     r = await login({ correo, password, portal, ip, agente });

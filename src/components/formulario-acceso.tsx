@@ -3,22 +3,22 @@
 import { useActionState } from "react";
 import type { EstadoFormulario } from "@/server/acceso-actions";
 
-type Props = { accion: (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>; titulo: string; etiquetaCorreo?: string; permitirDefinir?: boolean };
+type Props = { accion: (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>; titulo: string; etiquetaCorreo?: string; permitirDefinir?: boolean; empezarDefiniendo?: boolean; usuarioInicial?: string };
 
 const campo = "mt-1 block w-full";
 const etiqueta = "block text-base font-bold";
 
-export function FormularioAcceso({ accion, titulo, etiquetaCorreo = "Correo", permitirDefinir = false }: Props) {
+export function FormularioAcceso({ accion, titulo, etiquetaCorreo = "Correo", permitirDefinir = false, empezarDefiniendo = false, usuarioInicial }: Props) {
   const [estado, enviar, pendiente] = useActionState(accion, null);
-  // Cuenta con contraseña pendiente: se pide definirla (dos veces) en lugar de la actual.
-  const definir = !!estado?.definir;
+  // Si la cuenta aún no tiene contraseña, el formulario ya pide definirla. No hay un campo vacío para entrar.
+  const definir = estado ? !!estado.definir : empezarDefiniendo;
   return (
     <main className="funcionario mx-auto max-w-sm p-6">
       <h1>{titulo}</h1>
       {/* La clave rehace el formulario tras el envío: así el correo escrito se conserva y la contraseña no. */}
       <form action={enviar} key={`${definir ? "definir" : "entrar"}-${estado?.correo ?? ""}-${estado?.error ?? ""}`} className="mt-4 space-y-4">
         <label className={etiqueta}>{etiquetaCorreo}
-          <input name="correo" type="text" autoComplete="username" required readOnly={definir} defaultValue={estado?.correo} className={campo} />
+          <input name="correo" type="text" autoComplete="username" required readOnly={definir} defaultValue={estado?.correo ?? (definir ? usuarioInicial : undefined)} className={campo} />
         </label>
         {definir ? (
           <>

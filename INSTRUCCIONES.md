@@ -298,3 +298,5 @@ El mapa de juntas es un infograma: una faja por color, sin la entrada ni las dos
 Quien no quiere cubrir un hueco desiste y no se propone para ninguno. Quien no contesta o ya no está no se propone para ese hueco y suelta el asiento. (19-11-2026, 10:36 Madrid)
 
 El financiero corrige apellidos y nombres y ve quién no tiene la cédula validada. Validar exige las dos fotos. No se inventan montos, recintos ni plantillas. (19-11-2026, 10:38 Madrid)
+
+El usuario de acceso es admin, no un correo. En /admin/acceso el primer ingreso pide definir la contraseña. Una contraseña vacía no entra. (19-11-2026, 14:35 Madrid)
