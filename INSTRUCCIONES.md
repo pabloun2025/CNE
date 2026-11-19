@@ -270,3 +270,5 @@ El personal de puerta no tiene cuenta. Entra por un enlace que crea el sistema y
 Credencial sin QR, opción C. La cámara intenta leer el nombre impreso. Si no puede, se teclea. (19-11-2026, 10:30 Madrid)
 
 El orden físico de las filas de color no es relevante para la pantalla. El orden de las fichas es el que mejor sirva a la asignación de personas. El mapa es un infograma del estado, no una representación del espacio físico. (19-11-2026, 10:32 Madrid)
+
+Si una persona no quiere cubrir un hueco, desiste de su deber y no se propone para ningún hueco. No es un rechazo de un solo hueco. (19-11-2026, 10:36 Madrid)
