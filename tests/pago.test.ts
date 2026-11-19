@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PARAMETROS_VACIOS, faltanParametros, montosParaActa, validarParametros, type ParametrosPago } from "@/domain/pago";
+import { PARAMETROS_VACIOS, eurosEnLetras, faltanParametros, montosParaActa, validarParametros, type ParametrosPago } from "@/domain/pago";
 
 // Valores evidentemente ficticios de prueba: ninguno es un importe real.
 const base: ParametrosPago = { importe_usd: "60.00", importe_eur: "55.00", pagador_nombre: "PAGADOR PRUEBA", pagador_cargo: "CARGO PRUEBA", lugar: "LUGAR PRUEBA" };
@@ -20,6 +20,18 @@ describe("monto en dólares y valor en euros escrito", () => {
     expect(faltanParametros(base)).toEqual([]);
     expect(faltanParametros({ ...base, pagador_nombre: null, lugar: " " })).toEqual(["nombre de quien paga"]);
     expect(faltanParametros(PARAMETROS_VACIOS)).toEqual(["monto en dólares", "valor en euros", "nombre de quien paga"]);
+  });
+});
+
+describe("euro escrito en palabras", () => {
+  it("lee la cifra ya guardada, sin convertir", () => {
+    expect(eurosEnLetras("55.00")).toBe("cincuenta y cinco euros");
+    expect(eurosEnLetras("1.00")).toBe("un euro");
+    expect(eurosEnLetras("1.01")).toBe("un euro con un céntimo");
+    expect(eurosEnLetras("21.50")).toBe("veintiún euros con cincuenta céntimos");
+    expect(eurosEnLetras("100.00")).toBe("cien euros");
+    expect(eurosEnLetras("101.00")).toBe("ciento un euros");
+    expect(eurosEnLetras("1000.00")).toBe("mil euros");
   });
 });
 

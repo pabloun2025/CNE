@@ -80,8 +80,8 @@ export function Finanzas() {
       {ficha && (
         <section className="space-y-3 border-2 border-stone-900 p-3">
           {ficha.otrosPuestos.map((o) => (
-            <p key={o.etiqueta} role="status" className="border-2 border-amber-700 bg-amber-50 p-3 font-semibold text-amber-950">
-              {o.etiqueta} ({o.operador}) abrió esta ficha {o.haceMin < 1 ? "hace menos de 1 min" : `hace ${o.haceMin} min`}. Compruebe que no la está pagando.
+            <p key={o.etiqueta} role="alert" className="border-2 border-amber-700 bg-amber-50 p-3 font-semibold text-amber-950">
+              {o.etiqueta} ({o.operador}) está haciendo este pago {o.haceMin < 1 ? "hace menos de 1 min" : `desde hace ${o.haceMin} min`}. No se puede continuar.
             </p>
           ))}
           {ficha.pago && (
@@ -97,7 +97,7 @@ export function Finanzas() {
             <Req ok={!ficha.pago} texto="Sin pago previo" />
             <Req ok={ficha.parametrosCompletos} texto={ficha.parametrosCompletos ? `Parámetros de pago completos · ${montos}` : `Parámetros de pago pendientes (${ficha.faltanParametros.join(", ")})`} />
           </ul>
-          {!ficha.pago && ficha.activo && (
+          {!ficha.pago && ficha.activo && ficha.otrosPuestos.length === 0 && (
             <>
               <label className="flex items-start gap-3 border-2 border-stone-900 bg-stone-50 p-3 text-base font-semibold">
                 <input type="checkbox" checked={verificado} onChange={(e) => setVerificado(e.target.checked)} className="mt-1 h-6 w-6" />

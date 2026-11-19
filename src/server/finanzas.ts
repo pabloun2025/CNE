@@ -16,15 +16,27 @@ export type FichaPago = {
   acta: { id: number; impresionN: number } | null;
   pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
   estado: EstadoPago; modoPrueba: boolean;
-  // Otros puestos de finanzas que abrieron esta misma ficha hace menos de 5 minutos (solo aviso, nunca bloquea).
+  // Otros puestos con esta ficha abierta hace menos de 5 minutos. Mientras haya uno, no se genera ni se confirma.
   otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
 };
 
 const cedulaNorm = (c: string) => c.trim().toUpperCase().replace(/\s+/g, "").slice(0, 20);
 
+// Quien abrió la ficha antes puede seguir. Quien llegó después no genera ni confirma mientras esa apertura siga vigente.
+async function otroPagoEnCurso(client: { query: (sql: string, params: unknown[]) => Promise<{ rows: unknown[] }> }, mjrvId: number, enlaceId: number): Promise<boolean> {
+  const r = await client.query(
+    `SELECT 1 FROM fichas_abiertas_finanzas o
+      WHERE o.mjrv_id = $1 AND o.enlace_id <> $2
+        AND o.abierta_en > now() - make_interval(mins => $3)
+        AND o.abierta_en < COALESCE((SELECT y.abierta_en FROM fichas_abiertas_finanzas y WHERE y.mjrv_id = $1 AND y.enlace_id = $2), now())`,
+    [mjrvId, enlaceId, MINUTOS_AVISO],
+  );
+  return r.rows.length > 0;
+}
+
 export const MINUTOS_AVISO = 5;
 
-// Con la sesión de la estación, abrir la ficha queda anotado (aviso a otros puestos, 10c). El doble pago lo impide la confirmación atómica.
+// Abrir la ficha queda anotado. Si otro puesto la tiene abierta, no se genera ni se confirma el pago.
 export async function fichaPago(cedulaBruta: string, s?: SesionEstacion): Promise<FichaPago | null> {
   const m = (await query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string }>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.activo, jo.serie || jo.numero AS origen,
@@ -76,10 +88,11 @@ export async function generarActa(s: SesionEstacion, mjrvId: number, verificado:
     const m = (await client.query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean }>("SELECT id, cedula, apellidos, nombres, cargo_original, activo FROM mjrv WHERE id = $1 FOR UPDATE", [mjrvId])).rows[0];
     if (!m || !m.activo) return { error: { status: 404 as const, mensaje: "La ficha no existe o está de baja." } };
     if ((await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [mjrvId])).rows[0]) return { error: { status: 409 as const, mensaje: "Esta persona ya tiene el pago confirmado." } };
+    if (await otroPagoEnCurso(client, mjrvId, s.enlaceId)) return { error: { status: 409 as const, mensaje: "Otra persona está haciendo este pago. No se puede continuar." } };
     const lados = (await client.query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [mjrvId])).rows.map((r) => r.lado);
     if (lados.length < 2) return { error: { status: 409 as const, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." } };
-    const j = (await client.query<{ origen: string; vigente: string }>(
-      `SELECT jo.serie || jo.numero AS origen, jv.serie || jv.numero AS vigente FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
+    const j = (await client.query<{ vigente: string }>(
+      `SELECT jv.serie || jv.numero AS vigente FROM mjrv m
          JOIN juntas_madrid jv ON jv.id = coalesce((SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id) WHERE m.id = $1`, [mjrvId])).rows[0];
     let actaId = 0, impresionN = 1;
     if (completos && imp.estado === "ok") {
@@ -92,14 +105,14 @@ export async function generarActa(s: SesionEstacion, mjrvId: number, verificado:
     return { m, j, actaId, impresionN };
   });
   if ("error" in datos && datos.error) return { ok: false, ...datos.error };
-  const { m, j, actaId, impresionN } = datos as { m: { cedula: string; apellidos: string; nombres: string; cargo_original: string }; j: { origen: string; vigente: string }; actaId: number; impresionN: number };
+  const { m, j, actaId, impresionN } = datos as { m: { cedula: string; apellidos: string; nombres: string; cargo_original: string }; j: { vigente: string }; actaId: number; impresionN: number };
   const [anverso, reverso] = [await leerDocumento(mjrvId, "anverso"), await leerDocumento(mjrvId, "reverso")];
   if (!anverso || !reverso) return { ok: false, status: 409, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." };
   const numero = completos ? `${prueba ? "PRUEBA" : "MAD"}-${String(actaId).padStart(6, "0")}` : `${prueba ? "PRUEBA" : "MAD"}-BORRADOR`;
   const pdf = await actaPago({
-    numero, impresionN, prueba, borrador: !completos, lugar: params.lugar, emitidaEn: new Date(), operador: s.operadorNombre,
-    persona: { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaOrigen: j.origen, juntaVigente: j.vigente },
-    importe: completos && imp.estado === "ok" ? { eur: imp.eur } : null,
+    numero, impresionN, prueba, borrador: !completos, emitidaEn: new Date(),
+    persona: { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaVigente: j.vigente },
+    importe: completos && imp.estado === "ok" ? { usd: imp.usd, eur: imp.eur } : null,
     pagador: params.pagador_nombre ? { nombre: params.pagador_nombre, cargo: params.pagador_cargo ?? "" } : null,
     anverso, reverso,
   });
@@ -118,6 +131,9 @@ export async function confirmarPago(s: SesionEstacion, d: { mjrvId: number; acta
   return withTx(async (client) => {
     const m = (await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [d.mjrvId])).rows[0];
     if (!m) return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
+    const previo = (await client.query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null }>("SELECT p.confirmado_en::text AS en, btrim(o.nombre || ' ' || o.apellido) AS operador, p.importe_usd::text, p.importe_eur::text FROM pagos_confirmados p JOIN operadores_madrid o ON o.id = p.operador_id WHERE p.mjrv_id = $1", [d.mjrvId])).rows[0];
+    if (previo) return { ok: false as const, yaPagado: { en: previo.en, operador: previo.operador, importeUsd: previo.importe_usd ?? "", importeEur: previo.importe_eur }, mensaje: "Ya pagado. No vuelva a pagar." };
+    if (await otroPagoEnCurso(client, d.mjrvId, s.enlaceId)) return { ok: false as const, mensaje: "Otra persona está haciendo este pago. No se puede continuar." };
     const docs = (await client.query<{ n: number }>("SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = $1", [d.mjrvId])).rows[0].n;
     if (docs < 2) return { ok: false as const, mensaje: "Faltan fotos de la cédula." };
     const r = await client.query<{ id: number; confirmado_en: string; es_prueba: boolean; importe_usd: string | null; importe_eur: string | null }>(

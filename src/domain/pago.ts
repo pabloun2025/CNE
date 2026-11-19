@@ -36,6 +36,42 @@ function aCentimos(texto: string): bigint | null {
 
 export const centimosATexto = (c: bigint): string => `${c / 100n}.${String(c % 100n).padStart(2, "0")}`;
 
+const UNIDADES = ["cero", "un", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete", "dieciocho", "diecinueve"];
+const VEINTI = ["veinte", "veintiún", "veintidós", "veintitrés", "veinticuatro", "veinticinco", "veintiséis", "veintisiete", "veintiocho", "veintinueve"];
+const DECENAS = ["", "", "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa"];
+const CENTENAS = ["", "ciento", "doscientos", "trescientos", "cuatrocientos", "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos"];
+
+// Cardinal en masculino, con apócope (un, veintiún) porque va delante de «euro» o «céntimo».
+function cardinal(n: number): string {
+  if (n < 20) return UNIDADES[n];
+  if (n < 30) return VEINTI[n - 20];
+  if (n < 100) {
+    const d = Math.floor(n / 10), u = n % 10;
+    return u === 0 ? DECENAS[d] : `${DECENAS[d]} y ${u === 1 ? "un" : UNIDADES[u]}`;
+  }
+  if (n === 100) return "cien";
+  if (n < 1000) {
+    const c = Math.floor(n / 100), r = n % 100;
+    return r === 0 ? CENTENAS[c] : `${CENTENAS[c]} ${cardinal(r)}`;
+  }
+  if (n < 1_000_000) {
+    const m = Math.floor(n / 1000), r = n % 1000;
+    const miles = m === 1 ? "mil" : `${cardinal(m)} mil`;
+    return r === 0 ? miles : `${miles} ${cardinal(r)}`;
+  }
+  return String(n);
+}
+
+// El euro escrito, en palabras. No calcula nada: solo lee la cifra ya guardada.
+export function eurosEnLetras(importe: string): string {
+  const [e, c] = importe.split(".");
+  const euros = Number(e);
+  const cents = Number((c ?? "0").padEnd(2, "0"));
+  const palabra = euros === 1 ? "un euro" : `${cardinal(euros)} euros`;
+  if (!cents) return palabra;
+  return `${palabra} con ${cents === 1 ? "un céntimo" : `${cardinal(cents)} céntimos`}`;
+}
+
 export type MontosActa = { estado: "ok"; usd: string; eur: string } | { estado: "pendiente"; faltan: string[] };
 
 // Las dos cifras son las que escribió el administrador. No se multiplican.
