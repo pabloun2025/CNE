@@ -6,7 +6,7 @@ import { enviarCredencial, enviarLote, enviosDe } from "@/server/envios";
 import { elegirProveedor, type MensajeCredencial, type ProveedorEnvio } from "@/server/envios/proveedor";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const admin: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false, mfaVerificada: false };
+const admin: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
 const ids: Record<string, number> = {};
 
 async function ficha(cedula: string, extra: { correo?: string; tel?: string; rotulo?: string | null }) {

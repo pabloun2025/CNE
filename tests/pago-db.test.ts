@@ -4,7 +4,7 @@ import { closePools } from "@/server/db";
 import { guardarParametros, leerParametros } from "@/server/pago";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false, mfaVerificada: false };
+const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
 
 describe("parámetros de pago en la base", () => {
   beforeAll(async () => {
@@ -17,10 +17,10 @@ describe("parámetros de pago en la base", () => {
     expect(Object.values(await leerParametros()).every((v) => v === null)).toBe(true);
   });
   it("guardan y se leen con decimales exactos; un valor inválido no escribe", async () => {
-    const e = { importe_eur: "60", pagador_nombre: "PAGADOR PRUEBA", pagador_cargo: "CARGO PRUEBA", lugar: "LUGAR PRUEBA" };
+    const e = { importe_usd: "60", importe_eur: "55", pagador_nombre: "PAGADOR PRUEBA", pagador_cargo: "CARGO PRUEBA", lugar: "LUGAR PRUEBA" };
     expect(await guardarParametros(sesion, e)).toEqual({ ok: true });
-    expect(await leerParametros()).toMatchObject({ importe_eur: "60.00" });
-    expect((await guardarParametros(sesion, { ...e, importe_eur: "-5" })).ok).toBe(false);
-    expect((await leerParametros()).importe_eur).toBe("60.00");
+    expect(await leerParametros()).toMatchObject({ importe_usd: "60.00", importe_eur: "55.00" });
+    expect((await guardarParametros(sesion, { ...e, importe_usd: "-5" })).ok).toBe(false);
+    expect((await leerParametros()).importe_usd).toBe("60.00");
   });
 });

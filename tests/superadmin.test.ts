@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { login } from "@/server/auth";
 import { closePools } from "@/server/db";
-import { consultarDueno, marcarMfaVerificada, reiniciarBase } from "./helpers/db";
+import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 // Simula cookies y redirecciones de Next para probar las acciones con su guarda real.
 const jar = new Map<string, string>();
@@ -17,7 +17,6 @@ const acciones = () => import("@/server/superadmin-actions");
 async function sesionDe(correo: string, password: string, portal: "admin" | "superadmin") {
   const r = await login({ correo, password, portal, ip: "10.1.1.1", agente: "prueba" });
   if (!r.ok) throw new Error("login");
-  if (portal === "superadmin") await marcarMfaVerificada(r.token);
   return r.token;
 }
 const datos = (o: Record<string, string>) => Object.entries(o).reduce((f, [k, v]) => (f.set(k, v), f), new FormData());

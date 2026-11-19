@@ -4,7 +4,7 @@ import { closePools } from "@/server/db";
 import { cambiarBaja, crearMjrv, editarMjrv, listarMjrv, obtenerFicha, type DatosMjrv } from "@/server/mjrv";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
-const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false, mfaVerificada: false };
+const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
 const datos = (o: Partial<DatosMjrv> = {}): DatosMjrv => ({ cedula: "0000000001", apellidos: "APELLIDO PRUEBA 001", nombres: "NOMBRE PRUEBA", cargo: "Presidente", junta: "H12", correo: "", telefono: "", rotulo: "", ...o });
 
 describe("fichas de MJRV", () => {

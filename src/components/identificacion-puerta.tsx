@@ -1,0 +1,52 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { entrarPuertaAccion } from "@/server/estacion-actions";
+
+const campo = "mt-1 w-full";
+
+// Antes de leer el QR: nombre, apellido y PIN, contrastados con la lista del administrador.
+export function IdentificacionPuerta({ token }: { token: string }) {
+  const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+  const [pendiente, iniciar] = useTransition();
+  const listo = nombre.trim().length >= 2 && apellido.trim().length >= 2;
+
+  const pulsar = (d: string) => {
+    if (pendiente || !listo || pin.length >= 4) return;
+    const nuevo = pin + d;
+    setPin(nuevo);
+    setError("");
+    if (nuevo.length === 4) {
+      iniciar(async () => {
+        const r = await entrarPuertaAccion(token, nombre, apellido, nuevo);
+        if (r?.error) { setError(r.error); setPin(""); }
+      });
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      <label className="block text-base font-bold">Nombre
+        <input value={nombre} onChange={(e) => { setNombre(e.target.value); setPin(""); setError(""); }} autoComplete="given-name" className={campo} />
+      </label>
+      <label className="block text-base font-bold">Apellido
+        <input value={apellido} onChange={(e) => { setApellido(e.target.value); setPin(""); setError(""); }} autoComplete="family-name" className={campo} />
+      </label>
+      {listo && (
+        <div>
+          <p className="mb-2 text-center text-base font-bold">PIN</p>
+          <p className="mb-2 text-center text-3xl tracking-[0.5em]" aria-label="PIN">{"●".repeat(pin.length).padEnd(4, "○")}</p>
+          <div className="mx-auto grid max-w-xs grid-cols-3 gap-2">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <button key={d} type="button" onClick={() => pulsar(d)} className="tecla">{d}</button>)}
+            <button type="button" onClick={() => setPin("")} className="tecla tecla-borrar">Borrar</button>
+            <button type="button" onClick={() => pulsar("0")} className="tecla">0</button>
+          </div>
+        </div>
+      )}
+      {error && <p role="alert" className="text-center font-medium text-red-700">{error}</p>}
+    </div>
+  );
+}

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { entrarEstacionAccion } from "@/server/estacion-actions";
 
 // Elegir nombre y teclear 4 dígitos con teclas grandes; envía solo al completar el cuarto.
-export function TecladoPin({ token, operadores }: { token: string; operadores: { id: number; nombre: string }[] }) {
+export function TecladoPin({ token, operadores }: { token: string; operadores: { id: number; nombre: string; apellido: string }[] }) {
   const [operador, setOperador] = useState<number | null>(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
@@ -27,12 +27,12 @@ export function TecladoPin({ token, operadores }: { token: string; operadores: {
   return (
     <div className="mt-4 space-y-4">
       <fieldset>
-        <legend className="mb-1 text-sm font-medium">¿Quién es usted?</legend>
+        <legend className="mb-1 text-base font-bold">¿Quién es usted?</legend>
         <div className="grid gap-2">
           {operadores.map((o) => (
             <button key={o.id} type="button" onClick={() => { setOperador(o.id); setPin(""); setError(""); }}
-              className={`rounded border-2 px-4 py-4 text-left text-lg font-semibold ${operador === o.id ? "border-blue-700 bg-blue-50" : "border-slate-300"}`}>
-              {o.nombre}
+              className={`border-2 px-4 py-4 text-left text-lg font-semibold ${operador === o.id ? "border-stone-900 bg-stone-100" : "border-stone-300"}`}>
+              {`${o.nombre} ${o.apellido}`.trim()}
             </button>
           ))}
         </div>
@@ -41,9 +41,9 @@ export function TecladoPin({ token, operadores }: { token: string; operadores: {
         <div>
           <p className="mb-2 text-center text-3xl tracking-[0.5em]" aria-label="PIN">{"●".repeat(pin.length).padEnd(4, "○")}</p>
           <div className="mx-auto grid max-w-xs grid-cols-3 gap-2">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <button key={d} type="button" onClick={() => pulsar(d)} className="rounded bg-slate-200 py-5 text-2xl font-bold">{d}</button>)}
-            <button type="button" onClick={() => setPin("")} className="rounded bg-slate-100 py-5 text-lg font-semibold">Borrar</button>
-            <button type="button" onClick={() => pulsar("0")} className="rounded bg-slate-200 py-5 text-2xl font-bold">0</button>
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <button key={d} type="button" onClick={() => pulsar(d)} className="tecla">{d}</button>)}
+            <button type="button" onClick={() => setPin("")} className="tecla tecla-borrar">Borrar</button>
+            <button type="button" onClick={() => pulsar("0")} className="tecla">0</button>
           </div>
         </div>
       )}

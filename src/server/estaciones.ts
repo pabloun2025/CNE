@@ -10,29 +10,33 @@ const HORAS_SESION = 16;
 const auditoriaAdmin = (s: Sesion) => ({ portal: "admin", actorTipo: "usuario" as const, actorId: s.usuarioId, actorNombre: s.nombre });
 
 // ───────────── Administración de operadores y enlaces ─────────────
-export type Operador = { id: number; nombre: string; funciones: Funcion[]; activo: boolean; bloqueado: boolean };
+export type Operador = { id: number; nombre: string; apellido: string; funciones: Funcion[]; activo: boolean; bloqueado: boolean };
+
+const limpio = (t: string) => t.trim().replace(/\s+/g, " ");
 
 export async function listarOperadores(): Promise<Operador[]> {
-  return query<Operador>("SELECT id, nombre, funciones, activo, (bloqueado_hasta IS NOT NULL AND bloqueado_hasta > now()) AS bloqueado FROM operadores_madrid ORDER BY activo DESC, lower(nombre)");
+  return query<Operador>("SELECT id, nombre, apellido, funciones, activo, (bloqueado_hasta IS NOT NULL AND bloqueado_hasta > now()) AS bloqueado FROM operadores_madrid ORDER BY activo DESC, lower(apellido), lower(nombre)");
 }
 
-function validarOperador(nombre: string, funciones: string[], pin: string): string | null {
-  const n = nombre.trim();
+function validarOperador(nombre: string, apellido: string, funciones: string[], pin: string): string | null {
+  const n = limpio(nombre);
+  const a = limpio(apellido);
   if (n.length < 2 || n.length > 80) return "Escriba el nombre (2 a 80 caracteres).";
+  if (a.length < 2 || a.length > 80) return "Escriba el apellido (2 a 80 caracteres).";
   if (funciones.length === 0 || !funciones.every((f) => (FUNCIONES as string[]).includes(f))) return "Elija al menos una función.";
   if (!PIN_VALIDO(pin)) return "El PIN debe tener exactamente 4 dígitos.";
   return null;
 }
 
-export async function crearOperador(sesion: Sesion, nombre: string, funciones: string[], pin: string): Promise<{ ok: true; id: number } | { ok: false; mensaje: string }> {
-  const problema = validarOperador(nombre, funciones, pin);
+export async function crearOperador(sesion: Sesion, nombre: string, apellido: string, funciones: string[], pin: string): Promise<{ ok: true; id: number } | { ok: false; mensaje: string }> {
+  const problema = validarOperador(nombre, apellido, funciones, pin);
   if (problema) return { ok: false, mensaje: problema };
   try {
-    const f = await query<{ id: number }>("INSERT INTO operadores_madrid (nombre, pin_hash, funciones, creado_por) VALUES ($1,$2,$3,$4) RETURNING id", [nombre.trim(), await hashPassword(pin), funciones, sesion.usuarioId]);
+    const f = await query<{ id: number }>("INSERT INTO operadores_madrid (nombre, apellido, pin_hash, funciones, creado_por) VALUES ($1,$2,$3,$4,$5) RETURNING id", [limpio(nombre), limpio(apellido), await hashPassword(pin), funciones, sesion.usuarioId]);
     await registrarAuditoria({ ...auditoriaAdmin(sesion), accion: "operador_creado", entidad: "operadores_madrid", entidadId: f[0].id });
     return { ok: true, id: f[0].id };
   } catch (e) {
-    if ((e as { code?: string }).code === "23505") return { ok: false, mensaje: "Ya hay un operador activo con ese nombre." };
+    if ((e as { code?: string }).code === "23505") return { ok: false, mensaje: "Ya hay un operador activo con ese nombre y apellido." };
     throw e;
   }
 }
@@ -53,7 +57,7 @@ export async function activarOperador(sesion: Sesion, id: number, activo: boolea
   try {
     await query("UPDATE operadores_madrid SET activo = $2 WHERE id = $1", [id, activo]);
   } catch (e) {
-    if ((e as { code?: string }).code === "23505") return { ok: false, mensaje: "Ya hay otro operador activo con ese nombre." };
+    if ((e as { code?: string }).code === "23505") return { ok: false, mensaje: "Ya hay otro operador activo con ese nombre y apellido." };
     throw e;
   }
   if (!activo) await revocarSesionesOperador(id);
@@ -95,8 +99,28 @@ export async function enlacePorToken(token: string): Promise<EnlaceActivo | null
   return f[0] ?? null;
 }
 
-export async function operadoresDelEnlace(enlace: EnlaceActivo): Promise<{ id: number; nombre: string }[]> {
-  return query<{ id: number; nombre: string }>("SELECT id, nombre FROM operadores_madrid WHERE activo AND $1 = ANY(funciones) ORDER BY lower(nombre)", [enlace.funcion]);
+export async function operadoresDelEnlace(enlace: EnlaceActivo): Promise<{ id: number; nombre: string; apellido: string }[]> {
+  return query<{ id: number; nombre: string; apellido: string }>("SELECT id, nombre, apellido FROM operadores_madrid WHERE activo AND $1 = ANY(funciones) ORDER BY lower(apellido), lower(nombre)", [enlace.funcion]);
+}
+
+// La puerta no elige de una lista: escribe nombre, apellido y PIN, y se contrastan con los operadores cargados.
+export async function identificarPuerta(token: string, nombreBruto: string, apellidoBruto: string, pin: string, dispositivo: string | null): Promise<ResultadoEstacion> {
+  const enlace = await enlacePorToken(token);
+  if (!enlace || enlace.funcion !== "puerta") return { ok: false, codigo: "enlace_inactivo", mensaje: "Este enlace ya no está activo. Pida uno nuevo a la administración." };
+  const clave = `enlace:${enlace.id}`;
+  const fallosEnlace = (await query<{ n: number }>("SELECT count(*)::int AS n FROM intentos_acceso WHERE clave = $1 AND NOT exito AND creado_en > now() - make_interval(mins => $2)", [clave, MINUTOS_BLOQUEO]))[0].n;
+  if (fallosEnlace >= MAX_FALLOS_ENLACE) return { ok: false, codigo: "bloqueado", mensaje: `Demasiados intentos en este enlace. Espere ${MINUTOS_BLOQUEO} minutos.` };
+  const nombre = limpio(nombreBruto);
+  const apellido = limpio(apellidoBruto);
+  if (nombre.length < 2 || apellido.length < 2) return { ok: false, codigo: "pin", mensaje: "Escriba su nombre y su apellido." };
+  const ops = await query<{ id: number }>(
+    "SELECT id FROM operadores_madrid WHERE activo AND 'puerta' = ANY(funciones) AND lower(nombre) = lower($1) AND lower(apellido) = lower($2)",
+    [nombre, apellido]);
+  if (ops.length !== 1) {
+    await query("INSERT INTO intentos_acceso (clave, exito) VALUES ($1, false)", [clave]);
+    return { ok: false, codigo: "pin", mensaje: "No se pudo identificar. Revise el nombre, el apellido y el PIN." };
+  }
+  return identificarEstacion(token, ops[0].id, pin, dispositivo);
 }
 
 export type ResultadoEstacion = { ok: true; sesionToken: string } | { ok: false; codigo: "enlace_inactivo" | "bloqueado" | "pin"; mensaje: string };
@@ -138,7 +162,7 @@ export type SesionEstacion = { sesionId: string; enlaceId: number; funcion: Func
 export async function leerSesionEstacion(token: string | undefined): Promise<SesionEstacion | null> {
   if (!token) return null;
   const f = await query<{ sesion_id: string; enlace_id: number; funcion: Funcion; etiqueta: string; operador_id: number; nombre: string }>(
-    `SELECT s.id AS sesion_id, e.id AS enlace_id, e.funcion, e.etiqueta, o.id AS operador_id, o.nombre
+    `SELECT s.id AS sesion_id, e.id AS enlace_id, e.funcion, e.etiqueta, o.id AS operador_id, btrim(o.nombre || ' ' || o.apellido) AS nombre
        FROM sesiones_estacion s JOIN enlaces_estacion e ON e.id = s.enlace_id JOIN operadores_madrid o ON o.id = s.operador_id
       WHERE s.token_hash = $1 AND s.revocada_en IS NULL AND s.expira_en > now()
         AND e.activo AND e.revocado_en IS NULL AND o.activo AND e.funcion = ANY(o.funciones)`, [sha256Bytes(token)]);

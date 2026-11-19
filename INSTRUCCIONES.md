@@ -248,3 +248,43 @@ Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, m
 
 - **INSTRUCCIÓN VIGENTE DE PABLO.** No seguir interrogando sobre el plan externo de contingencia ante caída total de la plataforma central; Pablo ha indicado expresamente que eso se verá posteriormente. Concentrar la entrevista en decisiones directamente relevantes al **desarrollo del software**: flujos principales de los tres portales, experiencia de usuario, datos, acciones, permisos e integraciones necesarias. Priorizar decisiones amplias; evitar microdecisiones operativas, no repetir las aprobadas en ESPECIFICACION_FUNCIONAL.md y no programar sin autorización. La contingencia central permanece pospuesta, no resuelta.
 - **SIGUIENTE PREGUNTA FUNCIONAL ABIERTA.** Organización de la interfaz principal del portal consular: recorrido secuencial por hitos, tablero con acciones directas, o tablero híbrido con hitos destacados y acceso libre. Mantener recinto activo por sesión y el reporte por grupos de JRV con excepciones ya decididos.
+
+## Recorrido del funcionario de Madrid (18-11-2026)
+
+Pase de flujo del sistema interno de Madrid, sin cerrar preguntas: la credencial sigue antes del día y, el día, el orden es puerta, foto de la cédula, pago y constitución. En la puerta el operador escribe nombre, apellido y PIN antes de leer la cédula; una segunda lectura el mismo día sale en rojo con dos pitidos graves, igual que una cédula desconocida o bloqueada. El acta de pago no se imprime sin anverso y reverso, y si faltan la ventanilla los toma primero. El administrador escribe un monto en dólares, el valor en euros y el nombre de quien paga; en el acta van los dos valores, sin calcularlos. Las cifras las dirá Pablo. La constitución muestra las fichas en filas por color, con el aro según haya 3 presentes, menos o nadie, y una sola propuesta para aceptar, pasar o marcar que no se puede. Esa propuesta se pide al Ollama de teinvito (qwen2.5:7b, y qwen2.5:1.5b si el primero no está); si no contesta, queda la primera opción legal. Siguen abiertas la regla de «bloqueada» y el segundo y el tercer conteo de suplentes.
+
+Los dos valores, dólares y euros, se escriben a mano. No hay fórmula. Las cifras aún no están.
+
+El 2FA se quitó.
+
+El desplegable de incidentes no entra en el sistema interno de Madrid. Era del tablero de consulados. (19-11-2026)
+
+Un segundo QR abre una URL de autoservicio: cada MJRV completa sus datos y escanea su cédula para preparar el acta financiera. No es un cartel ni un WhatsApp. (19-11-2026)
+
+El visor de la constitución lo usan la cuenta de cónsul y la de coordinador. (19-11-2026, 9:55 Madrid)
+
+El PIN se usa una sola vez, para entrar a su cuenta. No se pide en cada estación. (19-11-2026, 10:17 Madrid)
+
+El personal de puerta no tiene cuenta. Entra por un enlace que crea el sistema y se puede revocar. Su acceso y su trabajo deben ser lo más simples posible. (19-11-2026, 10:24 Madrid)
+
+Credencial sin QR, opción C. La cámara intenta leer el nombre impreso. Si no puede, se teclea. (19-11-2026, 10:30 Madrid)
+
+El orden físico de las filas de color no es relevante para la pantalla. El orden de las fichas es el que mejor sirva a la asignación de personas. El mapa es un infograma del estado, no una representación del espacio físico. (19-11-2026, 10:32 Madrid)
+
+Si una persona no quiere cubrir un hueco, desiste de su deber y no se propone para ningún hueco. No es un rechazo de un solo hueco. (19-11-2026, 10:36 Madrid)
+
+La cuenta de financiero sí entra. En el pago hay varias sesiones abiertas en laptops para imprimir recibos y pagar. El financiero corrige nombres de MJRV a mano, ve quién no tiene la cédula validada y los faltantes, hace las tareas previas al pago, genera los recibos e imprime los expedientes. (19-11-2026, 10:38 Madrid)
+
+Al pagar se escanea el QR del MJRV. Si no hay foto de la cédula guardada, el pago no se activa y el financiero puede capturarla en ese momento. Si ese QR ya se pagó, se alerta. Si otra persona está haciendo el mismo pago, no deja. (19-11-2026, 10:40 Madrid)
+
+Una credencial se puede revocar, como una entrada en teinvito, si no consta en la lista de MJRV aprobada. Hay un panel con la lista de MJRV activos y, de forma simple, se les revoca el acceso. En la puerta una credencial revocada no pasa. (19-11-2026, 10:46 Madrid)
+
+El acta de pago de Madrid sale del modelo entregado (Paquete_modelo_recibo_pago_MJRV_2026): dos páginas, el euro escrito a mano y las fotos de la cédula en el anexo. El cuadro de tipo de cambio del modelo queda en blanco, porque no hay fórmula. Siguen los tres frenos: sin foto no se activa el pago, si ya se pagó se alerta, y si otro lo está pagando no deja. (19-11-2026)
+
+En el acta van escritos los dos valores, dólares y euros. Los dirá en breve. No hay fórmula. (19-11-2026, 11:27 Madrid)
+
+En administración, pestaña de configuración, se deja el nombre del funcionario que firma los recibos y los montos en dólares y euros. Esos valores escritos salen en el acta. (19-11-2026, 11:32 Madrid)
+
+El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio. El modelo que se cargó es `insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf`. La credencial sale de ese modelo, no de un dibujo nuevo. (19-11-2026, 13:10 Madrid)
+
+El QR impreso en la credencial es la cédula. Va sobre el modelo, sin redibujar la tarjeta. (19-11-2026)

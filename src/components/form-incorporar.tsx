@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import type { JuntaMando } from "@/domain/mando";
 import { incorporarVotanteAccion } from "@/server/movimiento-actions";
 
-const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
+const campo = "mt-1 block w-full";
 
 // Incorporar un votante como MJRV, uno a uno (09 §3.6). Solo ofrece juntas con cargos vacantes y los cargos vacantes de esa junta.
 export function FormIncorporar({ juntas, onCerrar, onCambio }: { juntas: JuntaMando[]; onCerrar: () => void; onCambio: () => void }) {
@@ -30,7 +30,7 @@ export function FormIncorporar({ juntas, onCerrar, onCambio }: { juntas: JuntaMa
 
   return (
     <div role="dialog" aria-label="Incorporar votante" className="fixed inset-0 z-40 overflow-y-auto bg-white p-4">
-      <button onClick={onCerrar} className="mb-3 rounded border border-slate-500 px-4 py-3 font-semibold">Cerrar</button>
+      <button onClick={onCerrar} className="mb-3 border-2 border-stone-900 px-4 py-3">Cerrar</button>
       <h2 className="text-2xl font-bold">Incorporar votante</h2>
       <p className="mt-1 text-sm">La persona queda presente desde ya y cubre el cargo que elija. Se crea una ficha nueva (sin credencial).</p>
       {conVacantes.length === 0 ? <p className="mt-3 font-medium">Ninguna junta tiene cargos vacantes.</p> : (
@@ -51,7 +51,7 @@ export function FormIncorporar({ juntas, onCerrar, onCambio }: { juntas: JuntaMa
           <label className="text-sm font-medium">Teléfono (opcional)<input name="telefono" inputMode="tel" className={campo} /></label>
           <label className="text-sm font-medium">Correo (opcional)<input name="correo" type="email" className={campo} /></label>
           {mensaje && <p role={mensaje.ok ? "status" : "alert"} className={`font-semibold ${mensaje.ok ? "text-green-800" : "text-red-700"}`}>{mensaje.texto}</p>}
-          <button disabled={pendiente || !junta} className="rounded bg-green-700 px-6 py-4 text-lg font-bold text-white disabled:opacity-60">Incorporar</button>
+          <button disabled={pendiente || !junta} className="bg-green-800 px-6 py-4 text-lg text-white disabled:opacity-60">Incorporar</button>
         </form>
       )}
     </div>

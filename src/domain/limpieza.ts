@@ -15,7 +15,7 @@ export const CATEGORIAS_LIMPIEZA: CategoriaLimpieza[] = [
 ];
 
 export const CONSERVA: string[] = [
-  "Cuentas de administración y superadministración, contraseñas y verificación en dos pasos",
+  "Cuentas de administración y superadministración y sus contraseñas",
   "Operadores y sus PIN, enlaces de estación",
   "Las 95 juntas y las fichas MJRV reales",
   "Parámetros de pago y configuración",

@@ -26,7 +26,8 @@ async function entrar(portal: PortalSesion, formData: FormData): Promise<EstadoF
   }
   if (!r.ok) {
     await registrarAuditoria({ portal, actorTipo: "publico", accion: "login_fallido", ip });
-    return { error: r.mensaje };
+    // El correo se devuelve para que el formulario no lo borre; la contraseña no.
+    return { error: r.mensaje, correo };
   }
   (await cookies()).set(COOKIE[portal], r.token, cookieOptions());
   await registrarAuditoria({ portal, actorTipo: "usuario", accion: "login", ip });

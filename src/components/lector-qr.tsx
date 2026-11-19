@@ -62,12 +62,12 @@ export function LectorQr({ onCodigo, onError }: { onCodigo: (texto: string) => v
   }, [activa]);
 
   return (
-    <div className="relative overflow-hidden rounded bg-black" style={{ minHeight: 240 }}>
+    <div className="relative overflow-hidden border-2 border-stone-900 bg-black" style={{ minHeight: 240 }}>
       <video ref={video} playsInline muted className="h-full max-h-[60vh] w-full object-cover" />
       {!activa && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-800 p-4 text-center text-white">
           {falloCamara && <p role="alert">No se pudo usar la cámara. Revise el permiso o escriba la cédula.</p>}
-          <button onClick={() => { unlockAudio(); setFalloCamara(false); setActiva(true); }} className="rounded bg-blue-600 px-6 py-4 text-xl font-bold">Activar cámara</button>
+          <button onClick={() => { unlockAudio(); setFalloCamara(false); setActiva(true); }} className="bg-white px-6 py-4 text-xl text-stone-900">Activar cámara</button>
         </div>
       )}
     </div>

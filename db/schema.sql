@@ -21,7 +21,8 @@ CREATE FUNCTION en_prueba() RETURNS boolean LANGUAGE sql STABLE AS
 CREATE TABLE parametros_pago (
   id              int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   importe_usd     numeric(12,2) CHECK (importe_usd > 0),
-  tipo_cambio     numeric(14,6) CHECK (tipo_cambio > 0),
+  importe_eur     numeric(12,2) CHECK (importe_eur > 0), -- escrito a mano; no se calcula
+  tipo_cambio     numeric(14,6) CHECK (tipo_cambio > 0), -- sin uso: no hay tipo de cambio
   sentido_cambio  text CHECK (sentido_cambio IN ('eur_por_usd','usd_por_eur')),
   decimales_eur   int  CHECK (decimales_eur IN (0,2)),
   redondeo        text CHECK (redondeo IN ('mitad_arriba','truncar')),
@@ -59,7 +60,6 @@ CREATE TABLE sesiones (
   token_hash      bytea NOT NULL UNIQUE,                 -- sha256 del token de la cookie
   usuario_id      bigint NOT NULL REFERENCES usuarios(id),
   portal          text NOT NULL CHECK (portal IN ('admin','superadmin')),
-  mfa_verificada  boolean NOT NULL DEFAULT false,
   creada_en       timestamptz NOT NULL DEFAULT now(),
   expira_en       timestamptz NOT NULL,
   revocada_en     timestamptz,
@@ -80,6 +80,7 @@ CREATE INDEX ON intentos_acceso (clave, creado_en);
 CREATE TABLE operadores_madrid (
   id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nombre          text NOT NULL CHECK (char_length(nombre) BETWEEN 2 AND 80),
+  apellido        text NOT NULL DEFAULT '' CHECK (char_length(apellido) <= 80),
   pin_hash        text NOT NULL,                         -- argon2id; nunca en claro (§16.1)
   funciones       text[] NOT NULL CHECK (funciones <@ ARRAY['puerta','documentacion','finanzas','mando'] AND cardinality(funciones) > 0),
   activo          boolean NOT NULL DEFAULT true,
@@ -89,7 +90,7 @@ CREATE TABLE operadores_madrid (
   creado_en       timestamptz NOT NULL DEFAULT now(),
   creado_por      bigint REFERENCES usuarios(id)
 );
-CREATE UNIQUE INDEX ON operadores_madrid (lower(nombre)) WHERE activo;
+CREATE UNIQUE INDEX operadores_madrid_nombre_apellido_activo ON operadores_madrid (lower(nombre), lower(apellido)) WHERE activo;
 
 CREATE TABLE enlaces_estacion (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -239,8 +240,8 @@ CREATE TABLE actas_pago (                  -- §13.8: generar/imprimir no es pag
   mjrv_id      bigint NOT NULL REFERENCES mjrv(id),
   operador_id  bigint NOT NULL REFERENCES operadores_madrid(id),
   importe_usd  numeric(12,2) NOT NULL,
-  tipo_cambio  numeric(14,6) NOT NULL,
-  importe_eur  numeric(12,2) NOT NULL,
+  tipo_cambio  numeric(14,6),            -- sin uso: no hay tipo de cambio
+  importe_eur  numeric(12,2),            -- copia del valor escrito en parametros_pago; no es un cálculo
   parametros   jsonb NOT NULL,             -- copia de parametros_pago usada (trazabilidad)
   impresion_n  int NOT NULL,               -- 1 = original; >1 = «REIMPRESIÓN n»
   creado_en    timestamptz NOT NULL DEFAULT now(),
@@ -253,8 +254,8 @@ CREATE TABLE pagos_confirmados (           -- §7.5 requisito de control
   mjrv_id       bigint NOT NULL REFERENCES mjrv(id),
   acta_id       bigint NOT NULL REFERENCES actas_pago(id),
   importe_usd   numeric(12,2) NOT NULL,
-  tipo_cambio   numeric(14,6) NOT NULL,
-  importe_eur   numeric(12,2) NOT NULL,    -- euros efectivamente entregados (§15.6)
+  tipo_cambio   numeric(14,6),             -- sin uso: no hay tipo de cambio
+  importe_eur   numeric(12,2),             -- copia del valor escrito; no es un cálculo
   funciones_verificadas boolean NOT NULL CHECK (funciones_verificadas),
   operador_id   bigint NOT NULL REFERENCES operadores_madrid(id),
   enlace_id     bigint NOT NULL REFERENCES enlaces_estacion(id),

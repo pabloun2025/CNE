@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { IdentificacionPuerta } from "@/components/identificacion-puerta";
 import { TecladoPin } from "@/components/teclado-pin";
 import { FUNCION_NOMBRE } from "@/domain/estaciones";
 import { registrarAuditoria } from "@/server/auditoria";
@@ -12,7 +13,7 @@ export default async function Identificacion({ params }: { params: Promise<{ tok
   if (!enlace) {
     await registrarAuditoria({ portal: "estacion", actorTipo: "publico", accion: "enlace_inactivo_abierto" });
     return (
-      <main className="mx-auto max-w-sm p-6">
+      <main className="funcionario mx-auto max-w-sm p-6">
         <h1 className="text-xl font-semibold">Enlace no activo</h1>
         <p className="mt-2">Este enlace ya no está activo. Pida uno nuevo a la administración.</p>
       </main>
@@ -20,12 +21,12 @@ export default async function Identificacion({ params }: { params: Promise<{ tok
   }
   const sesion = await leerSesionEstacion((await cookies()).get(COOKIE_ESTACION)?.value);
   if (sesion && sesion.enlaceId === enlace.id) redirect(`/e/${token}/trabajo`);
-  const operadores = await operadoresDelEnlace(enlace);
+  const operadores = enlace.funcion === "puerta" ? [] : await operadoresDelEnlace(enlace);
   return (
-    <main className="mx-auto max-w-sm p-4">
-      <p className="text-sm text-slate-600">{FUNCION_NOMBRE[enlace.funcion]}</p>
-      <h1 className="text-2xl font-semibold">{enlace.etiqueta}</h1>
-      <TecladoPin token={token} operadores={operadores} />
+    <main className="funcionario mx-auto max-w-sm p-4">
+      <p className="text-sm font-bold uppercase tracking-wide">{FUNCION_NOMBRE[enlace.funcion]}</p>
+      <h1>{enlace.etiqueta}</h1>
+      {enlace.funcion === "puerta" ? <IdentificacionPuerta token={token} /> : <TecladoPin token={token} operadores={operadores} />}
     </main>
   );
 }

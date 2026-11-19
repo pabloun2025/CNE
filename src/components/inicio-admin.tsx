@@ -32,16 +32,16 @@ export function InicioAdmin() {
           <Tarjeta titulo="Juntas incompletas" valor={a.incompletas} detalle="Con uno o dos presentes" tono="bg-amber-50" />
           <Tarjeta titulo="Juntas sin nadie" valor={a.sinNadie} tono="bg-red-50" />
         </div>
-        <Link href="/admin/mando" className="inline-block rounded bg-blue-700 px-4 py-3 font-semibold text-white">Ir al centro de mando</Link>
+        <Link href="/admin/mando" className="inline-block bg-stone-900 px-4 py-3 font-semibold text-white">Ir al centro de mando</Link>
       </section>}
       {p && <section className="space-y-2">
         <h2 className="text-lg font-semibold">Pagos</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Tarjeta titulo="Documentos completos" valor={p.documentosCompletos} detalle={`${p.documentosIncompletos} incompletos`} />
           <Tarjeta titulo="Pagos confirmados" valor={p.pagados} detalle={datos.modoPrueba ? "Simulados (modo prueba)" : undefined} />
-          <Tarjeta titulo="Total entregado" valor={`${p.totalEur} EUR`} detalle="Solo pagos confirmados" />
+          <Tarjeta titulo="Total entregado" valor={`${p.totalUsd} USD`} detalle="Solo pagos confirmados" />
         </div>
-        <Link href="/admin/finanzas" className="inline-block rounded border border-slate-500 px-4 py-3 font-semibold">Ir a finanzas</Link>
+        <Link href="/admin/finanzas" className="inline-block border-2 border-stone-900 px-4 py-3 font-semibold">Ir a finanzas</Link>
       </section>}
       {ultima && <p className="text-xs">Actualizado a las {horaCorta(ultima)}.</p>}
     </div>

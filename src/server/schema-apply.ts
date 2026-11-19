@@ -19,11 +19,10 @@ export function correoSuperadmin(): string {
 
 export type ResultadoPreparar = { esquemaNuevo: boolean; migraciones: string[]; juntas: number; superadminCreada: boolean; cuentasMadridCreadas: number };
 
-// La superadmin pasa al correo indicado. Sin 2FA configurada, su contraseña queda pendiente de definir en el primer acceso
-// (y se cierran sus sesiones); con 2FA ya configurada solo cambia el correo. Si no hay ninguna, se crea con contraseña pendiente.
-// Solo actúa al cambiar el correo: una vez hecho, repetir el arranque no vuelve a dejar la contraseña pendiente.
+// La superadmin pasa al correo indicado. Al cambiar el correo, la contraseña queda pendiente de definir
+// en el primer acceso y se cierran las sesiones. Si no hay ninguna, se crea igual. Repetir el arranque no la vuelve a dejar pendiente.
 export async function asegurarSuperadmin(cliente: Client, correo: string): Promise<"creada" | "convertida" | "sin_cambios"> {
-  const filas = (await cliente.query("SELECT id, correo, mfa_activada_en FROM cne.usuarios WHERE tipo = 'superadmin' ORDER BY id")).rows;
+  const filas = (await cliente.query("SELECT id, correo FROM cne.usuarios WHERE tipo = 'superadmin' ORDER BY id")).rows;
   if (filas.length === 0) {
     await cliente.query(
       "INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, password_pendiente, debe_cambiar) VALUES ('superadmin', $1, 'Superadministración', NULL, true, false) ON CONFLICT (correo) DO NOTHING",
@@ -35,12 +34,8 @@ export async function asegurarSuperadmin(cliente: Client, correo: string): Promi
   const f = filas[0];
   await cliente.query("BEGIN");
   try {
-    if (f.mfa_activada_en) {
-      await cliente.query("UPDATE cne.usuarios SET correo = $1 WHERE id = $2", [correo, f.id]);
-    } else {
-      await cliente.query("UPDATE cne.usuarios SET correo = $1, password_hash = NULL, password_pendiente = true, fallos = 0, bloqueado_hasta = NULL WHERE id = $2", [correo, f.id]);
-      await cliente.query("UPDATE cne.sesiones SET revocada_en = now() WHERE usuario_id = $1 AND revocada_en IS NULL", [f.id]);
-    }
+    await cliente.query("UPDATE cne.usuarios SET correo = $1, password_hash = NULL, password_pendiente = true, fallos = 0, bloqueado_hasta = NULL WHERE id = $2", [correo, f.id]);
+    await cliente.query("UPDATE cne.sesiones SET revocada_en = now() WHERE usuario_id = $1 AND revocada_en IS NULL", [f.id]);
     await cliente.query("COMMIT");
   } catch (error) {
     await cliente.query("ROLLBACK");

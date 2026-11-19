@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { login } from "@/server/auth";
 import { closePools } from "@/server/db";
 import { crearEnlace, crearOperador, identificarEstacion } from "@/server/estaciones";
-import { consultarDueno, marcarMfaVerificada, reiniciarBase } from "./helpers/db";
+import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 // M25 · Matriz de permisos (§16.1, §2): cada ruta API y cada acción de servidor frente a cada tipo de sesión.
 // Descubre los archivos solos: una ruta o acción nueva sin regla en la matriz hace fallar la prueba.
@@ -18,8 +18,8 @@ vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
 // «admin» es la cuenta con rol consul; admin_coord y admin_fin, las de rol coordinador y financiero (C2).
-type Tipo = "ninguna" | "admin" | "admin_coord" | "admin_fin" | "super_sin_2fa" | "superadmin" | "e_puerta" | "e_documentacion" | "e_finanzas" | "e_mando";
-const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "super_sin_2fa", "superadmin", "e_puerta", "e_documentacion", "e_finanzas", "e_mando"];
+type Tipo = "ninguna" | "admin" | "admin_coord" | "admin_fin" | "superadmin" | "e_puerta" | "e_documentacion" | "e_finanzas" | "e_mando";
+const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "superadmin", "e_puerta", "e_documentacion", "e_finanzas", "e_mando"];
 type Regla = Tipo[] | "publica";
 const SOLO_ADMIN: Regla = ["admin"];
 const SOLO_SUPER: Regla = ["superadmin"];
@@ -58,7 +58,7 @@ const ACCIONES: Record<string, Regla> = {
   "acceso-actions#accederAdmin": "publica", "acceso-actions#accederSuperadmin": "publica",
   "acceso-actions#cambiarContrasenaAdmin": "publica", "acceso-actions#cambiarContrasenaSuperadmin": "publica", // validan su propia cookie y la contraseña actual
   "acceso-actions#salirAdmin": "publica", "acceso-actions#salirSuperadmin": "publica",
-  "estacion-actions#entrarEstacionAccion": "publica", "estacion-actions#cambiarOperadorAccion": "publica", // acceso por PIN
+  "estacion-actions#entrarPuertaAccion": "publica", "estacion-actions#entrarEstacionAccion": "publica", "estacion-actions#cambiarOperadorAccion": "publica", // acceso por PIN
   "documentos-actions#fijarFormularioAccion": SOLO_ADMIN,
   "estacion-actions#crearOperadorAccion": SOLO_ADMIN, "estacion-actions#restablecerPinAccion": SOLO_ADMIN, "estacion-actions#activarOperadorAccion": SOLO_ADMIN,
   "estacion-actions#crearEnlaceAccion": SOLO_ADMIN, "estacion-actions#revocarEnlaceAccion": SOLO_ADMIN,
@@ -74,9 +74,6 @@ const ACCIONES: Record<string, Regla> = {
   "superadmin-actions#respaldarAccion": SOLO_SUPER, "superadmin-actions#prepararEleccionAccion": SOLO_SUPER,
   "superadmin-actions#interruptorEnvioAccion": SOLO_SUPER, "superadmin-actions#reanudarEnviosAccion": SOLO_SUPER, "superadmin-actions#guardarRemitenteAccion": SOLO_SUPER,
   "superadmin-actions#borrarFotosAccion": SOLO_SUPER, "superadmin-actions#crearLineaAccion": SOLO_SUPER, "superadmin-actions#desvincularLineaAccion": SOLO_SUPER,
-  // La verificación en dos pasos se hace con la contraseña ya puesta y antes de tener el segundo factor.
-  "mfa-actions#comenzarMfaAccion": ["super_sin_2fa", "superadmin"], "mfa-actions#completarMfaAccion": ["super_sin_2fa", "superadmin"],
-  "mfa-actions#verificarMfaAccion": ["super_sin_2fa", "superadmin"], "mfa-actions#recuperarMfaAccion": ["super_sin_2fa", "superadmin"],
 };
 
 function archivos(dir: string, nombre: (f: string) => boolean, acc: string[] = []): string[] {
@@ -121,14 +118,11 @@ describe("matriz de permisos", () => {
     sesionesHechas.admin = { cne_admin: await entrar("admin@prueba.cne", "admin") };
     sesionesHechas.admin_coord = { cne_admin: await entrar("coord@prueba.cne", "admin") };
     sesionesHechas.admin_fin = { cne_admin: await entrar("fin@prueba.cne", "admin") };
-    sesionesHechas.super_sin_2fa = { cne_super: await entrar("super@prueba.cne", "superadmin") };
-    const tok = await entrar("super@prueba.cne", "superadmin");
-    await marcarMfaVerificada(tok);
-    sesionesHechas.superadmin = { cne_super: tok };
-    const admin = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul" as const, debeCambiar: false, mfaVerificada: false };
+    sesionesHechas.superadmin = { cne_super: await entrar("super@prueba.cne", "superadmin") };
+    const admin = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul" as const, debeCambiar: false };
     for (const f of ["puerta", "documentacion", "finanzas", "mando"] as const) {
       const e = await crearEnlace(admin, f, `${f} prueba`);
-      const o = await crearOperador(admin, `Operador ${f}`, [f], "1234");
+      const o = await crearOperador(admin, `Operador ${f}`, "Prueba", [f], "1234");
       if (!e.ok || !o.ok) throw new Error("estación");
       const s = await identificarEstacion(e.token, o.id, "1234", "prueba");
       if (!s.ok) throw new Error("PIN");
@@ -188,12 +182,11 @@ describe("matriz de permisos", () => {
 
   describe("acciones de servidor", () => {
     // Denegada = redirección al acceso/verificación, «Solo la …» o «su sesión ya no es válida».
-    const DENEGADA = /^REDIRECT:\/(admin\/(acceso|cambiar-contrasena|mando|finanzas)|superadmin\/(acceso|cambiar-contrasena|verificacion))$|^Solo la /;
+    const DENEGADA = /^REDIRECT:\/(admin\/(acceso|cambiar-contrasena|mando|finanzas)|superadmin\/(acceso|cambiar-contrasena))$|^Solo la /;
     async function denegada(a: (typeof accionesDescubiertas)[number]): Promise<boolean> {
       const fn = (await import(/* @vite-ignore */ a.archivo))[a.nombre] as (...args: unknown[]) => Promise<unknown>;
       const f = new FormData();
       const args = fn.length >= 2 ? [null, f] : fn.length === 1 ? [f] : [];
-      await consultarDueno("DELETE FROM cne.intentos_acceso WHERE clave LIKE 'mfa:%'");
       try {
         const r = await fn(...args);
         return typeof r === "object" && r !== null && "mensaje" in r && /sesión ya no es válida/.test(String((r as { mensaje: unknown }).mensaje));
@@ -224,7 +217,7 @@ describe("matriz de permisos", () => {
     // Roles que puede usar cada página de /admin (sin entrada aquí, la prueba falla) y a dónde redirige a los demás.
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "coordinador", "financiero"],
-      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], informes: ["consul", "financiero"],
+      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
       credenciales: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
@@ -247,10 +240,9 @@ describe("matriz de permisos", () => {
         }
       });
     }
-    it("cada página de /superadmin llama a requireSuperadmin (las de antes de la 2FA, con su excepción explícita)", () => {
+    it("cada página de /superadmin llama a requireSuperadmin", () => {
       for (const f of paginas("superadmin").filter((f) => !/acceso/.test(f))) expect(leer(f), f).toMatch(/requireSuperadmin\(/);
       expect(leer(path.join(SRC, "app/superadmin/(panel)/layout.tsx"))).toMatch(/requireSuperadmin\(\)/);
-      expect(leer(path.join(SRC, "app/superadmin/verificacion/page.tsx"))).toMatch(/permitirSinMfa: true/);
       expect(leer(path.join(SRC, "app/superadmin/cambiar-contrasena/page.tsx"))).toMatch(/permitirCambio: true/);
     });
     it("la página de trabajo de estación exige requireEstacion", () => {

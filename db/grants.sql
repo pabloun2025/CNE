@@ -9,7 +9,7 @@ BEGIN
     -- Sin DELETE: la limpieza de pruebas la hace cne_owner. juntas_madrid y migraciones solo se leen.
     GRANT INSERT, UPDATE ON cne.usuarios, cne.sesiones, cne.intentos_acceso, cne.sesiones_estacion,
       cne.operadores_madrid, cne.enlaces_estacion, cne.mjrv, cne.envios_credencial, cne.auditoria,
-      cne.configuracion, cne.parametros_pago, cne.codigos_recuperacion,
+      cne.configuracion, cne.parametros_pago,
       cne.lecturas_puerta, cne.excepciones_disponibilidad, cne.decisiones_movimiento, cne.documentos_mjrv,
       cne.actas_pago, cne.pagos_confirmados, cne.asignaciones_cargo, cne.fichas_abiertas_finanzas TO cne_app;
     GRANT USAGE ON ALL SEQUENCES IN SCHEMA cne TO cne_app;

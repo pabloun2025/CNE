@@ -74,7 +74,7 @@ describe("documentos de identidad", () => {
   });
 
   describe("D13 · borrar todas las fotos (superadmin)", () => {
-    const sup: Sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "Superadmin Prueba", tipo: "superadmin", rol: "consul", debeCambiar: false, mfaVerificada: true };
+    const sup: Sesion = { sesionId: "x", usuarioId: 1, correo: "s@x.y", nombre: "Superadmin Prueba", tipo: "superadmin", rol: "consul", debeCambiar: false };
     it("sin la frase exacta no borra nada; solo la superadmin", async () => {
       await guardarDocumento({ mjrvId: id, lado: "anverso", imagen: await imagen(), origen: "estacion" });
       await guardarDocumento({ mjrvId: id, lado: "reverso", imagen: await imagen(), origen: "estacion" });

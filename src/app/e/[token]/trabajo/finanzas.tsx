@@ -6,8 +6,8 @@ import { Documentacion } from "./documentacion";
 
 type Ficha = {
   mjrvId: number; cedula: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
-  anverso: boolean; reverso: boolean; documentosCompletos: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeEur: string | null;
-  acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeEur: string; simulado: boolean } | null;
+  anverso: boolean; reverso: boolean; documentosCompletos: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null;
+  acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
   estado: string; modoPrueba: boolean; otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
 };
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
@@ -18,7 +18,6 @@ export function Finanzas() {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [verificado, setVerificado] = useState(false);
   const [mensaje, setMensaje] = useState("");
-  const [capturar, setCapturar] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
 
@@ -60,57 +59,63 @@ export function Finanzas() {
     } catch { setMensaje("No hay conexión. El pago no se ha confirmado."); } finally { setOcupado(false); setConfirmando(false); }
   };
 
-  if (ficha && capturar) {
-    return (<div className="space-y-3"><button onClick={() => { setCapturar(false); void cargar(ficha.cedula); }} className="rounded border border-slate-500 px-4 py-3 font-semibold">← Volver a la ficha de pago</button><Documentacion inicial={ficha.cedula} /></div>);
+  if (ficha && !ficha.pago && !ficha.documentosCompletos) {
+    return (
+      <div className="mx-auto max-w-md space-y-3">
+        <p className="text-lg font-bold">Faltan las fotos de la cédula. Tome el anverso y el reverso antes de continuar.</p>
+        <Documentacion inicial={ficha.cedula} abrirFaltante alCompletar={() => void cargar(ficha.cedula)} />
+        <button onClick={() => { setFicha(null); setCedula(""); setMensaje(""); }} className="w-full border-2 border-stone-900 px-4 py-3">Otra persona</button>
+      </div>
+    );
   }
+  const montos = ficha?.importeEur ? `${ficha.importeEur} EUR${ficha.importeUsd ? ` · ${ficha.importeUsd} USD` : ""}` : "";
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <form onSubmit={(e) => { e.preventDefault(); void cargar(cedula); }} className="flex gap-2">
-        <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Escribir cédula" autoComplete="off" className="min-w-0 flex-1 rounded border border-slate-400 px-3 py-3 text-lg" />
-        <button className="rounded bg-slate-800 px-5 py-3 font-semibold text-white">Buscar</button>
+        <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Escribir cédula" aria-label="Cédula" autoComplete="off" className="min-w-0 flex-1" />
+        <button className="bg-stone-900 px-4 text-white">Buscar</button>
       </form>
       {!ficha && <LectorQr onCodigo={(c) => { setCedula(c); void cargar(c); }} />}
       {mensaje && <p role="alert" className="font-semibold text-red-700">{mensaje}</p>}
       {ficha && (
-        <section className="space-y-3 rounded border p-3">
+        <section className="space-y-3 border-2 border-stone-900 p-3">
           {ficha.otrosPuestos.map((o) => (
-            <p key={o.etiqueta} role="status" className="rounded border-2 border-amber-600 bg-amber-100 p-3 font-semibold text-amber-900">
-              {o.etiqueta} ({o.operador}) abrió esta ficha {o.haceMin < 1 ? "hace menos de 1 min" : `hace ${o.haceMin} min`}. Compruebe que no la está pagando.
+            <p key={o.etiqueta} role="alert" className="border-2 border-amber-700 bg-amber-50 p-3 font-semibold text-amber-950">
+              {o.etiqueta} ({o.operador}) está haciendo este pago {o.haceMin < 1 ? "hace menos de 1 min" : `desde hace ${o.haceMin} min`}. No se puede continuar.
             </p>
           ))}
           {ficha.pago && (
-            <p role="alert" className="rounded bg-red-700 p-3 text-center text-lg font-extrabold text-white">
-              YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeEur} EUR. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
+            <p role="alert" className="cifra bg-red-700 p-3 text-center text-lg font-extrabold text-white">
+              YA PAGADO el {hora(ficha.pago.en)} por {ficha.pago.operador}, {ficha.pago.importeEur ? `${ficha.pago.importeEur} EUR` : `${ficha.pago.importeUsd} USD`}{ficha.pago.importeEur && ficha.pago.importeUsd ? ` · ${ficha.pago.importeUsd} USD` : ""}. No vuelva a pagar.{ficha.pago.simulado ? " (Pago simulado)" : ""}
             </p>
           )}
-          <div><p className="text-lg font-semibold">{ficha.nombre}</p><p className="text-sm">Cédula {ficha.cedula} · {ficha.cargo} · junta {ficha.juntaVigente}{ficha.juntaVigente !== ficha.juntaOrigen ? ` (origen ${ficha.juntaOrigen})` : ""}</p></div>
+          <div><p className="text-xl font-bold">{ficha.nombre}</p><p>Cédula {ficha.cedula} · {ficha.cargo} · junta {ficha.juntaVigente}{ficha.juntaVigente !== ficha.juntaOrigen ? ` (origen ${ficha.juntaOrigen})` : ""}</p></div>
           <ul className="space-y-1">
             <Req ok={ficha.activo} texto="Ficha activa" />
             <Req ok={ficha.anverso} texto="Documento: anverso" />
             <Req ok={ficha.reverso} texto="Documento: reverso" />
             <Req ok={!ficha.pago} texto="Sin pago previo" />
-            <Req ok={ficha.parametrosCompletos} texto={ficha.parametrosCompletos ? `Parámetros de pago completos · ${ficha.importeEur} EUR` : `Parámetros de pago pendientes (${ficha.faltanParametros.join(", ")})`} />
+            <Req ok={ficha.parametrosCompletos} texto={ficha.parametrosCompletos ? `Parámetros de pago completos · ${montos}` : `Parámetros de pago pendientes (${ficha.faltanParametros.join(", ")})`} />
           </ul>
-          {!ficha.documentosCompletos && !ficha.pago && <button onClick={() => setCapturar(true)} className="w-full rounded border-2 border-blue-700 px-4 py-4 text-lg font-bold text-blue-800">Capturar ahora</button>}
-          {!ficha.pago && ficha.activo && (
+          {!ficha.pago && ficha.activo && ficha.otrosPuestos.length === 0 && (
             <>
-              <label className="flex items-start gap-3 rounded bg-slate-100 p-3 text-base font-medium">
+              <label className="flex items-start gap-3 border-2 border-stone-900 bg-stone-50 p-3 text-base font-semibold">
                 <input type="checkbox" checked={verificado} onChange={(e) => setVerificado(e.target.checked)} className="mt-1 h-6 w-6" />
                 He verificado que cumplió sus funciones
               </label>
-              <button disabled={!verificado || !ficha.documentosCompletos || ocupado} onClick={generar} className="w-full rounded bg-blue-700 px-4 py-4 text-lg font-bold text-white disabled:opacity-50">
+              <button disabled={!verificado || !ficha.documentosCompletos || ocupado} onClick={generar} className="w-full bg-stone-900 px-4 py-4 text-lg text-white disabled:opacity-50">
                 {ficha.acta ? `Reimprimir acta (REIMPRESIÓN ${ficha.acta.impresionN + 1})` : "Generar e imprimir acta"}
               </button>
               {ficha.acta && ficha.parametrosCompletos && (
                 <div className="mt-6 border-t-4 border-dashed pt-4">
                   {!confirmando ? (
-                    <button disabled={!verificado || ocupado} onClick={() => setConfirmando(true)} className="w-full rounded bg-green-800 px-4 py-5 text-xl font-extrabold text-white disabled:opacity-50">Confirmar pago entregado</button>
+                    <button disabled={!verificado || ocupado} onClick={() => setConfirmando(true)} className="w-full bg-green-800 px-4 py-5 text-xl font-extrabold text-white disabled:opacity-50">Confirmar pago entregado</button>
                   ) : (
-                    <div role="dialog" aria-label="Confirmar pago" className="space-y-3 rounded border-2 border-green-800 p-3">
-                      <p className="text-lg">Confirme que el acta está firmada y el dinero entregado: <strong>{ficha.importeEur} EUR</strong> a <strong>{ficha.nombre}</strong>.{ficha.modoPrueba ? " (Pago simulado: modo prueba)" : ""}</p>
+                    <div role="dialog" aria-label="Confirmar pago" className="space-y-3 border-2 border-green-800 p-3">
+                      <p className="text-lg">Confirme que el acta está firmada y el dinero entregado: <strong className="cifra">{montos}</strong> a <strong>{ficha.nombre}</strong>.{ficha.modoPrueba ? " (Pago simulado: modo prueba)" : ""}</p>
                       <div className="flex gap-3">
-                        <button disabled={ocupado} onClick={confirmar} className="flex-1 rounded bg-green-800 px-4 py-4 text-lg font-bold text-white">Sí, confirmar</button>
-                        <button disabled={ocupado} onClick={() => setConfirmando(false)} className="flex-1 rounded border-2 border-slate-600 px-4 py-4 text-lg font-bold">Cancelar</button>
+                        <button disabled={ocupado} onClick={confirmar} className="flex-1 bg-green-800 px-4 py-4 text-lg text-white">Sí, confirmar</button>
+                        <button disabled={ocupado} onClick={() => setConfirmando(false)} className="flex-1 border-2 border-stone-900 px-4 py-4 text-lg">Cancelar</button>
                       </div>
                     </div>
                   )}
@@ -119,7 +124,7 @@ export function Finanzas() {
             </>
           )}
           {ficha.pago && <p className="text-center font-semibold text-green-900">Pago confirmado a las {hora(ficha.pago.en)} por {ficha.pago.operador}{ficha.pago.simulado ? " · Pago simulado" : ""}.</p>}
-          <button onClick={() => { setFicha(null); setCedula(""); setMensaje(""); }} className="w-full rounded border-2 border-slate-600 px-4 py-3 font-semibold">Otra persona</button>
+          <button onClick={() => { setFicha(null); setCedula(""); setMensaje(""); }} className="w-full border-2 border-stone-900 px-4 py-3">Otra persona</button>
         </section>
       )}
     </div>

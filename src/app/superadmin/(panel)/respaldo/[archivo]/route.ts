@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import { sesionApi } from "@/server/guard";
 import { rutaRespaldo } from "@/server/respaldo";
 
-// Descarga del respaldo previo a la limpieza: solo superadministración con 2FA; el nombre se valida (sin rutas).
+// Descarga del respaldo previo a la limpieza: solo superadministración; el nombre se valida (sin rutas).
 export async function GET(_: Request, { params }: { params: Promise<{ archivo: string }> }) {
   const sesion = await sesionApi("superadmin");
   if (!sesion) return new Response("No autorizado.", { status: 401 });

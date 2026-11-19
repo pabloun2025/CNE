@@ -1,12 +1,12 @@
 // Estado de las 95 juntas (especificación §7.3, §13.5; decisión 9 del 18-11-2026). Puro: sin base de datos.
-import { cubrirCargos, textoVacantes, type AsignacionCargo, type Cargo, type PersonaCargo } from "./cargos";
+import { cubrirCargos, type AsignacionCargo, type Cargo, type PersonaCargo } from "./cargos";
 import type { Serie, ZonaColor } from "./juntas";
 
 export type JuntaEntrada = { id: number; serie: Serie; numero: number; zona: ZonaColor };
 export type PersonaEntrada = PersonaCargo;
 export type MovimientoEntrada = { junta_origen_id: number; junta_destino_id: number };
 
-// Rojo: nadie presente. Ámbar: alguien presente pero falta algún cargo. Verde: los tres cargos cubiertos.
+// Aro: rojo si no hay nadie, ámbar si hay menos de 3, verde si hay 3 o más presentes. No mira los cargos.
 export type EstadoJunta = "nadie" | "faltan" | "completa";
 
 export type JuntaMando = {
@@ -29,8 +29,8 @@ export function calcularMando(juntas: JuntaEntrada[], personas: PersonaEntrada[]
   const resultado: JuntaMando[] = juntas.map((j) => {
     const c = cobertura.get(j.id)!;
     const n = c.presentes.length;
-    const estado: EstadoJunta = n === 0 ? "nadie" : c.vacantes.length === 0 ? "completa" : "faltan";
-    const texto = estado === "nadie" ? "Nadie" : estado === "completa" ? "Completa" : textoVacantes(c.vacantes);
+    const estado: EstadoJunta = n === 0 ? "nadie" : n >= 3 ? "completa" : "faltan";
+    const texto = estado === "nadie" ? "Nadie" : estado === "completa" ? "3 presentes" : "Falta gente";
     return { ...j, presentes: n, estado, texto, vacantes: c.vacantes, movimiento: conMovimiento.has(j.id), transferibles: c.transferibles.length };
   });
   return {
