@@ -46,8 +46,8 @@ describe("modo prueba y RLS", () => {
     await consultarDueno("UPDATE cne.configuracion SET modo = 'prueba'");
   });
 
-  it("cne_app no puede borrar actividad ni leer el respaldo de limpieza", async () => {
-    await expect(app.query("DELETE FROM lecturas_puerta")).rejects.toThrow(/permission denied/);
+  it("cne_app no borra un pago confirmado ni lee el respaldo de limpieza", async () => {
+    await expect(app.query("DELETE FROM pagos_confirmados")).rejects.toThrow(/permission denied/);
     await expect(app.query("SELECT * FROM respaldo_limpieza")).rejects.toThrow(/permission denied/);
   });
 

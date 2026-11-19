@@ -35,6 +35,20 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/admin/documentos/[id]/[lado]": SOLO_ADMIN,
   "GET /api/admin/resumen": TODOS_ADMIN,
   "GET /api/admin/finanzas/resumen": FINANZAS,
+  "GET /api/admin/finanzas/cedula/[id]/[lado]": FINANZAS,
+  "POST /api/admin/finanzas/ficha": FINANZAS,
+  "POST /api/admin/finanzas/confirmar": FINANZAS,
+  "POST /api/admin/finanzas/nombres": FINANZAS,
+  "POST /api/admin/finanzas/validar-cedula": FINANZAS,
+  "POST /api/admin/finanzas/acta/[mjrvId]": FINANZAS,
+  "POST /api/admin/finanzas/foto": FINANZAS,
+  "GET /api/admin/finanzas/modo": FINANZAS,
+  "POST /api/admin/finanzas/modo": FINANZAS,
+  "POST /api/admin/finanzas/escanear": FINANZAS,
+  "GET /api/admin/finanzas/pendientes": FINANZAS,
+  "POST /api/admin/finanzas/imprimir": FINANZAS,
+  "POST /api/admin/finanzas/firma": FINANZAS,
+  "GET /api/admin/finanzas/lote": FINANZAS,
   "GET /api/mando/junta": MANDO,
   "GET /api/mando/propuesta": MANDO,
   "GET /api/mando/estado": MANDO,
@@ -66,7 +80,7 @@ const ACCIONES: Record<string, Regla> = {
   "estacion-actions#crearOperadorAccion": SOLO_ADMIN, "estacion-actions#restablecerPinAccion": SOLO_ADMIN, "estacion-actions#activarOperadorAccion": SOLO_ADMIN,
   "estacion-actions#crearEnlaceAccion": SOLO_ADMIN, "estacion-actions#revocarEnlaceAccion": SOLO_ADMIN,
   "importar-actions#revisarImportacion": SOLO_ADMIN, "importar-actions#aplicarImportacionAccion": SOLO_ADMIN,
-  "mjrv-actions#crearMjrvAccion": SOLO_ADMIN, "mjrv-actions#editarMjrvAccion": SOLO_ADMIN, "mjrv-actions#bajaMjrvAccion": SOLO_ADMIN,
+  "mjrv-actions#crearMjrvAccion": SOLO_ADMIN, "mjrv-actions#editarMjrvAccion": SOLO_ADMIN, "mjrv-actions#bajaMjrvAccion": SOLO_ADMIN, "mjrv-actions#borrarMjrvAccion": SOLO_ADMIN,
   "revocar-actions#revocarCredencialAccion": SOLO_ADMIN, "revocar-actions#revocarFueraAccion": SOLO_ADMIN,
   "pago-actions#guardarParametrosAccion": FINANZAS,
   "finanzas-nombres-actions#corregirNombresAccion": FINANZAS, "finanzas-nombres-actions#validarCedulaAccion": FINANZAS,
@@ -222,7 +236,7 @@ describe("matriz de permisos", () => {
     // Roles que puede usar cada página de /admin (sin entrada aquí, la prueba falla) y a dónde redirige a los demás.
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "coordinador", "financiero"],
-      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
+      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/escanear": ["consul", "financiero"], "finanzas/imprimir": ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
       credenciales: ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };

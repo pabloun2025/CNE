@@ -1,9 +1,11 @@
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { cubrirCargos, type AsignacionCargo, type PersonaCargo } from "../domain/cargos";
+import { resolverCargo, validarCedula as validarCedulaTexto, validarCorreo, validarMovil } from "../domain/ingreso";
 import { leerJunta } from "../domain/juntas";
-import { rolDeCargo, type Rol } from "../domain/importacion/mjrv";
+import type { Rol } from "../domain/importacion/mjrv";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import { query, withTx } from "./db";
+import { PERSONAS_CARGO } from "./mando";
 
 export type FiltrosMjrv = { junta?: string; rol?: string; estado?: string; q?: string };
 export type FilaLista = {
@@ -60,7 +62,7 @@ export async function obtenerFicha(id: number): Promise<Ficha | null> {
   const docs = await query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [id]);
   const actas = await query<{ n: number }>("SELECT count(*)::int AS n FROM actas_pago WHERE mjrv_id = $1", [id]);
   const pago = await query<{ en: string; importe_usd: string | null; importe_eur: string | null; operador: string }>(
-    "SELECT p.confirmado_en::text AS en, p.importe_usd::text, p.importe_eur::text, btrim(o.nombre || ' ' || o.apellido) AS operador FROM pagos_confirmados p JOIN operadores_madrid o ON o.id = p.operador_id WHERE p.mjrv_id = $1", [id]);
+    "SELECT p.confirmado_en::text AS en, p.importe_usd::text, p.importe_eur::text, coalesce(nullif(btrim(o.nombre || ' ' || o.apellido), ''), u.nombre) AS operador FROM pagos_confirmados p LEFT JOIN operadores_madrid o ON o.id = p.operador_id LEFT JOIN usuarios u ON u.id = p.usuario_id WHERE p.mjrv_id = $1", [id]);
   const movimientos = await query<Ficha["movimientos"][number]>(
     `SELECT d.creado_en::text, jo.serie || jo.numero AS origen, jd.serie || jd.numero AS destino, d.decision, d.manual, d.actor_nombre
        FROM decisiones_movimiento d JOIN juntas_madrid jo ON jo.id = d.junta_origen_id JOIN juntas_madrid jd ON jd.id = d.junta_destino_id
@@ -72,23 +74,20 @@ export async function obtenerFicha(id: number): Promise<Ficha | null> {
 export type DatosMjrv = { cedula: string; apellidos: string; nombres: string; cargo: string; junta: string; correo: string; telefono: string; rotulo: string };
 type Resultado = { ok: true; id: number } | { ok: false; mensaje: string };
 
-function validar(d: DatosMjrv): { ok: true; cedula: string; apellidos: string; nombres: string; cargo: string; serie: string; numero: number; correo: string | null; telefono: string | null; rotulo: string | null } | { ok: false; mensaje: string } {
-  const cedula = d.cedula.trim().toUpperCase().replace(/\s+/g, "");
-  if (!/^[0-9A-Z-]{5,20}$/.test(cedula)) return { ok: false, mensaje: "La cédula no es válida (5 a 20 letras mayúsculas, números o guiones)." };
-  const apellidos = d.apellidos.trim(), nombres = d.nombres.trim(), cargo = d.cargo.trim();
+function validar(d: DatosMjrv): { ok: true; cedula: string; apellidos: string; nombres: string; cargo: string; rol: Rol; serie: string; numero: number; correo: string | null; telefono: string | null; rotulo: string | null } | { ok: false; mensaje: string } {
+  const cedula = validarCedulaTexto(d.cedula);
+  if (!cedula.ok) return cedula;
+  const apellidos = d.apellidos.trim(), nombres = d.nombres.trim();
   if (!apellidos || !nombres) return { ok: false, mensaje: "Escriba apellidos y nombres." };
-  if (!cargo) return { ok: false, mensaje: "Escriba el cargo." };
+  const cargo = resolverCargo(d.cargo);
+  if (!cargo) return { ok: false, mensaje: "Elija el cargo." };
   const j = leerJunta(d.junta);
   if (!j) return { ok: false, mensaje: "La junta no existe: use H1–H41 o M1–M54." };
-  const correo = d.correo.trim().toLowerCase() || null;
-  if (correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) return { ok: false, mensaje: "El correo no es válido." };
-  let telefono: string | null = null;
-  if (d.telefono.trim()) {
-    const p = parsePhoneNumberFromString(d.telefono.trim(), "ES");
-    if (!p?.isValid()) return { ok: false, mensaje: "El teléfono no es válido (use el prefijo del país si no es español)." };
-    telefono = p.number;
-  }
-  return { ok: true, cedula, apellidos, nombres, cargo, serie: j.serie, numero: j.numero, correo, telefono, rotulo: d.rotulo.trim() || null };
+  const correo = validarCorreo(d.correo);
+  if (!correo.ok) return correo;
+  const telefono = validarMovil(d.telefono);
+  if (!telefono.ok) return telefono;
+  return { ok: true, cedula: cedula.cedula, apellidos, nombres, cargo: cargo.etiqueta, rol: cargo.rol, serie: j.serie, numero: j.numero, correo: correo.correo, telefono: telefono.telefono, rotulo: d.rotulo.trim() || null };
 }
 
 const esDuplicado = (e: unknown) => (e as { code?: string }).code === "23505";
@@ -101,7 +100,7 @@ export async function crearMjrv(sesion: Sesion, d: DatosMjrv): Promise<Resultado
       const r = await client.query<{ id: number }>(
         `INSERT INTO mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, rotulo_credencial, correo, telefono_e164, fuente_archivo, es_prueba)
          VALUES ($1,$2,$3,$4,$5,(SELECT id FROM juntas_madrid WHERE serie = $6 AND numero = $7),$8,$9,$10,'Alta manual',false) RETURNING id`,
-        [v.cedula, v.apellidos, v.nombres, v.cargo, rolDeCargo(v.cargo), v.serie, v.numero, v.rotulo, v.correo, v.telefono],
+        [v.cedula, v.apellidos, v.nombres, v.cargo, v.rol, v.serie, v.numero, v.rotulo, v.correo, v.telefono],
       );
       await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "mjrv_creado", entidad: "mjrv", entidadId: r.rows[0].id }, client);
       return { ok: true as const, id: r.rows[0].id };
@@ -120,7 +119,7 @@ export async function editarMjrv(sesion: Sesion, id: number, d: DatosMjrv): Prom
       const r = await client.query(
         `UPDATE mjrv SET cedula=$2, apellidos=$3, nombres=$4, cargo_original=$5, rol=$6, junta_origen_id=(SELECT id FROM juntas_madrid WHERE serie=$7 AND numero=$8),
                 rotulo_credencial=$9, correo=$10, telefono_e164=$11, actualizado_en=now() WHERE id=$1 RETURNING id`,
-        [id, v.cedula, v.apellidos, v.nombres, v.cargo, rolDeCargo(v.cargo), v.serie, v.numero, v.rotulo, v.correo, v.telefono],
+        [id, v.cedula, v.apellidos, v.nombres, v.cargo, v.rol, v.serie, v.numero, v.rotulo, v.correo, v.telefono],
       );
       if (!r.rows[0]) return { ok: false as const, mensaje: "La ficha no existe." };
       await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "mjrv_editado", entidad: "mjrv", entidadId: id }, client);
@@ -167,4 +166,50 @@ export async function validarCedula(actor: ActorFicha, id: number): Promise<Resu
 export async function cambiarBaja(sesion: Sesion, id: number, baja: boolean, motivo: string): Promise<void> {
   const r = await query("UPDATE mjrv SET activo = $2, baja_motivo = $3, actualizado_en = now() WHERE id = $1 RETURNING id", [id, !baja, baja ? motivo.trim().slice(0, 200) || "Baja administrativa" : null]);
   if (r[0]) await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: baja ? "mjrv_baja" : "mjrv_reactivado", entidad: "mjrv", entidadId: id });
+}
+
+export type ResultadoBorrar = { ok: true } | { ok: false; mensaje: string; revocar?: boolean; anularJuntaId?: number };
+
+type Cliente = { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }> };
+
+// La junta está constituida si los tres cargos están cubiertos y esta persona cubre uno.
+async function juntaConstituidaCon(client: Cliente, id: number): Promise<{ etiqueta: string; juntaId: number; asignacion: boolean } | null> {
+  const v = (await client.query(
+    `SELECT v.junta_actual_id, j.serie || j.numero AS etiqueta
+       FROM v_mjrv_asignacion v JOIN juntas_madrid j ON j.id = v.junta_actual_id WHERE v.mjrv_id = $1`, [id])).rows[0] as { junta_actual_id: number; etiqueta: string } | undefined;
+  if (!v) return null;
+  const personas = (await client.query(`${PERSONAS_CARGO} WHERE v.junta_actual_id = $1 OR v.junta_origen_id = $1`, [v.junta_actual_id])).rows as PersonaCargo[];
+  const asignaciones = (await client.query("SELECT mjrv_id, junta_id, cargo, origen FROM asignaciones_cargo WHERE junta_id = $1 AND activa", [v.junta_actual_id])).rows as AsignacionCargo[];
+  const c = cubrirCargos([v.junta_actual_id], personas, asignaciones).get(v.junta_actual_id);
+  if (!c || c.vacantes.length > 0 || !c.cargos.some((x) => x.mjrvId === id)) return null;
+  return { etiqueta: v.etiqueta, juntaId: v.junta_actual_id, asignacion: asignaciones.some((a) => a.mjrv_id === id) };
+}
+
+const TABLAS_DE_LA_FICHA = ["fichas_abiertas_finanzas", "pendientes_impresion", "firmas_recibo", "envios_credencial", "excepciones_disponibilidad", "decisiones_movimiento", "documentos_mjrv", "actas_pago", "asignaciones_cargo", "lecturas_puerta"];
+
+// El pago confirmado y la junta constituida no se tocan. Lo demás de esta ficha sí, para no dejar filas huérfanas.
+export async function borrarMjrv(sesion: Sesion, id: number, confirmar: boolean): Promise<ResultadoBorrar> {
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, mensaje: "La ficha no existe." };
+  if (!confirmar) return { ok: false, mensaje: "Confirme el borrado. No se borró nada." };
+  try {
+    return await withTx(async (client) => {
+      if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 FOR UPDATE", [id])).rows[0]) return { ok: false as const, mensaje: "La ficha no existe." };
+      const pago = (await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [id])).rows[0];
+      const junta = await juntaConstituidaCon(client, id);
+      if (pago || junta) {
+        const partes = [
+          pago ? "Ya se pagó. No se borra la ficha. Puede editarla o revocar la credencial." : "",
+          junta ? `La junta ${junta.etiqueta} quedó constituida con esta persona. No se borra. Puede editar la ficha${junta.asignacion ? " o anular la asignación del cargo" : ""}.` : "",
+        ].filter(Boolean);
+        return { ok: false as const, mensaje: partes.join(" "), revocar: !!pago, anularJuntaId: junta?.asignacion ? junta.juntaId : undefined };
+      }
+      for (const tabla of TABLAS_DE_LA_FICHA) await client.query(`DELETE FROM ${tabla} WHERE mjrv_id = $1`, [id]);
+      await client.query("DELETE FROM mjrv WHERE id = $1", [id]);
+      await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "mjrv_borrado", entidad: "mjrv", entidadId: id }, client);
+      return { ok: true as const };
+    });
+  } catch (e) {
+    if ((e as { code?: string }).code === "23503") return { ok: false, mensaje: "No se puede borrar: quedaría un pago o la junta en un estado imposible. Puede editar la ficha o revocar la credencial.", revocar: true };
+    throw e;
+  }
 }

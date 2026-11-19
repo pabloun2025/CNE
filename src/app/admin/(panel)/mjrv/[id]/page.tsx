@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotonesEnvio } from "@/components/envios-credenciales";
 import { ETIQUETA_ESTADO, enviosDe } from "@/server/envios";
+import { BorrarMjrv } from "@/components/borrar-mjrv";
 import { FormMjrv } from "@/components/form-mjrv";
 import { requireAdmin } from "@/server/guard";
 import { obtenerFicha } from "@/server/mjrv";
@@ -83,6 +84,12 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
           <button className="rounded border border-slate-500 px-4 py-3 font-semibold">{m.activo ? "Dar de baja" : "Reactivar"}</button>
         </form>
         <p className="mt-1 text-sm">La baja no borra el historial.</p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Borrar</h2>
+        <p className="text-sm">Borrar quita la ficha. Si ya se pagó o la junta quedó constituida con esta persona, no se borra.</p>
+        <BorrarMjrv id={m.id} />
       </section>
     </main>
   );

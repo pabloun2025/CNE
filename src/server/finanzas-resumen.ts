@@ -20,13 +20,14 @@ export async function resumenFinanzas(): Promise<ResumenFinanzas> {
                  WHEN d.n < 2 THEN 'documentacion_incompleta'
                  WHEN EXISTS (SELECT 1 FROM actas_pago a WHERE a.mjrv_id = m.id) THEN 'acta_preparada'
                  ELSE 'lista' END AS estado,
-            p.importe_usd::text AS usd, p.confirmado_en::text AS hora, btrim(o.nombre || ' ' || o.apellido) AS operador, coalesce(p.es_prueba, false) AS simulado,
+            p.importe_usd::text AS usd, p.confirmado_en::text AS hora, coalesce(nullif(btrim(o.nombre || ' ' || o.apellido), ''), u.nombre) AS operador, coalesce(p.es_prueba, false) AS simulado,
             (m.cedula_validada_en IS NOT NULL) AS "cedulaValidada", (d.n = 2) AS "fotosCompletas"
        FROM mjrv m
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT x.junta_destino_id FROM decisiones_movimiento x WHERE x.mjrv_id = m.id AND x.decision = 'aceptada' ORDER BY x.creado_en DESC, x.id DESC LIMIT 1), m.junta_origen_id)
        CROSS JOIN LATERAL (SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = m.id) d
        LEFT JOIN pagos_confirmados p ON p.mjrv_id = m.id
        LEFT JOIN operadores_madrid o ON o.id = p.operador_id
+       LEFT JOIN usuarios u ON u.id = p.usuario_id
       WHERE m.activo OR p.id IS NOT NULL
       ORDER BY (p.id IS NULL) DESC, p.confirmado_en DESC, m.apellidos`);
   const total = (await query<{ total: string }>("SELECT coalesce(sum(importe_usd), 0)::text AS total FROM pagos_confirmados"))[0].total;

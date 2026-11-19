@@ -34,7 +34,7 @@ export default async function ListaMjrv({ searchParams }: { searchParams: Promis
         <div className="overflow-x-auto">
           <p className="mb-1 text-sm">{filas.length}{filas.length === 500 ? "+" : ""} fichas</p>
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b"><th className="p-2">Junta</th><th className="p-2">Persona</th><th className="p-2">Cargo</th><th className="p-2">Estado</th></tr></thead>
+            <thead><tr className="border-b"><th className="p-2">Junta</th><th className="p-2">Persona</th><th className="p-2">Cargo</th><th className="p-2">Estado</th><th className="p-2">Acciones</th></tr></thead>
             <tbody>
               {filas.map((m) => (
                 <tr key={m.id} className="border-b">
@@ -42,6 +42,7 @@ export default async function ListaMjrv({ searchParams }: { searchParams: Promis
                   <td className="p-2"><Link className="underline" href={`/admin/mjrv/${m.id}`}>{m.apellidos}, {m.nombres}</Link><div className="text-slate-600">{m.cedula}{m.es_prueba ? " · PRUEBA" : ""}</div></td>
                   <td className="p-2">{m.rol}</td>
                   <td className="p-2">{!m.activo ? "De baja" : m.ingresado ? "Ingresó" : "Sin ingresar"}</td>
+                  <td className="p-2"><Link className="underline" href={`/admin/mjrv/${m.id}`}>Editar</Link> · <Link className="underline" href={`/admin/mjrv/${m.id}#borrar`}>Borrar</Link></td>
                 </tr>
               ))}
             </tbody>
