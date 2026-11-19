@@ -1,20 +1,29 @@
 import { query, withTx } from "./db";
 import type { SesionEstacion } from "./estaciones";
 import { ZONA_NOMBRE, type ZonaColor } from "../domain/juntas";
+import { claveAcceso, credencialRevocada, mjrvRevocado } from "./revocar-credencial";
 
 export type Lectura =
   | { resultado: "valido"; nombre: string; junta: string; zona: string }
   | { resultado: "duplicado"; desde: string; mjrvId: number; nombre: string; junta: string }
   | { resultado: "desconocido" }
-  | { resultado: "bloqueado" };
+  | { resultado: "bloqueado" }
+  | { resultado: "revocado" };
 
 export const normalizarCodigo = (t: string) => t.trim().toUpperCase().replace(/\s+/g, "");
 
 // Ingreso idempotente (01 §5): el índice único (mjrv_id, es_prueba) WHERE valido impide dos ingresos aunque dos puertas lean a la vez.
 export async function registrarLectura(s: SesionEstacion, codigoBruto: string, dispositivo: string | null): Promise<Lectura> {
   const codigo = normalizarCodigo(codigoBruto).slice(0, 40);
+  const clave = claveAcceso(codigoBruto).slice(0, 200);
   return withTx(async (client) => {
     const dev = (dispositivo ?? "").slice(0, 100) || null;
+    // Una credencial revocada no pasa, ni por cédula ni por el nombre impreso.
+    const rev = await credencialRevocada(client, codigo, clave);
+    if (rev) {
+      await client.query("INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, dispositivo) VALUES ($1, $2, 'revocado', $3, $4, $5)", [codigo, rev.mjrvId, s.operadorId, s.enlaceId, dev]);
+      return { resultado: "revocado" as const };
+    }
     const m = (await client.query<{ id: number; activo: boolean; apellidos: string; nombres: string }>("SELECT id, activo, apellidos, nombres FROM mjrv WHERE cedula = $1", [codigo])).rows[0];
     // Junta vigente (la del último movimiento aceptado, si hay).
     const juntaVigente = async (id: number) => {
@@ -58,6 +67,7 @@ export async function dejarPasar(s: SesionEstacion, mjrvId: number): Promise<Res
   return withTx(async (client) => {
     const m = (await client.query<{ cedula: string; activo: boolean }>("SELECT cedula, activo FROM mjrv WHERE id = $1", [mjrvId])).rows[0];
     if (!m || !m.activo) return { ok: false as const, status: 404 as const, mensaje: "La ficha no existe o está de baja." };
+    if (await mjrvRevocado(client, mjrvId)) return { ok: false as const, status: 409 as const, mensaje: "La credencial está revocada." };
     const previa = (await client.query("SELECT 1 FROM lecturas_puerta WHERE mjrv_id = $1 AND resultado = 'valido'", [mjrvId])).rows[0];
     if (!previa) return { ok: false as const, status: 409 as const, mensaje: "Esta persona aún no ha ingresado." };
     await client.query("INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id) VALUES ($1, $2, 'reingreso_autorizado', $3, $4)", [m.cedula, mjrvId, s.operadorId, s.enlaceId]);
