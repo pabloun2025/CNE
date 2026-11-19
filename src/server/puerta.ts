@@ -2,13 +2,15 @@ import { query, withTx } from "./db";
 import type { SesionEstacion } from "./estaciones";
 import { ZONA_NOMBRE, type ZonaColor } from "../domain/juntas";
 import { buscarNombreCamara, buscarPorNombre, normalizarCodigo, normalizarNombre } from "../domain/puerta-nombre";
+import { claveAcceso, credencialRevocada, mjrvRevocado } from "./revocar-credencial";
 
 export type Lectura =
   | { resultado: "valido"; nombre: string; junta: string; zona: string }
   | { resultado: "duplicado"; desde: string; mjrvId: number; nombre: string; junta: string }
   | { resultado: "desconocido" }
   | { resultado: "bloqueado" }
-  | { resultado: "ambiguo" };
+  | { resultado: "ambiguo" }
+  | { resultado: "revocado" };
 
 type FichaPuerta = { id: number; activo: boolean; apellidos: string; nombres: string; cedula: string };
 
@@ -18,8 +20,16 @@ export function registrarLectura(s: SesionEstacion, codigoBruto: string, disposi
 export function registrarLectura(s: SesionEstacion, codigoBruto: string, dispositivo: string | null, camara: true): Promise<Lectura | null>;
 export async function registrarLectura(s: SesionEstacion, codigoBruto: string, dispositivo: string | null, camara = false): Promise<Lectura | null> {
   const compacto = normalizarCodigo(codigoBruto).slice(0, 40);
+  const clave = claveAcceso(codigoBruto).slice(0, 200);
   return withTx(async (client) => {
     const dev = (dispositivo ?? "").slice(0, 100) || null;
+    const anotarRevocado = async (mjrvId: number | null, leido: string) => {
+      await client.query("INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, dispositivo) VALUES ($1, $2, 'revocado', $3, $4, $5)", [leido, mjrvId, s.operadorId, s.enlaceId, dev]);
+      return { resultado: "revocado" as const };
+    };
+    // Una credencial revocada no pasa, ni por cédula ni por el nombre impreso.
+    const rev = await credencialRevocada(client, compacto, clave);
+    if (rev) return anotarRevocado(rev.mjrvId, (compacto || clave).slice(0, 80));
     const porCedula = async (cedula: string) =>
       (await client.query<FichaPuerta>("SELECT id, activo, apellidos, nombres, cedula FROM mjrv WHERE cedula = $1", [cedula])).rows[0];
     let m = compacto ? await porCedula(compacto) : undefined;
@@ -41,6 +51,7 @@ export async function registrarLectura(s: SesionEstacion, codigoBruto: string, d
       }
     }
     if (!m && camara) return null;
+    if (m && await mjrvRevocado(client, m.id)) return anotarRevocado(m.id, codigo);
     // Junta vigente (la del último movimiento aceptado, si hay).
     const juntaVigente = async (id: number) => {
       const j = (await client.query<{ serie: string; numero: number; zona_color: ZonaColor }>(
@@ -83,6 +94,7 @@ export async function dejarPasar(s: SesionEstacion, mjrvId: number): Promise<Res
   return withTx(async (client) => {
     const m = (await client.query<{ cedula: string; activo: boolean }>("SELECT cedula, activo FROM mjrv WHERE id = $1", [mjrvId])).rows[0];
     if (!m || !m.activo) return { ok: false as const, status: 404 as const, mensaje: "La ficha no existe o está de baja." };
+    if (await mjrvRevocado(client, mjrvId)) return { ok: false as const, status: 409 as const, mensaje: "La credencial está revocada." };
     const previa = (await client.query("SELECT 1 FROM lecturas_puerta WHERE mjrv_id = $1 AND resultado = 'valido'", [mjrvId])).rows[0];
     if (!previa) return { ok: false as const, status: 409 as const, mensaje: "Esta persona aún no ha ingresado." };
     await client.query("INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id) VALUES ($1, $2, 'reingreso_autorizado', $3, $4)", [m.cedula, mjrvId, s.operadorId, s.enlaceId]);

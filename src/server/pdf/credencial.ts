@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import QRCode from "qrcode";
 import { A4, CR80, MM, POR_HOJA, huecosA4 } from "../../domain/credencial-layout";
 
 export type DatosCredencial = { cedula: string; apellidos: string; nombres: string; cargo: string; rotulo: string; serie: "H" | "M"; prueba: boolean };
@@ -111,14 +112,24 @@ async function dibujar(pdf: PDFDocument, arte: Arte, d: DatosCredencial): Promis
   const cargo = cajaDe(img, tapas.cargo);
   const campos = tapas.campos.map((f) => cajaDe(img, f));
   for (const fr of [rotulo, cargo, ...campos]) page.drawRectangle({ x: fr.x, y: fr.y, width: fr.w, height: fr.h, color: blanco });
+  // El QR de la cédula va a la derecha de los tres datos, encima del modelo.
+  // La altura es la de esos tres recuadros: así no tapa la figura del modelo. Tope 17 mm.
+  const lado = Math.min(17 * MM, campos[0].y + campos[0].h - campos[2].y);
+  const qrX = img.x + img.w - lado - 1.2;
+  const qrY = campos[2].y;
+  const anchoTexto = Math.max(24, qrX - campos[0].x - 2);
   escribir(page, rotulo, d.rotulo.toUpperCase(), arte.bold, 32, 8, d.serie === "M" ? ROJO : negro, "centro");
   escribir(page, cargo, d.cargo.toUpperCase(), arte.bold, 11, 5, negro, "centro");
-  [d.apellidos, d.nombres, d.cedula].forEach((v, i) => escribir(page, campos[i], v.toUpperCase(), arte.bold, 7, 3.5, negro, "centro"));
+  campos.forEach((caja, i) => escribir(page, { ...caja, w: anchoTexto }, [d.apellidos, d.nombres, d.cedula][i].toUpperCase(), arte.bold, 7, 3.5, negro, "centro"));
 
   if (d.prueba) {
     const w = arte.bold.widthOfTextAtSize("PRUEBA", 26);
     page.drawText("PRUEBA", { x: W / 2 - (w / 2) * Math.SQRT1_2, y: H / 2 - (w / 2) * Math.SQRT1_2, size: 26, font: arte.bold, color: rgb(0.85, 0, 0), opacity: 0.35, rotate: degrees(45) });
   }
+
+  const qr = await pdf.embedPng(await QRCode.toBuffer(d.cedula, { margin: 1, width: 400, errorCorrectionLevel: "M" }));
+  page.drawRectangle({ x: qrX - 0.8, y: qrY - 0.8, width: lado + 1.6, height: lado + 1.6, color: blanco });
+  page.drawImage(qr, { x: qrX, y: qrY, width: lado, height: lado });
 }
 
 async function documentoDeCredenciales(datos: DatosCredencial[]): Promise<PDFDocument> {

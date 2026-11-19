@@ -10,7 +10,8 @@ type Lectura =
   | { resultado: "duplicado"; desde: string; mjrvId: number; nombre: string; junta: string }
   | { resultado: "desconocido" }
   | { resultado: "bloqueado" }
-  | { resultado: "ambiguo" };
+  | { resultado: "ambiguo" }
+  | { resultado: "revocado" };
 type Pantalla = Lectura | { resultado: "error" };
 type Contadores = { total: number; esteEnlace: number };
 
@@ -75,6 +76,7 @@ export function Puerta() {
           {pantalla.resultado === "desconocido" && <p className="text-4xl font-extrabold">{ultimo.origen === "teclado" && !pareceCedula(ultimo.codigo) ? "No está en la lista" : "QR no reconocido"}</p>}
           {pantalla.resultado === "ambiguo" && <p className="text-4xl font-extrabold">Hay varias personas. Escriba el nombre completo.</p>}
           {pantalla.resultado === "bloqueado" && <p className="text-4xl font-extrabold">Dada de baja en la lista</p>}
+          {pantalla.resultado === "revocado" && <p className="text-4xl font-extrabold">Credencial revocada</p>}
           {pantalla.resultado === "error" && (<><p className="text-4xl font-extrabold">No se pudo comprobar</p><p className="text-2xl">Repita la lectura.</p></>)}
         </div>
       )}

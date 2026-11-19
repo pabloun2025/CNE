@@ -6,7 +6,7 @@ SET search_path TO cne, public;
 -- ───────────── Configuración (§8, §14) ─────────────
 CREATE TABLE configuracion (
   id                          int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  modo                        text NOT NULL DEFAULT 'prueba' CHECK (modo IN ('prueba','eleccion')),
+  modo                        text NOT NULL DEFAULT 'eleccion' CHECK (modo IN ('prueba','eleccion')),
   documentos_publico_abierto  boolean NOT NULL DEFAULT false,
   actualizado_en              timestamptz NOT NULL DEFAULT now(),
   actualizado_por             bigint

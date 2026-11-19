@@ -285,7 +285,11 @@ En el acta van escritos los dos valores, dólares y euros. Los dirá en breve. N
 
 En administración, pestaña de configuración, se deja el nombre del funcionario que firma los recibos y los montos en dólares y euros. Esos valores escritos salen en el acta. (19-11-2026, 11:32 Madrid)
 
-El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio. El modelo que se cargó es `insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf`. La credencial sale de ese modelo, no de un dibujo nuevo. No lleva QR. (19-11-2026, 13:10 Madrid)
+El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio. El modelo que se cargó es `insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf`. La credencial sale de ese modelo, no de un dibujo nuevo. (19-11-2026, 13:10 Madrid)
+
+El QR impreso en la credencial es la cédula. Va sobre el modelo, sin redibujar la tarjeta. (19-11-2026)
+
+No quiere modo prueba. La instalación arranca en modo elección. No se borra la base al cambiar el modo. (19-11-2026, 13:50 Madrid)
 
 La puerta sigue aceptando el QR de la cédula. Si no hay QR, la cámara intenta leer el nombre impreso y, si no puede, se teclea; el nombre se busca en la lista. La generación de la credencial no se toca aquí. (19-11-2026)
 

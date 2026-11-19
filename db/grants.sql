@@ -11,7 +11,8 @@ BEGIN
       cne.operadores_madrid, cne.enlaces_estacion, cne.mjrv, cne.envios_credencial, cne.auditoria,
       cne.configuracion, cne.parametros_pago,
       cne.lecturas_puerta, cne.excepciones_disponibilidad, cne.decisiones_movimiento, cne.documentos_mjrv,
-      cne.actas_pago, cne.pagos_confirmados, cne.asignaciones_cargo, cne.fichas_abiertas_finanzas TO cne_app;
+      cne.actas_pago, cne.pagos_confirmados, cne.asignaciones_cargo, cne.fichas_abiertas_finanzas,
+      cne.credenciales_revocadas TO cne_app;
     GRANT USAGE ON ALL SEQUENCES IN SCHEMA cne TO cne_app;
   END IF;
 END $$;

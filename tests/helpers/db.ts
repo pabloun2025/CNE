@@ -13,7 +13,7 @@ export async function asegurarRolApp(): Promise<void> {
 }
 
 // Base de pruebas limpia: borra el esquema cne y lo prepara de nuevo.
-export async function reiniciarBase(superadmin = { correo: "super@prueba.cne", password: "clave-de-prueba-1" }) {
+export async function reiniciarBase(opciones: { correo: string; password: string; modo?: "prueba" | "eleccion" } = { correo: "super@prueba.cne", password: "clave-de-prueba-1" }) {
   const { prepararBase } = await import("@/server/schema-apply");
   await asegurarRolApp();
   const cliente = new Client({ connectionString: process.env.DATABASE_TEST_URL });
@@ -23,7 +23,18 @@ export async function reiniciarBase(superadmin = { correo: "super@prueba.cne", p
   } finally {
     await cliente.end();
   }
-  return prepararBase({ url: process.env.DATABASE_TEST_URL, superadmin });
+  const resultado = await prepararBase({ url: process.env.DATABASE_TEST_URL, superadmin: opciones });
+  // La instalación real queda en elección. El banco de pruebas sigue ensayando en modo prueba.
+  if (opciones.modo !== "eleccion") {
+    const ajuste = new Client({ connectionString: process.env.DATABASE_TEST_URL });
+    await ajuste.connect();
+    try {
+      await ajuste.query("UPDATE cne.configuracion SET modo = 'prueba' WHERE id = 1");
+    } finally {
+      await ajuste.end();
+    }
+  }
+  return resultado;
 }
 
 export async function consultarDueno<T extends object = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {

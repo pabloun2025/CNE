@@ -1,8 +1,13 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
+import jsQR from "jsqr";
 import { PDFDocument } from "pdf-lib";
+import QRCode from "qrcode";
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { RUTA_MODELO_CREDENCIAL, credencialesIndividuales, hojasA4, type DatosCredencial } from "@/server/pdf/credencial";
 
@@ -36,7 +41,7 @@ describe("PDF de credenciales", () => {
     expect(bytes.length).toBeGreaterThan(1000);
   });
 
-  it("sale del modelo: lleva sus imágenes, el dato de la persona y no un QR", async () => {
+  it("sale del modelo y el QR impreso es la cédula", async () => {
     const modelo = readFileSync(path.join(process.cwd(), RUTA_MODELO_CREDENCIAL));
     const imagenes: Buffer[] = [];
     let i = 0;
@@ -57,6 +62,19 @@ describe("PDF de credenciales", () => {
     expect(plano).toContain("0000000001");
     expect(createHash("sha256").update(imagenes[1]).digest("hex").slice(0, 16)).toBe("e98d9edce9e725b3");
     expect(createHash("sha256").update(imagenes[2]).digest("hex").slice(0, 16)).toBe("1ca7bdd2ca1e7bc3");
+    const qr = await QRCode.toBuffer("0000000001", { margin: 1, width: 400, errorCorrectionLevel: "M" });
+    const qrImg = await sharp(qr).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    expect(jsQR(new Uint8ClampedArray(qrImg.data), qrImg.info.width, qrImg.info.height)?.data).toBe("0000000001");
+    expect(bytes.includes("/Width 400")).toBe(true);
+    let poppler = false;
+    try { execFileSync("pdftoppm", ["-v"], { stdio: "ignore" }); poppler = true; } catch { /* sin poppler */ }
+    if (!poppler) return;
+    const dir = mkdtempSync(path.join(tmpdir(), "cred-"));
+    writeFileSync(path.join(dir, "a.pdf"), bytes);
+    execFileSync("pdftoppm", ["-r", "200", "-png", "-f", "1", "-l", "1", path.join(dir, "a.pdf"), path.join(dir, "a")]);
+    const { data, info } = await sharp(path.join(dir, "a-1.png")).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const leido = jsQR(new Uint8ClampedArray(data), info.width, info.height);
+    expect(leido?.data).toBe("0000000001");
   });
 });
 
