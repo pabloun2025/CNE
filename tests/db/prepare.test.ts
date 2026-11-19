@@ -36,9 +36,11 @@ describe("db:prepare", () => {
     expect(mapa).toEqual({ celeste: 1, rojo: 2, azul: 3, amarillo: 4, verde: 5, rosado: 6 });
   });
 
-  it("la superadmin queda con cambio de contraseña obligatorio", async () => {
-    const [s] = await consultarDueno<{ debe_cambiar: boolean; correo: string }>("SELECT debe_cambiar, correo FROM cne.usuarios WHERE tipo = 'superadmin'");
-    expect(s).toEqual({ debe_cambiar: true, correo: "pabloun@gmail.com" }); // la segunda preparación la pasó a Pablo (C1)
+  it("Pablo queda como administración, sin contraseña, pendiente de definirla", async () => {
+    const [s] = await consultarDueno<{ tipo: string; rol: string; password_hash: string | null; password_pendiente: boolean }>("SELECT tipo, rol, password_hash, password_pendiente FROM cne.usuarios WHERE correo = 'pabloun@gmail.com'");
+    expect(s).toEqual({ tipo: "madrid_admin", rol: "consul", password_hash: null, password_pendiente: true });
+    const [superadmin] = await consultarDueno<{ correo: string }>("SELECT correo FROM cne.usuarios WHERE tipo = 'superadmin'");
+    expect(superadmin.correo).toBe("super@prueba.cne");
   });
 
   it("una instalación nueva queda en modo elección, sin datos de demostración", async () => {

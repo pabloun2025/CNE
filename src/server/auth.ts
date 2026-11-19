@@ -68,16 +68,16 @@ async function bloqueado(claveCorreo: string, ip: string | null): Promise<boolea
   return (await contarFallos(claveCorreo)) >= 10 || (!!ip && (await contarFallos(`ip:${ip}`)) >= 30);
 }
 
-// ¿Esta cuenta de superadministración tiene la contraseña pendiente de definir? Solo responde sí si no está bloqueada por intentos.
-export async function pideDefinirContrasena(correoCrudo: string, ip: string | null): Promise<boolean> {
+// ¿Esta cuenta del portal tiene la contraseña pendiente de definir? Solo responde sí si no está bloqueada por intentos.
+export async function pideDefinirContrasena(correoCrudo: string, ip: string | null, portal: PortalSesion): Promise<boolean> {
   const correo = correoCrudo.trim().toLowerCase();
   if (await bloqueado(`correo:${sha256Hex(correo)}`, ip)) return false;
-  const f = await query("SELECT 1 FROM usuarios WHERE correo = $1 AND tipo = 'superadmin' AND activo AND password_pendiente AND password_hash IS NULL", [correo]);
+  const f = await query("SELECT 1 FROM usuarios WHERE correo = $1 AND tipo = $2 AND activo AND password_pendiente AND password_hash IS NULL", [correo, TIPO_DE_PORTAL[portal]]);
   return f.length > 0;
 }
 
-// Primer acceso de la superadmin: define su contraseña (una sola vez) y abre sesión.
-export async function definirContrasenaInicial(entrada: { correo: string; nueva: string; repetir: string; ip: string | null; agente: string | null }): Promise<ResultadoLogin> {
+// Primer acceso: define su contraseña (una sola vez) y abre sesión en ese portal.
+export async function definirContrasenaInicial(entrada: { correo: string; nueva: string; repetir: string; ip: string | null; agente: string | null; portal: PortalSesion }): Promise<ResultadoLogin> {
   const correo = entrada.correo.trim().toLowerCase();
   const claveCorreo = `correo:${sha256Hex(correo)}`;
   const claveIp = entrada.ip ? `ip:${entrada.ip}` : null;
@@ -93,11 +93,11 @@ export async function definirContrasenaInicial(entrada: { correo: string; nueva:
   // La condición va en el UPDATE: si dos personas llegan a la vez, solo una gana.
   const f = await query<{ id: number }>(
     `UPDATE usuarios SET password_hash = $1, password_pendiente = false, debe_cambiar = false
-      WHERE correo = $2 AND tipo = 'superadmin' AND activo AND password_pendiente AND password_hash IS NULL RETURNING id`,
-    [await hashPassword(entrada.nueva), correo],
+      WHERE correo = $2 AND tipo = $3 AND activo AND password_pendiente AND password_hash IS NULL RETURNING id`,
+    [await hashPassword(entrada.nueva), correo, TIPO_DE_PORTAL[entrada.portal]],
   );
   if (!f[0]) return fallar(GENERICO);
-  const token = await abrirSesion(f[0].id, "superadmin", entrada.ip, entrada.agente);
+  const token = await abrirSesion(f[0].id, entrada.portal, entrada.ip, entrada.agente);
   await anotar(claveCorreo, true);
   return { ok: true, token, debeCambiar: false };
 }
