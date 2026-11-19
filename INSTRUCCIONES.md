@@ -288,3 +288,5 @@ En administración, pestaña de configuración, se deja el nombre del funcionari
 El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio. El modelo que se cargó es `insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf`. La credencial sale de ese modelo, no de un dibujo nuevo. (19-11-2026, 13:10 Madrid)
 
 El QR impreso en la credencial es la cédula. Va sobre el modelo, sin redibujar la tarjeta. (19-11-2026)
+
+No quiere modo prueba. La instalación arranca en modo elección. No se borra la base al cambiar el modo. (19-11-2026, 13:50 Madrid)
