@@ -251,7 +251,7 @@ Mapa por hora local. Votantes: firmas o estimación. Grandes: varios móviles, m
 
 ## Recorrido del funcionario de Madrid (18-11-2026)
 
-Pase de flujo del sistema interno de Madrid, sin cerrar preguntas: la credencial sigue antes del día y, el día, el orden es puerta, foto de la cédula, pago y constitución. En la puerta el operador escribe nombre, apellido y PIN antes de leer la cédula; una segunda lectura el mismo día sale en rojo con dos pitidos graves, igual que una cédula desconocida o bloqueada. El acta de pago no se imprime sin anverso y reverso, y si faltan la ventanilla los toma primero. El administrador escribe un monto en dólares, el valor en euros y el nombre de quien paga; el acta usa ese valor en euros, sin calcularlo. La constitución muestra las fichas en filas por color, con el aro según haya 3 presentes, menos o nadie, y una sola propuesta para aceptar, pasar o marcar que no se puede. Esa propuesta se pide al Ollama de teinvito (qwen2.5:7b, y qwen2.5:1.5b si el primero no está); si no contesta, queda la primera opción legal. Siguen abiertas la plantilla del acta, la regla de «bloqueada», el orden de cada ficha dentro de su fila, el espacio «JUGADORES», el segundo y el tercer conteo de suplentes, y qué otras pantallas piden el PIN.
+Pase de flujo del sistema interno de Madrid, sin cerrar preguntas: la credencial sigue antes del día y, el día, el orden es puerta, foto de la cédula, pago y constitución. En la puerta el operador escribe nombre, apellido y PIN antes de leer la cédula; una segunda lectura el mismo día sale en rojo con dos pitidos graves, igual que una cédula desconocida o bloqueada. El acta de pago no se imprime sin anverso y reverso, y si faltan la ventanilla los toma primero. El administrador escribe un monto en dólares, el valor en euros y el nombre de quien paga; el acta usa ese valor en euros, sin calcularlo. La constitución muestra las fichas en filas por color, con el aro según haya 3 presentes, menos o nadie, y una sola propuesta para aceptar, pasar o marcar que no se puede. Esa propuesta se pide al Ollama de teinvito (qwen2.5:7b, y qwen2.5:1.5b si el primero no está); si no contesta, queda la primera opción legal. Siguen abiertas la plantilla del acta, la regla de «bloqueada», el orden de cada ficha dentro de su fila, el espacio «JUGADORES» y el segundo y el tercer conteo de suplentes.
 
 El euro es manual, no hay fórmula.
 
@@ -262,3 +262,5 @@ El desplegable de incidentes no entra en el sistema interno de Madrid. Era del t
 El QR de la credencial sigue siendo la cédula. Un segundo QR abre una URL de autoservicio: cada MJRV completa sus datos y escanea su cédula para preparar el acta financiera. No es un cartel ni un WhatsApp. (19-11-2026)
 
 El visor de la constitución lo usan la cuenta de cónsul y la de coordinador. (19-11-2026, 9:55 Madrid)
+
+El PIN se usa una sola vez, para entrar a su cuenta. No se pide en cada estación. (19-11-2026, 10:17 Madrid)
