@@ -14,10 +14,11 @@ const j = (r: ReturnType<typeof calcularMando>, id: number) => r.juntas.find((x)
 
 describe("estado de las juntas (tres presentes)", () => {
   it("nadie → rojo; uno o dos → ámbar; tres o más → verde", () => {
-    expect(j(calcularMando(juntas, [], []), 1)).toMatchObject({ presentes: 0, estado: "nadie", texto: "Nadie" });
-    expect(j(calcularMando(juntas, roles(1, "presidente"), []), 1)).toMatchObject({ presentes: 1, estado: "faltan", texto: "Falta gente", vacantes: ["secretario", "vocal"] });
-    expect(j(calcularMando(juntas, roles(1, "presidente", "secretario"), []), 1)).toMatchObject({ presentes: 2, estado: "faltan", texto: "Falta gente" });
-    expect(j(calcularMando(juntas, completa(1), []), 1)).toMatchObject({ presentes: 3, estado: "completa", texto: "3 presentes" });
+    expect(j(calcularMando(juntas, [], []), 1)).toMatchObject({ presentes: 0, faltan: 3, estado: "nadie", texto: "Nadie" });
+    expect(j(calcularMando(juntas, roles(1, "presidente"), []), 1)).toMatchObject({ presentes: 1, faltan: 2, estado: "faltan", texto: "Falta gente", vacantes: ["secretario", "vocal"] });
+    expect(j(calcularMando(juntas, roles(1, "presidente", "secretario"), []), 1)).toMatchObject({ presentes: 2, faltan: 1, estado: "faltan", texto: "Falta gente" });
+    expect(j(calcularMando(juntas, completa(1), []), 1)).toMatchObject({ presentes: 3, faltan: 0, estado: "completa", texto: "3 presentes" });
+    expect(j(calcularMando(juntas, [...completa(1), persona(1, "suplente")], []), 1)).toMatchObject({ presentes: 4, faltan: 0, estado: "completa" });
   });
 
   it("presidente y secretario titulares + un suplente de la propia junta → verde", () => {
@@ -32,7 +33,7 @@ describe("estado de las juntas (tres presentes)", () => {
     const r = calcularMando(juntas, [...completa(1), persona(1, "suplente", { con_excepcion: true }), persona(1, "suplente", { ingresado: false })], []);
     expect(j(r, 1)).toMatchObject({ presentes: 3, estado: "completa" });
     const r2 = calcularMando(juntas, [...roles(1, "presidente", "secretario"), persona(1, "vocal", { con_excepcion: true })], []);
-    expect(j(r2, 1)).toMatchObject({ presentes: 2, estado: "faltan" });
+    expect(j(r2, 1)).toMatchObject({ presentes: 2, faltan: 1, estado: "faltan" });
   });
 
   it("un traslado con cargo cubre la vacante del destino y deja la marca ⇄ en ambas juntas", () => {

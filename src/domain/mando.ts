@@ -11,7 +11,7 @@ export type EstadoJunta = "nadie" | "faltan" | "completa";
 
 export type JuntaMando = {
   id: number; serie: Serie; numero: number; zona: ZonaColor;
-  presentes: number; estado: EstadoJunta; texto: string;
+  presentes: number; faltan: number; estado: EstadoJunta; texto: string;
   vacantes: Cargo[];
   movimiento: boolean; // ⇄ si hubo un traslado aceptado hacia o desde la junta
   transferibles: number; // suplentes de la propia junta presentes que sobran con los tres cargos cubiertos
@@ -30,8 +30,10 @@ export function calcularMando(juntas: JuntaEntrada[], personas: PersonaEntrada[]
     const c = cobertura.get(j.id)!;
     const n = c.presentes.length;
     const estado: EstadoJunta = n === 0 ? "nadie" : n >= 3 ? "completa" : "faltan";
+    // Para abrir hacen falta 3. Quien llega de más no deja «faltan» en negativo.
+    const faltan = Math.max(0, 3 - n);
     const texto = estado === "nadie" ? "Nadie" : estado === "completa" ? "3 presentes" : "Falta gente";
-    return { ...j, presentes: n, estado, texto, vacantes: c.vacantes, movimiento: conMovimiento.has(j.id), transferibles: c.transferibles.length };
+    return { ...j, presentes: n, faltan, estado, texto, vacantes: c.vacantes, movimiento: conMovimiento.has(j.id), transferibles: c.transferibles.length };
   });
   return {
     juntas: resultado,
