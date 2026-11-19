@@ -58,7 +58,9 @@ export async function registrarLectura(s: SesionEstacion, codigoBruto: string, d
         `SELECT j.serie, j.numero, j.zona_color FROM juntas_madrid j WHERE j.id = coalesce(
            (SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = $1 AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1),
            (SELECT junta_origen_id FROM mjrv WHERE id = $1))`, [id])).rows[0];
-      return { junta: `${j.serie}${j.numero}`, zona: ZONA_NOMBRE[j.zona_color] };
+      // Sin fila de junta el ingreso es válido igual: la pantalla no debe caer en «No se pudo comprobar».
+      if (!j) return { junta: "—", zona: "—" };
+      return { junta: `${j.serie}${j.numero}`, zona: ZONA_NOMBRE[j.zona_color] ?? "—" };
     };
     if (!m) {
       await client.query("INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, dispositivo) VALUES ($1, NULL, 'desconocido', $2, $3, $4)", [codigo, s.operadorId, s.enlaceId, dev]);

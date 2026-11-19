@@ -24,6 +24,8 @@ COPY --from=build --chown=cne:cne /app/node_modules ./node_modules
 COPY --from=build --chown=cne:cne /app/.next ./.next
 COPY --from=build --chown=cne:cne /app/public ./public
 COPY --from=build --chown=cne:cne /app/src ./src
+# El PDF de la credencial se lee en caliente. .dockerignore deja entrar solo este archivo.
+COPY --from=build --chown=cne:cne /app/insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf ./insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf
 COPY --from=build --chown=cne:cne /app/db ./db
 COPY --from=build --chown=cne:cne /app/scripts ./scripts
 COPY --from=build --chown=cne:cne /app/tsconfig.json /app/next.config.ts ./

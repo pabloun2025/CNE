@@ -6,6 +6,9 @@ node_modules
 !.env.example
 backups
 coverage
-insumos
+insumos/*
+!insumos/originales
+insumos/originales/*
+!insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf
 docs
 *.tsbuildinfo
