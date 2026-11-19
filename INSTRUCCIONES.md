@@ -299,4 +299,4 @@ Quien no quiere cubrir un hueco desiste y no se propone para ninguno. Quien no c
 
 El financiero corrige apellidos y nombres y ve quién no tiene la cédula validada. Validar exige las dos fotos. No se inventan montos, recintos ni plantillas. (19-11-2026, 10:38 Madrid)
 
-La cuenta pabloun@gmail.com es administración de Madrid, no superadmin. No tiene contraseña de fábrica: en /admin/acceso el primer ingreso la pide y obliga a definirla antes de seguir. (19-11-2026, 14:35 Madrid)
+El usuario de acceso es admin, no un correo. En /admin/acceso el primer ingreso pide definir la contraseña. Una contraseña vacía no entra. (19-11-2026, 14:35 Madrid)

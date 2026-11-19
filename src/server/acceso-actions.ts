@@ -19,7 +19,7 @@ async function entrar(portal: PortalSesion, formData: FormData): Promise<EstadoF
   if (formData.has("nueva")) {
     r = await definirContrasenaInicial({ correo, nueva: String(formData.get("nueva")), repetir: String(formData.get("repetir") ?? ""), ip, agente, portal });
     if (!r.ok && r.mensaje !== GENERICO) return { error: r.mensaje, definir: true, correo };
-  } else if (!password && (await pideDefinirContrasena(correo, ip, portal))) {
+  } else if (portal === "superadmin" && !password && (await pideDefinirContrasena(correo, ip, portal))) {
     return { definir: true, correo };
   } else {
     r = await login({ correo, password, portal, ip, agente });

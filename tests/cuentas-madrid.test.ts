@@ -20,10 +20,10 @@ describe("cuentas de Madrid del arranque", () => {
     const r = await preparar();
     expect(r.cuentasMadridCreadas).toBe(3);
     const filas = await consultarDueno<{ correo: string; rol: string; debe_cambiar: boolean; activo: boolean; password_hash: string | null; password_pendiente: boolean }>("SELECT correo, rol, debe_cambiar, activo, password_hash, password_pendiente FROM cne.usuarios WHERE tipo = 'madrid_admin' ORDER BY correo");
-    expect(filas.map((f) => [f.correo, f.rol, f.debe_cambiar, f.activo])).toEqual([["consul", "consul", false, true], ["coordinador", "coordinador", false, true], ["financiero", "financiero", false, true], ["pabloun@gmail.com", "consul", false, true]]);
-    const pablo = filas.find((f) => f.correo === "pabloun@gmail.com");
-    expect(pablo).toMatchObject({ password_hash: null, password_pendiente: true });
-    for (const f of filas.filter((f) => f.correo !== "pabloun@gmail.com")) {
+    expect(filas.map((f) => [f.correo, f.rol, f.debe_cambiar, f.activo])).toEqual([["admin", "consul", false, true], ["consul", "consul", false, true], ["coordinador", "coordinador", false, true], ["financiero", "financiero", false, true]]);
+    const admin = filas.find((f) => f.correo === "admin");
+    expect(admin).toMatchObject({ password_hash: null, password_pendiente: true });
+    for (const f of filas.filter((f) => f.correo !== "admin")) {
       expect(f.password_hash).toMatch(/^\$argon2id\$/);
       expect(f.password_hash).not.toContain("Elecciones2026");
       const l = await entrar(f.correo, "Elecciones2026");

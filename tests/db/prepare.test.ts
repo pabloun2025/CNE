@@ -37,7 +37,7 @@ describe("db:prepare", () => {
   });
 
   it("Pablo queda como administración, sin contraseña, pendiente de definirla", async () => {
-    const [s] = await consultarDueno<{ tipo: string; rol: string; password_hash: string | null; password_pendiente: boolean }>("SELECT tipo, rol, password_hash, password_pendiente FROM cne.usuarios WHERE correo = 'pabloun@gmail.com'");
+    const [s] = await consultarDueno<{ tipo: string; rol: string; password_hash: string | null; password_pendiente: boolean }>("SELECT tipo, rol, password_hash, password_pendiente FROM cne.usuarios WHERE correo = 'admin'");
     expect(s).toEqual({ tipo: "madrid_admin", rol: "consul", password_hash: null, password_pendiente: true });
     const [superadmin] = await consultarDueno<{ correo: string }>("SELECT correo FROM cne.usuarios WHERE tipo = 'superadmin'");
     expect(superadmin.correo).toBe("super@prueba.cne");

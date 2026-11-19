@@ -9,13 +9,13 @@ import { hashPassword } from "./passwords";
 const RAIZ = process.cwd();
 const leer = (...partes: string[]) => readFileSync(path.join(RAIZ, ...partes), "utf8");
 
-// Pablo entra por la administración de Madrid, no por la superadministración.
-export const CORREO_ADMIN = "pabloun@gmail.com";
+// El usuario de acceso es «admin», no un correo. Entra por la administración de Madrid.
+export const CORREO_ADMIN = "admin";
 
 export type ResultadoPreparar = { esquemaNuevo: boolean; migraciones: string[]; juntas: number; superadminCreada: boolean; adminCreada: boolean; cuentasMadridCreadas: number };
 
-// Si la cuenta no existe, se crea sin contraseña: el primer ingreso la pide y obliga a definirla.
-// Si ya existe, no se toca. Así un arranque posterior no borra la contraseña que él eligió.
+// Si la cuenta no existe, se crea sin contraseña guardada. El primer ingreso muestra el formulario
+// para definirla; una contraseña vacía no abre sesión. Si ya existe, no se toca.
 export async function asegurarAdminPablo(cliente: Client): Promise<boolean> {
   const r = await cliente.query(
     `INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, password_pendiente, debe_cambiar, rol)
