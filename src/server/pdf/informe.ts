@@ -51,12 +51,13 @@ export async function informeCierrePdf(d: DatosInforme): Promise<Uint8Array> {
     if (y < M + 70) nuevaPagina();
     fila(filaComoTexto(f), normal, 7.5);
   }
-  if (y < M + 60) nuevaPagina();
+  if (y < M + 74) nuevaPagina();
   y -= 8;
   page.drawLine({ start: { x: M, y: y + 10 }, end: { x: W - M, y: y + 10 }, thickness: 0.5, color: negro });
   const linea = (t: string, f = normal) => { page.drawText(latin(t), { x: M, y, size: 10, font: f, color: negro }); y -= 14; };
   linea(`Personas: ${totales.personas} · Pagadas: ${totales.pagadas} · Pendientes: ${totales.pendientes}`);
   linea(`TOTAL ENTREGADO: ${totales.totalEur} EUR (solo pagos confirmados; las actas preparadas no cuentan).`, bold);
+  if (totales.pagosSinImporteEur > 0) linea(`Pagos confirmados sin importe EUR: ${totales.pagosSinImporteEur}.`);
   if (d.modoPrueba) linea("Informe de PRUEBA: las confirmaciones son simuladas y no implican entrega de dinero.", bold);
   pdf.getPages().forEach((p, i) => p.drawText(`Página ${i + 1} de ${n}`, { x: W - M - 70, y: 14, size: 8, font: normal, color: negro }));
   return pdf.save();

@@ -78,6 +78,20 @@ describe("panel financiero", () => {
     expect(filas.some((f) => String(f[0]).includes("PRUEBA"))).toBe(true); // marca de informe de prueba
   });
 
+  it("distingue los pagos legados sin importe EUR del total conocido", async () => {
+    await consultarDueno("UPDATE cne.pagos_confirmados SET importe_eur = NULL WHERE mjrv_id = $1", [ids[0]]);
+    try {
+      const r = await resumenFinanzas();
+      expect(r).toMatchObject({ totalEur: "55.00", pagosSinImporteEur: 1, pagados: 2 });
+      expect((await resumenAdmin()).pagos).toMatchObject({ totalEur: "55.00", pagosSinImporteEur: 1 });
+      const datos = { generadoEn: r.generado_en, modoPrueba: r.modoPrueba, totalEur: r.totalEur, filas: r.filas };
+      const hoja = XLSX.read(informeCierreExcel(datos), { type: "buffer" }).Sheets["Informe"];
+      expect(XLSX.utils.sheet_to_json(hoja, { header: 1 })).toContainEqual(["Pagos confirmados sin importe EUR", 1]);
+    } finally {
+      await consultarDueno("UPDATE cne.pagos_confirmados SET importe_eur = 55 WHERE mjrv_id = $1", [ids[0]]);
+    }
+  });
+
   it("el financiero corrige el nombre y ve quién no tiene la cédula validada", async () => {
     const actor = { tipo: "usuario" as const, id: 1, nombre: "Fin", portal: "admin" as const };
     expect((await resumenFinanzas()).sinCedulaValidada).toBe(3);

@@ -9,7 +9,7 @@ export type FilaFinanzas = {
 };
 export type ResumenFinanzas = {
   generado_en: string; modoPrueba: boolean;
-  pagados: number; pendientes: number; documentacionIncompleta: number; sinCedulaValidada: number; totalEur: string; filas: FilaFinanzas[];
+  pagados: number; pendientes: number; documentacionIncompleta: number; sinCedulaValidada: number; pagosSinImporteEur: number; totalEur: string; filas: FilaFinanzas[];
 };
 
 // El total y «pagados» salen SOLO de pagos_confirmados: generar o imprimir actas no los mueve (§7.5, §13.9).
@@ -37,6 +37,7 @@ export async function resumenFinanzas(): Promise<ResumenFinanzas> {
     pendientes: filas.filter((f) => f.estado !== "pagada").length,
     documentacionIncompleta: filas.filter((f) => f.estado === "documentacion_incompleta").length,
     sinCedulaValidada: filas.filter((f) => !f.cedulaValidada).length,
+    pagosSinImporteEur: filas.filter((f) => f.estado === "pagada" && f.eur === null).length,
     totalEur: total, filas,
   };
 }

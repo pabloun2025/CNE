@@ -18,6 +18,7 @@ export function informeCierreExcel(d: DatosInforme): Buffer {
     [],
     ["Personas", t.personas], ["Pagadas", t.pagadas], ["Pendientes", t.pendientes],
     ["TOTAL ENTREGADO EUR (solo pagos confirmados)", Number(t.totalEur)],
+    ...(t.pagosSinImporteEur > 0 ? [["Pagos confirmados sin importe EUR", t.pagosSinImporteEur]] : []),
   ];
   const hoja = XLSX.utils.aoa_to_sheet(filas);
   hoja["!cols"] = [14, 36, 8, 34, 14, 20, 24].map((wch) => ({ wch }));

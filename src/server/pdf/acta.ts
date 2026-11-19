@@ -11,7 +11,7 @@ export type DatosActa = {
   borrador: boolean; // sin parámetros completos: sin cifras
   emitidaEn: Date;
   persona: { apellidos: string; nombres: string; cedula: string; cargo: string; juntaVigente: string };
-  importe: { usd: string; eur: string } | null;
+  importe: { eur: string } | null;
   pagador: { nombre: string; cargo: string } | null;
   anverso: Buffer;
   reverso: Buffer;
@@ -152,19 +152,11 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
 
   seccion("DETALLE ECONÓMICO");
   const hKpi = 18 * MM;
-  const tercio = ancho / 3;
-  const celdas: [string, string, boolean][] = d.borrador || !d.importe
-    ? [["IMPORTE DE REFERENCIA", "pendiente", false], ["TIPO DE CAMBIO APLICADO", "—", false], ["IMPORTE ENTREGADO", "pendiente", true]]
-    : [["IMPORTE DE REFERENCIA", `USD ${d.importe.usd}`, false], ["TIPO DE CAMBIO APLICADO", "—", false], ["IMPORTE ENTREGADO", `EUR ${d.importe.eur}`, true]];
-  celdas.forEach((c, i) => {
-    const x = ML + i * tercio;
-    p1.drawRectangle({ x, y: y - hKpi, width: tercio, height: hKpi, color: c[2] ? fondoEur : fondo, borderColor: linea, borderWidth: 0.6 });
-    const cap = c[0];
-    const cw = normal.widthOfTextAtSize(latin(cap), 7.5);
-    p1.drawText(latin(cap), { x: x + (tercio - cw) / 2, y: y - 14, size: 7.5, font: normal, color: suave });
-    const nw = bold.widthOfTextAtSize(latin(c[1]), c[2] ? 13 : 12);
-    p1.drawText(latin(c[1]), { x: x + (tercio - nw) / 2, y: y - hKpi + 10, size: c[2] ? 13 : 12, font: bold, color: c[2] ? azul : marino });
-  });
+  const cap = "IMPORTE ENTREGADO";
+  const monto = d.importe && !d.borrador ? `EUR ${d.importe.eur}` : "pendiente";
+  p1.drawRectangle({ x: ML, y: y - hKpi, width: ancho, height: hKpi, color: fondoEur, borderColor: linea, borderWidth: 0.6 });
+  p1.drawText(cap, { x: ML + (ancho - normal.widthOfTextAtSize(cap, 7.5)) / 2, y: y - 14, size: 7.5, font: normal, color: suave });
+  p1.drawText(monto, { x: ML + (ancho - bold.widthOfTextAtSize(monto, 13)) / 2, y: y - hKpi + 10, size: 13, font: bold, color: azul });
   y -= hKpi + 5 * MM;
 
   const declaracion = d.borrador || !d.importe

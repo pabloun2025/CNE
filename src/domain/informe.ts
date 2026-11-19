@@ -17,6 +17,7 @@ export const resumenTotales = (filas: FilaInforme[], totalEur: string) => ({
   personas: filas.length,
   pagadas: filas.filter((f) => f.estado === "pagada").length,
   pendientes: filas.filter((f) => f.estado !== "pagada").length,
+  pagosSinImporteEur: filas.filter((f) => f.estado === "pagada" && f.eur === null).length,
   // Solo confirmaciones: coincide con el total del panel (nunca actas preparadas).
   totalEur,
 });

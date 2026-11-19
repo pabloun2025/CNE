@@ -39,7 +39,7 @@ export function InicioAdmin() {
         <div className="home-cards">
           <Tarjeta titulo="Documentos completos" valor={p.documentosCompletos} detalle={`${p.documentosIncompletos} incompletos`} />
           <Tarjeta titulo="Pagos confirmados" valor={p.pagados} detalle={datos.modoPrueba ? "Simulados (modo prueba)" : undefined} />
-          <Tarjeta titulo="Total entregado" valor={`${p.totalEur} EUR`} detalle="Solo pagos confirmados" />
+          <Tarjeta titulo="Total entregado" valor={`${p.totalEur} EUR`} detalle={p.pagosSinImporteEur ? `${p.pagosSinImporteEur} pagos sin importe EUR registrado` : "Solo pagos confirmados"} />
         </div>
         <Link href="/admin/finanzas" className="button-like secondary">Ir a finanzas</Link>
       </section>}

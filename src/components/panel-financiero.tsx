@@ -42,6 +42,7 @@ export function PanelFinanciero() {
   };
   return (
     <div className="space-y-3">
+      {datos.pagosSinImporteEur > 0 && <p role="status">Pagos confirmados sin importe EUR registrado: {datos.pagosSinImporteEur}. El total solo incluye importes conocidos.</p>}
       {datos.modoPrueba && <p className="border-2 border-stone-900 bg-stone-100 p-2 text-sm font-semibold">Modo prueba: los pagos y los importes son simulados.</p>}
       <div className="home-cards">
         {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Sin cédula validada", datos.sinCedulaValidada], ["Total entregado EUR", datos.totalEur]].map(([t, v]) => (

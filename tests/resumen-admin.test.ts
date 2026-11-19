@@ -26,6 +26,6 @@ describe("inicio de administración", () => {
     const r = await resumenAdmin();
     expect(r.modoPrueba).toBe(true);
     expect(r.apertura).toMatchObject({ preparadas: 1, pendientes: 2, ingresados: 3, total: 3, completas: 1, incompletas: 0, sinNadie: 94 });
-    expect(r.pagos).toEqual({ documentosCompletos: 1, documentosIncompletos: 2, pagados: 0, totalEur: "0" });
+    expect(r.pagos).toEqual({ documentosCompletos: 1, documentosIncompletos: 2, pagados: 0, pagosSinImporteEur: 0, totalEur: "0" });
   });
 });

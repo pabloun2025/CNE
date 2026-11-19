@@ -19,7 +19,7 @@ async function conFotos(id: number) {
   await guardarDocumento({ mjrvId: id, lado: "anverso", imagen: await foto(), origen: "estacion" });
   await guardarDocumento({ mjrvId: id, lado: "reverso", imagen: await foto(), origen: "estacion" });
 }
-const completarParametros = () => consultarDueno("UPDATE cne.parametros_pago SET importe_usd=100, importe_eur=55, pagador_nombre='PAGADOR PRUEBA', pagador_cargo='CARGO PRUEBA', lugar='LUGAR PRUEBA'");
+const completarParametros = () => consultarDueno("UPDATE cne.parametros_pago SET importe_usd=NULL, importe_eur=55, pagador_nombre='PAGADOR PRUEBA', pagador_cargo='CARGO PRUEBA', lugar='LUGAR PRUEBA'");
 const vaciarParametros = () => consultarDueno("UPDATE cne.parametros_pago SET importe_usd=NULL, importe_eur=NULL, pagador_nombre=NULL, pagador_cargo=NULL, lugar=NULL");
 
 describe("finanzas: acta y confirmación", () => {
@@ -76,16 +76,16 @@ describe("finanzas: acta y confirmación", () => {
     const plano = Buffer.concat(trozos).toString("latin1").replace(/<([0-9A-Fa-f\s]+)>/g, (_, h: string) => Buffer.from(h.replace(/\s/g, ""), "hex").toString("latin1"));
     expect(plano).toContain("RECIBO DE ENTREGA Y RECEPCI");
     expect(plano).toContain("cincuenta y cinco euros");
-    expect(plano).toContain("USD 100.00");
+    expect(plano).not.toContain("USD");
     expect(plano).toContain("EUR 55.00");
     expect(plano).toContain("ANVERSO");
     await generarActa(s, a, true);
     expect((await consultarDueno<{ impresion_n: number }>("SELECT impresion_n FROM cne.actas_pago ORDER BY id")).map((x) => x.impresion_n)).toEqual([1, 2]);
     const f = (await fichaPago("0000000001"))!;
-    expect(f).toMatchObject({ estado: "acta_preparada", importeUsd: "100.00", importeEur: "55.00", pago: null });
+    expect(f).toMatchObject({ estado: "acta_preparada", importeUsd: null, importeEur: "55.00", pago: null });
     expect((await consultarDueno("SELECT 1 FROM cne.pagos_confirmados")).length).toBe(0);
     // El acta guarda el euro escrito. No hay tipo de cambio ni conversión.
-    expect(await consultarDueno("SELECT importe_eur::text AS eur, importe_usd::text AS usd, tipo_cambio::text AS cambio FROM cne.actas_pago WHERE mjrv_id = $1 LIMIT 1", [a])).toEqual([{ eur: "55.00", usd: "100.00", cambio: null }]);
+    expect(await consultarDueno("SELECT importe_eur::text AS eur, importe_usd::text AS usd, tipo_cambio::text AS cambio FROM cne.actas_pago WHERE mjrv_id = $1 LIMIT 1", [a])).toEqual([{ eur: "55.00", usd: null, cambio: null }]);
   });
 
   it("un acta ajena se rechaza", async () => {
@@ -99,9 +99,9 @@ describe("finanzas: acta y confirmación", () => {
     const [acta] = await consultarDueno<{ id: number }>("SELECT id FROM cne.actas_pago WHERE mjrv_id = $1 ORDER BY id DESC", [a]);
     const r = await Promise.all([confirmarPago(s, { mjrvId: a, actaId: acta.id, verificado: true }), confirmarPago(s, { mjrvId: a, actaId: acta.id, verificado: true }), confirmarPago(s, { mjrvId: a, actaId: acta.id, verificado: true })]);
     expect(r.filter((x) => x.ok)).toHaveLength(1);
-    expect(r.find((x) => x.ok)).toMatchObject({ simulado: true, importeUsd: "100.00", importeEur: "55.00" });
-    expect(await consultarDueno("SELECT importe_usd::text AS usd, importe_eur::text AS eur, tipo_cambio::text AS cambio FROM cne.pagos_confirmados WHERE mjrv_id = $1", [a])).toEqual([{ usd: "100.00", eur: "55.00", cambio: null }]);
-    for (const x of r.filter((y) => !y.ok)) expect(x).toMatchObject({ ok: false, yaPagado: { importeUsd: "100.00", importeEur: "55.00", operador: "Fin Prueba" } });
+    expect(r.find((x) => x.ok)).toMatchObject({ simulado: true, importeUsd: "", importeEur: "55.00" });
+    expect(await consultarDueno("SELECT importe_usd::text AS usd, importe_eur::text AS eur, tipo_cambio::text AS cambio FROM cne.pagos_confirmados WHERE mjrv_id = $1", [a])).toEqual([{ usd: null, eur: "55.00", cambio: null }]);
+    for (const x of r.filter((y) => !y.ok)) expect(x).toMatchObject({ ok: false, yaPagado: { importeUsd: "", importeEur: "55.00", operador: "Fin Prueba" } });
     expect((await consultarDueno("SELECT 1 FROM cne.pagos_confirmados")).length).toBe(1);
     expect((await fichaPago("0000000001"))).toMatchObject({ estado: "pagada", pago: { simulado: true } });
     expect(await generarActa(s, a, true)).toMatchObject({ ok: false, status: 409 });
