@@ -64,7 +64,7 @@ export function Puerta() {
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <p className="cifra text-center text-2xl font-bold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="block text-base font-semibold">Este puesto: {cont?.esteEnlace ?? "—"}</span></p>
-      <LectorQr leerNombre onCodigo={(c, origen) => void enviar(c, origen ?? "qr")} onError={() => mostrar({ resultado: "error" })} />
+      <LectorQr leerNombre onCodigo={(c, origen) => void enviar(c, origen ?? "qr")} />
       <form onSubmit={(e) => { e.preventDefault(); if (manual.trim()) { void enviar(manual, "teclado"); setManual(""); } }} className="flex gap-2">
         <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Escribir nombre o cédula" aria-label="Nombre o cédula" inputMode="text" autoComplete="off" className="min-w-0 flex-1" />
         <button className="bg-stone-900 px-4 text-white">Comprobar</button>

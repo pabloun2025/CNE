@@ -11,7 +11,7 @@ import { crearRespaldo } from "./respaldo";
 import { crearLinea, desvincularLinea } from "./whatsapp-linea";
 import { cambiarInterruptor, guardarRemitente, reanudarEnvios } from "./envios-config";
 
-export type EstadoSuper = { error?: string; aviso?: string; password?: string; enlace?: string; detalle?: string[]; qr?: string } | null;
+export type EstadoSuper = { error?: string; aviso?: string; password?: string; enlace?: string; detalle?: string[]; qr?: string; vinculada?: boolean } | null;
 
 export async function crearAdminAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
@@ -93,7 +93,7 @@ export async function crearLineaAccion(): Promise<EstadoSuper> {
   const l = await crearLinea(sesion);
   revalidatePath("/superadmin/envios");
   if (l.error) return { error: l.error };
-  return l.estado === "vinculada" ? { aviso: `La línea ya está vinculada${l.numero ? ` con ${l.numero}` : ""}.` } : { aviso: "Escanee el código con el WhatsApp del teléfono de CNE.", qr: l.qr ?? undefined };
+  return l.estado === "vinculada" ? { aviso: `La línea ya está vinculada${l.numero ? ` con ${l.numero}` : ""}.`, vinculada: true } : { aviso: "Escanee el código con el WhatsApp del teléfono de CNE.", qr: l.qr ?? undefined };
 }
 
 export async function desvincularLineaAccion(): Promise<EstadoSuper> {

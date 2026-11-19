@@ -48,6 +48,37 @@ describe("cliente de Evolution API (instancia propia cne-madrid)", () => {
     expect(await evo(f).resumen()).toEqual({ estado: "unknown", numero: null, existe: false });
   });
 
+  // Evolution 2.3.7: connectionState es 200 sin state si la instancia no está en memoria.
+  it("connectionState 200 sin state y fetchInstances 404 → la instancia no existe", async () => {
+    const { f, llamadas } = falso([
+      { status: 200, json: { instance: { instanceName: INSTANCIA_CNE } } },
+      { status: 404, json: { message: "The instance does not exist" } },
+    ]);
+    expect(await evo(f).resumen()).toEqual({ estado: "unknown", numero: null, existe: false });
+    expect(llamadas.map((l) => l.url)).toEqual([
+      "http://evolution-api:8080/instance/connectionState/cne-madrid",
+      "http://evolution-api:8080/instance/fetchInstances?instanceName=cne-madrid",
+    ]);
+  });
+
+  it("connect con error:true no devuelve un código en blanco", async () => {
+    const { f } = falso([{ status: 200, json: { error: true, message: 'BadRequestException: The "cne-madrid" instance does not exist' } }]);
+    await expect(evo(f).conectar()).rejects.toThrow(/does not exist/);
+  });
+
+  it("acepta el PNG en base64 pelado y dibuja el código si no viene imagen", async () => {
+    const crudo = "A".repeat(100);
+    const { f } = falso([{ status: 200, json: { base64: crudo } }]);
+    expect(await evo(f).conectar()).toEqual({ estado: "connecting", qr: `data:image/png;base64,${crudo}` });
+    const { f: f2 } = falso([{ status: 200, json: { code: "2@SIMULADO-NO-VINCULA" } }]);
+    expect((await evo(f2).conectar()).qr).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("si el nombre ya está en uso, crear no aborta", async () => {
+    const { f } = falso([{ status: 403, json: { response: { message: "This name is already in use" } } }]);
+    await expect(evo(f).crearInstancia()).resolves.toBeUndefined();
+  });
+
   it("resultados de envío: número sin WhatsApp, credencial, 5xx incierto, sin identificador", () => {
     expect(resultadoDeEnvio({ kind: "response", status: 400, json: { response: { message: [{ exists: false }] } } })).toMatchObject({ ok: false, permanente: true, error: "El número no tiene WhatsApp." });
     expect(resultadoDeEnvio({ kind: "response", status: 401, json: null })).toMatchObject({ ok: false, permanente: false });

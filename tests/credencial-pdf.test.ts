@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
@@ -76,6 +76,15 @@ describe("PDF de credenciales", () => {
     const leido = jsQR(new Uint8ClampedArray(data), info.width, info.height);
     expect(leido?.data).toBe("0000000001");
   });
+});
+
+it("la imagen de producción incluye el modelo de la credencial", () => {
+  const docker = readFileSync("Dockerfile", "utf8");
+  const ignore = readFileSync(".dockerignore", "utf8");
+  expect(existsSync(RUTA_MODELO_CREDENCIAL)).toBe(true);
+  expect(docker).toContain("insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf");
+  expect(ignore.split("\n").some((l) => l.trim() === "insumos")).toBe(false);
+  expect(ignore).toContain("!insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf");
 });
 
 function textoPlano(buf: Buffer): string {

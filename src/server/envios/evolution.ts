@@ -32,9 +32,19 @@ export function numeroDeJid(v: unknown): string | null {
 }
 
 function mensajeDeError(json: unknown): string | null {
-  const r = (json as { response?: { message?: unknown } } | null)?.response;
-  const m = Array.isArray(r?.message) ? r.message[0] : r?.message;
+  const cuerpo = json as { response?: { message?: unknown }; message?: unknown } | null;
+  const anidado = cuerpo?.response?.message;
+  const m = Array.isArray(anidado) ? anidado[0] : anidado ?? cuerpo?.message;
   return typeof m === "string" ? m.slice(0, 200) : null;
+}
+
+// Evolution a veces manda el PNG como data URL y a veces como base64 pelado.
+function qrDataUrl(valor: unknown): string | null {
+  if (typeof valor !== "string") return null;
+  const limpio = valor.replace(/\s/g, "");
+  if (/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(limpio)) return limpio;
+  if (/^[A-Za-z0-9+/=]+$/.test(limpio) && limpio.length > 80) return `data:image/png;base64,${limpio}`;
+  return null;
 }
 
 export function resultadoDeEnvio(raw: Raw): ResultadoProveedor {
@@ -76,19 +86,34 @@ export class EvolutionHttp implements ClienteEvolution {
   }
 
   // Sin webhook: CNE no recibe mensajes ni estados (nunca se afirma «entregada»).
+  // 403/409 «already in use»: la instancia ya está; se sigue con el código. Un 400 de validación sí aborta.
   async crearInstancia(): Promise<void> {
-    await this.esperarOk("POST", "/instance/create", {
+    const raw = await this.pedir("POST", "/instance/create", {
       instanceName: INSTANCIA_CNE, integration: "WHATSAPP-BAILEYS", qrcode: false, groupsIgnore: true, alwaysOnline: false,
       readMessages: false, readStatus: false, syncFullHistory: false, rejectCall: false,
     });
+    if (raw.kind === "network") throw new ErrorEvolution(`Evolution API no responde (${raw.error}).`);
+    if (raw.status >= 200 && raw.status < 300) return;
+    const msg = mensajeDeError(raw.json) ?? "";
+    if ((raw.status === 403 || raw.status === 409) && /already in use|already exists|unique constraint|duplicate key/i.test(msg)) return;
+    throw new ErrorEvolution(msg || `Evolution API respondió ${raw.status}.`);
   }
 
   async conectar(): Promise<CodigoVinculo> {
     const json = (await this.esperarOk("GET", `/instance/connect/${INSTANCIA_CNE}`)) as Record<string, unknown> | null;
+    // Evolution 2.3.7 responde 200 con { error: true } si la instancia no está cargada. No es un código en blanco.
+    if (json?.error === true) {
+      const msg = typeof json.message === "string" ? json.message.replace(/^BadRequestException:\s*/, "") : "";
+      throw new ErrorEvolution((msg || "Evolution API no preparó el código de vinculación.").slice(0, 200));
+    }
     const anidado = json?.instance as { state?: unknown; status?: unknown } | undefined;
     if (anidado && (anidado.state === "open" || anidado.status === "open")) return { estado: "open", qr: null };
-    const base64 = typeof json?.base64 === "string" ? json.base64 : null;
-    return { estado: "connecting", qr: base64 && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(base64) ? base64 : null };
+    const anidadoQr = json?.qrcode as { base64?: unknown; code?: unknown } | undefined;
+    const dibujado = qrDataUrl(json?.base64) ?? qrDataUrl(anidadoQr?.base64);
+    if (dibujado) return { estado: "connecting", qr: dibujado };
+    const codigo = typeof json?.code === "string" ? json.code : typeof anidadoQr?.code === "string" ? anidadoQr.code : null;
+    if (codigo && codigo.length > 8) return { estado: "connecting", qr: await QRCode.toDataURL(codigo, { margin: 2, width: 264 }) };
+    return { estado: "connecting", qr: null };
   }
 
   async resumen(): Promise<ResumenInstancia> {
@@ -96,12 +121,24 @@ export class EvolutionHttp implements ClienteEvolution {
     if (raw.kind === "network") throw new ErrorEvolution(`Evolution API no responde (${raw.error}).`);
     if (raw.status === 404) return { estado: "unknown", numero: null, existe: false };
     if (raw.status < 200 || raw.status >= 300) throw new ErrorEvolution(mensajeDeError(raw.json) ?? `Evolution API respondió ${raw.status}.`);
-    const estado = aEstado((raw.json as { instance?: { state?: unknown } } | null)?.instance?.state);
+    let estado = aEstado((raw.json as { instance?: { state?: unknown } } | null)?.instance?.state);
     const lista = await this.pedir("GET", `/instance/fetchInstances?instanceName=${INSTANCIA_CNE}`);
-    let numero: string | null = null;
-    if (lista.kind === "response" && Array.isArray(lista.json)) {
-      numero = numeroDeJid((lista.json as Array<{ name?: unknown; ownerJid?: unknown }>).find((i) => i?.name === INSTANCIA_CNE)?.ownerJid);
+    if (lista.kind === "network") {
+      if (estado === "unknown") throw new ErrorEvolution(`Evolution API no responde (${lista.error}).`);
+      return { estado, numero: null, existe: true };
     }
+    // Evolution 2.3.7: connectionState es 200 aunque la instancia no esté en memoria (state ausente).
+    // fetchInstances responde 404 en ese caso. Sin esa señal, «Crear y vincular» nunca llama a /instance/create.
+    if (lista.status === 404) return { estado: "unknown", numero: null, existe: false };
+    if (lista.status < 200 || lista.status >= 300) {
+      if (estado === "unknown") throw new ErrorEvolution(mensajeDeError(lista.json) ?? `Evolution API respondió ${lista.status}.`);
+      return { estado, numero: null, existe: true };
+    }
+    const filas = Array.isArray(lista.json) ? lista.json as Array<Record<string, unknown>> : [];
+    const item = filas.find((i) => i?.name === INSTANCIA_CNE || i?.instanceName === INSTANCIA_CNE);
+    if (!item && estado === "unknown") return { estado: "unknown", numero: null, existe: false };
+    if (estado === "unknown" && item) estado = aEstado(item.connectionStatus ?? item.state);
+    const numero = numeroDeJid(item?.ownerJid) ?? (typeof item?.number === "string" && /^\d{8,15}$/.test(item.number) ? `+${item.number}` : null);
     return { estado, numero, existe: true };
   }
 
