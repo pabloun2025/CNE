@@ -1,12 +1,10 @@
-import { PDFDocument } from "pdf-lib";
-import jsQR from "jsqr";
-import sharp from "sharp";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { inflateSync } from "node:zlib";
+import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
-import { credencialesIndividuales, hojasA4, type DatosCredencial } from "@/server/pdf/credencial";
+import { RUTA_MODELO_CREDENCIAL, credencialesIndividuales, hojasA4, type DatosCredencial } from "@/server/pdf/credencial";
 
 const ficha = (i: number, o: Partial<DatosCredencial> = {}): DatosCredencial => ({
   cedula: String(i).padStart(10, "0"), apellidos: `APELLIDO PRUEBA ${String(i).padStart(3, "0")}`, nombres: "NOMBRE PRUEBA", cargo: "PRESIDENTE",
@@ -38,27 +36,40 @@ describe("PDF de credenciales", () => {
     expect(bytes.length).toBeGreaterThan(1000);
   });
 
-  it("el QR de la hoja A4 se lee y devuelve exactamente la cédula", async () => {
-    // Se rasteriza con pdftoppm si está disponible; si no, la prueba se omite sin fallar.
-    let ok = false;
-    try { execFileSync("pdftoppm", ["-v"], { stdio: "ignore" }); ok = true; } catch { /* sin poppler */ }
-    if (!ok) return;
-    const dir = mkdtempSync(path.join(tmpdir(), "cred-"));
-    const datos = [ficha(1), ficha(2)];
-    writeFileSync(path.join(dir, "a.pdf"), await hojasA4(datos));
-    execFileSync("pdftoppm", ["-r", "200", "-png", "-singlefile", path.join(dir, "a.pdf"), path.join(dir, "a")]);
-    const { data, info } = await sharp(path.join(dir, "a.png")).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    // Cada hueco por separado: así se leen los dos QR de la hoja.
-    const leidos: string[] = [];
-    const mm = 200 / 25.4;
-    for (let i = 0; i < 2; i++) {
-      const x0 = Math.round((19.4 + i * 85.6) * mm), y0 = Math.round(13.5 * mm);
-      const w = Math.round(85.6 * mm), h = Math.round(54 * mm);
-      const recorte = new Uint8ClampedArray(w * h * 4);
-      for (let y = 0; y < h; y++) data.copy(Buffer.from(recorte.buffer), y * w * 4, ((y0 + y) * info.width + x0) * 4, ((y0 + y) * info.width + x0 + w) * 4);
-      const r = jsQR(recorte, w, h);
-      if (r) leidos.push(r.data);
+  it("sale del modelo: lleva sus imágenes, el dato de la persona y no un QR", async () => {
+    const modelo = readFileSync(path.join(process.cwd(), RUTA_MODELO_CREDENCIAL));
+    const imagenes: Buffer[] = [];
+    let i = 0;
+    while (imagenes.length < 3) {
+      const s = modelo.indexOf(Buffer.from([0xff, 0xd8, 0xff]), i);
+      const e = modelo.indexOf(Buffer.from([0xff, 0xd9]), s + 2);
+      imagenes.push(modelo.subarray(s, e + 2));
+      i = e + 2;
     }
-    expect(leidos).toEqual(datos.map((d) => d.cedula));
+    const bytes = Buffer.from(await credencialesIndividuales([ficha(1), ficha(2)]));
+    expect(bytes.includes(imagenes[0])).toBe(true);
+    expect(bytes.includes(imagenes[1])).toBe(true);
+    expect(bytes.includes(imagenes[2])).toBe(true);
+    const plano = textoPlano(bytes);
+    expect(plano).toContain("H01");
+    expect(plano).toContain("M01");
+    expect(plano).toContain("APELLIDO PRUEBA 001");
+    expect(plano).toContain("0000000001");
+    expect(createHash("sha256").update(imagenes[1]).digest("hex").slice(0, 16)).toBe("e98d9edce9e725b3");
+    expect(createHash("sha256").update(imagenes[2]).digest("hex").slice(0, 16)).toBe("1ca7bdd2ca1e7bc3");
   });
 });
+
+function textoPlano(buf: Buffer): string {
+  const trozos: Buffer[] = [];
+  let i = 0;
+  while (i < buf.length) {
+    const s = buf.indexOf("stream", i);
+    if (s < 0) break;
+    const a = buf[s + 6] === 0x0a ? s + 7 : s + 8;
+    const fin = buf.indexOf("endstream", a);
+    try { trozos.push(inflateSync(buf.subarray(a, fin))); } catch { /* flujo ya plano */ }
+    i = fin + 9;
+  }
+  return Buffer.concat(trozos).toString("latin1").replace(/<([0-9A-Fa-f\s]+)>/g, (_, h: string) => Buffer.from(h.replace(/\s/g, ""), "hex").toString("latin1"));
+}

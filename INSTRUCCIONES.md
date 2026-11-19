@@ -284,3 +284,5 @@ El acta de pago de Madrid sale del modelo entregado (Paquete_modelo_recibo_pago_
 En el acta van escritos los dos valores, dólares y euros. Los dirá en breve. No hay fórmula. (19-11-2026, 11:27 Madrid)
 
 En administración, pestaña de configuración, se deja el nombre del funcionario que firma los recibos y los montos en dólares y euros. Esos valores escritos salen en el acta. (19-11-2026, 11:32 Madrid)
+
+El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio. El modelo que se cargó es `insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf`. La credencial sale de ese modelo, no de un dibujo nuevo. No lleva QR. (19-11-2026, 13:10 Madrid)

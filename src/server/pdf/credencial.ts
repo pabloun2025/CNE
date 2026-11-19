@@ -1,19 +1,38 @@
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import QRCode from "qrcode";
-import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { A4, CR80, MM, POR_HOJA, huecosA4 } from "../../domain/credencial-layout";
 
 export type DatosCredencial = { cedula: string; apellidos: string; nombres: string; cargo: string; rotulo: string; serie: "H" | "M"; prueba: boolean };
 
-// Helvetica solo codifica WinAnsi: lo demás se sustituye para no romper la generación.
+// El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio.
+// Claude cargó este archivo. Sus tres imágenes son las de la copia de trabajo del 19-11-2026.
+// La credencial se arma con esas imágenes, no con un dibujo nuevo.
+export const RUTA_MODELO_CREDENCIAL = path.join("insumos", "originales", "MODELO_DE_CREDENCIALES_DE_MJRV.pdf");
+
 // WinAnsi: Latin-1 más guiones, comillas, viñeta, euro y puntos suspensivos.
 const latin = (t: string) => t.replace(/[^\u0020-\u00ff\u2013\u2014\u2018\u2019\u201c\u201d\u2022\u20ac\u2026]/g, "?");
-const AZUL = rgb(0x1f / 255, 0x5f / 255, 0xa8 / 255);
-const NARANJA = rgb(0xf4 / 255, 0xb1 / 255, 0x83 / 255);
 const ROJO = rgb(0xe0 / 255, 0, 0);
+const negro = rgb(0, 0, 0);
+const blanco = rgb(1, 1, 1);
 
-// Ajusta el tamaño de letra para que el texto quepa en `ancho` pt; hasta 2 líneas si `lineas` = 2.
+// En el PDF van en este orden: logotipo, credencial de hombres, credencial de mujeres.
+function imagenesDelModelo(): [Buffer, Buffer, Buffer] {
+  const d = readFileSync(path.join(process.cwd(), RUTA_MODELO_CREDENCIAL));
+  const out: Buffer[] = [];
+  let i = 0;
+  while (out.length < 3) {
+    const s = d.indexOf(Buffer.from([0xff, 0xd8, 0xff]), i);
+    const e = s < 0 ? -1 : d.indexOf(Buffer.from([0xff, 0xd9]), s + 2);
+    if (s < 0 || e < 0) break;
+    // Copia propia: pdf-lib lee el JPEG desde el inicio del buffer.
+    out.push(Buffer.from(d.subarray(s, e + 2)));
+    i = e + 2;
+  }
+  if (out.length < 3) throw new Error("El modelo de credencial no trae el logotipo y las dos credenciales.");
+  return out as [Buffer, Buffer, Buffer];
+}
+
 function ajustar(texto: string, fuente: PDFFont, ancho: number, max: number, min: number, lineas: number): { size: number; lineas: string[] } {
   for (let size = max; size >= min; size -= 0.25) {
     const ls = partir(texto, fuente, size, ancho);
@@ -32,82 +51,81 @@ function partir(texto: string, fuente: PDFFont, size: number, ancho: number): st
   return out.length ? out : [""];
 }
 
-let logoCache: Uint8Array | null = null;
-async function logoBytes(): Promise<Uint8Array> {
-  logoCache ??= await readFile(path.join(process.cwd(), "public", "marca", "cne-elecciones-2027.jpg"));
-  return logoCache;
+type Caja = { x: number; y: number; w: number; h: number };
+type Arte = { bold: PDFFont; logo: PDFImage; hombre: PDFImage; mujer: PDFImage };
+
+// Fracciones del cuerpo del modelo (y desde arriba). Tapan el texto de muestra y dejan la figura y los bordes.
+const TAPAS = {
+  H: { rotulo: [0.007, 0.341, 0.739, 0.259], cargo: [0.007, 0.597, 0.765, 0.137], campos: [[0.034, 0.748, 0.933, 0.059], [0.034, 0.824, 0.933, 0.066], [0.034, 0.903, 0.933, 0.066]] },
+  M: { rotulo: [0.032, 0.331, 0.655, 0.266], cargo: [0.032, 0.593, 0.659, 0.136], campos: [[0.039, 0.745, 0.923, 0.062], [0.039, 0.828, 0.923, 0.066], [0.039, 0.910, 0.923, 0.066]] },
+} as const;
+
+function cajaDe(img: Caja, fr: readonly [number, number, number, number]): Caja {
+  return { x: img.x + fr[0] * img.w, y: img.y + img.h - (fr[1] + fr[3]) * img.h, w: fr[2] * img.w, h: fr[3] * img.h };
 }
 
-// Pictograma vectorial masculino/femenino (9 × 17 mm) dentro de la caja (x, yArriba) en mm.
-function pictograma(page: PDFPage, serie: "H" | "M", x: number, yArriba: number, color: ReturnType<typeof rgb>, H: number) {
-  const cx = (x + 4.5) * MM;
-  const py = (mm: number) => H - mm * MM;
-  page.drawCircle({ x: cx, y: py(yArriba + 2.2), size: 2.2 * MM, color });
-  if (serie === "H") {
-    page.drawRectangle({ x: cx - 3 * MM, y: py(yArriba + 12), width: 6 * MM, height: 8.6 * MM, color });
-    page.drawRectangle({ x: cx - 2 * MM, y: py(yArriba + 17), width: 1.6 * MM, height: 5 * MM, color });
-    page.drawRectangle({ x: cx + 0.4 * MM, y: py(yArriba + 17), width: 1.6 * MM, height: 5 * MM, color });
-  } else {
-    page.drawSvgPath(`M 0 0 L ${-4 * MM} ${9 * MM} L ${4 * MM} ${9 * MM} Z`, { x: cx, y: py(yArriba + 4.8), color });
-    page.drawRectangle({ x: cx - 1.8 * MM, y: py(yArriba + 17), width: 1.4 * MM, height: 4 * MM, color });
-    page.drawRectangle({ x: cx + 0.4 * MM, y: py(yArriba + 17), width: 1.4 * MM, height: 4 * MM, color });
-  }
+function escribir(page: PDFPage, caja: Caja, texto: string, font: PDFFont, max: number, min: number, color: ReturnType<typeof rgb>, alinear: "centro" | "izquierda", lineas = 1) {
+  const a = ajustar(latin(texto), font, caja.w - 3, max, min, lineas);
+  const paso = a.size * 1.05;
+  const alto = a.lineas.length * paso;
+  const base = caja.y + (caja.h + alto) / 2 - a.size * 0.8;
+  a.lineas.forEach((l, i) => {
+    const w = font.widthOfTextAtSize(l, a.size);
+    const x = alinear === "centro" ? caja.x + (caja.w - w) / 2 : caja.x + 1.5;
+    page.drawText(l, { x, y: base - i * paso, size: a.size, font, color });
+  });
 }
 
-type Recursos = { bold: PDFFont; logo: Awaited<ReturnType<PDFDocument["embedJpg"]>> };
+// Marco del modelo: logotipo encima del cuerpo, en la proporción de la hoja de muestra.
+const MARCO = { w: 190.8, h: 287.8, logo: { x: 8.4, y: 3.5, w: 174, h: 78.3 }, cuerpo: { y: 81.87, h: 206.2 } };
 
-async function dibujar(pdf: PDFDocument, rec: Recursos, d: DatosCredencial): Promise<void> {
+async function dibujar(pdf: PDFDocument, arte: Arte, d: DatosCredencial): Promise<void> {
   const W = CR80.ancho * MM, H = CR80.alto * MM;
   const page = pdf.addPage([W, H]);
-  const Y = (mm: number) => H - mm * MM; // desde arriba
-  const negro = rgb(0, 0, 0);
-  page.drawRectangle({ x: 0, y: 0, width: W, height: H, borderColor: rgb(0.75, 0.75, 0.75), borderWidth: 0.4 });
+  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: blanco, borderColor: rgb(0.75, 0.75, 0.75), borderWidth: 0.4 });
 
-  // 3–21 mm: logotipo (ancho 46 mm).
-  const lw = 46 * MM, lh = (rec.logo.height / rec.logo.width) * lw;
-  page.drawImage(rec.logo, { x: 4 * MM, y: Y(3) - lh, width: lw, height: lh });
-
-  // 22–35 mm: banda azul con cuatro líneas.
-  page.drawRectangle({ x: 3 * MM, y: Y(35), width: 48 * MM, height: 13 * MM, color: AZUL });
-  ["MIEMBRO", "DE JUNTA", "RECEPTORA", "DEL VOTO"].forEach((t, i) => {
-    const w = rec.bold.widthOfTextAtSize(t, 8.5);
-    page.drawText(t, { x: (W - w) / 2, y: Y(22) - 8.4 - i * 8.6, size: 8.5, font: rec.bold, color: rgb(1, 1, 1) });
+  const marcoW = W - 3 * MM;
+  const marcoH = marcoW * (MARCO.h / MARCO.w);
+  const marcoX = (W - marcoW) / 2;
+  const marcoTop = (H + marcoH) / 2;
+  const logoW = marcoW * (MARCO.logo.w / MARCO.w);
+  const logoH = marcoH * (MARCO.logo.h / MARCO.h);
+  page.drawImage(arte.logo, {
+    x: marcoX + marcoW * (MARCO.logo.x / MARCO.w),
+    y: marcoTop - marcoH * (MARCO.logo.y / MARCO.h) - logoH,
+    width: logoW,
+    height: logoH,
   });
 
-  // 36–54 mm: rótulo grande (negro hombres, rojo mujeres) y pictograma.
-  const color = d.serie === "M" ? ROJO : negro;
-  const rotulo = latin(d.rotulo.toUpperCase());
-  const { size } = ajustar(rotulo, rec.bold, 34 * MM, 40, 8, 1);
-  page.drawText(rotulo, { x: 3 * MM, y: Y(36) - 0.8 * size - (18 * MM - size) / 2 + 2, size, font: rec.bold, color });
-  pictograma(page, d.serie, 42, 36.5, color, H);
+  const cuerpo = d.serie === "M" ? arte.mujer : arte.hombre;
+  const slotH = marcoH * (MARCO.cuerpo.h / MARCO.h);
+  const slotW = marcoW;
+  const slotTop = marcoTop - marcoH * (MARCO.cuerpo.y / MARCO.h);
+  const esc = Math.min(slotW / cuerpo.width, slotH / cuerpo.height);
+  const cw = cuerpo.width * esc, ch = cuerpo.height * esc;
+  const img: Caja = { x: marcoX + (slotW - cw) / 2, y: slotTop - slotH + (slotH - ch) / 2, w: cw, h: ch };
+  page.drawImage(cuerpo, { x: img.x, y: img.y, width: img.w, height: img.h });
 
-  // 55–60 mm: cargo.
-  const cargo = latin(d.cargo.toUpperCase());
-  const c = ajustar(cargo, rec.bold, 48 * MM, 9, 5, 1);
-  page.drawText(c.lineas[0], { x: (W - rec.bold.widthOfTextAtSize(c.lineas[0], c.size)) / 2, y: Y(59), size: c.size, font: rec.bold, color: negro });
-
-  // 61–83 mm: tres recuadros con los datos y QR de 17 × 17 mm con la cédula.
-  const valores = [d.apellidos, d.nombres, d.cedula];
-  valores.forEach((v, i) => {
-    const top = 61 + i * 7.8;
-    page.drawRectangle({ x: 3 * MM, y: Y(top + 6.8), width: 30.5 * MM, height: 6.8 * MM, borderColor: NARANJA, borderWidth: 0.8 });
-    const a = ajustar(latin(v.toUpperCase()), rec.bold, 28.5 * MM, 7, 5, 2);
-    const alto = a.lineas.length * a.size * 1.05;
-    a.lineas.forEach((l, j) => page.drawText(l, { x: 4 * MM, y: Y(top + 3.4) + alto / 2 - a.size * 0.8 - j * a.size * 1.05, size: a.size, font: rec.bold, color: negro }));
-  });
-  const qr = await pdf.embedPng(await QRCode.toBuffer(d.cedula, { margin: 1, width: 400, errorCorrectionLevel: "M" }));
-  page.drawImage(qr, { x: 34.5 * MM, y: Y(61 + 17), width: 17 * MM, height: 17 * MM });
+  const tapas = TAPAS[d.serie];
+  const rotulo = cajaDe(img, tapas.rotulo);
+  const cargo = cajaDe(img, tapas.cargo);
+  const campos = tapas.campos.map((f) => cajaDe(img, f));
+  for (const fr of [rotulo, cargo, ...campos]) page.drawRectangle({ x: fr.x, y: fr.y, width: fr.w, height: fr.h, color: blanco });
+  escribir(page, rotulo, d.rotulo.toUpperCase(), arte.bold, 32, 8, d.serie === "M" ? ROJO : negro, "centro");
+  escribir(page, cargo, d.cargo.toUpperCase(), arte.bold, 11, 5, negro, "centro");
+  [d.apellidos, d.nombres, d.cedula].forEach((v, i) => escribir(page, campos[i], v.toUpperCase(), arte.bold, 7, 3.5, negro, "centro"));
 
   if (d.prueba) {
-    const w = rec.bold.widthOfTextAtSize("PRUEBA", 30);
-    page.drawText("PRUEBA", { x: W / 2 - (w / 2) * Math.SQRT1_2, y: H / 2 - (w / 2) * Math.SQRT1_2, size: 30, font: rec.bold, color: rgb(0.85, 0, 0), opacity: 0.35, rotate: degrees(45) });
+    const w = arte.bold.widthOfTextAtSize("PRUEBA", 26);
+    page.drawText("PRUEBA", { x: W / 2 - (w / 2) * Math.SQRT1_2, y: H / 2 - (w / 2) * Math.SQRT1_2, size: 26, font: arte.bold, color: rgb(0.85, 0, 0), opacity: 0.35, rotate: degrees(45) });
   }
 }
 
 async function documentoDeCredenciales(datos: DatosCredencial[]): Promise<PDFDocument> {
   const pdf = await PDFDocument.create();
-  const rec: Recursos = { bold: await pdf.embedFont(StandardFonts.HelveticaBold), logo: await pdf.embedJpg(await logoBytes()) };
-  for (const d of datos) await dibujar(pdf, rec, d);
+  const [logo, hombre, mujer] = imagenesDelModelo();
+  const arte: Arte = { bold: await pdf.embedFont(StandardFonts.HelveticaBold), logo: await pdf.embedJpg(logo), hombre: await pdf.embedJpg(hombre), mujer: await pdf.embedJpg(mujer) };
+  for (const d of datos) await dibujar(pdf, arte, d);
   return pdf;
 }
 
@@ -118,7 +136,6 @@ export async function credencialesIndividuales(datos: DatosCredencial[]): Promis
 
 // Hojas A4 con 10 credenciales giradas 90°, líneas de corte grises de 0,2 pt en los bordes de cada hueco.
 export async function hojasA4(datos: DatosCredencial[]): Promise<Uint8Array> {
-  // Se guarda y se vuelve a cargar: embeber un documento aún en memoria deja referencias rotas.
   const tarjetas = await PDFDocument.load(await (await documentoDeCredenciales(datos)).save());
   const hoja = await PDFDocument.create();
   const huecos = huecosA4();
@@ -128,7 +145,6 @@ export async function hojasA4(datos: DatosCredencial[]): Promise<Uint8Array> {
     const page = hoja.addPage([A4.ancho * MM, alto]);
     huecos.forEach((h, i) => {
       const e = embebidas[inicio + i];
-      // Giro de 90° antihorario alrededor de la esquina inferior izquierda: el punto de anclaje es la esquina inferior derecha del hueco.
       if (e) page.drawPage(e, { x: (h.x + h.w) * MM, y: alto - (h.y + h.h) * MM, width: CR80.ancho * MM, height: CR80.alto * MM, rotate: degrees(90) });
       page.drawRectangle({ x: h.x * MM, y: alto - (h.y + h.h) * MM, width: h.w * MM, height: h.h * MM, borderColor: rgb(0.6, 0.6, 0.6), borderWidth: 0.2 });
     });
