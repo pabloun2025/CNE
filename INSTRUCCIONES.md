@@ -286,3 +286,11 @@ En el acta van escritos los dos valores, dólares y euros. Los dirá en breve. N
 En administración, pestaña de configuración, se deja el nombre del funcionario que firma los recibos y los montos en dólares y euros. Esos valores escritos salen en el acta. (19-11-2026, 11:32 Madrid)
 
 El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio. El modelo que se cargó es `insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf`. La credencial sale de ese modelo, no de un dibujo nuevo. No lleva QR. (19-11-2026, 13:10 Madrid)
+
+La puerta sigue aceptando el QR de la cédula. Si no hay QR, la cámara intenta leer el nombre impreso y, si no puede, se teclea; el nombre se busca en la lista. La generación de la credencial no se toca aquí. (19-11-2026)
+
+El mapa de juntas es un infograma: una faja por color, sin la entrada ni las dos filas del plano. El orden de las fichas pone primero la zona y la junta que aún piden gente para la asignación. (19-11-2026, 10:32 Madrid)
+
+Quien no quiere cubrir un hueco desiste y no se propone para ninguno. Quien no contesta o ya no está no se propone para ese hueco y suelta el asiento. (19-11-2026, 10:36 Madrid)
+
+El financiero corrige apellidos y nombres y ve quién no tiene la cédula validada. Validar exige las dos fotos. No se inventan montos, recintos ni plantillas. (19-11-2026, 10:38 Madrid)

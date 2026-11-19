@@ -2,21 +2,26 @@ import { query } from "./db";
 import { leerModo } from "./config";
 import type { EstadoPago } from "./finanzas";
 
-export type FilaFinanzas = { id: number; cedula: string; nombre: string; junta: string; estado: EstadoPago; usd: string | null; hora: string | null; operador: string | null; simulado: boolean };
+export type FilaFinanzas = {
+  id: number; cedula: string; apellidos: string; nombres: string; nombre: string; junta: string;
+  estado: EstadoPago; usd: string | null; hora: string | null; operador: string | null; simulado: boolean;
+  cedulaValidada: boolean; fotosCompletas: boolean;
+};
 export type ResumenFinanzas = {
   generado_en: string; modoPrueba: boolean;
-  pagados: number; pendientes: number; documentacionIncompleta: number; totalUsd: string; filas: FilaFinanzas[];
+  pagados: number; pendientes: number; documentacionIncompleta: number; sinCedulaValidada: number; totalUsd: string; filas: FilaFinanzas[];
 };
 
 // El total y «pagados» salen SOLO de pagos_confirmados: generar o imprimir actas no los mueve (§7.5, §13.9).
 export async function resumenFinanzas(): Promise<ResumenFinanzas> {
   const filas = await query<FilaFinanzas>(
-    `SELECT m.id, m.cedula, m.apellidos || ', ' || m.nombres AS nombre, jv.serie || jv.numero AS junta,
+    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.apellidos || ', ' || m.nombres AS nombre, jv.serie || jv.numero AS junta,
             CASE WHEN p.id IS NOT NULL THEN 'pagada'
                  WHEN d.n < 2 THEN 'documentacion_incompleta'
                  WHEN EXISTS (SELECT 1 FROM actas_pago a WHERE a.mjrv_id = m.id) THEN 'acta_preparada'
                  ELSE 'lista' END AS estado,
-            p.importe_usd::text AS usd, p.confirmado_en::text AS hora, btrim(o.nombre || ' ' || o.apellido) AS operador, coalesce(p.es_prueba, false) AS simulado
+            p.importe_usd::text AS usd, p.confirmado_en::text AS hora, btrim(o.nombre || ' ' || o.apellido) AS operador, coalesce(p.es_prueba, false) AS simulado,
+            (m.cedula_validada_en IS NOT NULL) AS "cedulaValidada", (d.n = 2) AS "fotosCompletas"
        FROM mjrv m
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT x.junta_destino_id FROM decisiones_movimiento x WHERE x.mjrv_id = m.id AND x.decision = 'aceptada' ORDER BY x.creado_en DESC, x.id DESC LIMIT 1), m.junta_origen_id)
        CROSS JOIN LATERAL (SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = m.id) d
@@ -30,6 +35,7 @@ export async function resumenFinanzas(): Promise<ResumenFinanzas> {
     pagados: filas.filter((f) => f.estado === "pagada").length,
     pendientes: filas.filter((f) => f.estado !== "pagada").length,
     documentacionIncompleta: filas.filter((f) => f.estado === "documentacion_incompleta").length,
+    sinCedulaValidada: filas.filter((f) => !f.cedulaValidada).length,
     totalUsd: total, filas,
   };
 }

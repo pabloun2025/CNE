@@ -6,6 +6,7 @@ import { guardarDocumento } from "@/server/documentos";
 import type { SesionEstacion } from "@/server/estaciones";
 import { confirmarPago, generarActa } from "@/server/finanzas";
 import { resumenFinanzas } from "@/server/finanzas-resumen";
+import { corregirNombres, validarCedula } from "@/server/mjrv";
 import * as XLSX from "xlsx";
 import { informeCierreExcel } from "@/server/informe-excel";
 import { informeCierrePdf } from "@/server/pdf/informe";
@@ -73,5 +74,18 @@ describe("panel financiero", () => {
     expect(datosFilas.filter((f) => String(f[3]) === "Pagada")).toHaveLength(2);
     expect(filas.find((f) => String(f[0]).startsWith("TOTAL"))?.[1]).toBe(200);
     expect(filas.some((f) => String(f[0]).includes("PRUEBA"))).toBe(true); // marca de informe de prueba
+  });
+
+  it("el financiero corrige el nombre y ve quién no tiene la cédula validada", async () => {
+    const actor = { tipo: "usuario" as const, id: 1, nombre: "Fin", portal: "admin" as const };
+    expect((await resumenFinanzas()).sinCedulaValidada).toBe(3);
+    expect((await validarCedula(actor, ids[2])).ok).toBe(false);
+    expect((await validarCedula(actor, ids[0])).ok).toBe(true);
+    expect((await corregirNombres(actor, ids[2], "APELLIDO CORREGIDO", "NOMBRE CORREGIDO")).ok).toBe(true);
+    expect((await corregirNombres(actor, ids[2], "A", "NOMBRE CORREGIDO")).ok).toBe(false);
+    const r = await resumenFinanzas();
+    expect(r.sinCedulaValidada).toBe(2);
+    expect(r.filas.find((f) => f.id === ids[0])).toMatchObject({ cedulaValidada: true, fotosCompletas: true });
+    expect(r.filas.find((f) => f.id === ids[2])).toMatchObject({ apellidos: "APELLIDO CORREGIDO", nombres: "NOMBRE CORREGIDO", cedula: "0000000003", cedulaValidada: false, fotosCompletas: false });
   });
 });

@@ -1,21 +1,46 @@
 import { query, withTx } from "./db";
 import type { SesionEstacion } from "./estaciones";
 import { ZONA_NOMBRE, type ZonaColor } from "../domain/juntas";
+import { buscarNombreCamara, buscarPorNombre, normalizarCodigo, normalizarNombre } from "../domain/puerta-nombre";
 
 export type Lectura =
   | { resultado: "valido"; nombre: string; junta: string; zona: string }
   | { resultado: "duplicado"; desde: string; mjrvId: number; nombre: string; junta: string }
   | { resultado: "desconocido" }
-  | { resultado: "bloqueado" };
+  | { resultado: "bloqueado" }
+  | { resultado: "ambiguo" };
 
-export const normalizarCodigo = (t: string) => t.trim().toUpperCase().replace(/\s+/g, "");
+type FichaPuerta = { id: number; activo: boolean; apellidos: string; nombres: string; cedula: string };
 
 // Ingreso idempotente (01 §5): el índice único (mjrv_id, es_prueba) WHERE valido impide dos ingresos aunque dos puertas lean a la vez.
-export async function registrarLectura(s: SesionEstacion, codigoBruto: string, dispositivo: string | null): Promise<Lectura> {
-  const codigo = normalizarCodigo(codigoBruto).slice(0, 40);
+// camara: el texto lo leyó la cámara. Si no identifica a una sola persona, no anota nada: se teclea.
+export function registrarLectura(s: SesionEstacion, codigoBruto: string, dispositivo: string | null, camara?: false): Promise<Lectura>;
+export function registrarLectura(s: SesionEstacion, codigoBruto: string, dispositivo: string | null, camara: true): Promise<Lectura | null>;
+export async function registrarLectura(s: SesionEstacion, codigoBruto: string, dispositivo: string | null, camara = false): Promise<Lectura | null> {
+  const compacto = normalizarCodigo(codigoBruto).slice(0, 40);
   return withTx(async (client) => {
     const dev = (dispositivo ?? "").slice(0, 100) || null;
-    const m = (await client.query<{ id: number; activo: boolean; apellidos: string; nombres: string }>("SELECT id, activo, apellidos, nombres FROM mjrv WHERE cedula = $1", [codigo])).rows[0];
+    const porCedula = async (cedula: string) =>
+      (await client.query<FichaPuerta>("SELECT id, activo, apellidos, nombres, cedula FROM mjrv WHERE cedula = $1", [cedula])).rows[0];
+    let m = compacto ? await porCedula(compacto) : undefined;
+    let codigo = compacto;
+    if (!m) {
+      const digitos = codigoBruto.match(/\d{10,20}/)?.[0];
+      if (digitos && digitos !== compacto) {
+        m = await porCedula(digitos);
+        if (m) codigo = digitos;
+      }
+    }
+    if (!m && /[A-Z]/.test(normalizarNombre(codigoBruto))) {
+      const lista = (await client.query<FichaPuerta>("SELECT id, activo, apellidos, nombres, cedula FROM mjrv")).rows;
+      const hallados = camara ? buscarNombreCamara(codigoBruto, lista) : buscarPorNombre(codigoBruto, lista);
+      if (hallados.length > 1) return camara ? null : { resultado: "ambiguo" as const };
+      if (hallados.length === 1) {
+        m = hallados[0];
+        codigo = normalizarNombre(codigoBruto).slice(0, 80);
+      }
+    }
+    if (!m && camara) return null;
     // Junta vigente (la del último movimiento aceptado, si hay).
     const juntaVigente = async (id: number) => {
       const j = (await client.query<{ serie: string; numero: number; zona_color: ZonaColor }>(

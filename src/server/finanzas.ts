@@ -10,8 +10,8 @@ import { actaPago } from "./pdf/acta";
 export type EstadoPago = "documentacion_incompleta" | "lista" | "acta_preparada" | "pagada";
 
 export type FichaPago = {
-  mjrvId: number; cedula: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
-  anverso: boolean; reverso: boolean; documentosCompletos: boolean;
+  mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
+  anverso: boolean; reverso: boolean; documentosCompletos: boolean; cedulaValidada: boolean;
   parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null;
   acta: { id: number; impresionN: number } | null;
   pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
@@ -38,8 +38,8 @@ export const MINUTOS_AVISO = 5;
 
 // Abrir la ficha queda anotado. Si otro puesto la tiene abierta, no se genera ni se confirma el pago.
 export async function fichaPago(cedulaBruta: string, s?: SesionEstacion): Promise<FichaPago | null> {
-  const m = (await query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string }>(
-    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.activo, jo.serie || jo.numero AS origen,
+  const m = (await query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string; cedula_validada_en: string | null }>(
+    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.activo, m.cedula_validada_en::text, jo.serie || jo.numero AS origen,
             jv.serie || jv.numero AS vigente
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id)
@@ -66,8 +66,8 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion): Promis
       .map((x) => ({ etiqueta: x.etiqueta, operador: x.operador, haceMin: x.hace_min }));
   }
   return {
-    mjrvId: m.id, cedula: m.cedula, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
-    anverso: lados.includes("anverso"), reverso: lados.includes("reverso"), documentosCompletos,
+    mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
+    anverso: lados.includes("anverso"), reverso: lados.includes("reverso"), documentosCompletos, cedulaValidada: m.cedula_validada_en != null,
     parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeUsd: imp.estado === "ok" ? imp.usd : null, importeEur: imp.estado === "ok" ? imp.eur : null,
     acta: acta ? { id: acta.id, impresionN: acta.impresion_n } : null,
     pago: pago ? { en: pago.en, operador: pago.operador, importeUsd: pago.importe_usd ?? "", importeEur: pago.importe_eur, simulado: pago.es_prueba } : null,

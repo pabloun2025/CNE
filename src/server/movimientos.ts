@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import { armarPropuesta, juntasConVacantes, opcionesPropuesta, propuestaElegida, type DecisionProp, type JuntaProp, type PersonaProp, type Propuesta } from "../domain/propuestas";
+import { armarPropuesta, efectoNoViable, juntasConVacantes, opcionesPropuesta, propuestaElegida, type DecisionProp, type JuntaProp, type PersonaProp, type Propuesta } from "../domain/propuestas";
 import { pedirPropuestaIa } from "./propuesta-ia";
 import { leerAsignaciones } from "./mando";
 import { CARGOS, cubrirCargos, type AsignacionCargo, type Cargo, type CoberturaJunta, type PersonaCargo } from "../domain/cargos";
@@ -21,7 +21,7 @@ export async function datosPropuesta(): Promise<{ propuesta: Propuesta | null; j
   const personas = await query<PersonaProp>(
     `SELECT m.id, m.rol, m.apellidos, m.nombres, m.cedula, m.fila_origen, v.junta_origen_id, v.junta_actual_id, v.ingresado, v.con_excepcion
        FROM mjrv m JOIN v_mjrv_asignacion v ON v.mjrv_id = m.id`);
-  const decisiones = await query<DecisionProp>("SELECT mjrv_id, junta_destino_id, decision, (rehabilitada_en IS NOT NULL) AS rehabilitada FROM decisiones_movimiento WHERE decision IN ('pasada','no_viable')");
+  const decisiones = await query<DecisionProp>("SELECT mjrv_id, junta_destino_id, decision, motivo, (rehabilitada_en IS NOT NULL) AS rehabilitada FROM decisiones_movimiento WHERE decision IN ('pasada','no_viable')");
   const asignaciones = await leerAsignaciones();
   const opciones = opcionesPropuesta(juntas, personas, decisiones, asignaciones);
   // Una sola propuesta. Si el contenedor no contesta, queda la primera opción legal: el funcionario igual la acepta o la rechaza.
@@ -77,6 +77,14 @@ export async function descartarPropuesta(a: Actor, p: { mjrvId: number; origenId
     const s = await situacion(client, p.mjrvId, p.origenId, p.destinoId);
     if (!s || s.v.junta_actual_id !== p.origenId) return { ok: false as const, cambio: true, mensaje: MENSAJE_CAMBIO };
     await insertar(client, a, p.mjrvId, p.origenId, p.destinoId, decision, m, false);
+    // No contesta o ya no está: esa persona no vuelve a ese hueco y deja de contar en su junta.
+    if (decision === "no_viable" && efectoNoViable(m) === "hueco") {
+      await client.query(
+        `INSERT INTO excepciones_disponibilidad (mjrv_id, motivo, actor_tipo, actor_id, actor_nombre) VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (mjrv_id, es_prueba) WHERE activa DO NOTHING`,
+        [p.mjrvId, m, a.tipo, a.id, a.nombre],
+      );
+    }
     return { ok: true as const };
   });
 }
