@@ -11,6 +11,7 @@ import { TarjetaPropuesta } from "./tarjeta-propuesta";
 type Estado = { generado_en: string; indicadores: Indicadores; juntas: JuntaMando[] };
 
 const ARO = { nadie: "#dc2626", faltan: "#d97706", completa: "#15803d" } as const;
+const CIFRA = { nadie: "#ffffff", faltan: "#1a1a1a", completa: "#ffffff" } as const;
 const TEXTO_ZONA: Record<ZonaColor, string> = { amarillo: "#1a1a1a", azul: "#ffffff", rojo: "#ffffff", celeste: "#1a1a1a", verde: "#ffffff", rosado: "#1a1a1a" };
 const FILTROS: { id: Filtro; texto: string }[] = [
   { id: "faltan", texto: "Faltan miembros" }, { id: "transferibles", texto: "Con suplentes transferibles" }, { id: "completas", texto: "Completas" }, { id: "todas", texto: "Todas" },
@@ -48,11 +49,13 @@ export function CentroMando() {
           <h2 className="mb-1 mt-2">{g.titulo} ({g.fichas.length})</h2>
           <div className="fila-fichas">
             {g.fichas.map((j) => (
-              <button key={j.id} onClick={() => setAbierta(j.id)} className="ficha" style={{ background: ZONA_HEX[j.zona], color: TEXTO_ZONA[j.zona], boxShadow: `0 0 0 2px #fff, 0 0 0 5px ${ARO[j.estado]}` }}>
-                <span className="ficha-serie">{j.serie}</span>
-                {j.movimiento && <span className="ficha-marca" title="Hubo traslado" aria-label="Hubo traslado">⇄</span>}
-                <span className="ficha-num">{j.numero}</span>
-                <span className="ficha-estado">{j.texto}</span>
+              <button key={j.id} onClick={() => setAbierta(j.id)} className="ficha" aria-label={`${j.serie}${j.numero}. ${j.presentes} hay, faltan ${j.faltan}${j.movimiento ? ". Hubo traslado" : ""}`} style={{ background: ZONA_HEX[j.zona], color: TEXTO_ZONA[j.zona], boxShadow: `0 0 0 2px #fff, 0 0 0 5px ${ARO[j.estado]}` }}>
+                <span className="ficha-serie">{j.serie}{j.numero}</span>
+                {j.movimiento && <span className="ficha-marca" title="Hubo traslado" aria-hidden="true">⇄</span>}
+                <span className="ficha-cuentas">
+                  <span className="ficha-cifra" style={{ background: ARO[j.estado], color: CIFRA[j.estado] }}><b>{j.presentes}</b><small>hay</small></span>
+                  <span className="ficha-cifra" style={{ background: ARO[j.estado], color: CIFRA[j.estado] }}><b>{j.faltan}</b><small>faltan</small></span>
+                </span>
               </button>
             ))}
           </div>

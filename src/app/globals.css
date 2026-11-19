@@ -247,33 +247,50 @@ body {
 .ficha {
   position: relative;
   flex: 0 0 auto;
-  width: 4.7rem;
-  min-height: 4.6rem;
+  width: 6.5rem;
+  min-height: 5.2rem;
   border: 0;
-  padding: 0.3rem 0.35rem 0.4rem;
+  padding: 0.28rem 0.3rem 0.32rem;
   text-align: left;
 }
 
 .ficha-serie {
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.ficha-num {
-  display: block;
-  font-size: 1.6rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
   line-height: 1;
 }
 
-.ficha-estado {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1.15;
+.ficha-cuentas {
+  display: flex;
+  gap: 0.2rem;
+  margin-top: 0.28rem;
+}
+
+.ficha-cifra {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  border-radius: 0;
+  box-shadow: 0 0 0 2px #fff;
+  padding: 0.12rem 0 0.14rem;
+  line-height: 1;
+}
+
+.ficha-cifra b {
+  font-size: 1.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.95;
+}
+
+.ficha-cifra small {
+  margin-top: 0.08rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .ficha-marca {
