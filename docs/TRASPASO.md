@@ -21,7 +21,7 @@ Documento para que otra IA (o persona) continúe el trabajo sin perder contexto.
 
 ## 3. Estado: qué está construido y publicado
 
-Producción: **https://madrid.consulado.app**. La versión verificada el 20-11-2026 es `6f18158`. Los bloques iniciales se publicaron el 18-11-2026.
+Producción: **https://madrid.consulado.app**. La versión verificada el 20-11-2026 es `232b97b`. Los bloques iniciales se publicaron el 18-11-2026.
 
 | Bloque | Estado |
 |---|---|
@@ -85,7 +85,7 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 ### De Pablo (insumos y decisiones)
 1. **Excel nominativo de MJRV** — lo más urgente. Con 150 WhatsApp/día, el envío de credenciales debe empezar **a más tardar el 24-11**. Revisar el archivo antes de cargarlo (columnas, rótulo, cargos, duplicados); no inventar datos.
 2. **Importe en EUR** por persona y **referencia en USD** (lo configura `consul` o `financiero` en Finanzas después de publicar la entrega del 20-11).
-3. **Nombre del remitente del correo** (Q-D2). Sin él no se puede encender el correo real.
+3. **Activación del correo real.** El nombre institucional del remitente y la dirección verificada ya están configurados en Oracle.
 4. **Verificar el acceso a superadministración** para habilitar envíos reales después de las comprobaciones operativas.
 5. **Vincular la línea de WhatsApp** de CNE (QR en `/superadmin/envios`) con un teléfono dedicado, y decidir cuándo encender el envío real.
 6. Decisión abierta **P-10**: ¿el traslado debe confirmarse cuando la persona llega físicamente? (hoy cuenta al aceptar).
@@ -172,14 +172,20 @@ Pantallas tocadas:
 - **Evolution.** La comprobación desde el contenedor de CNE confirmó que usa la API real y que la consulta de `cne-madrid` devuelve 404. La instancia se crea al pulsar «Vincular teléfono». La inspección registra solo los códigos HTTP y el estado, y comprobó que hay una cuenta de superadministración activa. [Inspección de Oracle](https://github.com/pabloun2025/CNE/actions/runs/44690016520)
 - **Vinculación.** En la versión desplegada, abra [Superadministración → Envíos](https://madrid.consulado.app/superadmin/envios#whatsapp) en una pantalla distinta del teléfono. Pulse «Vincular teléfono» y escanee el QR desde WhatsApp → Dispositivos vinculados → Vincular un dispositivo. Tras confirmar «Vinculada», la superadministración puede habilitar el envío real con la frase `ENVIO REAL` cuando corresponda.
 
-### Entrega preparada para Oracle
+### Entrega publicada en Oracle
 
 - **Commit de código:** `d6e2e96` en `main`.
 - **Configuración → Envío de credenciales.** El cónsul puede consultar Evolution, vincular el móvil mediante QR y desvincularlo desde su propia sesión. Superadministración gestiona la activación de los envíos reales y el remitente de Brevo. Los estados de la API, del móvil y del envío aparecen por separado.
 - **Puerta.** Ingreso manual por cédula con teclado numérico. Si la credencial capturada carece de QR, se busca primero la cédula y después los nombres y apellidos cuando es necesario. El operador confirma la coincidencia única. Un caso ambiguo requiere comprobar la identidad. El modelo de reconocimiento en español va incluido en la aplicación.
 - **Credenciales.** Una lista con selección individual, múltiple o todas las coincidencias permite enviar por correo, WhatsApp o ambos y descargar un PDF, un ZIP de PDF individuales o las planchas A4. El cónsul ajusta las medidas en Configuración. Con 54 × 85,6 mm caben 11 piezas por A4 apaisado. Las planchas comparan orientaciones y filas y muestran líneas de corte. Imprima al 100 %.
-- **Correo institucional de credenciales (`2083d1c`).** Los envíos individuales y en lote por Brevo usan el asunto «Su credencial de MJRV», adjuntan el PDF y destacan que puede guardarse en el móvil para mostrar el QR en puerta. La plantilla ofrece HTML y texto plano y conserva el enlace al formulario de la cédula si está configurado. Pasaron 1.121 pruebas, TypeScript y la compilación. Se revisó el HTML en Chromium a 375 y 1024 px y se comprobó el contenido de la petición a Brevo con un proveedor simulado. El cambio está pendiente de desplegar junto con la entrega de Madrid.
+- **Correo institucional de credenciales (`2083d1c`).** Los envíos individuales y en lote por Brevo usan el asunto «Su credencial de MJRV», adjuntan el PDF y destacan que puede guardarse en el móvil para mostrar el QR en puerta. La plantilla ofrece HTML y texto plano y conserva el enlace al formulario de la cédula si está configurado. Pasaron 1.121 pruebas, TypeScript y la compilación. Se revisó el HTML en Chromium a 375 y 1024 px y se comprobó el contenido de la petición a Brevo con un proveedor simulado.
 - **Recibos.** Finanzas y cónsul pueden buscar y descargar uno o todos los comprobantes seleccionados en PDF o ZIP. Las copias conservan el número, los valores registrados y los importes históricos ausentes. Si un acta histórica sin pago sigue pendiente de completar en EUR, el flujo de emisión ofrece una acción explícita que conserva el número. Finanzas configura EUR entregados y la referencia USD como valores independientes. Hasta que se configure USD, su referencia queda pendiente. El total pagado se calcula en EUR.
 - **Centro de mando e informes.** Pantalla completa para 95 juntas y acceso al detalle desde cada junta. Los enlaces de estación usan botones de icono con etiquetas accesibles. El informe de cierre exporta en PDF o Excel las columnas elegidas por Finanzas y excluye fotos de cédula.
 - **Validación.** Pasaron 1.119 pruebas en Node 22, TypeScript y la compilación de producción. ESLint registró cero errores y una advertencia preexistente en el script de Unslop. En Chromium a 375 px se probaron puerta con vídeo sintético, el QR de vinculación, la selección y las descargas de credenciales y recibos, los informes y la copia de enlaces. El centro de mando también se comprobó en horizontal y en pantalla completa nativa de escritorio.
-- **Despliegue pendiente.** Se comprobó la migración desde el esquema en producción con PostgreSQL 16. Una segunda aplicación no repitió migraciones, el rol `cne_app` pudo guardar medidas y se conservó el importe EUR previo. Para publicar este código ejecute [Deploy to Oracle](https://github.com/pabloun2025/CNE/actions/workflows/oracle-deploy.yml) desde `main` con `desplegar` y después [Verificar sitios](https://github.com/pabloun2025/CNE/actions/workflows/verificar-sitios.yml). Quedan pendientes el escaneo con el móvil de WhatsApp, una prueba con la cámara física de puerta y una impresión a tamaño real.
+- **Despliegue.** Oracle publicó `232b97b`; `/api/salud` devolvió la versión y `base: ok`. La prueba de migración conservó el importe EUR anterior. Quedan pendientes el escaneo con el móvil de WhatsApp, una prueba con la cámara física de puerta y una impresión a tamaño real. [Despliegue en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44760633108)
+
+### Estado de los canales y revisión de captura (20-11-2026)
+
+- **Brevo.** Se configuró el nombre visible «Consulado General del Ecuador en Madrid» sobre el remitente ya verificado. La comprobación del proveedor quedó en verde. El envío real sigue apagado. [Configuración en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44763512229)
+- **WhatsApp.** Evolution responde. `cne-madrid` necesita vincular el teléfono mediante QR desde Configuración → WhatsApp. Una vez vinculada, Superadministración puede encender el envío real. La inspección registró cero mensajes reales en cola en ambos canales. [Inspección en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44763260590)
+- **Captura de cédula.** En Chromium con cámara emulada se reprodujo la pantalla negra al pulsar «Repetir». Se vuelve a crear el elemento de vídeo sin reasignarle el flujo. El paso directo de anverso a reverso en el formulario público sí se completó en esa prueba. Finanzas reutiliza el mismo componente al cambiar de cara. La simplificación del flujo está pendiente de las decisiones del usuario.
