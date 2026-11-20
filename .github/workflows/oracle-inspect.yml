@@ -51,6 +51,9 @@ jobs:
               console.log("Evolution: línea CNE", existe ? estado : "sin crear");
             }).catch(() => { console.log("Evolution: no se pudo consultar la línea de CNE"); });
           ' || echo 'No se pudo ejecutar la comprobación desde el contenedor de CNE.'
+          echo '=== ACCESO A CONFIGURACIÓN DE ENVÍOS ==='
+          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
+            "SELECT 'Superadministraciones activas: ' || count(*) FROM cne.usuarios WHERE tipo = 'superadmin' AND activo"
           echo '=== VOLUMENES ==='; sudo docker system df
           echo '=== PUERTOS ==='; sudo ss -lntp | sed -E 's/users:\(.*\)//'
           echo '=== NOMBRES DE VARIABLES (sin valores) ==='
