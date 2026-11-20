@@ -15,6 +15,7 @@ export type DatosActa = {
   pagador: { nombre: string; cargo: string } | null;
   anexo?: { anverso: Buffer; reverso: Buffer };
   reconstruido?: boolean;
+  contingencia?: boolean;
   firmaReceptor?: Buffer;
 };
 
@@ -93,7 +94,11 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
   let y = encabezado(p1, ["CONSULADO GENERAL DEL", "ECUADOR EN MADRID", "Madrid · España", "Jornada electoral: 29 de noviembre de 2026"]);
   y -= 13 * MM;
   if (d.reconstruido) {
-    p1.drawText(latin("COPIA RECONSTRUIDA · DATOS DE IDENTIDAD DE LA FICHA ACTUAL"), { x: ML, y, size: 8, font: bold, color: suave });
+    p1.drawText(latin("COPIA RECONSTRUIDA · VERIFIQUE LOS DATOS CON LA FICHA ACTUAL"), { x: ML, y, size: 8, font: bold, color: suave });
+    y -= 12;
+  }
+  if (d.contingencia) {
+    p1.drawText(latin("EMISIÓN DE CONTINGENCIA · SIN CONFIRMACIÓN DE PAGO NI VALIDACIÓN DE CÉDULA"), { x: ML, y, size: 8, font: bold, color: suave });
     y -= 12;
   }
   const estado = d.borrador ? "BORRADOR · IMPORTE PENDIENTE DE APROBACIÓN" : "MODELO DE TRABAJO · PENDIENTE DE VALIDACIÓN INSTITUCIONAL";

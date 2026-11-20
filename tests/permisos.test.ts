@@ -36,6 +36,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/admin/resumen": TODOS_ADMIN,
   "GET /api/admin/finanzas/resumen": FINANZAS,
   "GET /api/admin/finanzas/recibos/[tipo]/[id]": FINANZAS,
+  "POST /api/admin/finanzas/recibos/emitir": FINANZAS,
   "GET /api/admin/finanzas/cedula/[id]/[lado]": FINANZAS,
   "POST /api/admin/finanzas/ficha": FINANZAS,
   "POST /api/admin/finanzas/confirmar": FINANZAS,
@@ -187,6 +188,16 @@ describe("matriz de permisos", () => {
         });
       }
     }
+    it("el formulario de contingencia con Origin nulo solo se admite desde el mismo origen", async () => {
+      ponerSesion("admin_fin");
+      const { POST } = await import("@/app/api/admin/finanzas/recibos/emitir/route");
+      const enviar = (sitio: string) => POST(new Request("http://localhost/api/admin/finanzas/recibos/emitir", {
+        method: "POST", headers: { origin: "null", "sec-fetch-site": sitio }, body: new URLSearchParams(),
+      }));
+      expect((await enviar("same-origin")).status).toBe(400); // Llegó a la validación de fichas.
+      expect((await enviar("cross-site")).status).toBe(403);
+    });
+
     for (const clave of ["POST /api/d/buscar", "POST /api/d/foto"]) {
       it(`${clave} · cerrado el formulario, nadie entra (ni el personal)`, async () => {
         await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = false");
@@ -237,7 +248,7 @@ describe("matriz de permisos", () => {
     // Roles que puede usar cada página de /admin (sin entrada aquí, la prueba falla) y a dónde redirige a los demás.
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "coordinador", "financiero"],
-      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/escanear": ["consul", "financiero"], "finanzas/imprimir": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
+      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/escanear": ["consul", "financiero"], "finanzas/imprimir": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
       credenciales: ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };

@@ -16,7 +16,10 @@ export default async function Recibos({ searchParams }: { searchParams: Promise<
 
   return (
     <main className="stack-lg">
-      <h1>Recibos</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1>Recibos</h1>
+        <Link className="button-like" href="/admin/finanzas/recibos/emitir">Emitir en contingencia</Link>
+      </div>
       <PestanasFinanzas />
       <form action="/admin/finanzas/recibos" className="card flex flex-wrap items-end gap-3">
         <label className="min-w-0 flex-1">Nombre, cédula o número de recibo
@@ -36,10 +39,15 @@ export default async function Recibos({ searchParams }: { searchParams: Promise<
                 <p className="hint">
                   {r.pagado === null ? "Sin vínculo al pago" : r.pagado ? "Pago confirmado" : "Sin pago asociado"}
                   {r.importe && ` · ${r.importe} EUR`}
+                  {r.historico && r.tipo === "acta" && " · Emisión histórica"}
                   {r.reconstruido ? " · Copia reconstruida" : r.tipo === "firma" ? " · Firma digital archivada" : ""}
                 </p>
               </div>
-              <a className="button-like secondary" href={`/api/admin/finanzas/recibos/${r.tipo}/${r.id}`} aria-label={`Descargar PDF del recibo ${r.numero}`}>Descargar PDF</a>
+              <div className="flex flex-wrap gap-2">
+                <a className="button-like secondary" href={`/api/admin/finanzas/recibos/${r.tipo}/${r.id}`} aria-label={`Descargar PDF del recibo ${r.numero}`}>Descargar PDF</a>
+                <a className="button-like secondary" target="_blank" rel="noopener"
+                  href={`/api/admin/finanzas/recibos/${r.tipo}/${r.id}?vista=1`}>Reimprimir</a>
+              </div>
             </li>
           ))}
         </ul>

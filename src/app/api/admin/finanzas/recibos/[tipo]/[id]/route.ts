@@ -4,7 +4,7 @@ import { descargarRecibo } from "@/server/recibos";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_: Request, { params }: { params: Promise<{ tipo: string; id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ tipo: string; id: string }> }) {
   const cuenta = await cuentaFinanzas();
   if (!cuenta.ok) return cuenta.respuesta;
 
@@ -19,10 +19,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ tipo: stri
   const { sesion } = cuenta;
   await registrarAuditoria({ portal: "finanzas", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre,
     accion: "recibo_descargado", entidad: tipo === "acta" ? "actas_pago" : "firmas_recibo", entidadId: n });
+  const vista = new URL(request.url).searchParams.get("vista") === "1";
   return new Response(Buffer.from(recibo.pdf), {
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="recibo-${recibo.numero}.pdf"`,
+      "content-disposition": `${vista ? "inline" : "attachment"}; filename="recibo-${recibo.numero}.pdf"`,
       "cache-control": "private, no-store",
     },
   });

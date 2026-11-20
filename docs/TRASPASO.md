@@ -2,7 +2,7 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 20-11-2026.** Continúe por la [sección 10](#10-entrega-de-credenciales-y-pagos-19-11-2026). Las secciones 3 y 9 recogen hitos anteriores.
+**Último estado, 20-11-2026.** Continúe por la [sección 11](#11-búsqueda-de-recibos-y-enlaces-de-estación-20-11-2026). Las secciones 3 y 9 recogen hitos anteriores.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -156,3 +156,14 @@ Pantallas tocadas:
 - **Comprobación pública pendiente.** Ejecutar [Verificar sitios](https://github.com/pabloun2025/CNE/actions/workflows/verificar-sitios.yml) y confirmar que `/api/salud` informa la versión `0081339`. El proxy sigue bloqueando con 403 la API de GitHub Actions y las consultas directas a los sitios publicados. El borrador con esos dominios sigue pendiente de aplicar.
 - **Comprobaciones operativas.** En Superadministración → Envíos, vincular el teléfono de CNE a la instancia `cne-madrid` de Evolution y verificar el remitente de Brevo. En Credenciales, se puede enviar desde una ficha o por junta, zona, todas las fichas activas o selección manual, por uno o ambos canales. Probar una hoja A4 con hasta 10 tarjetas de 54 × 85,6 mm a tamaño real (100 %) y comprobar el corte y el QR. Las pruebas de la entrega usaron datos sintéticos y envíos simulados.
 - **Finanzas.** La configuración y el acta emplean el importe fijo en EUR. Los informes indican cuántos pagos confirmados históricos carecen de importe EUR. El total suma los importes registrados.
+
+
+## 11. Búsqueda de recibos y enlaces de estación (20-11-2026)
+
+- En **Finanzas → Recibos**, las cuentas de financiero y cónsul pueden buscar por nombre, cédula o número y descargar el PDF aunque ya exista un pago confirmado. El estado de pago corresponde al acta asociada a la confirmación. Se mantiene el modo vigente y se registra la descarga en auditoría.
+- Los recibos nuevos guardan cifrada la primera página, sin las fotografías del anexo. Las firmas antiguas pueden encontrarse por nombre, cédula o referencia `FIRMA-…`. Las actas antiguas sin PDF se descargan como copias reconstruidas y advierten que usan datos de identidad de la ficha actual.
+- En **Operadores → Enlaces de estación**, el cónsul puede copiar el enlace activo o preparar el mensaje en WhatsApp y elegir allí el destinatario. El mensaje contiene el enlace de estación y la indicación de usar el PIN asignado.
+- **Emitir en contingencia** permite elegir una ficha o un lote de hasta 100 por nombre o junta, sin aportar fotos ni pasar por validación de cédula. Se requiere el importe en EUR y el firmante configurados para emitir un recibo nuevo. La emisión y la reimpresión dejan intactos la validación y la confirmación del pago.
+- Cada ficha tiene un recibo principal por modo. Reimprimir conserva el número y el importe original. Los documentos históricos conservan su número y se pueden consultar. Si hay varios, el principal es el asociado al pago o el primero con importe EUR registrado. Un recibo histórico sin importe y sin pago se puede completar con el EUR configurado, conservando su número.
+- La primera parte de la entrega es `74f3653`. Pasaron 1.056 pruebas en Node 22, tipos y compilación. Se comprobaron a 375 px la descarga, la emisión en lote, la copia al portapapeles y el texto de WhatsApp.
+- El último despliegue confirmado sigue siendo `0081339`. Para publicar esta entrega, ejecutar [Deploy to Oracle](https://github.com/pabloun2025/CNE/actions/workflows/oracle-deploy.yml) desde `main` con la acción `desplegar`. El despliegue aplica el archivo de recibos y la regla de numeración única. Si se revierte a una imagen anterior tras las migraciones, sus intentos de insertar otro recibo para la misma ficha quedan bloqueados por el índice.

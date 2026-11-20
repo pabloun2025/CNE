@@ -2,12 +2,12 @@ import { PDFDocument } from "pdf-lib";
 import { numeroActa } from "../domain/recibos";
 import { decryptBuffer } from "./crypto";
 import { query } from "./db";
-import { actaPago } from "./pdf/acta";
+import { actaPago, type DatosActa } from "./pdf/acta";
 
 export type TipoRecibo = "acta" | "firma";
 type ReciboFila = {
   id: number; tipo: TipoRecibo; numero: string; nombre: string; cedula: string; emitido: Date;
-  importe: string | null; pagado: boolean | null; reconstruido: boolean;
+  importe: string | null; pagado: boolean | null; reconstruido: boolean; historico: boolean;
 };
 const POR_PAGINA = 30;
 
@@ -20,13 +20,13 @@ export async function buscarRecibos(q: string, pagina: number): Promise<{ filas:
               (CASE WHEN a.es_prueba THEN 'PRUEBA-' ELSE 'MAD-' END) ||
                 lpad(a.id::text, greatest(6, length(a.id::text)), '0') AS numero,
               a.mjrv_id, a.creado_en AS emitido, a.importe_eur::text AS importe,
-              a.recibo_cifrado IS NULL AS reconstruido
+              a.recibo_cifrado IS NULL AS reconstruido, NOT a.recibo_principal AS historico
          FROM actas_pago a
        UNION ALL
-       SELECT f.id, 'firma', 'FIRMA-' || f.id, f.mjrv_id, f.creado_en, NULL, false
+       SELECT f.id, 'firma', 'FIRMA-' || f.id, f.mjrv_id, f.creado_en, NULL, false, true
          FROM firmas_recibo f WHERE f.acta_id IS NULL
      )
-     SELECT r.id, r.tipo, r.numero, r.emitido, r.importe, r.reconstruido,
+     SELECT r.id, r.tipo, r.numero, r.emitido, r.importe, r.reconstruido, r.historico,
             m.apellidos || ', ' || m.nombres AS nombre, m.cedula,
             CASE WHEN r.tipo = 'acta' THEN EXISTS (
               SELECT 1 FROM pagos_confirmados p WHERE p.acta_id = r.id
@@ -53,7 +53,7 @@ export async function descargarRecibo(tipo: TipoRecibo, id: number): Promise<{ n
 
   const [a] = await query<{
     creado_en: Date; es_prueba: boolean; impresion_n: number; importe: string | null;
-    parametros: { pagador_nombre?: string | null; pagador_cargo?: string | null };
+    parametros: { pagador_nombre?: string | null; pagador_cargo?: string | null; persona_recibo?: DatosActa["persona"]; contingencia?: boolean };
     recibo_cifrado: Buffer | null; recibo_nonce: Buffer | null;
     apellidos: string; nombres: string; cedula: string; cargo: string; junta: string;
   }>(
@@ -73,7 +73,8 @@ export async function descargarRecibo(tipo: TipoRecibo, id: number): Promise<{ n
   const nombrePagador = a.parametros?.pagador_nombre;
   const pdf = await actaPago({
     numero, impresionN: a.impresion_n, prueba: a.es_prueba, borrador: !a.importe, emitidaEn: a.creado_en, reconstruido: true,
-    persona: { apellidos: a.apellidos, nombres: a.nombres, cedula: a.cedula, cargo: a.cargo, juntaVigente: a.junta },
+    persona: a.parametros?.persona_recibo ?? { apellidos: a.apellidos, nombres: a.nombres, cedula: a.cedula, cargo: a.cargo, juntaVigente: a.junta },
+    contingencia: a.parametros?.contingencia,
     importe: a.importe ? { eur: a.importe } : null,
     pagador: nombrePagador ? { nombre: nombrePagador, cargo: a.parametros.pagador_cargo ?? "" } : null,
   });
