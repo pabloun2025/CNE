@@ -1,8 +1,8 @@
-# Traspaso del Proyecto CNE — estado al 19-11-2026
+# Traspaso del Proyecto CNE — estado al 20-11-2026
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 19-11-2026.** Continúe por la [sección 10](#10-entrega-de-credenciales-y-pagos-19-11-2026). Las secciones 3 y 9 recogen hitos anteriores.
+**Último estado, 20-11-2026.** Continúe por la [sección 10](#10-entrega-de-credenciales-y-pagos-19-11-2026). Las secciones 3 y 9 recogen hitos anteriores.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -152,7 +152,7 @@ Pantallas tocadas:
 ## 10. Entrega de credenciales y pagos (19-11-2026)
 
 - **Integrado en GitHub.** `main` incorporó `4e5a60b`, con los envíos, la impresión y el circuito de pagos en EUR. Pasaron 1.033 pruebas locales en Node 22, la comprobación de tipos, la compilación y el [CI de main](https://github.com/pabloun2025/CNE/actions/runs/44629945951).
-- **Producción.** El último [despliegue confirmado en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44620571210) corresponde a `5b0e25a` e incluye la estética de DEMP. El proxy del entorno devolvió 403 al consultar la API de GitHub para lanzar la publicación de la entrega. En los ajustes del entorno quedó guardado un borrador de acceso a `api.github.com`, `madrid.consulado.app` y `recordatorio.consulado.app`, pendiente de aplicar.
-- **Publicación pendiente.** Ejecutar [Deploy to Oracle](https://github.com/pabloun2025/CNE/actions/workflows/oracle-deploy.yml) desde `main` con la acción `desplegar`. Confirmar el resultado, la versión en `/api/salud` y el flujo [Verificar sitios](https://github.com/pabloun2025/CNE/actions/workflows/verificar-sitios.yml). El despliegue aplica la migración que separa la deduplicación de los envíos simulados y reales.
+- **Producción.** El [despliegue en Oracle del 20-11-2026](https://github.com/pabloun2025/CNE/actions/runs/44678378168) terminó correctamente para `0081339`, que incluye la entrega y el traspaso. El flujo pasó el CI y la verificación de salud de CNE desde la red compartida.
+- **Comprobación pública pendiente.** Ejecutar [Verificar sitios](https://github.com/pabloun2025/CNE/actions/workflows/verificar-sitios.yml) y confirmar que `/api/salud` informa la versión `0081339`. El proxy sigue bloqueando con 403 la API de GitHub Actions y las consultas directas a los sitios publicados. El borrador con esos dominios sigue pendiente de aplicar.
 - **Comprobaciones operativas.** En Superadministración → Envíos, vincular el teléfono de CNE a la instancia `cne-madrid` de Evolution y verificar el remitente de Brevo. En Credenciales, se puede enviar desde una ficha o por junta, zona, todas las fichas activas o selección manual, por uno o ambos canales. Probar una hoja A4 con hasta 10 tarjetas de 54 × 85,6 mm a tamaño real (100 %) y comprobar el corte y el QR. Las pruebas de la entrega usaron datos sintéticos y envíos simulados.
 - **Finanzas.** La configuración y el acta emplean el importe fijo en EUR. Los informes indican cuántos pagos confirmados históricos carecen de importe EUR. El total suma los importes registrados.
