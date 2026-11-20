@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import type { PoolClient } from "pg";
 import { sha256Bytes } from "../domain/text";
 import { decryptBuffer, encryptBuffer } from "./crypto";
 import { normalizarFrase } from "../domain/limpieza";
@@ -67,9 +68,12 @@ export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: 
 }
 
 // Solo para el acta (M15) y la ficha del administrador, siempre tras la guarda correspondiente.
-export async function leerDocumento(mjrvId: number, lado: Lado): Promise<Buffer | null> {
-  const f = await query<{ imagen_cifrada: Buffer; nonce: Buffer }>("SELECT imagen_cifrada, nonce FROM documentos_mjrv WHERE mjrv_id = $1 AND lado = $2", [mjrvId, lado]);
-  return f[0] ? decryptBuffer(f[0].imagen_cifrada, f[0].nonce) : null;
+export async function leerDocumento(mjrvId: number, lado: Lado, client?: PoolClient): Promise<Buffer | null> {
+  const sql = "SELECT imagen_cifrada, nonce FROM documentos_mjrv WHERE mjrv_id = $1 AND lado = $2";
+  const params = [mjrvId, lado];
+  type DocumentoCifrado = { imagen_cifrada: Buffer; nonce: Buffer };
+  const [f] = client ? (await client.query<DocumentoCifrado>(sql, params)).rows : await query<DocumentoCifrado>(sql, params);
+  return f ? decryptBuffer(f.imagen_cifrada, f.nonce) : null;
 }
 
 // ───────────── Formulario público ─────────────

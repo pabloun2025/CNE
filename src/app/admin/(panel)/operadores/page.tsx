@@ -1,6 +1,6 @@
 import { SOLO_CONSUL } from "@/domain/roles";
 import QRCode from "qrcode";
-import { FormEnlace, FormOperador, FormPin } from "@/components/admin-operadores";
+import { AccionesEnlaceEstacion, FormEnlace, FormOperador, FormPin } from "@/components/admin-operadores";
 import { FUNCION_NOMBRE } from "@/domain/estaciones";
 import { requireAdmin } from "@/server/guard";
 import { activarOperadorAccion, revocarEnlaceAccion } from "@/server/estacion-actions";
@@ -41,10 +41,13 @@ export default async function Operadores() {
 
       <section>
         <h2 className="text-xl font-semibold">Enlaces de estación</h2>
+        <h3 className="mb-2 mt-4 font-semibold">Nuevo enlace</h3>
+        <FormEnlace />
         <ul className="mt-2 divide-y">
           {conQr.map((e) => (
             <li key={e.id} className="space-y-2 py-3">
               <p className="font-medium">{e.etiqueta} <span className="font-normal text-slate-600">· {FUNCION_NOMBRE[e.funcion]} · {e.activo ? "activo" : "revocado"}</span></p>
+              {e.url && <AccionesEnlaceEstacion url={e.url} etiqueta={e.etiqueta} funcion={e.funcion} />}
               {e.url && (
                 <details>
                   <summary className="cursor-pointer text-sm font-medium underline">Ver enlace y QR</summary>
@@ -60,8 +63,6 @@ export default async function Operadores() {
             </li>
           ))}
         </ul>
-        <h2 className="mb-2 mt-4 font-semibold">Nuevo enlace</h2>
-        <FormEnlace />
       </section>
     </main>
   );

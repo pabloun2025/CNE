@@ -73,7 +73,10 @@ export async function prepararEleccion(sesion: Sesion, confirmacion: string, res
       const antes = await contar(client);
       for (const c of antes) {
         // Los binarios de las fotos no se duplican aquí: están en el respaldo pg_dump.
-        const fila = c.tabla === "documentos_mjrv" ? "to_jsonb(t) - 'imagen_cifrada' - 'nonce'" : c.tabla === "firmas_recibo" ? "to_jsonb(t) - 'pdf'" : "to_jsonb(t)";
+        const fila = c.tabla === "documentos_mjrv" ? "to_jsonb(t) - 'imagen_cifrada' - 'nonce'"
+          : c.tabla === "firmas_recibo" ? "to_jsonb(t) - 'pdf'"
+          : c.tabla === "actas_pago" ? "to_jsonb(t) - 'recibo_cifrado' - 'recibo_nonce'"
+          : "to_jsonb(t)";
         await client.query(`INSERT INTO cne.respaldo_limpieza (lote, tabla, fila) SELECT $1, $2, ${fila} FROM cne.${c.tabla} t WHERE ${DE_PRUEBA[c.tabla]}`, [lote, c.tabla]);
         const copiadas = (await client.query("SELECT count(*)::int AS n FROM cne.respaldo_limpieza WHERE lote = $1 AND tabla = $2", [lote, c.tabla])).rows[0].n;
         if (copiadas !== c.n) throw new Error(`La copia de ${c.tabla} no coincide (${copiadas} de ${c.n}).`);

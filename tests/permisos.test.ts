@@ -35,6 +35,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/admin/documentos/[id]/[lado]": SOLO_ADMIN,
   "GET /api/admin/resumen": TODOS_ADMIN,
   "GET /api/admin/finanzas/resumen": FINANZAS,
+  "GET /api/admin/finanzas/recibos/[tipo]/[id]": FINANZAS,
   "GET /api/admin/finanzas/cedula/[id]/[lado]": FINANZAS,
   "POST /api/admin/finanzas/ficha": FINANZAS,
   "POST /api/admin/finanzas/confirmar": FINANZAS,
@@ -161,7 +162,7 @@ describe("matriz de permisos", () => {
   });
 
   describe("rutas API", () => {
-    const PARAMS = { id: "1", lado: "anverso", mjrvId: "1", archivo: "cne-prep-20260101T000000Z.dump" };
+    const PARAMS = { id: "1", tipo: "acta", lado: "anverso", mjrvId: "1", archivo: "cne-prep-20260101T000000Z.dump" };
     async function llamar(r: (typeof rutasDescubiertas)[number]): Promise<number> {
       const modulo = await import(/* @vite-ignore */ r.archivo);
       const url = `http://localhost${urlDe(r.archivo)}`;
@@ -236,7 +237,7 @@ describe("matriz de permisos", () => {
     // Roles que puede usar cada página de /admin (sin entrada aquí, la prueba falla) y a dónde redirige a los demás.
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "coordinador", "financiero"],
-      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/escanear": ["consul", "financiero"], "finanzas/imprimir": ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
+      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/escanear": ["consul", "financiero"], "finanzas/imprimir": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
       credenciales: ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };

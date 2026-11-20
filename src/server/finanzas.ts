@@ -6,6 +6,8 @@ import type { SesionEstacion } from "./estaciones";
 import { leerModo } from "./config";
 import { leerParametros } from "./pago";
 import { actaPago } from "./pdf/acta";
+import { encryptBuffer } from "./crypto";
+import { numeroActa } from "../domain/recibos";
 
 // La ventanilla es un enlace, o la cuenta de financiero / cónsul en el módulo de pago.
 export type ActorPago = {
@@ -122,49 +124,59 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
   };
 }
 
-export type ResultadoActa = { ok: true; pdf: Uint8Array; borrador: boolean; numero: string } | { ok: false; status: 400 | 404 | 409; mensaje: string };
+export type ResultadoActa = { ok: true; pdf: Uint8Array; borrador: boolean; numero: string; actaId: number | null } | { ok: false; status: 400 | 404 | 409; mensaje: string };
 
-// Generar o reimprimir el acta. Registra actas_pago (impresion_n) salvo en borrador. NO registra el pago.
+// La emisión y el archivo del recibo se guardan en la misma transacción.
 export async function generarActa(s: SesionEstacion | ActorPago, mjrvId: number, verificado: boolean, firma?: Buffer): Promise<ResultadoActa> {
   if (!verificado) return { ok: false, status: 400, mensaje: "Marque «He verificado que cumplió sus funciones»." };
   const quien = puestoDe(s);
   const params = await leerParametros();
   const imp = montosParaActa(params);
-  const completos = faltanParametros(params).length === 0 && imp.estado === "ok";
-  const prueba = (await leerModo()) === "prueba";
-  const datos = await withTx(async (client) => {
-    const m = (await client.query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean }>("SELECT id, cedula, apellidos, nombres, cargo_original, activo FROM mjrv WHERE id = $1 FOR UPDATE", [mjrvId])).rows[0];
-    if (!m || !m.activo) return { error: { status: 404 as const, mensaje: "La ficha no existe o está de baja." } };
-    if ((await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [mjrvId])).rows[0]) return { error: { status: 409 as const, mensaje: "Esta persona ya tiene el pago confirmado." } };
-    if (await otroPagoEnCurso(client, mjrvId, quien)) return { error: { status: 409 as const, mensaje: "Otra persona está haciendo este pago. No se puede continuar." } };
-    const lados = (await client.query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [mjrvId])).rows.map((r) => r.lado);
-    if (lados.length < 2) return { error: { status: 409 as const, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." } };
+  return withTx(async (client): Promise<ResultadoActa> => {
+    // Conserva el modo durante la emisión y el guardado del PDF firmado.
+    const { prueba, modo_recibo } = (await client.query<{ prueba: boolean; modo_recibo: string }>(
+      "SELECT modo = 'prueba' AS prueba, modo_recibo FROM configuracion WHERE id = 1 FOR SHARE")).rows[0];
+    if (firma && modo_recibo !== "digital") return { ok: false, status: 409, mensaje: "El modo digital no está activado." };
+    const m = (await client.query<{ cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean }>(
+      "SELECT cedula, apellidos, nombres, cargo_original, activo FROM mjrv WHERE id = $1 FOR UPDATE", [mjrvId])).rows[0];
+    if (!m?.activo) return { ok: false, status: 404, mensaje: "La ficha no existe o está de baja." };
+    if ((await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [mjrvId])).rows[0]) return { ok: false, status: 409, mensaje: "Esta persona ya tiene el pago confirmado." };
+    if (await otroPagoEnCurso(client, mjrvId, quien)) return { ok: false, status: 409, mensaje: "Otra persona está haciendo este pago. No se puede continuar." };
+    const anverso = await leerDocumento(mjrvId, "anverso", client);
+    const reverso = await leerDocumento(mjrvId, "reverso", client);
+    if (!anverso || !reverso) return { ok: false, status: 409, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." };
     const j = (await client.query<{ vigente: string }>(
       `SELECT jv.serie || jv.numero AS vigente FROM mjrv m
          JOIN juntas_madrid jv ON jv.id = coalesce((SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id) WHERE m.id = $1`, [mjrvId])).rows[0];
-    let actaId = 0, impresionN = 1;
-    if (completos && imp.estado === "ok") {
-      impresionN = (await client.query<{ n: number }>("SELECT count(*)::int + 1 AS n FROM actas_pago WHERE mjrv_id = $1", [mjrvId])).rows[0].n;
-      actaId = (await client.query<{ id: number }>(
-        "INSERT INTO actas_pago (mjrv_id, operador_id, usuario_id, importe_eur, parametros, impresion_n) VALUES ($1,$2,$3,$4,$5::jsonb,$6) RETURNING id",
-        [mjrvId, quien.operadorId, quien.usuarioId, imp.eur, JSON.stringify(params), impresionN])).rows[0].id;
-      await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId, actorNombre: quien.nombre, accion: "acta_generada", entidad: "actas_pago", entidadId: actaId, datos: { mjrv: mjrvId, impresion: impresionN } }, client);
+    type ActaEmitida = { id: number; impresion_n: number; creado_en: Date };
+    let acta: ActaEmitida | undefined;
+    if (imp.estado === "ok") {
+      acta = (await client.query<ActaEmitida>(
+        `INSERT INTO actas_pago (mjrv_id, operador_id, usuario_id, importe_eur, parametros, impresion_n)
+         VALUES ($1,$2,$3,$4,$5::jsonb,(SELECT count(*)::int + 1 FROM actas_pago WHERE mjrv_id = $1))
+         RETURNING id, impresion_n, creado_en`,
+        [mjrvId, quien.operadorId, quien.usuarioId, imp.eur, JSON.stringify(params)])).rows[0];
     }
-    return { m, j, actaId, impresionN };
+    const numero = numeroActa(acta?.id ?? null, prueba);
+    const datos = {
+      numero, impresionN: acta?.impresion_n ?? 1, prueba, borrador: !acta, emitidaEn: acta?.creado_en ?? new Date(),
+      persona: { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaVigente: j.vigente },
+      importe: imp.estado === "ok" ? { eur: imp.eur } : null,
+      pagador: params.pagador_nombre ? { nombre: params.pagador_nombre, cargo: params.pagador_cargo ?? "" } : null,
+      firmaReceptor: firma,
+    };
+    const pdf = await actaPago({ ...datos, anexo: { anverso, reverso } });
+    if (acta) {
+      const { ciphertext, nonce } = encryptBuffer(Buffer.from(await actaPago(datos)));
+      await client.query("UPDATE actas_pago SET recibo_cifrado = $2, recibo_nonce = $3 WHERE id = $1", [acta.id, ciphertext, nonce]);
+      await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId, actorNombre: quien.nombre, accion: "acta_generada", entidad: "actas_pago", entidadId: acta.id, datos: { mjrv: mjrvId, impresion: acta.impresion_n } }, client);
+    }
+    if (firma) {
+      await client.query("INSERT INTO firmas_recibo (mjrv_id, usuario_id, pdf, acta_id, es_prueba) VALUES ($1,$2,$3,$4,$5)",
+        [mjrvId, quien.usuarioId, Buffer.from(pdf), acta?.id ?? null, prueba]);
+    }
+    return { ok: true, pdf, borrador: !acta, numero, actaId: acta?.id ?? null };
   });
-  if ("error" in datos && datos.error) return { ok: false, ...datos.error };
-  const { m, j, actaId, impresionN } = datos as { m: { cedula: string; apellidos: string; nombres: string; cargo_original: string }; j: { vigente: string }; actaId: number; impresionN: number };
-  const [anverso, reverso] = [await leerDocumento(mjrvId, "anverso"), await leerDocumento(mjrvId, "reverso")];
-  if (!anverso || !reverso) return { ok: false, status: 409, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." };
-  const numero = completos ? `${prueba ? "PRUEBA" : "MAD"}-${String(actaId).padStart(6, "0")}` : `${prueba ? "PRUEBA" : "MAD"}-BORRADOR`;
-  const pdf = await actaPago({
-    numero, impresionN, prueba, borrador: !completos, emitidaEn: new Date(),
-    persona: { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaVigente: j.vigente },
-    importe: completos && imp.estado === "ok" ? { eur: imp.eur } : null,
-    pagador: params.pagador_nombre ? { nombre: params.pagador_nombre, cargo: params.pagador_cargo ?? "" } : null,
-    anverso, reverso, firmaReceptor: firma,
-  });
-  return { ok: true, pdf, borrador: !completos, numero };
 }
 
 export type ResultadoPago =

@@ -54,11 +54,9 @@ export async function imprimirPendiente(actor: ActorPago, id: number): Promise<{
 
 // La firma se guarda en el PDF. No confirma que el dinero se entregó.
 export async function guardarFirma(actor: ActorPago, mjrvId: number, png: Buffer): Promise<{ ok: true } | { ok: false; mensaje: string }> {
-  if (await leerModoRecibo() !== "digital") return { ok: false, mensaje: "El modo digital no está activado." };
   if (png.length < 80 || png.length > 500_000) return { ok: false, mensaje: "La firma no es válida." };
   const acta = await generarActa(actor, mjrvId, true, png);
   if (!acta.ok) return { ok: false, mensaje: acta.mensaje };
-  await query("INSERT INTO firmas_recibo (mjrv_id, usuario_id, pdf) VALUES ($1,$2,$3)", [mjrvId, actor.usuarioId ?? null, acta.pdf]);
   return { ok: true };
 }
 
