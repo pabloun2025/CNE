@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
-import { textoCredencial } from "@/domain/mensaje-credencial";
+import { correoCredencial, textoCredencial } from "@/domain/mensaje-credencial";
 import { enviarCredencial, enviarLote, enviosDe } from "@/server/envios";
 import { elegirProveedor, type MensajeCredencial, type ProveedorEnvio } from "@/server/envios/proveedor";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
@@ -100,15 +100,25 @@ describe("D08 · texto del mensaje de la credencial", () => {
     expect(textoCredencial({ ...d, host: "" })).not.toContain("http");
     expect(textoCredencial({ ...d })).not.toContain("comprobante");
   });
-  it("el envío (simulado) usa ese texto con el HOST_MADRID del servidor", async () => {
+  it("el correo usa los datos escapados en HTML y omite el formulario si falta el host", () => {
+    const correo = correoCredencial({ nombres: "ANA < PRUEBA", rotulo: "H01 & H02" });
+    expect(correo.html).toContain("ANA &lt; PRUEBA");
+    expect(correo.html).toContain("H01 &amp; H02");
+    expect(correo.html).toContain("muestre el código QR en la puerta");
+    expect(correo.html).not.toContain("href=");
+    expect(correo.texto).not.toContain("formulario de Madrid");
+  });
+  it("el envío simulado usa el HOST_MADRID del servidor en HTML y texto", async () => {
     const antes = process.env.HOST_MADRID;
     process.env.HOST_MADRID = "madrid.ejemplo.invalid";
     try {
       let texto = "";
-      const espia: ProveedorEnvio = { canal: "correo", enviar: async (m) => { texto = m.texto; return { idExterno: "X", simulado: true }; } };
+      let html: string | undefined;
+      const espia: ProveedorEnvio = { canal: "correo", enviar: async (m) => { texto = m.texto; html = m.html; return { idExterno: "X", simulado: true }; } };
       await ficha("0000000006", { correo: "prueba6@ejemplo.invalid" });
       await enviarCredencial(admin, ids["0000000006"], "correo", espia);
       expect(texto).toContain("https://madrid.ejemplo.invalid/d");
+      expect(html).toContain('href="https://madrid.ejemplo.invalid/d"');
     } finally {
       if (antes === undefined) delete process.env.HOST_MADRID; else process.env.HOST_MADRID = antes;
     }

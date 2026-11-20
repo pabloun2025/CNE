@@ -1,5 +1,5 @@
 export type Canal = "whatsapp" | "correo";
-export type MensajeCredencial = { destino: string; nombre: string; rotulo: string; asunto: string; texto: string; nombreArchivo: string; pdf: Uint8Array };
+export type MensajeCredencial = { destino: string; nombre: string; rotulo: string; asunto: string; texto: string; html?: string; nombreArchivo: string; pdf: Uint8Array };
 export type RespuestaEnvio = { idExterno: string; simulado: boolean };
 export interface ProveedorEnvio {
   canal: Canal;

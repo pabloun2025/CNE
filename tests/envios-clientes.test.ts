@@ -117,6 +117,13 @@ describe("cliente de Brevo", () => {
     expect(resultadoBrevo({ kind: "response", status: 400, json: { code: "invalid_parameter" } })).toMatchObject({ ok: false, permanente: true });
     expect(resultadoBrevo({ kind: "response", status: 500, json: null })).toMatchObject({ ok: false, incierto: true });
   });
+
+  it("envía la plantilla HTML junto con el texto alternativo y el adjunto", async () => {
+    const { f, llamadas } = falso([{ status: 201, json: { messageId: "<id@brevo>" } }]);
+    const institucional = { ...correo, html: "<h1>Su credencial de MJRV</h1>" };
+    await new BrevoHttp({ apiKey: CLAVE, fetch: f }).enviar(institucional);
+    expect(llamadas[0].body).toMatchObject({ htmlContent: institucional.html, textContent: correo.texto, attachment: [{ name: "c.pdf", content: "UERG" }] });
+  });
 });
 
 describe("fábricas: sin claves, todo simulado", () => {

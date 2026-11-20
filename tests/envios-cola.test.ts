@@ -250,13 +250,19 @@ describe("cola de envío real", () => {
     expect((await procesarCola({ ahora: base, clientes: f2.clientes })).whatsapp.accion).toBe("enviado");
   });
 
-  it("correo: remitente, asunto y PDF adjunto; ritmo de 2–5 s", async () => {
+  it("correo: diseño institucional, instrucción del QR móvil y PDF adjunto; ritmo de 2–5 s", async () => {
     await encender("correo");
     const a = await ficha(), b = await ficha();
     await enviarCredencial(admin, a, "correo"); await enviarCredencial(admin, b, "correo");
     const f = falsos();
     expect((await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
-    expect(f.mail[0]).toMatchObject({ remitente: { nombre: "Remitente Prueba", direccion: "remitente@ejemplo.invalid" }, adjunto: { nombre: expect.stringMatching(/^credencial-.*\.pdf$/) } });
+    expect(f.mail[0]).toMatchObject({
+      asunto: "Su credencial de MJRV",
+      remitente: { nombre: "Remitente Prueba", direccion: "remitente@ejemplo.invalid" },
+      adjunto: { nombre: expect.stringMatching(/^credencial-.*\.pdf$/) },
+      texto: expect.stringContaining("muestre el código QR en la puerta"),
+      html: expect.stringContaining("Consulado General del Ecuador en Madrid"),
+    });
     expect(Buffer.from(f.mail[0].adjunto.base64, "base64").subarray(0, 5).toString()).toBe("%PDF-");
     expect((await procesarCola({ ahora: en(1), azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("omitido");
     expect((await procesarCola({ ahora: en(2), azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");

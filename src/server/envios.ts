@@ -4,7 +4,7 @@ import { query } from "./db";
 import { credencialesIndividuales } from "./pdf/credencial";
 import { seleccionarParaCredencial, type Seleccion } from "./credenciales";
 import { medidasCredencial } from "./credencial-config";
-import { textoCredencial } from "../domain/mensaje-credencial";
+import { correoCredencial, textoCredencial } from "../domain/mensaje-credencial";
 import { canalEnReal, leerConfigEnvios } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
 import type { DatosCredencial } from "./pdf/credencial";
@@ -14,12 +14,13 @@ export const ETIQUETA_ESTADO: Record<EstadoEnvio, string> = { en_cola: "En cola"
 export type ResultadoEnvio = { ok: true; simulado: boolean; enCola?: boolean } | { ok: false; mensaje: string };
 
 // Texto y nombre de archivo del mensaje; lo comparten el envío inmediato (simulado) y la cola real.
-export function mensajeCredencial(d: DatosCredencial): { asunto: string; texto: string; nombreArchivo: string } {
-  return {
+export function mensajeCredencial(d: DatosCredencial, canal: Canal): { asunto: string; texto: string; html?: string; nombreArchivo: string } {
+  const datos = { nombres: d.nombres, rotulo: d.rotulo, host: process.env.HOST_MADRID };
+  const mensaje = canal === "correo" ? correoCredencial(datos) : {
     asunto: "Su credencial de miembro de Junta Receptora del Voto",
-    texto: textoCredencial({ nombres: d.nombres, rotulo: d.rotulo, host: process.env.HOST_MADRID }),
-    nombreArchivo: `credencial-${d.rotulo}.pdf`,
+    texto: textoCredencial(datos),
   };
+  return { ...mensaje, nombreArchivo: `credencial-${d.rotulo}.pdf` };
 }
 
 const CORREO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -55,8 +56,8 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
 
   try {
     const pdf = await credencialesIndividuales(sel.datos, await medidasCredencial());
-    const m = mensajeCredencial(d);
-    const r = await prov.enviar({ destino, nombre: `${d.nombres} ${d.apellidos}`, rotulo: d.rotulo, nombreArchivo: m.nombreArchivo, pdf, asunto: m.asunto, texto: m.texto });
+    const m = mensajeCredencial(d, canal);
+    const r = await prov.enviar({ ...m, destino, nombre: `${d.nombres} ${d.apellidos}`, rotulo: d.rotulo, pdf });
     // El estado es «enviada al servicio»: no se afirma que llegó (solo el proveedor real podría confirmarlo).
     await query("UPDATE envios_credencial SET estado = 'enviada_al_servicio', simulado = $2, id_externo = $3, enviado_en = now() WHERE id = $1", [nueva[0].id, r.simulado, r.idExterno]);
     await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: r.simulado ? "credencial_envio_simulado" : "credencial_envio", entidad: "mjrv", entidadId: mjrvId, datos: { canal } });

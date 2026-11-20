@@ -2,7 +2,7 @@ import { loadEnv } from "../env";
 import { pedirJson, type FetchLike, type Raw, type ResultadoProveedor } from "./http";
 
 // Correo por Brevo (copia adaptada de consulares/src/domain/providers.ts: BrevoHttpSender). La cuenta es la de consulares.
-export type Correo = { para: string; asunto: string; texto: string; remitente: { nombre: string; direccion: string }; adjunto: { nombre: string; base64: string } };
+export type Correo = { para: string; asunto: string; texto: string; html?: string; remitente: { nombre: string; direccion: string }; adjunto: { nombre: string; base64: string } };
 
 export interface ClienteCorreo {
   readonly simulado: boolean;
@@ -63,7 +63,7 @@ export class BrevoHttp implements ClienteCorreo {
         to: [{ email: c.para }],
         subject: c.asunto,
         textContent: c.texto,
-        htmlContent: aHtml(c.texto),
+        htmlContent: c.html ?? aHtml(c.texto),
         attachment: [{ name: c.adjunto.nombre, content: c.adjunto.base64 }],
         tags: ["cne-madrid"],
       },

@@ -102,7 +102,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date,
     if (sel.datos.length === 0) r = { ok: false, permanente: true, error: "La ficha está de baja o le falta el rótulo de la credencial." };
     else {
       const d = sel.datos[0];
-      const m = mensajeCredencial(d);
+      const m = mensajeCredencial(d, canal);
       // El interruptor autoriza credenciales definitivas para fichas reales incluso durante el ensayo operativo.
       const pdfBase64 = Buffer.from(await credencialesIndividuales([{ ...d, prueba: false }], await medidasCredencial())).toString("base64");
       const actual = (await client.query<{ destino: string | null }>(
@@ -113,7 +113,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date,
       } else if (canal === "whatsapp") {
         r = await clientes.whatsapp.enviarDocumento({ numero: fila.destino, texto: m.texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
       } else {
-        r = await clientes.correo.enviar({ para: fila.destino, asunto: m.asunto, texto: m.texto, remitente, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
+        r = await clientes.correo.enviar({ para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
       }
     }
   } catch (e) {
