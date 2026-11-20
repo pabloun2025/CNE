@@ -6,29 +6,34 @@ import { unlockAudio } from "./sonidos";
 
 type Detector = { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
 
-type DetectorTexto = { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
+type DetectorTexto = { detect: (imagen: HTMLCanvasElement) => Promise<{ rawValue: string }[]> };
 
-async function capturar(video: HTMLVideoElement): Promise<Blob | null> {
+function capturarCredencial(video: HTMLVideoElement): HTMLCanvasElement | null {
   const w = video.videoWidth, h = video.videoHeight;
   if (!w || !h) return null;
-  const escala = Math.min(1, 900 / Math.max(w, h));
+  // El visor muestra el centro del vídeo. Leer ese recuadro evita tomar texto de sus bordes ocultos.
+  const lado = Math.min(w, h) * 0.85;
   const lienzo = document.createElement("canvas");
-  lienzo.width = Math.round(w * escala);
-  lienzo.height = Math.round(h * escala);
-  lienzo.getContext("2d")?.drawImage(video, 0, 0, lienzo.width, lienzo.height);
-  return new Promise((resolve) => lienzo.toBlob((b) => resolve(b), "image/jpeg", 0.7));
+  lienzo.width = lienzo.height = Math.min(1200, Math.round(lado));
+  const contexto = lienzo.getContext("2d");
+  if (!contexto) return null;
+  contexto.drawImage(video, (w - lado) / 2, (h - lado) / 2, lado, lado, 0, 0, lienzo.width, lienzo.height);
+  return lienzo;
 }
 
-// Si el fotograma no trae QR, se intenta el nombre impreso. Si el navegador no tiene lector de texto, lo intenta el servidor.
-async function leerNombreImpreso(video: HTMLVideoElement): Promise<string> {
+// Si el fotograma no trae QR, se lee el texto de la credencial en el navegador o en el servidor.
+async function leerCredencialImpresa(video: HTMLVideoElement): Promise<string> {
+  const lienzo = capturarCredencial(video);
+  if (!lienzo) return "";
   const Ctor = (window as unknown as { TextDetector?: new () => DetectorTexto }).TextDetector;
   if (Ctor) {
     try {
-      const bloques = await new Ctor().detect(video);
-      return bloques.map((b) => b.rawValue).join(" ").trim();
+      const bloques = await new Ctor().detect(lienzo);
+      const texto = bloques.map((b) => b.rawValue).join("\n").trim();
+      if (texto) return texto;
     } catch { /* este navegador no leyó el texto */ }
   }
-  const imagen = await capturar(video);
+  const imagen = await new Promise<Blob | null>((resolve) => lienzo.toBlob(resolve, "image/jpeg", 0.8));
   if (!imagen) return "";
   const f = new FormData();
   f.set("imagen", imagen, "credencial.jpg");
@@ -40,31 +45,32 @@ async function leerNombreImpreso(video: HTMLVideoElement): Promise<string> {
 
 // Cámara trasera con BarcodeDetector o, si no existe (Safari, Firefox), jsQR sobre cada fotograma.
 // «Activar cámara» es un toque del usuario: también desbloquea el audio. No decide nada: entrega el texto leído.
-// leerNombre: en la puerta, si no hay QR, intenta el nombre impreso.
+// leerCredencial: en la puerta, si no hay QR, intenta leer los datos impresos.
 // encuadre: la puerta usa el visor cuadrado de teinvito. Pago y documentación no.
 // abrirAlEntrar: solo el escáner del financiero intenta la cámara al entrar. La puerta sigue esperando el toque.
-export function LectorQr({ onCodigo, onError, leerNombre = false, encuadre = false, abrirAlEntrar = false, children }: { onCodigo: (texto: string, origen?: "qr" | "nombre") => void; onError?: () => void; leerNombre?: boolean; encuadre?: boolean; abrirAlEntrar?: boolean; children?: ReactNode }) {
+export function LectorQr({ onCodigo, onError, leerCredencial = false, pausado = false, encuadre = false, abrirAlEntrar = false, children }: { onCodigo: (texto: string, origen: "qr" | "credencial") => void; onError?: () => void; leerCredencial?: boolean; pausado?: boolean; encuadre?: boolean; abrirAlEntrar?: boolean; children?: ReactNode }) {
   const video = useRef<HTMLVideoElement>(null);
   const [activa, setActiva] = useState(abrirAlEntrar);
   const [falloCamara, setFalloCamara] = useState(false);
-  const ultimo = useRef("");
   const alCodigo = useRef(onCodigo);
   const alError = useRef(onError);
-  const leyendoNombre = useRef(false);
-  const ultimoNombre = useRef(0);
-  const quiereNombre = useRef(leerNombre);
-  useEffect(() => { alCodigo.current = onCodigo; alError.current = onError; quiereNombre.current = leerNombre; });
+  const opciones = useRef({ leerCredencial, pausado });
+  useEffect(() => { alCodigo.current = onCodigo; alError.current = onError; opciones.current = { leerCredencial, pausado }; });
 
   useEffect(() => {
     const v = video.current;
     if (!activa || !v || !navigator.mediaDevices?.getUserMedia) return;
     let flujo: MediaStream | null = null;
     let temporizador = 0;
+    let cancelado = false;
     const Ctor = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
-    const detector = Ctor ? new Ctor({ formats: ["qr_code"] }) : null;
+    let detector: Detector | null = null;
+    try { if (Ctor) detector = new Ctor({ formats: ["qr_code"] }); } catch { /* pruebe jsQR */ }
     const lienzo = document.createElement("canvas");
     const leer = async (): Promise<string> => {
-      if (detector) return (await detector.detect(v))[0]?.rawValue || "";
+      if (detector) {
+        try { return (await detector.detect(v))[0]?.rawValue || ""; } catch { /* pruebe jsQR */ }
+      }
       const w = v.videoWidth, h = v.videoHeight;
       if (!w || !h) return "";
       const escala = Math.min(1, 640 / Math.max(w, h));
@@ -77,36 +83,52 @@ export function LectorQr({ onCodigo, onError, leerNombre = false, encuadre = fal
       return jsQR(f.data, f.width, f.height, { inversionAttempts: "dontInvert" })?.data || "";
     };
     let ocupado = false;
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then((m) => {
+    let leyendoTexto = false;
+    let ultimoIntento = 0;
+    let revisionQr = 0;
+    const ultimos = { qr: { valor: "", momento: 0 }, credencial: { valor: "", momento: 0 } };
+    const entregar = (valor: string, origen: keyof typeof ultimos) => {
+      if (!valor || cancelado || opciones.current.pausado) return;
+      const ahora = Date.now();
+      const ultimo = ultimos[origen];
+      if (valor === ultimo.valor && ahora - ultimo.momento < 3000) return;
+      ultimos[origen] = { valor, momento: ahora };
+      alCodigo.current(valor, origen);
+    };
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(async (m) => {
+      if (cancelado) { m.getTracks().forEach((t) => t.stop()); return; }
       flujo = m;
       v.srcObject = m;
-      void v.play();
+      await v.play();
+      if (cancelado) return;
       temporizador = window.setInterval(() => {
-        if (ocupado) return;
+        if (ocupado || opciones.current.pausado) return;
         ocupado = true;
         void leer().then((valor) => {
-          // Antirrebote en cliente: la misma lectura en menos de 3 s se ignora.
+          if (cancelado || opciones.current.pausado) return;
           if (valor) {
-            if (valor === ultimo.current) return;
-            ultimo.current = valor;
-            alCodigo.current(valor, "qr");
-            window.setTimeout(() => { ultimo.current = ""; }, 3000);
+            revisionQr++;
+            entregar(valor, "qr");
             return;
           }
-          // El nombre no bloquea el QR: si la cámara no lo lee, se teclea.
-          if (!quiereNombre.current || leyendoNombre.current || Date.now() - ultimoNombre.current < 2000) return;
-          leyendoNombre.current = true;
-          ultimoNombre.current = Date.now();
-          void leerNombreImpreso(v).then((texto) => {
-            if (!texto || texto === ultimo.current) return;
-            ultimo.current = texto;
-            alCodigo.current(texto, "nombre");
-            window.setTimeout(() => { ultimo.current = ""; }, 3000);
-          }).catch(() => undefined).finally(() => { leyendoNombre.current = false; });
+          if (!opciones.current.leerCredencial || leyendoTexto || Date.now() - ultimoIntento < 2000) return;
+          leyendoTexto = true;
+          ultimoIntento = Date.now();
+          const revision = revisionQr;
+          void leerCredencialImpresa(v).then((texto) => {
+            // Un QR detectado mientras se leía el texto tiene prioridad.
+            if (revision === revisionQr) entregar(texto, "credencial");
+          }).catch(() => undefined).finally(() => { leyendoTexto = false; });
         }).catch(() => undefined).finally(() => { ocupado = false; });
       }, detector ? 500 : 300);
-    }).catch(() => { setFalloCamara(true); setActiva(false); alError.current?.(); });
+    }).catch(() => {
+      if (cancelado) return;
+      setFalloCamara(true);
+      setActiva(false);
+      alError.current?.();
+    });
     return () => {
+      cancelado = true;
       window.clearInterval(temporizador);
       flujo?.getTracks().forEach((t) => t.stop());
     };
@@ -120,14 +142,14 @@ export function LectorQr({ onCodigo, onError, leerNombre = false, encuadre = fal
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
             <div className="aspect-square w-[65%] border-4 border-[#f2b705] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
           </div>
-          <p className="pointer-events-none absolute inset-x-0 bottom-1 px-2 text-center text-xs font-medium text-white [text-shadow:0_1px_2px_#000]">Encuadre el QR en el recuadro amarillo</p>
+          <p className="pointer-events-none absolute inset-x-0 bottom-1 px-2 text-center text-xs font-medium text-white [text-shadow:0_1px_2px_#000]">{leerCredencial ? "Encuadre el QR o la credencial en el recuadro amarillo" : "Encuadre el QR en el recuadro amarillo"}</p>
         </>
       )}
       {children}
       {!activa && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-slate-800 p-4 text-center text-white">
-          {falloCamara && <p role="alert">{leerNombre ? "No se pudo usar la cámara. Revise el permiso o escriba el nombre." : "No se pudo usar la cámara. Revise el permiso o escriba la cédula."}</p>}
-          <button onClick={() => { unlockAudio(); setFalloCamara(false); setActiva(true); }} className="bg-white px-6 py-4 text-xl text-stone-900">Activar cámara</button>
+          {falloCamara && <p role="alert">No se pudo usar la cámara. Revise el permiso o escriba la cédula.</p>}
+          <button onClick={() => { unlockAudio(); const disponible = !!navigator.mediaDevices?.getUserMedia; setFalloCamara(!disponible); setActiva(disponible); }} className="bg-white px-6 py-4 text-xl text-stone-900">Activar cámara</button>
         </div>
       )}
     </div>

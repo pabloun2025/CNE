@@ -24,9 +24,9 @@ export default async function Envios() {
       <h1>Configuración de envíos</h1>
       <p>Active cada canal cuando esté listo para enviar. Los canales apagados funcionan en simulación.</p>
 
-      <section className="card stack">
+      <section id="whatsapp" className="card stack">
         <h2>WhatsApp · Evolution API</h2>
-        <LineaWhatsAppPanel inicial={linea} />
+        <LineaWhatsAppPanel inicial={linea} rutaEstado="/api/superadmin/whatsapp/estado" />
       </section>
 
       <section className="card stack">

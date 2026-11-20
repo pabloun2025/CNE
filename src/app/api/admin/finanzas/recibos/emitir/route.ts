@@ -1,16 +1,12 @@
 import { generarRecibosContingencia } from "@/server/finanzas";
-import { cuentaFinanzas } from "@/server/finanzas-cuenta";
-import { urlBase } from "@/server/url";
+import { cuentaFinanzas, origenFormularioFinanzasPermitido } from "@/server/finanzas-cuenta";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const cuenta = await cuentaFinanzas();
   if (!cuenta.ok) return cuenta.respuesta;
-  const origen = request.headers.get("origin");
-  // La política no-referrer puede hacer que el navegador envíe Origin: null al enviar el formulario.
-  const mismoSitio = request.headers.get("sec-fetch-site") === "same-origin";
-  if (origen === "null" ? !mismoSitio : origen && origen !== await urlBase()) {
+  if (!await origenFormularioFinanzasPermitido(request)) {
     return new Response("Origen no autorizado.", { status: 403 });
   }
 

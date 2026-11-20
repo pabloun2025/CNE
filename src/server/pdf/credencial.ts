@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import QRCode from "qrcode";
-import { A4, CR80, MM, POR_HOJA, huecosA4 } from "../../domain/credencial-layout";
+import { CR80, MM, planchaA4, type MedidasCredencial } from "../../domain/credencial-layout";
 
 export type DatosCredencial = { cedula: string; apellidos: string; nombres: string; cargo: string; rotulo: string; serie: "H" | "M"; prueba: boolean };
 
@@ -34,12 +34,14 @@ function imagenesDelModelo(): [Uint8Array, Uint8Array, Uint8Array] {
   return out as [Uint8Array, Uint8Array, Uint8Array];
 }
 
-function ajustar(texto: string, fuente: PDFFont, ancho: number, max: number, min: number, lineas: number): { size: number; lineas: string[] } {
-  for (let size = max; size >= min; size -= 0.25) {
+function ajustar(texto: string, fuente: PDFFont, ancho: number, max: number, min: number, lineas: number, escala: number): { size: number; lineas: string[] } {
+  for (let size = max; size >= min; size -= 0.25 * escala) {
     const ls = partir(texto, fuente, size, ancho);
-    if (ls.length <= lineas) return { size, lineas: ls };
+    if (ls.length <= lineas && ls.every((l) => fuente.widthOfTextAtSize(l, size) <= ancho)) return { size, lineas: ls };
   }
-  return { size: min, lineas: partir(texto, fuente, min, ancho).slice(0, lineas) };
+  const ls = partir(texto, fuente, min, ancho).slice(0, lineas);
+  const mayor = Math.max(ancho, ...ls.map((l) => fuente.widthOfTextAtSize(l, min)));
+  return { size: min * ancho / mayor, lineas: ls };
 }
 function partir(texto: string, fuente: PDFFont, size: number, ancho: number): string[] {
   const out: string[] = [];
@@ -53,7 +55,7 @@ function partir(texto: string, fuente: PDFFont, size: number, ancho: number): st
 }
 
 type Caja = { x: number; y: number; w: number; h: number };
-type Arte = { bold: PDFFont; logo: PDFImage; hombre: PDFImage; mujer: PDFImage };
+type Arte = { bold: PDFFont; logo: PDFImage; cuerpo: PDFImage };
 
 // Fracciones del cuerpo del modelo (y desde arriba). Tapan el texto de muestra y dejan la figura y los bordes.
 const TAPAS = {
@@ -65,14 +67,14 @@ function cajaDe(img: Caja, fr: readonly [number, number, number, number]): Caja 
   return { x: img.x + fr[0] * img.w, y: img.y + img.h - (fr[1] + fr[3]) * img.h, w: fr[2] * img.w, h: fr[3] * img.h };
 }
 
-function escribir(page: PDFPage, caja: Caja, texto: string, font: PDFFont, max: number, min: number, color: ReturnType<typeof rgb>, alinear: "centro" | "izquierda", lineas = 1) {
-  const a = ajustar(latin(texto), font, caja.w - 3, max, min, lineas);
+function escribir(page: PDFPage, caja: Caja, texto: string, font: PDFFont, max: number, min: number, color: ReturnType<typeof rgb>, escala: number) {
+  const a = ajustar(latin(texto), font, caja.w - 3 * escala, max * escala, min * escala, 1, escala);
   const paso = a.size * 1.05;
   const alto = a.lineas.length * paso;
   const base = caja.y + (caja.h + alto) / 2 - a.size * 0.8;
   a.lineas.forEach((l, i) => {
     const w = font.widthOfTextAtSize(l, a.size);
-    const x = alinear === "centro" ? caja.x + (caja.w - w) / 2 : caja.x + 1.5;
+    const x = caja.x + (caja.w - w) / 2;
     page.drawText(l, { x, y: base - i * paso, size: a.size, font, color });
   });
 }
@@ -80,12 +82,14 @@ function escribir(page: PDFPage, caja: Caja, texto: string, font: PDFFont, max: 
 // Marco del modelo: logotipo encima del cuerpo, en la proporción de la hoja de muestra.
 const MARCO = { w: 190.8, h: 287.8, logo: { x: 8.4, y: 3.5, w: 174, h: 78.3 }, cuerpo: { y: 81.87, h: 206.2 } };
 
-async function dibujar(pdf: PDFDocument, arte: Arte, d: DatosCredencial): Promise<void> {
-  const W = CR80.ancho * MM, H = CR80.alto * MM;
+async function dibujar(pdf: PDFDocument, arte: Arte, d: DatosCredencial, medidas: MedidasCredencial): Promise<void> {
+  const W = medidas.ancho * MM, H = medidas.alto * MM;
   const page = pdf.addPage([W, H]);
   page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: blanco, borderColor: rgb(0.75, 0.75, 0.75), borderWidth: 0.4 });
 
-  const marcoW = W - 3 * MM;
+  const margen = Math.min(W, H, CR80.ancho * MM) * 3 / CR80.ancho;
+  const marcoW = Math.min(W - margen, (H - margen) * MARCO.w / MARCO.h);
+  const escala = marcoW / ((CR80.ancho - 3) * MM);
   const marcoH = marcoW * (MARCO.h / MARCO.w);
   const marcoX = (W - marcoW) / 2;
   const marcoTop = (H + marcoH) / 2;
@@ -98,7 +102,7 @@ async function dibujar(pdf: PDFDocument, arte: Arte, d: DatosCredencial): Promis
     height: logoH,
   });
 
-  const cuerpo = d.serie === "M" ? arte.mujer : arte.hombre;
+  const cuerpo = arte.cuerpo;
   const slotH = marcoH * (MARCO.cuerpo.h / MARCO.h);
   const slotW = marcoW;
   const slotTop = marcoTop - marcoH * (MARCO.cuerpo.y / MARCO.h);
@@ -114,51 +118,59 @@ async function dibujar(pdf: PDFDocument, arte: Arte, d: DatosCredencial): Promis
   for (const fr of [rotulo, cargo, ...campos]) page.drawRectangle({ x: fr.x, y: fr.y, width: fr.w, height: fr.h, color: blanco });
   // El QR de la cédula va a la derecha de los tres datos, encima del modelo.
   // La altura es la de esos tres recuadros: así no tapa la figura del modelo. Tope 17 mm.
-  const lado = Math.min(17 * MM, campos[0].y + campos[0].h - campos[2].y);
-  const qrX = img.x + img.w - lado - 1.2;
+  const lado = Math.min(17 * MM * escala, campos[0].y + campos[0].h - campos[2].y);
+  const qrX = img.x + img.w - lado - 1.2 * escala;
   const qrY = campos[2].y;
-  const anchoTexto = Math.max(24, qrX - campos[0].x - 2);
-  escribir(page, rotulo, d.rotulo.toUpperCase(), arte.bold, 32, 8, d.serie === "M" ? ROJO : negro, "centro");
-  escribir(page, cargo, d.cargo.toUpperCase(), arte.bold, 11, 5, negro, "centro");
-  campos.forEach((caja, i) => escribir(page, { ...caja, w: anchoTexto }, [d.apellidos, d.nombres, d.cedula][i].toUpperCase(), arte.bold, 7, 3.5, negro, "centro"));
+  const anchoTexto = qrX - campos[0].x - 2 * escala;
+  escribir(page, rotulo, d.rotulo.toUpperCase(), arte.bold, 32, 8, d.serie === "M" ? ROJO : negro, escala);
+  escribir(page, cargo, d.cargo.toUpperCase(), arte.bold, 11, 5, negro, escala);
+  campos.forEach((caja, i) => escribir(page, { ...caja, w: anchoTexto }, [d.apellidos, d.nombres, d.cedula][i].toUpperCase(), arte.bold, 7, 3.5, negro, escala));
 
   if (d.prueba) {
-    const w = arte.bold.widthOfTextAtSize("PRUEBA", 26);
-    page.drawText("PRUEBA", { x: W / 2 - (w / 2) * Math.SQRT1_2, y: H / 2 - (w / 2) * Math.SQRT1_2, size: 26, font: arte.bold, color: rgb(0.85, 0, 0), opacity: 0.35, rotate: degrees(45) });
+    const size = 26 * escala;
+    const w = arte.bold.widthOfTextAtSize("PRUEBA", size);
+    page.drawText("PRUEBA", { x: W / 2 - (w / 2) * Math.SQRT1_2, y: H / 2 - (w / 2) * Math.SQRT1_2, size, font: arte.bold, color: rgb(0.85, 0, 0), opacity: 0.35, rotate: degrees(45) });
   }
 
   const qr = await pdf.embedPng(await QRCode.toBuffer(d.cedula, { margin: 1, width: 400, errorCorrectionLevel: "M" }));
-  page.drawRectangle({ x: qrX - 0.8, y: qrY - 0.8, width: lado + 1.6, height: lado + 1.6, color: blanco });
+  await qr.embed();
+  const borde = 0.8 * escala;
+  page.drawRectangle({ x: qrX - borde, y: qrY - borde, width: lado + 2 * borde, height: lado + 2 * borde, color: blanco });
   page.drawImage(qr, { x: qrX, y: qrY, width: lado, height: lado });
 }
 
-async function documentoDeCredenciales(datos: DatosCredencial[]): Promise<PDFDocument> {
+let imagenes: ReturnType<typeof imagenesDelModelo> | undefined;
+
+async function documentoDeCredenciales(datos: DatosCredencial[], medidas: MedidasCredencial): Promise<PDFDocument> {
   const pdf = await PDFDocument.create();
-  const [logo, hombre, mujer] = imagenesDelModelo();
-  const arte: Arte = { bold: await pdf.embedFont(StandardFonts.HelveticaBold), logo: await pdf.embedJpg(logo), hombre: await pdf.embedJpg(hombre), mujer: await pdf.embedJpg(mujer) };
-  for (const d of datos) await dibujar(pdf, arte, d);
+  const [logo, hombre, mujer] = imagenes ??= imagenesDelModelo();
+  const cabecera = { bold: await pdf.embedFont(StandardFonts.HelveticaBold), logo: await pdf.embedJpg(logo) };
+  const cuerpos: Partial<Record<DatosCredencial["serie"], PDFImage>> = {};
+  for (const d of datos) {
+    const cuerpo = cuerpos[d.serie] ??= await pdf.embedJpg(d.serie === "H" ? hombre : mujer);
+    await dibujar(pdf, { ...cabecera, cuerpo }, d, medidas);
+  }
   return pdf;
 }
 
-// Una página de 54 × 85,6 mm por persona.
-export async function credencialesIndividuales(datos: DatosCredencial[]): Promise<Uint8Array> {
-  return (await documentoDeCredenciales(datos)).save();
+export async function credencialesIndividuales(datos: DatosCredencial[], medidas: MedidasCredencial = CR80): Promise<Uint8Array> {
+  return (await documentoDeCredenciales(datos, medidas)).save();
 }
 
-// Hasta 10 credenciales giradas 90° en A4. Solo se marcan los cortes de las credenciales impresas.
-export async function hojasA4(datos: DatosCredencial[]): Promise<Uint8Array> {
-  const tarjetas = await PDFDocument.load(await (await documentoDeCredenciales(datos)).save());
+// Solo se marcan los cortes de las credenciales impresas.
+export async function hojasA4(datos: DatosCredencial[], medidas: MedidasCredencial = CR80): Promise<Uint8Array> {
+  const tarjetas = await documentoDeCredenciales(datos, medidas);
+  await tarjetas.flush();
   const hoja = await PDFDocument.create();
-  const huecos = huecosA4();
-  const embebidas = await hoja.embedPdf(tarjetas, datos.map((_, i) => i));
-  const alto = A4.alto * MM;
-  for (let inicio = 0; inicio < datos.length; inicio += POR_HOJA) {
-    const page = hoja.addPage([A4.ancho * MM, alto]);
-    huecos.forEach((h, i) => {
-      const e = embebidas[inicio + i];
-      if (!e) return;
+  const { papel, huecos } = planchaA4(medidas);
+  const embebidas = await hoja.embedPages(tarjetas.getPages());
+  const alto = papel.alto * MM;
+  for (let inicio = 0; inicio < datos.length; inicio += huecos.length) {
+    const page = hoja.addPage([papel.ancho * MM, alto]);
+    huecos.slice(0, datos.length - inicio).forEach((h, i) => {
       const x = h.x * MM, y = alto - (h.y + h.h) * MM;
-      page.drawPage(e, { x: x + h.w * MM, y, width: CR80.ancho * MM, height: CR80.alto * MM, rotate: degrees(90) });
+      const xOrigen = h.giro === 90 ? x + h.w * MM : x;
+      page.drawPage(embebidas[inicio + i], { x: xOrigen, y, width: medidas.ancho * MM, height: medidas.alto * MM, rotate: degrees(h.giro) });
       page.drawRectangle({ x, y, width: h.w * MM, height: h.h * MM, borderColor: rgb(0.42, 0.42, 0.42), borderDashArray: [3, 2], borderWidth: 0.5 });
     });
   }

@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { leerJunta, ZONAS } from "../domain/juntas";
 import { requireAdmin } from "./guard";
-import type { Seleccion } from "./credenciales";
+import { leerIdsCredenciales, seleccionarParaCredencial } from "./credenciales";
 import { enviarCredencial, enviarLote } from "./envios";
 import type { Canal } from "./envios/proveedor";
 
@@ -15,18 +14,6 @@ function canales(f: FormData): Canal[] {
   const valor = f.get("canal");
   if (valor === "ambos") return ["whatsapp", "correo"];
   return valor === "whatsapp" || valor === "correo" ? [valor] : [];
-}
-
-function seleccionar(f: FormData): Seleccion | undefined {
-  const alcance = f.get("alcance");
-  const valor = String(f.get("valor") ?? "").trim();
-  if (alcance === "todas") return { alcance };
-  if (alcance === "junta" && leerJunta(valor)) return { alcance, valor };
-  if (alcance === "zona" && ZONAS.some((zona) => zona === valor)) return { alcance, valor };
-  if (alcance === "ids") {
-    const ids = [...new Set(f.getAll("ids").map(Number))].filter((id) => Number.isSafeInteger(id) && id > 0);
-    if (ids.length) return { alcance, ids };
-  }
 }
 
 export async function enviarCredencialAccion(_: EstadoEnvios, f: FormData): Promise<EstadoEnvios> {
@@ -48,16 +35,20 @@ export async function enviarCredencialAccion(_: EstadoEnvios, f: FormData): Prom
 
 export async function enviarLoteAccion(_: EstadoEnvios, f: FormData): Promise<EstadoEnvios> {
   const sesion = await requireAdmin();
-  const seleccion = seleccionar(f);
+  const ids = leerIdsCredenciales(f.getAll("ids"));
   const medios = canales(f);
-  if (!seleccion) return { error: "Seleccione las fichas, una junta válida o una zona." };
+  if (!ids) return { error: "Seleccione al menos una ficha válida." };
   if (!medios.length) return { error: "Seleccione WhatsApp, correo o ambos." };
+  const seleccion = { alcance: "ids", ids } as const;
+  if ((await seleccionarParaCredencial(seleccion)).ids.length !== ids.length) {
+    return { error: "La selección cambió. Actualice la lista y vuelva a elegir las fichas." };
+  }
 
   const respuestas = await Promise.all(medios.map(async (canal) => {
     const r = await enviarLote(sesion, canal, undefined, seleccion);
-    if (r.intentadas === 0) return `${etiquetas[canal]} · No hay credenciales pendientes con un contacto para este canal.`;
-    return `${etiquetas[canal]} · ${r.enCola} en cola, ${r.enviadas} simuladas, ${r.omitidas} omitidas y ${r.fallidas} fallidas.`;
+    return `${etiquetas[canal]} · En cola ${r.enCola} · Simuladas ${r.enviadas} · Omitidas ${r.omitidas} · Fallidas ${r.fallidas}.`;
   }));
   revalidatePath("/admin/credenciales");
-  return { aviso: respuestas.join(" ") };
+  const alcance = ids.length === 1 ? "1 ficha seleccionada" : `${ids.length} fichas seleccionadas`;
+  return { aviso: `${alcance}. ${respuestas.join(" ")}` };
 }

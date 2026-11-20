@@ -1,10 +1,9 @@
 import { query } from "./db";
-import { leerModo } from "./config";
+import type { FilaInforme } from "../domain/informe";
 import type { EstadoPago } from "./finanzas";
 
-export type FilaFinanzas = {
-  id: number; cedula: string; apellidos: string; nombres: string; nombre: string; junta: string;
-  estado: EstadoPago; eur: string | null; hora: string | null; operador: string | null; simulado: boolean;
+export type FilaFinanzas = FilaInforme & {
+  id: number; apellidos: string; nombres: string; estado: EstadoPago;
   cedulaValidada: boolean; fotosCompletas: boolean;
 };
 export type ResumenFinanzas = {
@@ -12,10 +11,18 @@ export type ResumenFinanzas = {
   pagados: number; pendientes: number; documentacionIncompleta: number; sinCedulaValidada: number; pagosSinImporteEur: number; totalEur: string; filas: FilaFinanzas[];
 };
 
-// El total y «pagados» salen SOLO de pagos_confirmados: generar o imprimir actas no los mueve (§7.5, §13.9).
+// Una sola consulta mantiene coherentes las fichas, el modo, el total y la hora de corte.
+// La fecha de validación pertenece a la ficha y se conserva al borrar las fotos.
 export async function resumenFinanzas(): Promise<ResumenFinanzas> {
-  const filas = await query<FilaFinanzas>(
-    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.apellidos || ', ' || m.nombres AS nombre, jv.serie || jv.numero AS junta,
+  const [{ filas, totalEur, generadoEn, modoPrueba }] = await query<{ filas: FilaFinanzas[]; totalEur: string; generadoEn: Date; modoPrueba: boolean }>(
+    `SELECT statement_timestamp() AS "generadoEn", coalesce(en_prueba(), true) AS "modoPrueba",
+            (SELECT coalesce(sum(importe_eur), 0)::text FROM pagos_confirmados) AS "totalEur",
+            ARRAY(SELECT row_to_json(f) FROM (
+     SELECT m.id, m.cedula, m.apellidos, m.nombres, m.apellidos || ', ' || m.nombres AS nombre,
+            jv.serie || jv.numero AS junta, jv.zona_color AS zona, m.cargo_original AS cargo,
+            CASE WHEN m.incorporado_en IS NOT NULL AND m.es_prueba = en_prueba() THEN m.incorporado_en::text ELSE l.creado_en::text END AS "ingresoEn",
+            CASE WHEN m.incorporado_en IS NOT NULL AND m.es_prueba = en_prueba() THEN m.incorporado_por ELSE nullif(btrim(i.nombre || ' ' || i.apellido), '') END AS "operadorIngreso",
+            m.cedula_validada_en::text AS "validacionEn",
             CASE WHEN p.id IS NOT NULL THEN 'pagada'
                  WHEN d.n < 2 THEN 'documentacion_incompleta'
                  WHEN EXISTS (SELECT 1 FROM actas_pago a WHERE a.mjrv_id = m.id) THEN 'acta_preparada'
@@ -25,19 +32,21 @@ export async function resumenFinanzas(): Promise<ResumenFinanzas> {
        FROM mjrv m
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT x.junta_destino_id FROM decisiones_movimiento x WHERE x.mjrv_id = m.id AND x.decision = 'aceptada' ORDER BY x.creado_en DESC, x.id DESC LIMIT 1), m.junta_origen_id)
        CROSS JOIN LATERAL (SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = m.id) d
+       LEFT JOIN lecturas_puerta l ON l.mjrv_id = m.id AND l.resultado = 'valido'
+       LEFT JOIN operadores_madrid i ON i.id = l.operador_id
        LEFT JOIN pagos_confirmados p ON p.mjrv_id = m.id
        LEFT JOIN operadores_madrid o ON o.id = p.operador_id
        LEFT JOIN usuarios u ON u.id = p.usuario_id
       WHERE m.activo OR p.id IS NOT NULL
-      ORDER BY (p.id IS NULL) DESC, p.confirmado_en DESC, m.apellidos`);
-  const total = (await query<{ total: string }>("SELECT coalesce(sum(importe_eur), 0)::text AS total FROM pagos_confirmados"))[0].total;
+      ORDER BY (p.id IS NULL) DESC, p.confirmado_en DESC, m.apellidos
+    ) f) AS filas`);
   return {
-    generado_en: new Date().toISOString(), modoPrueba: (await leerModo()) === "prueba",
+    generado_en: generadoEn.toISOString(), modoPrueba,
     pagados: filas.filter((f) => f.estado === "pagada").length,
     pendientes: filas.filter((f) => f.estado !== "pagada").length,
     documentacionIncompleta: filas.filter((f) => f.estado === "documentacion_incompleta").length,
     sinCedulaValidada: filas.filter((f) => !f.cedulaValidada).length,
     pagosSinImporteEur: filas.filter((f) => f.estado === "pagada" && f.eur === null).length,
-    totalEur: total, filas,
+    totalEur, filas,
   };
 }

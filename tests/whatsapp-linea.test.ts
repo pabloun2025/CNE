@@ -12,10 +12,20 @@ describe("línea de WhatsApp de CNE (cliente simulado)", () => {
   beforeEach(() => EvolutionSimulado.reiniciar());
   afterAll(closePools);
 
-  it("solo la superadmin", async () => {
-    await expect(estadoLinea(sesion("madrid_admin"))).rejects.toThrow("superadministración");
-    await expect(crearLinea(sesion("madrid_admin"))).rejects.toThrow("superadministración");
-    await expect(desvincularLinea(sesion("madrid_admin"))).rejects.toThrow("superadministración");
+  it("permite vincular a un cónsul y registra el acceso de administración", async () => {
+    const consul = sesion("madrid_admin");
+    expect(await crearLinea(consul)).toMatchObject({ estado: "esperando_qr", qr: expect.stringMatching(/^data:image\/png;base64,/) });
+    expect(await consultarDueno("SELECT portal FROM cne.auditoria WHERE accion = 'linea_whatsapp_creada'")).toEqual([{ portal: "admin" }]);
+    await consultarDueno("DELETE FROM cne.auditoria WHERE accion = 'linea_whatsapp_creada'");
+  });
+
+  it("impide consultar, vincular y desvincular a coordinadores y financieros", async () => {
+    for (const rol of ["coordinador", "financiero"] as const) {
+      const operador = { ...sesion("madrid_admin"), rol };
+      await expect(estadoLinea(operador)).rejects.toThrow();
+      await expect(crearLinea(operador)).rejects.toThrow();
+      await expect(desvincularLinea(operador)).rejects.toThrow();
+    }
   });
 
   it("sin crear → «Crear y vincular» da un QR → vinculada → «Desvincular» la deja desconectada y apaga el interruptor", async () => {

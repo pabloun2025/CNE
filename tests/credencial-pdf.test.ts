@@ -26,14 +26,29 @@ describe("PDF de credenciales", () => {
     expect(height).toBeCloseTo(pts(85.6), 1);
   });
 
-  it("A4: 1, 10 y 11 personas dan 1, 1 y 2 hojas de 210 × 297 mm", async () => {
-    for (const [n, hojas] of [[1, 1], [10, 1], [11, 2]] as const) {
+  it("A4: 1, 11 y 12 personas dan 1, 1 y 2 hojas de 297 × 210 mm", async () => {
+    for (const [n, hojas] of [[1, 1], [11, 1], [12, 2]] as const) {
       const pdf = await PDFDocument.load(await hojasA4(Array.from({ length: n }, (_, i) => ficha(i + 1))));
       expect(pdf.getPageCount()).toBe(hojas);
       const { width, height } = pdf.getPage(0).getSize();
-      expect(width).toBeCloseTo(pts(210), 1);
-      expect(height).toBeCloseTo(pts(297), 1);
+      expect(width).toBeCloseTo(pts(297), 1);
+      expect(height).toBeCloseTo(pts(210), 1);
     }
+  });
+
+  it("conserva el tamaño personalizado al descargar una persona", async () => {
+    const pdf = await PDFDocument.load(await credencialesIndividuales([ficha(1)], { ancho: 72.25, alto: 63 }));
+    const { width, height } = pdf.getPage(0).getSize();
+    expect(width).toBeCloseTo(pts(72.25));
+    expect(height).toBeCloseTo(pts(63));
+  });
+
+  it("aprovecha 14 posiciones por plancha con credenciales de 55 × 70 mm", async () => {
+    const pdf = await PDFDocument.load(await hojasA4(Array.from({ length: 15 }, (_, i) => ficha(i + 1)), { ancho: 55, alto: 70 }));
+    expect(pdf.getPageCount()).toBe(2);
+    const contenido = pdf.getPage(0).node.Contents();
+    const flujo = contenido instanceof PDFArray ? contenido.lookup(0, PDFRawStream) : contenido instanceof PDFRawStream ? contenido : undefined;
+    expect(inflateSync(flujo!.getContents()).toString("ascii").match(/\bd\n/g)).toHaveLength(14);
   });
 
   it("nombres largos y caracteres fuera de WinAnsi no rompen la generación", async () => {
@@ -42,7 +57,7 @@ describe("PDF de credenciales", () => {
   });
 
   it("la última hoja solo tiene guías de corte para las credenciales que contiene", async () => {
-    const pdf = await PDFDocument.load(await hojasA4(Array.from({ length: 11 }, (_, i) => ficha(i + 1))));
+    const pdf = await PDFDocument.load(await hojasA4(Array.from({ length: 12 }, (_, i) => ficha(i + 1))));
     const contenido = pdf.getPage(1).node.Contents();
     const flujo = contenido instanceof PDFArray ? contenido.lookup(0, PDFRawStream) : contenido instanceof PDFRawStream ? contenido : undefined;
     expect(flujo).toBeDefined();

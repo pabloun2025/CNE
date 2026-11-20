@@ -1,6 +1,5 @@
-// El acta usa el importe fijo en euros y el nombre de quien firma.
-
 export type ParametrosPago = {
+  importe_usd: string | null;
   importe_eur: string | null;
   pagador_nombre: string | null;
   pagador_cargo: string | null;
@@ -8,7 +7,7 @@ export type ParametrosPago = {
 };
 
 export const PARAMETROS_VACIOS: ParametrosPago = {
-  importe_eur: null, pagador_nombre: null, pagador_cargo: null, lugar: null,
+  importe_usd: null, importe_eur: null, pagador_nombre: null, pagador_cargo: null, lugar: null,
 };
 
 const ETIQUETAS = {
@@ -23,9 +22,9 @@ export function faltanParametros(p: ParametrosPago): string[] {
   return (Object.keys(ETIQUETAS) as (keyof typeof ETIQUETAS)[]).filter((k) => vacio(p[k])).map((k) => ETIQUETAS[k]);
 }
 
-// «123.45» → céntimos. Null si no es un decimal positivo con ≤ 2 decimales.
-function aCentimos(texto: string): bigint | null {
-  const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(texto.trim());
+// La base admite hasta diez dígitos enteros y dos decimales.
+function aCentimos(texto: string | null): bigint | null {
+  const m = /^(\d{1,10})(?:[.,](\d{1,2}))?$/.exec(texto?.trim() ?? "");
   if (!m) return null;
   const c = BigInt(m[1]) * 100n + BigInt((m[2] ?? "").padEnd(2, "0") || "0");
   return c > 0n ? c : null;
@@ -69,15 +68,16 @@ export function eurosEnLetras(importe: string): string {
   return `${palabra} con ${cents === 1 ? "un céntimo" : `${cardinal(cents)} céntimos`}`;
 }
 
-export type MontosActa = { estado: "ok"; eur: string } | { estado: "pendiente"; faltan: string[] };
+export type MontosActa = { estado: "ok"; eur: string; usd: string | null } | { estado: "pendiente"; faltan: string[] };
 
-// El importe se toma de la configuración, sin conversión.
+// La referencia en USD es opcional. El importe en EUR habilita el pago.
 export function montosParaActa(p: ParametrosPago): MontosActa {
   const faltan = faltanParametros(p);
   if (faltan.length) return { estado: "pendiente", faltan };
-  const eur = aCentimos(String(p.importe_eur));
+  const eur = aCentimos(p.importe_eur);
   if (eur === null) return { estado: "pendiente", faltan: ["monto en euros válido"] };
-  return { estado: "ok", eur: centimosATexto(eur) };
+  const usd = aCentimos(p.importe_usd);
+  return { estado: "ok", eur: centimosATexto(eur), usd: usd === null ? null : centimosATexto(usd) };
 }
 
 export type ParametrosValidados = { ok: true; valores: ParametrosPago } | { ok: false; mensaje: string };
@@ -85,14 +85,18 @@ export type ParametrosValidados = { ok: true; valores: ParametrosPago } | { ok: 
 export function validarParametros(e: Record<keyof ParametrosPago, string>): ParametrosValidados {
   const o = (v: string) => (v.trim() === "" ? null : v.trim());
   const eurBruto = o(e.importe_eur);
-  if (eurBruto !== null && aCentimos(eurBruto) === null) return { ok: false, mensaje: "El monto en euros debe ser mayor que 0, con hasta 2 decimales." };
+  const usdBruto = o(e.importe_usd);
+  const eur = aCentimos(eurBruto), usd = aCentimos(usdBruto);
+  if (eurBruto !== null && eur === null) return { ok: false, mensaje: "Escriba un importe en EUR mayor que 0, con hasta 10 dígitos enteros y 2 decimales." };
+  if (usdBruto !== null && usd === null) return { ok: false, mensaje: "Escriba un valor en USD mayor que 0, con hasta 10 dígitos enteros y 2 decimales." };
   const nombre = o(e.pagador_nombre), cargo = o(e.pagador_cargo), lugar = o(e.lugar);
   const largo = (v: string | null, n: number) => v === null || v.length <= n;
   if (!largo(nombre, 120) || !largo(cargo, 120) || !largo(lugar, 160)) return { ok: false, mensaje: "Algún texto es demasiado largo." };
   return {
     ok: true,
     valores: {
-      importe_eur: eurBruto === null ? null : centimosATexto(aCentimos(eurBruto)!),
+      importe_usd: usd === null ? null : centimosATexto(usd),
+      importe_eur: eur === null ? null : centimosATexto(eur),
       pagador_nombre: nombre, pagador_cargo: cargo, lugar,
     },
   };

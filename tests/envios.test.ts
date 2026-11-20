@@ -76,6 +76,13 @@ describe("envío simulado de credenciales", () => {
     expect(r).toMatchObject({ enviadas: 0, omitidas: 1 }); // 0000000003 sin rótulo; el resto ya tenía envío
     await expect(enviarCredencial({ ...admin, tipo: "superadmin" }, ids["0000000001"], "correo")).rejects.toThrow();
   });
+
+  it("cuenta las fichas de la selección sin contacto o ya enviadas como omitidas", async () => {
+    await ficha("0000000007", { tel: "+34600000007" });
+    const seleccion = { alcance: "ids" as const, ids: [ids["0000000001"], ids["0000000004"], ids["0000000007"]] };
+    expect(await enviarLote(admin, "whatsapp", undefined, seleccion)).toMatchObject({ enviadas: 1, omitidas: 2 });
+    expect(await enviarLote(admin, "whatsapp", undefined, seleccion)).toMatchObject({ enviadas: 0, omitidas: 3 });
+  });
 });
 
 describe("D08 · texto del mensaje de la credencial", () => {

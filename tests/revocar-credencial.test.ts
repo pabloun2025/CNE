@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
 import type { SesionEstacion } from "@/server/estaciones";
-import { contadoresPuerta, dejarPasar, registrarLectura } from "@/server/puerta";
+import { comprobarCredencial, contadoresPuerta, dejarPasar, registrarLectura } from "@/server/puerta";
 import { listarActivos, listarFueraDeLista, revocarFueraDeLista, revocarMjrv } from "@/server/revocar-credencial";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
@@ -63,6 +63,9 @@ describe("revocar credencial de MJRV", () => {
     expect((await consultarDueno("SELECT 1 FROM cne.mjrv WHERE cedula = '0000000099'")).length).toBe(0);
     expect(await registrarLectura(puerta, "0000000099", null)).toEqual({ resultado: "revocado" });
     expect(await registrarLectura(puerta, "ajeno prueba sin lista", null)).toEqual({ resultado: "revocado" });
+    const texto = "CREDENCIAL\nAJENO PRUEBA\nSIN LISTA\n0000000002";
+    expect(await comprobarCredencial(puerta, texto, "cam")).toEqual({ resultado: "revocado" });
+    expect(await comprobarCredencial(puerta, "CREDENCIAL\nAJENO PRUEBA\nSIN LISTA", "cam")).toEqual({ resultado: "revocado" });
   });
 
   it("una ficha de baja no está en la lista: se puede revocar, y sin revocar seguía bloqueada", async () => {

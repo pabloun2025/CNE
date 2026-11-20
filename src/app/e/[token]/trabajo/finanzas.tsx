@@ -7,7 +7,7 @@ import { Documentacion } from "./documentacion";
 type Ficha = {
   mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
   anverso: boolean; reverso: boolean; documentosCompletos: boolean; cedulaValidada: boolean; parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null;
-  acta: { id: number; impresionN: number } | null; pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
+  acta: { id: number; impresionN: number; importePendiente: boolean } | null; pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
   estado: string; modoPrueba: boolean; otrosPuestos: { etiqueta: string; operador: string; haceMin: number }[];
 };
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
@@ -37,7 +37,8 @@ export function Finanzas() {
     setOcupado(true); setMensaje("");
     const ventana = window.open("", "_blank"); // se abre antes del await para que el navegador no la bloquee
     try {
-      const r = await fetch(`/api/e/finanzas/acta/${ficha.mjrvId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ verificado }) });
+      const r = await fetch(`/api/e/finanzas/acta/${ficha.mjrvId}`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ verificado, completarImporte: ficha.acta?.importePendiente && ficha.parametrosCompletos }) });
       if (!r.ok) { ventana?.close(); setMensaje((await r.json()).error ?? "No se pudo generar el acta."); return; }
       const borrador = r.headers.get("x-acta-borrador") === "1";
       const url = URL.createObjectURL(await r.blob());
@@ -107,9 +108,10 @@ export function Finanzas() {
                 He verificado que cumplió sus funciones
               </label>
               <button disabled={!verificado || !ficha.documentosCompletos || ocupado} onClick={generar} className="w-full bg-stone-900 px-4 py-4 text-lg text-white disabled:opacity-50">
-                {ficha.acta ? `Reimprimir acta (REIMPRESIÓN ${ficha.acta.impresionN + 1})` : "Generar e imprimir acta"}
+                {ficha.acta?.importePendiente && ficha.parametrosCompletos ? "Completar importe en EUR e imprimir acta"
+                  : ficha.acta ? `Reimprimir acta (REIMPRESIÓN ${ficha.acta.impresionN + 1})` : "Generar e imprimir acta"}
               </button>
-              {ficha.acta && ficha.parametrosCompletos && (
+              {ficha.acta && !ficha.acta.importePendiente && ficha.parametrosCompletos && (
                 <div className="mt-6 border-t-4 border-dashed pt-4">
                   {!confirmando ? (
                     <button disabled={!verificado || ocupado} onClick={() => setConfirmando(true)} className="w-full bg-green-800 px-4 py-5 text-xl font-extrabold text-white disabled:opacity-50">Confirmar pago entregado</button>

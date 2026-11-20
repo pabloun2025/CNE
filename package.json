@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",
+    "@tesseract.js-data/spa": "1.0.0",
     "d3-geo": "^3.1.2",
     "d3-selection": "^3.0.1",
     "d3-zoom": "^3.0.1",
@@ -31,6 +32,7 @@
     "tsx": "^4.23.15",
     "world-atlas": "^2.0.2",
     "xlsx": "^0.18.5",
+    "yazl": "3.3.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -44,6 +46,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/topojson-client": "^3.1.5",
+    "@types/yazl": "3.3.1",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.4.6",
     "tailwindcss": "^4.3.5",

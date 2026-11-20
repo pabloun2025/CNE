@@ -23,6 +23,7 @@ const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "superadm
 type Regla = Tipo[] | "publica";
 const SOLO_ADMIN: Regla = ["admin"];
 const SOLO_SUPER: Regla = ["superadmin"];
+const VINCULACION_WHATSAPP: Regla = ["admin", "superadmin"];
 const MANDO: Regla = ["admin", "admin_coord", "e_mando"];
 const FINANZAS: Regla = ["admin", "admin_fin"];
 const TODOS_ADMIN: Regla = ["admin", "admin_coord", "admin_fin"];
@@ -32,10 +33,12 @@ const RUTAS: Record<string, Regla> = {
   "GET /admin/informes/descargar": FINANZAS,
   "GET /admin/documentos/cartel": SOLO_ADMIN,
   "GET /admin/credenciales/pdf": SOLO_ADMIN,
+  "POST /admin/credenciales/pdf": SOLO_ADMIN,
   "GET /api/admin/documentos/[id]/[lado]": SOLO_ADMIN,
   "GET /api/admin/resumen": TODOS_ADMIN,
   "GET /api/admin/finanzas/resumen": FINANZAS,
   "GET /api/admin/finanzas/recibos/[tipo]/[id]": FINANZAS,
+  "POST /api/admin/finanzas/recibos/descargar": FINANZAS,
   "POST /api/admin/finanzas/recibos/emitir": FINANZAS,
   "GET /api/admin/finanzas/cedula/[id]/[lado]": FINANZAS,
   "POST /api/admin/finanzas/ficha": FINANZAS,
@@ -67,6 +70,7 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/e/finanzas/validar-cedula": ["e_finanzas"],
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
+  "GET /api/admin/whatsapp/estado": SOLO_ADMIN,
   "GET /api/salud": "publica",
   "POST /api/d/foto": "publica", // pública pero cerrada por el interruptor del admin
   "POST /api/d/buscar": "publica",
@@ -85,6 +89,7 @@ const ACCIONES: Record<string, Regla> = {
   "mjrv-actions#crearMjrvAccion": SOLO_ADMIN, "mjrv-actions#editarMjrvAccion": SOLO_ADMIN, "mjrv-actions#bajaMjrvAccion": SOLO_ADMIN, "mjrv-actions#borrarMjrvAccion": SOLO_ADMIN,
   "revocar-actions#revocarCredencialAccion": SOLO_ADMIN, "revocar-actions#revocarFueraAccion": SOLO_ADMIN,
   "pago-actions#guardarParametrosAccion": FINANZAS,
+  "credencial-config-actions#guardarMedidasCredencialAccion": SOLO_ADMIN,
   "finanzas-nombres-actions#corregirNombresAccion": FINANZAS, "finanzas-nombres-actions#validarCedulaAccion": FINANZAS,
   "envios-actions#enviarCredencialAccion": SOLO_ADMIN, "envios-actions#enviarLoteAccion": SOLO_ADMIN,
   "movimiento-actions#aceptarAccion": MANDO, "movimiento-actions#pasarAccion": MANDO, "movimiento-actions#noViableAccion": MANDO,
@@ -94,7 +99,8 @@ const ACCIONES: Record<string, Regla> = {
   "superadmin-actions#cambiarModoAccion": SOLO_SUPER, "superadmin-actions#cargarDemoAccion": SOLO_SUPER, "superadmin-actions#quitarDemoAccion": SOLO_SUPER,
   "superadmin-actions#respaldarAccion": SOLO_SUPER, "superadmin-actions#prepararEleccionAccion": SOLO_SUPER,
   "superadmin-actions#interruptorEnvioAccion": SOLO_SUPER, "superadmin-actions#reanudarEnviosAccion": SOLO_SUPER, "superadmin-actions#guardarRemitenteAccion": SOLO_SUPER,
-  "superadmin-actions#borrarFotosAccion": SOLO_SUPER, "superadmin-actions#crearLineaAccion": SOLO_SUPER, "superadmin-actions#desvincularLineaAccion": SOLO_SUPER,
+  "superadmin-actions#borrarFotosAccion": SOLO_SUPER,
+  "superadmin-actions#crearLineaAccion": VINCULACION_WHATSAPP, "superadmin-actions#desvincularLineaAccion": VINCULACION_WHATSAPP,
 };
 
 function archivos(dir: string, nombre: (f: string) => boolean, acc: string[] = []): string[] {
@@ -248,6 +254,7 @@ describe("matriz de permisos", () => {
     // Roles que puede usar cada página de /admin (sin entrada aquí, la prueba falla) y a dónde redirige a los demás.
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "coordinador", "financiero"],
+      "configuracion/envios": ["consul"],
       mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/escanear": ["consul", "financiero"], "finanzas/imprimir": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
       credenciales: ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };

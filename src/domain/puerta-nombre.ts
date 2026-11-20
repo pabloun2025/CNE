@@ -1,11 +1,10 @@
-// La puerta identifica por el QR de la cédula y, si no hay QR, por el nombre de la lista.
-// El nombre se compara sin tildes ni signos: lo tecleado y lo que lee la cámara usan la misma regla.
+// La puerta compara los nombres sin tildes ni signos.
 
 export type PersonaLista = { id: number; apellidos: string; nombres: string };
 
 export const normalizarCodigo = (t: string) => t.trim().toUpperCase().replace(/\s+/g, "");
 
-export const pareceCedula = (t: string) => /^[0-9A-Z-]{5,20}$/.test(normalizarCodigo(t));
+export const cedulaManualValida = (t: string) => /^\d{1,20}$/.test(t);
 
 export const normalizarNombre = (t: string) =>
   t.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim().replace(/\s+/g, " ");
@@ -30,21 +29,30 @@ export function puntajeNombre(consulta: string, apellidos: string, nombres: stri
 }
 
 // Devuelve quienes empatan en el mejor puntaje. Más de uno: hay que precisar.
-// minTokens: la cámara exige ver el apellido entero (varias palabras); el teclado acepta una parte única.
-export function buscarPorNombre<T extends PersonaLista>(consulta: string, personas: T[], minTokens = 1): T[] {
+export function buscarPorNombre<T extends PersonaLista>(consulta: string, personas: T[]): T[] {
   const puntuados = personas
     .map((p) => ({ p, s: puntajeNombre(consulta, p.apellidos, p.nombres) }))
-    .filter((x) => x.s >= minTokens);
+    .filter((x) => x.s > 0);
   if (puntuados.length === 0) return [];
   const mejor = Math.max(...puntuados.map((x) => x.s));
   return puntuados.filter((x) => x.s === mejor).map((x) => x.p);
 }
 
-// La cámara solo acepta si el apellido impreso se leyó entero y la persona es única.
+// La cámara propone solo nombres y apellidos completos. Conserva todos los candidatos para detectar ambigüedad.
 export function buscarNombreCamara<T extends PersonaLista>(consulta: string, personas: T[]): T[] {
-  const hallados = buscarPorNombre(consulta, personas, 2);
-  if (hallados.length !== 1) return [];
-  const ap = tokens(hallados[0].apellidos);
   const vistos = new Set(tokens(consulta));
-  return ap.length > 0 && ap.every((t) => vistos.has(t)) ? hallados : [];
+  return personas.filter((p) => {
+    const apellidos = tokens(p.apellidos);
+    const nombres = tokens(p.nombres);
+    return apellidos.length > 0 && nombres.length > 0
+      && [...apellidos, ...nombres].every((t) => vistos.has(t));
+  });
+}
+
+// Una cédula impresa puede leerse en bloques separados por espacios en la misma línea.
+export function cedulasDeCamara(texto: string): string[] {
+  const mayusculas = texto.toUpperCase();
+  const palabras = mayusculas.match(/[A-Z0-9-]+/g) ?? [];
+  const bloquesNumericos = (mayusculas.match(/(?<![A-Z0-9-])\d+(?:[ \t]+\d+)+(?![A-Z0-9-])/g) ?? []).map(normalizarCodigo);
+  return [...new Set([...palabras, ...bloquesNumericos].filter((t) => t.length >= 5 && t.length <= 20 && /\d/.test(t)))];
 }

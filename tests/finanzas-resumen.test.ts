@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { randomBytes } from "node:crypto";
 import { closePools } from "@/server/db";
@@ -9,9 +9,17 @@ import { resumenFinanzas } from "@/server/finanzas-resumen";
 import { resumenAdmin } from "@/server/resumen-admin";
 import { corregirNombres, validarCedula } from "@/server/mjrv";
 import * as XLSX from "xlsx";
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
 import { informeCierreExcel } from "@/server/informe-excel";
 import { informeCierrePdf } from "@/server/pdf/informe";
+import { GET as descargarInforme } from "@/app/admin/(panel)/informes/descargar/route";
+import { login } from "@/server/auth";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
+
+let tokenAdmin: string | undefined;
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (nombre: string) => nombre === "cne_admin" ? { value: tokenAdmin } : undefined }),
+}));
 
 const foto = () => sharp(randomBytes(900 * 600 * 3), { raw: { width: 900, height: 600, channels: 3 } }).jpeg({ quality: 70 }).toBuffer();
 let s: SesionEstacion;
@@ -78,6 +86,46 @@ describe("panel financiero", () => {
     expect(filas.some((f) => String(f[0]).includes("PRUEBA"))).toBe(true); // marca de informe de prueba
   });
 
+  it("la descarga de Finanzas aplica las columnas elegidas en PDF y Excel", async () => {
+    await consultarDueno(`INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar, rol)
+      SELECT 'madrid_admin', 'fin@prueba.cne', 'Financiero Prueba', password_hash, false, 'financiero'
+        FROM cne.usuarios WHERE tipo = 'superadmin'`);
+    const sesion = await login({ correo: "fin@prueba.cne", password: "clave-de-prueba-1", portal: "admin", ip: null, agente: "prueba" });
+    if (!sesion.ok) throw new Error("No se pudo iniciar la sesión de prueba");
+    tokenAdmin = sesion.token;
+    const descargar = (params: string) => descargarInforme(new Request(`http://localhost/admin/informes/descargar?${params}`));
+    try {
+      const excel = await descargar("formato=xlsx&seleccion=1&columnas=junta&columnas=eur");
+      expect(excel.status).toBe(200);
+      const hoja = XLSX.read(new Uint8Array(await excel.arrayBuffer())).Sheets.Informe;
+      const filas = XLSX.utils.sheet_to_json<(string | number)[]>(hoja, { header: 1, blankrows: false });
+      expect(filas).toContainEqual(["Junta", "EUR"]);
+      expect(filas).toContainEqual(["H1", 55]);
+      expect(filas).toContainEqual(["TOTAL ENTREGADO EUR (solo pagos confirmados)", 110]);
+      expect(filas.flat()).not.toContain("Cédula");
+
+      const pdf = await descargar("formato=pdf&seleccion=1&columnas=junta");
+      expect(pdf.status).toBe(200);
+      expect(pdf.headers.get("content-type")).toBe("application/pdf");
+      expect(pdf.headers.get("cache-control")).toBe("no-store");
+      const documento = await PDFDocument.load(await pdf.arrayBuffer());
+      const contenido = documento.getPages().flatMap((pagina) => {
+        const contenidoPagina = pagina.node.Contents();
+        return contenidoPagina instanceof PDFArray ? contenidoPagina.asArray() : [contenidoPagina];
+      }).map((ref) => {
+        const stream = documento.context.lookup(ref);
+        if (!(stream instanceof PDFRawStream)) throw new Error("Falta el contenido de la página");
+        return Buffer.from(decodePDFRawStream(stream).decode()).toString();
+      }).join("\n");
+      expect(contenido).toContain(Buffer.from("Junta").toString("hex").toUpperCase());
+      expect(contenido).not.toContain(Buffer.from("0000000001").toString("hex").toUpperCase());
+      expect((await descargar("formato=xlsx&columnas=foto")).status).toBe(400);
+    } finally {
+      tokenAdmin = undefined;
+    }
+    expect((await descargar("formato=xlsx")).status).toBe(401);
+  });
+
   it("distingue los pagos legados sin importe EUR del total conocido", async () => {
     await consultarDueno("UPDATE cne.pagos_confirmados SET importe_eur = NULL WHERE mjrv_id = $1", [ids[0]]);
     try {
@@ -103,5 +151,48 @@ describe("panel financiero", () => {
     expect(r.sinCedulaValidada).toBe(2);
     expect(r.filas.find((f) => f.id === ids[0])).toMatchObject({ cedulaValidada: true, fotosCompletas: true });
     expect(r.filas.find((f) => f.id === ids[2])).toMatchObject({ apellidos: "APELLIDO CORREGIDO", nombres: "NOMBRE CORREGIDO", cedula: "0000000003", cedulaValidada: false, fotosCompletas: false });
+  });
+
+  it("el informe conserva la fecha de validación de la ficha al borrar las fotos", async () => {
+    const fecha = "2026-11-29T07:15:00.000Z";
+    await consultarDueno("UPDATE cne.mjrv SET cedula_validada_en = $2 WHERE id = $1", [ids[0], fecha]);
+    await consultarDueno("DELETE FROM cne.documentos_mjrv WHERE mjrv_id = $1", [ids[0]]);
+    const ficha = (await resumenFinanzas()).filas.find((f) => f.id === ids[0]);
+    expect(ficha).toMatchObject({ cedulaValidada: true, fotosCompletas: false });
+    expect(Date.parse(ficha?.validacionEn ?? "")).toBe(Date.parse(fecha));
+  });
+
+  it("el corte usa los registros de ingreso y pago del modo actual", async () => {
+    const fichaId = ids[2];
+    await guardarDocumento({ mjrvId: fichaId, lado: "anverso", imagen: await foto(), origen: "estacion" });
+    await guardarDocumento({ mjrvId: fichaId, lado: "reverso", imagen: await foto(), origen: "estacion" });
+    const actor = { tipo: "usuario" as const, id: 1, nombre: "Fin", portal: "admin" as const };
+    expect((await validarCedula(actor, fichaId)).ok).toBe(true);
+    await generarActa(s, fichaId, true);
+    const [acta] = await consultarDueno<{ id: number }>("SELECT id FROM cne.actas_pago WHERE mjrv_id = $1", [fichaId]);
+    await confirmarPago(s, { mjrvId: fichaId, actaId: acta.id, verificado: true });
+    await consultarDueno("INSERT INTO cne.operadores_madrid (nombre, apellido, pin_hash, funciones) VALUES ('Puerta','Prueba','x','{puerta}')");
+    await consultarDueno("INSERT INTO cne.enlaces_estacion (funcion, etiqueta, token_hash) VALUES ('puerta','Puerta prueba','\\x02')");
+    await consultarDueno(`INSERT INTO cne.lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, creado_en)
+      SELECT 'PRUEBA', $1, 'valido', o.id, e.id, '2026-11-29 07:05:00+00'
+        FROM cne.operadores_madrid o CROSS JOIN cne.enlaces_estacion e
+       WHERE o.nombre = 'Puerta' AND e.funcion = 'puerta'`, [fichaId]);
+    await consultarDueno(`INSERT INTO cne.decisiones_movimiento (mjrv_id, junta_origen_id, junta_destino_id, decision, actor_tipo, actor_id, actor_nombre)
+      SELECT m.id, m.junta_origen_id, j.id, 'aceptada', 'madrid_admin', 1, 'Operador prueba'
+        FROM cne.mjrv m CROSS JOIN cne.juntas_madrid j WHERE m.id = $1 AND j.serie = 'H' AND j.numero = 25`, [fichaId]);
+    const prueba = await resumenFinanzas();
+    expect(prueba.modoPrueba).toBe(true);
+    const fichaPrueba = prueba.filas.find((f) => f.id === fichaId);
+    expect(fichaPrueba).toMatchObject({ junta: "H25", zona: "azul", cargo: "VOCAL", operadorIngreso: "Puerta Prueba", operador: "Fin Prueba", eur: "55.00" });
+    expect(new Date(fichaPrueba?.ingresoEn ?? "").toISOString()).toBe("2026-11-29T07:05:00.000Z");
+    expect(fichaPrueba?.validacionEn).toBeTruthy();
+    await consultarDueno("UPDATE cne.configuracion SET modo = 'eleccion'");
+    try {
+      const eleccion = await resumenFinanzas();
+      expect(eleccion).toMatchObject({ modoPrueba: false, totalEur: "0", pagados: 0 });
+      expect(eleccion.filas.find((f) => f.id === fichaId)).toMatchObject({ junta: "H1", zona: "amarillo", ingresoEn: null, operadorIngreso: null, eur: null });
+    } finally {
+      await consultarDueno("UPDATE cne.configuracion SET modo = 'prueba'");
+    }
   });
 });

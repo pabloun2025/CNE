@@ -11,7 +11,7 @@ export type DatosActa = {
   borrador: boolean; // sin parámetros completos: sin cifras
   emitidaEn: Date;
   persona: { apellidos: string; nombres: string; cedula: string; cargo: string; juntaVigente: string };
-  importe: { eur: string } | null;
+  importe: { usd: string | null; eur: string | null };
   pagador: { nombre: string; cargo: string } | null;
   anexo?: { anverso: Buffer; reverso: Buffer };
   reconstruido?: boolean;
@@ -161,14 +161,20 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
 
   seccion("DETALLE ECONÓMICO");
   const hKpi = 18 * MM;
-  const cap = "IMPORTE ENTREGADO";
-  const monto = d.importe && !d.borrador ? `EUR ${d.importe.eur}` : "pendiente";
   p1.drawRectangle({ x: ML, y: y - hKpi, width: ancho, height: hKpi, color: fondoEur, borderColor: linea, borderWidth: 0.6 });
-  p1.drawText(cap, { x: ML + (ancho - normal.widthOfTextAtSize(cap, 7.5)) / 2, y: y - 14, size: 7.5, font: normal, color: suave });
-  p1.drawText(monto, { x: ML + (ancho - bold.widthOfTextAtSize(monto, 13)) / 2, y: y - hKpi + 10, size: 13, font: bold, color: azul });
+  caja(ML, y - hKpi, mitad, hKpi, true, false);
+  const importes = [
+    { etiqueta: "VALOR DE REFERENCIA (USD)", monto: d.importe.usd ? `USD ${d.importe.usd}` : null },
+    { etiqueta: "IMPORTE ENTREGADO (EUR)", monto: d.importe.eur ? `EUR ${d.importe.eur}` : null },
+  ];
+  importes.forEach(({ etiqueta, monto }, i) => {
+    const x = ML + i * mitad;
+    p1.drawText(etiqueta, { x: x + (mitad - normal.widthOfTextAtSize(etiqueta, 7.5)) / 2, y: y - 14, size: 7.5, font: normal, color: suave });
+    if (monto) p1.drawText(monto, { x: x + (mitad - bold.widthOfTextAtSize(monto, 13)) / 2, y: y - hKpi + 10, size: 13, font: bold, color: azul });
+  });
   y -= hKpi + 5 * MM;
 
-  const declaracion = d.borrador || !d.importe
+  const declaracion = d.borrador || !d.importe.eur
     ? "Borrador. El valor en euros aún no está escrito. Este documento no acredita la entrega de efectivo."
     : `Por medio del presente documento, quien suscribe como receptor/a deja constancia de haber recibido en efectivo la cantidad de ${eurosEnLetras(d.importe.eur)} (EUR ${d.importe.eur}), por concepto de ${CONCEPTO}, correspondiente a la jornada electoral del 29 de noviembre de 2026.`;
   const declLineas = partir(declaracion, normal, 9.5, ancho - 16);

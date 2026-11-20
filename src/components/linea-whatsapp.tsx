@@ -6,11 +6,11 @@ import type { LineaWhatsApp } from "@/server/whatsapp-linea";
 import { crearLineaAccion, desvincularLineaAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
 const TEXTO: Record<LineaWhatsApp["estado"], string> = {
-  sin_crear: "Sin crear", esperando_qr: "Esperando que escanee el código", vinculada: "Vinculada", desconectada: "Desconectada",
+  sin_crear: "Sin vincular", esperando_qr: "Esperando que escanee el código", vinculada: "Vinculada", desconectada: "Desconectada",
 };
 
 // Línea de WhatsApp de CNE (instancia cne-madrid). El código QR se renueva cada 3 s mientras se espera la vinculación.
-export function LineaWhatsAppPanel({ inicial }: { inicial: LineaWhatsApp }) {
+export function LineaWhatsAppPanel({ inicial, rutaEstado }: { inicial: LineaWhatsApp; rutaEstado: string }) {
   const router = useRouter();
   const [linea, setLinea] = useState<LineaWhatsApp>(inicial);
   const [resultado, setResultado] = useState<EstadoSuper>(null);
@@ -24,7 +24,7 @@ export function LineaWhatsAppPanel({ inicial }: { inicial: LineaWhatsApp }) {
     const abortar = new AbortController();
     const consultar = async () => {
       try {
-        const r = await fetch("/api/superadmin/whatsapp/estado?qr=1", { cache: "no-store", signal: abortar.signal });
+        const r = await fetch(`${rutaEstado}?qr=1`, { cache: "no-store", signal: abortar.signal });
         if (r.ok) {
           const actual = await r.json() as LineaWhatsApp;
           if (vivo) {
@@ -37,7 +37,7 @@ export function LineaWhatsAppPanel({ inicial }: { inicial: LineaWhatsApp }) {
     };
     id = window.setTimeout(consultar, 3000);
     return () => { vivo = false; abortar.abort(); window.clearTimeout(id); };
-  }, [esperando, pendiente, router]);
+  }, [esperando, pendiente, router, rutaEstado]);
 
   const crear = () => iniciar(async () => {
     const r = await crearLineaAccion();
@@ -58,8 +58,11 @@ export function LineaWhatsAppPanel({ inicial }: { inicial: LineaWhatsApp }) {
 
   return (
     <div className="space-y-3">
-      <p>Estado: <strong>{TEXTO[linea.estado]}</strong>{linea.estado === "vinculada" && linea.numero ? ` con ${linea.numero}` : ""}.</p>
-      {linea.simulada && <p className="rounded bg-amber-100 p-2 text-sm font-medium text-amber-900">Modo simulado: no hay claves de Evolution API en este servidor. El código no vincula ninguna cuenta real.</p>}
+      <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        <div><dt>Evolution API</dt><dd className="font-semibold">{linea.simulada ? "Sin configurar" : linea.error ? "Comprobación fallida" : "Disponible"}</dd></div>
+        <div><dt>Línea de WhatsApp</dt><dd className="font-semibold">{TEXTO[linea.estado]}{linea.estado === "vinculada" && linea.numero ? ` con ${linea.numero}` : ""}</dd></div>
+      </dl>
+      {linea.simulada && <p className="rounded bg-amber-100 p-2 text-sm font-medium text-amber-900">La configuración actual genera un código QR de prueba.</p>}
       {linea.error && <p role="alert" className="text-sm font-medium text-red-700">{linea.error}</p>}
       {linea.estado === "esperando_qr" && !linea.qr && !linea.error && (
         <p role="status">Preparando el código QR…</p>

@@ -76,7 +76,8 @@ describe("finanzas: acta y confirmación", () => {
     const plano = Buffer.concat(trozos).toString("latin1").replace(/<([0-9A-Fa-f\s]+)>/g, (_, h: string) => Buffer.from(h.replace(/\s/g, ""), "hex").toString("latin1"));
     expect(plano).toContain("RECIBO DE ENTREGA Y RECEPCI");
     expect(plano).toContain("cincuenta y cinco euros");
-    expect(plano).not.toContain("USD");
+    expect(plano).toContain("VALOR DE REFERENCIA (USD)");
+    expect(plano).not.toMatch(/USD \d/);
     expect(plano).toContain("EUR 55.00");
     expect(plano).toContain("ANVERSO");
     expect(await generarActa(s, a, true)).toMatchObject({ ok: true, numero: r1.numero, actaId: r1.actaId });

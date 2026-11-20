@@ -10,7 +10,7 @@ export default async function PanelSuperadmin({ children }: { children: React.Re
       <main>
         <nav className="section-tabs" aria-label="Superadministración">
           <a className="section-tab" href="/superadmin">Superadministración</a>
-          <a className="section-tab" href="/superadmin/envios">Envíos</a>
+          <a className="section-tab" href="/superadmin/envios">Configuración de envíos</a>
         </nav>
         {children}
       </main>

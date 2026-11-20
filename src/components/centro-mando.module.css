@@ -1,0 +1,177 @@
+.pantalla {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  background: var(--paper);
+}
+
+.tablero {
+  --separacion: clamp(2px, .4vw, 6px);
+  --ancho-tarjeta: clamp(26px, 8vw, 30px);
+  --alto-tarjeta: clamp(26px, 5.5dvh, 56px);
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-height: 100%;
+  padding: clamp(6px, 1.6vw, 18px);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: clamp(11px, 1.15vw, 17px);
+  line-height: 1.15;
+}
+
+.cabecera,
+.zona {
+  display: grid;
+  align-content: start;
+  gap: var(--separacion);
+  min-width: 0;
+}
+
+.linea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cabecera .linea h2 {
+  font-size: clamp(1rem, 2.4vw, 2rem);
+}
+
+.salir {
+  min-height: 32px;
+  padding-inline: 8px;
+  border: 1px solid var(--input);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--blue);
+}
+
+.prueba {
+  padding: 2px 6px;
+  background: var(--gold-soft);
+  color: var(--gold-ink);
+  font-weight: 700;
+}
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--separacion);
+}
+
+.indicadores > div {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  padding: 3px 1px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--card);
+  text-align: center;
+}
+
+.indicadores dt {
+  font-size: .9em;
+  overflow-wrap: anywhere;
+}
+
+.indicadores dd {
+  color: var(--navy);
+  font-size: 1.3em;
+  font-weight: 800;
+}
+
+.zonas {
+  display: grid;
+  gap: clamp(4px, 1dvh, 12px) clamp(8px, 1vw, 16px);
+}
+
+.tablero .zona h3 {
+  font: 700 1em/1.2 var(--sans);
+}
+
+.fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--ancho-tarjeta), 1fr));
+  gap: var(--separacion);
+}
+
+.tarjeta {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  align-items: center;
+  min-height: var(--alto-tarjeta);
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tablero .tarjeta:focus-visible {
+  z-index: 1;
+  outline-offset: 0;
+}
+
+.serie {
+  font-weight: 800;
+}
+
+.marca {
+  font-size: .75em;
+}
+
+.cuentas {
+  align-self: stretch;
+  display: grid;
+  align-items: center;
+  border: 1px solid var(--card);
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.detalle {
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(44rem, calc(100% - 24px));
+  max-height: 82dvh;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+}
+
+.detalle::backdrop {
+  background: rgb(15 27 45 / 35%);
+}
+
+@media (min-width: 600px) {
+  .zonas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .tablero {
+    --ancho-tarjeta: 48px;
+    --alto-tarjeta: clamp(36px, 8dvh, 80px);
+    gap: 12px;
+  }
+}
+
+@media (max-height: 500px) {
+  .tablero {
+    --separacion: 2px;
+    --ancho-tarjeta: 26px;
+    --alto-tarjeta: 26px;
+    padding: 4px 8px;
+  }
+
+  .salir {
+    min-height: 26px;
+  }
+}

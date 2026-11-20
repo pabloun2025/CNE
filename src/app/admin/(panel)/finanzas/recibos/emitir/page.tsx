@@ -20,7 +20,7 @@ export default async function EmitirRecibos({ searchParams }: { searchParams: Pr
     <main className="stack-lg">
       <h1>Emitir recibos de contingencia</h1>
       <Link href="/admin/finanzas/recibos" className="underline">Volver a Recibos</Link>
-      <p>Seleccione las fichas por nombre o junta. Si ya existe un recibo, el PDF conserva su número. La emisión no confirma el pago ni valida la cédula.</p>
+      <p>Seleccione las fichas por nombre o junta. Si ya existe un recibo, el PDF conserva su número. En recibos sin pago confirmado, esta emisión completa el importe en EUR si estaba pendiente. La emisión no confirma el pago ni valida la cédula.</p>
       <form action="/admin/finanzas/recibos/emitir" className="card flex flex-wrap items-end gap-3">
         <label className="min-w-0 flex-1">Nombre, apellido o cédula
           <input name="q" type="search" maxLength={120} defaultValue={q} />

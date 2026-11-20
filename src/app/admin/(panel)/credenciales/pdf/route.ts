@@ -1,30 +1,61 @@
-import { marcarGeneradas, seleccionarParaCredencial, type Seleccion } from "@/server/credenciales";
+import { medidasCredencial } from "@/server/credencial-config";
+import { leerIdsCredenciales, marcarGeneradas, seleccionarParaCredencial, type Seleccion } from "@/server/credenciales";
 import { rechazoAdminApi, sesionApi } from "@/server/guard";
 import { credencialesIndividuales, hojasA4 } from "@/server/pdf/credencial";
+import { urlBase } from "@/server/url";
+import { crearZip } from "@/server/zip";
 
 export const dynamic = "force-dynamic";
 
-// GET /admin/credenciales/pdf?formato=individual|a4&alcance=…&valor=…&ids=1,2
-export async function GET(request: Request) {
-  if (!(await sesionApi("admin"))) return rechazoAdminApi();
-  const q = new URL(request.url).searchParams;
-  const alcance = (q.get("alcance") || (q.get("ids") ? "ids" : "todas")) as Seleccion["alcance"];
-  if (!["ids", "todas", "junta", "zona", "sin_generar"].includes(alcance)) return new Response("Alcance no válido", { status: 400 });
-  const ids = [...new Set(q.getAll("ids").flatMap((valor) => valor.split(",")).map(Number))]
-    .filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 3000);
-  const sel = await seleccionarParaCredencial({ alcance, valor: q.get("valor") ?? undefined, ids });
+async function descargar(seleccion: Seleccion, individual: boolean, seleccionExacta = false) {
+  const sel = await seleccionarParaCredencial(seleccion);
+  if (seleccionExacta && sel.ids.length !== seleccion.ids?.length) {
+    return new Response("La selección cambió. Actualice la lista y vuelva a elegir las fichas.", { status: 409 });
+  }
   if (sel.datos.length === 0) {
     return new Response(sel.sinRotulo ? `Falta el rótulo de credencial de ${sel.sinRotulo} personas.` : "No hay fichas que imprimir con ese criterio.", { status: 422 });
   }
-  const individual = q.get("formato") === "individual";
-  const bytes = individual ? await credencialesIndividuales(sel.datos) : await hojasA4(sel.datos);
+  const medidas = await medidasCredencial();
+  const headers = { "x-excluidas-sin-rotulo": String(sel.sinRotulo), "cache-control": "private, no-store" };
+  if (individual && sel.ids.length > 1) {
+    const contenido = crearZip(sel.datos.map((ficha, indice) => ({
+      nombre: `credencial-${sel.ids[indice]}.pdf`,
+      bytes: async () => {
+        const pdf = await credencialesIndividuales([ficha], medidas);
+        if (indice === sel.ids.length - 1) await marcarGeneradas(sel.ids);
+        return pdf;
+      },
+    })));
+    return new Response(contenido, { headers: { ...headers, "content-type": "application/zip", "content-disposition": "attachment; filename=\"credenciales.zip\"" } });
+  }
+  const bytes = individual ? await credencialesIndividuales(sel.datos, medidas) : await hojasA4(sel.datos, medidas);
   await marcarGeneradas(sel.ids);
-  return new Response(Buffer.from(bytes), {
-    headers: {
-      "content-type": "application/pdf",
-      "content-disposition": `inline; filename="credenciales-${individual ? "individuales" : "a4"}.pdf"`,
-      "x-excluidas-sin-rotulo": String(sel.sinRotulo),
-      "cache-control": "no-store",
-    },
-  });
+  const nombre = individual ? `credencial-${sel.ids[0]}.pdf` : "credenciales-a4.pdf";
+  return new Response(Buffer.from(bytes), { headers: { ...headers, "content-type": "application/pdf", "content-disposition": `inline; filename="${nombre}"` } });
+}
+
+// La ficha MJRV conserva su enlace directo al PDF.
+export async function GET(request: Request) {
+  if (!(await sesionApi("admin"))) return rechazoAdminApi();
+  const q = new URL(request.url).searchParams;
+  const alcance = q.get("alcance") || (q.has("ids") ? "ids" : "todas");
+  if (alcance !== "ids" && alcance !== "todas" && alcance !== "junta" && alcance !== "zona" && alcance !== "sin_generar") {
+    return new Response("Alcance no válido.", { status: 400 });
+  }
+  const ids = alcance === "ids" ? leerIdsCredenciales(q.getAll("ids").flatMap((valor) => valor.split(","))) : null;
+  if (alcance === "ids" && !ids) return new Response("Seleccione fichas válidas.", { status: 400 });
+  return descargar({ alcance, valor: q.get("valor") ?? undefined, ids: ids ?? undefined }, q.get("formato") === "individual");
+}
+
+export async function POST(request: Request) {
+  if (!(await sesionApi("admin"))) return rechazoAdminApi();
+  const origen = request.headers.get("origin");
+  if (origen && (origen === "null" ? request.headers.get("sec-fetch-site") !== "same-origin" : origen !== await urlBase())) {
+    return new Response("Origen no autorizado.", { status: 403 });
+  }
+  const form = await request.formData().catch(() => null);
+  const formato = form?.get("formato");
+  const ids = leerIdsCredenciales(form?.getAll("ids") ?? []);
+  if (!ids || (formato !== "individual" && formato !== "a4")) return new Response("Seleccione fichas válidas y un formato.", { status: 400 });
+  return descargar({ alcance: "ids", ids }, formato === "individual", true);
 }

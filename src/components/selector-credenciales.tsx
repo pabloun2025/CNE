@@ -2,61 +2,64 @@
 
 import { useState } from "react";
 import { ZONAS, ZONA_NOMBRE } from "@/domain/juntas";
+import { normalizarFrase } from "@/domain/limpieza";
+import type { PersonaCredencial } from "@/server/credenciales";
 
-export type PersonaCredencial = { id: number; nombre: string; rotulo: string };
-
-export function SelectorCredenciales({ personas, imprimir = false }: { personas: PersonaCredencial[]; imprimir?: boolean }) {
-  const [alcance, setAlcance] = useState("todas");
+export function SelectorCredenciales({ personas, elegidas, cambiar }: {
+  personas: PersonaCredencial[];
+  elegidas: Set<number>;
+  cambiar: (ids: Set<number>) => void;
+}) {
   const [busqueda, setBusqueda] = useState("");
-  const [elegidas, setElegidas] = useState<number[]>([]);
-  const consulta = busqueda.trim().toLocaleLowerCase("es");
-  const coincidencias = alcance === "ids"
-    ? personas.filter((p) => `${p.nombre} ${p.rotulo}`.toLocaleLowerCase("es").includes(consulta))
-    : [];
-  const visibles = coincidencias.slice(0, 40);
+  const [junta, setJunta] = useState("");
+  const [zona, setZona] = useState("");
+  const [pendientes, setPendientes] = useState(false);
+  const consulta = normalizarFrase(busqueda);
+  const juntas = [...new Set(personas.map((p) => p.junta))];
+  const coincidencias = personas.filter((p) => (!junta || p.junta === junta) && (!zona || p.zona === zona)
+    && (!pendientes || p.sinPreparar) && normalizarFrase(`${p.nombre} ${p.rotulo}`).includes(consulta));
+  const fueraDelFiltro = elegidas.size - coincidencias.filter((p) => elegidas.has(p.id)).length;
   return (
-    <div className="stack">
-      <label>Fichas
-        <select name="alcance" value={alcance} onChange={(e) => setAlcance(e.target.value)}>
-          <option value="todas">Todas las fichas activas</option>
-          {imprimir && <option value="sin_generar">Credenciales sin preparar</option>}
-          <option value="junta">Una junta</option>
-          <option value="zona">Una zona</option>
-          <option value="ids">Seleccionar fichas</option>
-        </select>
+    <fieldset className="stack">
+      <legend>Fichas para imprimir o enviar</legend>
+      <label>Buscar por nombre o rótulo
+        <input className="w-full" type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
       </label>
-      {alcance === "junta" && <label>Junta<input name="valor" placeholder="H12" required maxLength={8} /></label>}
-      {alcance === "zona" && <label>Zona<select name="valor" defaultValue="" required>
-        <option value="" disabled>Seleccione una zona</option>
-        {ZONAS.map((zona) => <option key={zona} value={zona}>{ZONA_NOMBRE[zona]}</option>)}
-      </select></label>}
-      {alcance === "ids" && (
-        <fieldset className="stack">
-          <legend>Selección manual</legend>
-          {elegidas.map((id) => <input key={id} type="hidden" name="ids" value={id} />)}
-          <label>Buscar por nombre o rótulo<input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></label>
-          <div className="flex flex-wrap items-center gap-3">
-            <p role="status">{elegidas.length} seleccionadas</p>
-            {elegidas.length > 0 && <button type="button" className="quiet" onClick={() => setElegidas([])}>Quitar selección</button>}
-          </div>
-          {visibles.length > 0
-            ? <ul className="max-h-64 overflow-y-auto divide-y">
-              {visibles.map((p) => (
-                <li key={p.id} className="py-2">
-                  <label className="flex items-center gap-3">
-                    <input type="checkbox" checked={elegidas.includes(p.id)} onChange={(e) => {
-                      const marcada = e.target.checked;
-                      setElegidas((ids) => marcada ? [...ids, p.id] : ids.filter((id) => id !== p.id));
-                    }} />
-                    <span>{p.nombre} · {p.rotulo}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-            : <p>No hay fichas con rótulo que coincidan.</p>}
-          {coincidencias.length > visibles.length && <p className="hint">Se muestran las primeras {visibles.length} coincidencias. Use la búsqueda para ver las demás.</p>}
-        </fieldset>
-      )}
-    </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label>Junta<select className="w-full" value={junta} onChange={(e) => setJunta(e.target.value)}>
+          <option value="">Todas</option>
+          {juntas.map((j) => <option key={j}>{j}</option>)}
+        </select></label>
+        <label>Zona<select className="w-full" value={zona} onChange={(e) => setZona(e.target.value)}>
+          <option value="">Todas</option>
+          {ZONAS.map((z) => <option key={z} value={z}>{ZONA_NOMBRE[z]}</option>)}
+        </select></label>
+      </div>
+      <label className="flex items-center gap-2">
+        <input type="checkbox" checked={pendientes} onChange={(e) => setPendientes(e.target.checked)} /> Solo credenciales sin preparar
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" className="secondary" disabled={!coincidencias.length} onClick={() => cambiar(new Set(coincidencias.map((p) => p.id)))}>Seleccionar todas las coincidencias</button>
+        <button type="button" className="quiet" disabled={!elegidas.size} onClick={() => cambiar(new Set())}>Quitar selección</button>
+      </div>
+      <p role="status">{coincidencias.length} {coincidencias.length === 1 ? "coincidencia" : "coincidencias"} · {elegidas.size} {elegidas.size === 1 ? "seleccionada" : "seleccionadas"}{fueraDelFiltro > 0 && ` (${fueraDelFiltro} fuera del filtro)`}</p>
+      {coincidencias.length ? (
+        <ul className="max-h-72 overflow-y-auto divide-y">
+          {coincidencias.map((p) => (
+            <li key={p.id} className="py-2">
+              <label className="flex items-center gap-3">
+                <input type="checkbox" checked={elegidas.has(p.id)} onChange={(e) => {
+                  const ids = new Set(elegidas);
+                  if (e.target.checked) ids.add(p.id);
+                  else ids.delete(p.id);
+                  cambiar(ids);
+                }} />
+                <span>{p.nombre} · {p.rotulo}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      ) : <p>No hay fichas con rótulo que coincidan.</p>}
+    </fieldset>
   );
 }

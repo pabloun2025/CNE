@@ -198,6 +198,8 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO.** Salidas: credencial PDF individual; hojas A4 **optimizadas para acomodar el máximo número de credenciales legibles sin recortarlas**, listas para imprimir, cortar y colocar en portaidentificaciones con cordón; envío individual por WhatsApp mediante teinvito/Evolution API y **por correo electrónico**. Plantilla gráfica y archivo fuente pendientes.
 
+**DECIDIDO (20-11-2026).** Una lista con casillas permite elegir una ficha, varias o todas las coincidencias del filtro. La selección se usa para el PDF individual, el ZIP con un PDF por ficha, las planchas A4 y el envío por WhatsApp, correo o ambos. El cónsul configura el ancho y alto en milímetros, inicialmente 54 × 85,6. Los PDFs individuales conservan esas medidas y las planchas A4 eligen la orientación y el acomodo de las piezas completas. Imprimir al 100 % y recortar por las guías.
+
 **DECIDIDO (18-11-2026).** El **rótulo de la credencial es el que traiga el Excel**, impreso tal cual. Si el Excel no trae columna de rótulo, se usa el texto de su columna de junta tal cual; si usa la nomenclatura M/F del modelo de credencial (M = masculino, F = femenino), se interpreta así y se avisa en la vista previa, sin convertir M01 en «mujeres».
 
 **DECIDIDO (18-11-2026).** **Envío real por WhatsApp** con la Evolution API ya desplegada en la VM (la de consulares), pero con **una instancia/línea propia de CNE** que se crea, se vincula por QR, se consulta y se desvincula desde el sistema de Madrid (pantalla de superadministración). **Correo real por Brevo** con la cuenta existente. Ambos envíos reales solo funcionan con un **interruptor explícito de la superadministración** (por defecto, simulado), con cola, pausas al azar de 20–45 s entre WhatsApp, horario razonable, tope diario y pausa tras varios fallos seguidos. El mensaje de la credencial incluye el **enlace al formulario de la cédula**. Diseño: `docs/diseno/09-cambios-decisiones.md`.
@@ -250,7 +252,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **SUSTITUIDO (18-11-2026)** por la decisión siguiente: **DECIDIDO.** Existe un monto general en USD para MJRV y el pago se efectúa en EUR; el administrador ingresa el tipo de cambio del día y los datos del pagador. La plantilla definitiva del acta y la fórmula exacta de conversión siguen **ABIERTAS**; no inventar importes, tipos de cambio ni campos de firma adicionales.
 
-**DECIDIDO (18-11-2026).** Se configura directamente un **importe fijo en euros**. Desaparecen el importe en USD y el tipo de cambio de la configuración, del cálculo, del acta y de los informes. Mientras el importe no se configure, el acta es borrador y no se confirman pagos. El **acta se mantiene con el modelo provisional**; en los documentos para el público se llama también **«comprobante de pago»**.
+**ACTUALIZADO (20-11-2026).** En Finanzas se configuran dos valores independientes: el importe en USD de referencia y el importe en EUR que se entrega. El comprobante muestra ambos valores registrados. Los datos de configuración, emisión y reimpresión prescinden del tipo de cambio y de la conversión. El total desembolsado de los informes suma en EUR los pagos confirmados. Se mantiene el modelo provisional del **comprobante de pago**. Esta decisión actualiza las referencias anteriores al importe único en EUR para la configuración y el comprobante.
 
 **REQUISITO DE CONTROL.** Para prevenir pagos duplicados con varias estaciones, la verificación y confirmación deben ser **atómicas en el servidor**. Se necesita conexión al servidor para confirmar desembolsos; no se permiten pagos marcados localmente sin verificar estado central. El sistema distingue al menos documentación incompleta, documentación lista para preparar/imprimir, pago en trámite y pago confirmado, con trazabilidad del operador y hora.
 
@@ -535,7 +537,7 @@ La cédula es un identificador personal y debe manejarse como dato protegido. El
 
 **DECIDIDO:** credencial de tamaño CR80 (85,6 × 54 mm), conforme a plantilla que entregará Pablo, con QR individual cuyo contenido es el número de cédula. Salidas: PDF individual, hojas A4 optimizadas para corte y portaidentificaciones, envío por WhatsApp con el servicio existente y por correo electrónico.
 
-**DISEÑO DERIVADO:** las credenciales se generan a partir de la misma ficha validada. El administrador podrá seleccionar una o múltiples personas para producir un PDF individual o un documento A4 con tantas credenciales completas como permita la impresión legible; mantener proporción CR80, márgenes de corte prácticos y ningún elemento fuera de página. Cada credencial debe mostrar únicamente los campos indicados por la plantilla oficial y datos disponibles en la ficha. El código QR será legible por cámara de móvil y lector previsto; comprobar esa legibilidad con un dispositivo real antes de distribuir.
+**DISEÑO DERIVADO:** las credenciales se generan a partir de la ficha validada. Al aplicar las medidas configuradas, conservar la proporción del diseño gráfico, los márgenes de corte y todas las piezas dentro de la página. Cada credencial debe mostrar únicamente los campos indicados por la plantilla oficial y datos disponibles en la ficha. El código QR será legible por cámara de móvil y lector previsto. Comprobar esa legibilidad con un dispositivo real antes de distribuir.
 
 Al enviar credenciales, distinguir claramente **«preparada»**, **«enviada al servicio»**, **«falló envío»** y **«entrega confirmada»** solo si el proveedor realmente devuelve confirmación. No inventar estados «recibido» o «leído» si la integración no los proporciona. La conexión a Evolution API/teinvito debe reutilizarse **solo después de comprobar el mecanismo real y sus límites**; el correo electrónico requiere verificar el transporte disponible. No es necesario crear otro servicio de mensajería sin motivo.
 
@@ -831,8 +833,8 @@ Las pruebas siguientes constituyen una **lista de comprobación del software, no
 | ID | Escenario | Resultado esperado |
 | --- | --- | --- |
 | M-01 | Cargar archivo de MJRV con inconsistencias | Se detectan duplicados/campos conflictivos; no se generan fichas erróneas en silencio |
-| M-02 | Generar credencial individual | Respeta plantilla CR80; QR codifica cédula de la ficha correspondiente |
-| M-03 | Generar hoja de impresión | A4 con credenciales completas, legibles, proporción y sin recortes |
+| M-02 | Descargar una o varias credenciales | El PDF y cada archivo del ZIP conservan el tamaño configurado. El QR codifica la cédula de cada ficha |
+| M-03 | Imprimir la selección en A4 | Acomoda piezas completas con guías de corte, a tamaño real |
 | M-04 | Envío por WhatsApp o correo falla | Se indica fallo sin afirmar que la credencial llegó |
 | M-05 | Operador puerta abre enlace sin PIN válido | No puede registrar ingresos ni acceder a otras funciones |
 | M-06 | Primera lectura válida | Verde, «Válida», pitido agudo, un ingreso y actualización del centro de mando |
@@ -845,6 +847,7 @@ Las pruebas siguientes constituyen una **lista de comprobación del software, no
 | M-13 | Coordinador acepta movimiento | Se registra origen/destino/autor y se actualizan dotaciones operativas |
 | M-14 | MJRV carga dos caras de cédula | Se asocian a la ficha correcta; ambas pueden visualizarse en su anexo autorizado |
 | M-15 | Solo una cara o imagen incompleta | No se permite finalizar el acta individual hasta completar ambas |
+| M-16 | Seleccionar todas las coincidencias del filtro y enviar por ambos canales | Cada canal procesa las mismas fichas y cuenta las omitidas |
 
 ### 17.4. Madrid: pagos y preparación de elección
 

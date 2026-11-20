@@ -21,7 +21,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
-  serverExternalPackages: ["pg", "@node-rs/argon2", "xlsx", "qrcode", "sharp", "tesseract.js"],
+  serverExternalPackages: ["pg", "@node-rs/argon2", "xlsx", "qrcode", "sharp", "tesseract.js", "@tesseract.js-data/spa"],
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   // Excel de MJRV (hasta 5 MB) y fotos de cédula (hasta 2 MB) llegan por acciones de servidor.
   experimental: { serverActions: { bodySizeLimit: "6mb" } },

@@ -37,7 +37,7 @@ export type FichaPago = {
   mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
   anverso: boolean; reverso: boolean; documentosCompletos: boolean; cedulaValidada: boolean;
   parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null;
-  acta: { id: number; impresionN: number } | null;
+  acta: { id: number; impresionN: number; importePendiente: boolean } | null;
   pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
   estado: EstadoPago; modoPrueba: boolean;
   // Otros puestos con esta ficha abierta hace menos de 5 minutos. Mientras haya uno, no se genera ni se confirma.
@@ -96,8 +96,8 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
   const lados = (await query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [m.id])).map((x) => x.lado);
   const params = await leerParametros();
   const imp = montosParaActa(params);
-  const acta = (await query<{ id: number; impresion_n: number; importe_eur: string | null }>(
-    "SELECT id, impresion_n, importe_eur::text FROM actas_pago WHERE mjrv_id = $1 AND recibo_principal", [m.id]))[0];
+  const acta = (await query<{ id: number; impresion_n: number; importe_usd: string | null; importe_eur: string | null }>(
+    "SELECT id, impresion_n, importe_usd::text, importe_eur::text FROM actas_pago WHERE mjrv_id = $1 AND recibo_principal", [m.id]))[0];
   const pago = (await query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null; es_prueba: boolean }>(
     `SELECT p.confirmado_en::text AS en, ${SQL_QUIEN} AS operador, p.importe_usd::text, p.importe_eur::text, p.es_prueba FROM pagos_confirmados p ${JOIN_QUIEN} WHERE p.mjrv_id = $1`, [m.id]))[0];
   const documentosCompletos = lados.includes("anverso") && lados.includes("reverso");
@@ -120,9 +120,10 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
   return {
     mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
     anverso: lados.includes("anverso"), reverso: lados.includes("reverso"), documentosCompletos, cedulaValidada: m.cedula_validada_en != null,
-    parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeUsd: null,
+    parametrosCompletos: faltan.length === 0, faltanParametros: faltan,
+    importeUsd: acta ? acta.importe_usd : imp.estado === "ok" ? imp.usd : null,
     importeEur: acta?.importe_eur ?? (imp.estado === "ok" ? imp.eur : null),
-    acta: acta ? { id: acta.id, impresionN: acta.impresion_n } : null,
+    acta: acta ? { id: acta.id, impresionN: acta.impresion_n, importePendiente: !acta.importe_eur } : null,
     pago: pago ? { en: pago.en, operador: pago.operador, importeUsd: pago.importe_usd ?? "", importeEur: pago.importe_eur, simulado: pago.es_prueba } : null,
     estado, modoPrueba: (await leerModo()) === "prueba", otrosPuestos,
   };
@@ -132,10 +133,10 @@ export type ResultadoActa = { ok: true; pdf: Uint8Array; borrador: boolean; nume
 
 type DatosGuardados = ParametrosPago & { persona_recibo?: DatosActa["persona"]; contingencia?: boolean };
 type ActaEmitida = {
-  id: number; impresion_n: number; creado_en: Date; importe_eur: string | null; parametros: DatosGuardados;
+  id: number; impresion_n: number; creado_en: Date; importe_usd: string | null; importe_eur: string | null; parametros: DatosGuardados;
   recibo_cifrado: Buffer | null; recibo_nonce: Buffer | null;
 };
-const CAMPOS_ACTA = "id, impresion_n, creado_en, importe_eur::text, parametros, recibo_cifrado, recibo_nonce";
+const CAMPOS_ACTA = "id, impresion_n, creado_en, importe_usd::text, importe_eur::text, parametros, recibo_cifrado, recibo_nonce";
 
 async function contextoEmision(client: PoolClient) {
   // El modo permanece fijo durante la emisión, incluso cuando se genera un lote.
@@ -144,7 +145,8 @@ async function contextoEmision(client: PoolClient) {
 }
 
 async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjrvId: number, params: ParametrosPago,
-  modo: Awaited<ReturnType<typeof contextoEmision>>, contingencia: boolean, firma?: Buffer): Promise<ResultadoActa> {
+  modo: Awaited<ReturnType<typeof contextoEmision>>, opciones: { contingencia?: boolean; firma?: Buffer; completarImporte?: boolean }): Promise<ResultadoActa> {
+  const { contingencia = false, firma } = opciones;
   if (firma && modo.modo_recibo !== "digital") return { ok: false, status: 409, mensaje: "El modo digital no está activado." };
   const quien = puestoDe(s);
   const [m] = (await client.query<{ cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean }>(
@@ -154,7 +156,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
   const [existente] = (await client.query<ActaEmitida>(`SELECT ${CAMPOS_ACTA} FROM actas_pago WHERE mjrv_id = $1 AND recibo_principal`, [mjrvId])).rows;
   if (!m.activo && !(contingencia && existente)) return { ok: false, status: 404, mensaje: "La ficha está de baja." };
   const imp = montosParaActa(params);
-  const importePendiente = existente && !existente.importe_eur && m.activo && imp.estado === "ok";
+  const importePendiente = opciones.completarImporte && existente && !existente.importe_eur && m.activo && imp.estado === "ok";
   const pagado = (!contingencia || importePendiente) &&
     Boolean((await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [mjrvId])).rows[0]);
   const completarImporte = importePendiente && !pagado;
@@ -182,7 +184,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
       actorNombre: quien.nombre, accion: "acta_reimpresa", entidad: "actas_pago", entidadId: existente.id, datos: { contingencia } }, client);
     if (contingencia && !completarImporte && existente.recibo_cifrado && existente.recibo_nonce) {
-      return { ok: true, pdf: decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), borrador: false, numero, actaId: existente.id };
+      return { ok: true, pdf: decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), borrador: !existente.importe_eur, numero, actaId: existente.id };
     }
     if (!contingencia && !completarImporte) {
       const [firmado] = (await client.query<{ pdf: Buffer }>("SELECT pdf FROM firmas_recibo WHERE acta_id = $1", [existente.id])).rows;
@@ -196,14 +198,14 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
         WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' AND ($2::timestamptz IS NULL OR d.creado_en <= $2)
         ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id) WHERE m.id = $1`, [mjrvId, existente?.creado_en ?? null])).rows;
   const persona = { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaVigente: j.vigente };
-  const guardados = completarImporte ? { ...params, persona_recibo: existente.parametros.persona_recibo ?? persona, contingencia }
+  const guardados = completarImporte ? { ...params, importe_usd: existente.importe_usd, persona_recibo: existente.parametros.persona_recibo ?? persona, contingencia }
     : existente?.parametros ?? { ...params, persona_recibo: persona, contingencia };
   let acta = existente;
   if (!acta && imp.estado === "ok") {
     [acta] = (await client.query<ActaEmitida>(
-      `INSERT INTO actas_pago (mjrv_id, operador_id, usuario_id, importe_eur, parametros, impresion_n)
-       VALUES ($1,$2,$3,$4,$5::jsonb,1) RETURNING ${CAMPOS_ACTA}`,
-      [mjrvId, quien.operadorId, quien.usuarioId, imp.eur, JSON.stringify(guardados)])).rows;
+      `INSERT INTO actas_pago (mjrv_id, operador_id, usuario_id, importe_usd, importe_eur, parametros, impresion_n)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,1) RETURNING ${CAMPOS_ACTA}`,
+      [mjrvId, quien.operadorId, quien.usuarioId, imp.usd, imp.eur, JSON.stringify(guardados)])).rows;
     await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
       actorNombre: quien.nombre, accion: "acta_generada", entidad: "actas_pago", entidadId: acta.id, datos: { mjrv: mjrvId, contingencia } }, client);
   }
@@ -219,7 +221,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
   const datos: DatosActa = {
     numero, impresionN: existente ? existente.impresion_n + 1 : 1, prueba: modo.prueba, borrador: !importe,
     emitidaEn: acta?.creado_en ?? new Date(), persona: guardados.persona_recibo ?? persona,
-    importe: importe ? { eur: importe } : null,
+    importe: { usd: acta?.importe_usd ?? null, eur: importe ?? null },
     pagador: guardados.pagador_nombre ? { nombre: guardados.pagador_nombre, cargo: guardados.pagador_cargo ?? "" } : null,
     firmaReceptor: firma, contingencia: guardados.contingencia, reconstruido: !!existente && !guardados.persona_recibo,
   };
@@ -236,10 +238,11 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
   return { ok: true, pdf, borrador: !importe, numero, actaId: acta?.id ?? null };
 }
 
-export async function generarActa(s: SesionEstacion | ActorPago, mjrvId: number, verificado: boolean, firma?: Buffer): Promise<ResultadoActa> {
+export async function generarActa(s: SesionEstacion | ActorPago, mjrvId: number, verificado: boolean,
+  opciones: { firma?: Buffer; completarImporte?: boolean } = {}): Promise<ResultadoActa> {
   if (!verificado) return { ok: false, status: 400, mensaje: "Marque «He verificado que cumplió sus funciones»." };
   const params = await leerParametros();
-  return withTx(async (client) => emitirActa(client, s, mjrvId, params, await contextoEmision(client), false, firma));
+  return withTx(async (client) => emitirActa(client, s, mjrvId, params, await contextoEmision(client), opciones));
 }
 
 export const MAX_RECIBOS_LOTE = 100;
@@ -262,7 +265,7 @@ export async function generarRecibosContingencia(actor: ActorPago, seleccion: nu
       const numeros: string[] = [];
       const lote = await PDFDocument.create();
       for (const id of ids) {
-        const recibo = await emitirActa(client, actor, id, params, modo, true);
+        const recibo = await emitirActa(client, actor, id, params, modo, { contingencia: true, completarImporte: true });
         if (!recibo.ok) throw new EmisionRechazada(recibo);
         numeros.push(recibo.numero);
         if (ids.length === 1) return { ok: true, pdf: recibo.pdf, numeros };

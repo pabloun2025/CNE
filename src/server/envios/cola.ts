@@ -4,6 +4,7 @@ import { getAppPool } from "../db";
 import { clientesPorDefecto, INICIO_DIA_MADRID, leerConfigEnvios, remitenteEfectivo, type Clientes } from "../envios-config";
 import { mensajeCredencial } from "../envios";
 import { seleccionarParaCredencial } from "../credenciales";
+import { medidasCredencial } from "../credencial-config";
 import { credencialesIndividuales } from "../pdf/credencial";
 import type { ResultadoProveedor } from "./http";
 
@@ -103,7 +104,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date,
       const d = sel.datos[0];
       const m = mensajeCredencial(d);
       // El interruptor autoriza credenciales definitivas para fichas reales incluso durante el ensayo operativo.
-      const pdfBase64 = Buffer.from(await credencialesIndividuales([{ ...d, prueba: false }])).toString("base64");
+      const pdfBase64 = Buffer.from(await credencialesIndividuales([{ ...d, prueba: false }], await medidasCredencial())).toString("base64");
       const actual = (await client.query<{ destino: string | null }>(
         "SELECT CASE WHEN $2 = 'whatsapp' THEN telefono_e164 ELSE correo END AS destino FROM mjrv WHERE id = $1 AND activo AND NOT es_prueba",
         [fila.mjrv_id, canal])).rows[0];

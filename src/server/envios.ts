@@ -3,6 +3,7 @@ import { registrarAuditoria } from "./auditoria";
 import { query } from "./db";
 import { credencialesIndividuales } from "./pdf/credencial";
 import { seleccionarParaCredencial, type Seleccion } from "./credenciales";
+import { medidasCredencial } from "./credencial-config";
 import { textoCredencial } from "../domain/mensaje-credencial";
 import { canalEnReal, leerConfigEnvios } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
@@ -53,7 +54,7 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
   }
 
   try {
-    const pdf = await credencialesIndividuales(sel.datos);
+    const pdf = await credencialesIndividuales(sel.datos, await medidasCredencial());
     const m = mensajeCredencial(d);
     const r = await prov.enviar({ destino, nombre: `${d.nombres} ${d.apellidos}`, rotulo: d.rotulo, nombreArchivo: m.nombreArchivo, pdf, asunto: m.asunto, texto: m.texto });
     // El estado es «enviada al servicio»: no se afirma que llegó (solo el proveedor real podría confirmarlo).
@@ -80,7 +81,8 @@ export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: Prove
         AND NOT EXISTS (SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = $1
           AND e.simulado = (NOT $3::boolean OR m.es_prueba) AND e.estado IN ('en_cola','enviada_al_servicio','entregada'))
       ORDER BY m.id`, [canal, ids, real]);
-  const r: ResumenLote = { intentadas: pendientes.length, enviadas: 0, omitidas: 0, fallidas: 0, enCola: 0 };
+  const omitidas = seleccion.alcance === "ids" ? new Set(seleccion.ids).size - pendientes.length : 0;
+  const r: ResumenLote = { intentadas: pendientes.length, enviadas: 0, omitidas, fallidas: 0, enCola: 0 };
   for (const p of pendientes) {
     const x = await enviarCredencial(sesion, p.id, canal, proveedor);
     if (x.ok && x.enCola) r.enCola++;

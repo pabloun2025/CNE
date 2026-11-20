@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { asignarCargoAccion, excepcionAccion, moverManualAccion, quitarCargoAccion, rehabilitarAccion } from "@/server/movimiento-actions";
 import { useSondeo } from "./sondeo";
+import estilos from "./centro-mando.module.css";
 
 type Miembro = { id: number; nombre: string; rol: string; origen: string; actual: string; ingresado: boolean; con_excepcion: boolean; no_viable: boolean; incorporado: boolean; cargo: string | null };
 type CargoFicha = { cargo: string; mjrvId: number | null; nombre: string | null; tipo: string | null; etiqueta: string | null };
 type Detalle = { junta: { id: number; etiqueta: string; zona: string }; miembros: Miembro[]; cargos: CargoFicha[]; sinCargo: { id: number; nombre: string; rol: string }[] };
 type Res = { ok: boolean; mensaje?: string; confirmar?: boolean };
 
-export function FichaJunta({ juntaId, onCerrar, onCambio }: { juntaId: number; onCerrar: () => void; onCambio: () => void }) {
+export function FichaJunta({ juntaId, onCerrar, onCambio, compacta = false }: { juntaId: number; onCerrar: () => void; onCambio: () => void; compacta?: boolean }) {
   const { datos, refrescar } = useSondeo<Detalle>(`/api/mando/junta?id=${juntaId}`, 3000);
   const [aviso, setAviso] = useState<{ id: number; texto: string; confirmar?: boolean } | null>(null);
   const [destino, setDestino] = useState<Record<number, string>>({});
@@ -17,6 +18,11 @@ export function FichaJunta({ juntaId, onCerrar, onCambio }: { juntaId: number; o
   const [elegida, setElegida] = useState<Record<string, string>>({}); // cargo → persona a asignar
   const [avisoCargo, setAvisoCargo] = useState("");
   const [pendiente, iniciar] = useTransition();
+  const ficha = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    ficha.current?.showModal();
+  }, []);
 
   const correr = (id: number, accion: (f: FormData) => Promise<Res>, campos: Record<string, string>) =>
     iniciar(async () => {
@@ -41,8 +47,8 @@ export function FichaJunta({ juntaId, onCerrar, onCambio }: { juntaId: number; o
     });
 
   return (
-    <div role="dialog" aria-label="Ficha de junta" className="fixed inset-0 z-40 overflow-y-auto bg-white p-4">
-      <button onClick={onCerrar} className="mb-3 border-2 border-stone-900 px-4 py-3">Cerrar</button>
+    <dialog ref={ficha} aria-label="Ficha de junta" onClose={onCerrar} className={`fixed m-0 w-full max-w-none overflow-y-auto bg-white p-4 ${compacta ? estilos.detalle : "inset-0 h-full max-h-none"}`}>
+      <button onClick={() => ficha.current?.close()} className="mb-3 border-2 border-stone-900 px-4 py-3">Cerrar</button>
       {!datos ? <p>Cargando…</p> : (
         <>
           <h2 className="text-2xl font-bold">Junta {datos.junta.etiqueta}</h2>
@@ -100,6 +106,6 @@ export function FichaJunta({ juntaId, onCerrar, onCambio }: { juntaId: number; o
           </ul>
         </>
       )}
-    </div>
+    </dialog>
   );
 }

@@ -76,7 +76,8 @@ function auditar(client: PoolClient, sesion: Sesion, entidad: string, entidadId:
 // Revoca el acceso de una ficha activa. La ficha sigue activa: solo deja de pasar en la puerta.
 export async function revocarMjrv(sesion: Sesion, id: number): Promise<boolean> {
   return withTx(async (client) => {
-    const m = (await client.query<{ cedula: string; apellidos: string; nombres: string }>("SELECT cedula, apellidos, nombres FROM mjrv WHERE id = $1 AND activo", [id])).rows[0];
+    // Comparte el bloqueo de ficha con el registro de ingresos.
+    const m = (await client.query<{ cedula: string; apellidos: string; nombres: string }>("SELECT cedula, apellidos, nombres FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [id])).rows[0];
     if (!m) return false;
     await guardar(client, { mjrvId: id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, actorId: sesion.usuarioId, actorNombre: sesion.nombre });
     await auditar(client, sesion, "mjrv", id, { en_lista: true });
@@ -95,7 +96,7 @@ export async function revocarFueraDeLista(sesion: Sesion, d: { cedula: string; a
   if (!apellidos || !nombres) return { ok: false, mensaje: "Escriba apellidos y nombres." };
   if (apellidos.length > 120 || nombres.length > 120) return { ok: false, mensaje: "El nombre es demasiado largo." };
   return withTx(async (client) => {
-    const m = (await client.query<{ id: number; activo: boolean; apellidos: string; nombres: string }>("SELECT id, activo, apellidos, nombres FROM mjrv WHERE cedula = $1", [cedula])).rows[0];
+    const m = (await client.query<{ id: number; activo: boolean; apellidos: string; nombres: string }>("SELECT id, activo, apellidos, nombres FROM mjrv WHERE cedula = $1 FOR UPDATE", [cedula])).rows[0];
     await guardar(client, { mjrvId: m?.id ?? null, cedula, apellidos: m ? m.apellidos : apellidos, nombres: m ? m.nombres : nombres, actorId: sesion.usuarioId, actorNombre: sesion.nombre });
     await auditar(client, sesion, m ? "mjrv" : "credenciales_revocadas", m?.id ?? cedula, { en_lista: !!m?.activo });
     return { ok: true as const, aviso: m?.activo ? "Está en la lista. Se revocó su acceso." : "Acceso revocado." };
@@ -103,14 +104,14 @@ export async function revocarFueraDeLista(sesion: Sesion, d: { cedula: string; a
 }
 
 // La lectura de la puerta: cédula guardada, cédula actual de la ficha, o el nombre impreso.
-export async function credencialRevocada(client: PoolClient, codigo: string, clave: string): Promise<{ mjrvId: number | null } | null> {
+export async function credencialRevocada(client: PoolClient, codigos: string[], clave: string): Promise<{ mjrvId: number | null } | null> {
   const r = await client.query<{ mjrv_id: number | null }>(
     `SELECT r.mjrv_id FROM credenciales_revocadas r
-      WHERE r.cedula = $1
-         OR EXISTS (SELECT 1 FROM mjrv m WHERE m.id = r.mjrv_id AND m.cedula = $1)
+      WHERE r.cedula = ANY($1::text[])
+         OR EXISTS (SELECT 1 FROM mjrv m WHERE m.id = r.mjrv_id AND m.cedula = ANY($1::text[]))
          OR ($2 <> '' AND $2 = ANY(r.claves))
       LIMIT 1`,
-    [codigo, clave],
+    [codigos, clave],
   );
   return r.rows[0] ? { mjrvId: r.rows[0].mjrv_id } : null;
 }

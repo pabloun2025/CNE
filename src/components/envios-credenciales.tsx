@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import type { PersonaCredencial } from "@/server/credenciales";
 import { enviarCredencialAccion, enviarLoteAccion, type EstadoEnvios } from "@/server/envios-actions";
-import { SelectorCredenciales, type PersonaCredencial } from "./selector-credenciales";
+import { SelectorCredenciales } from "./selector-credenciales";
 
 function Resultado({ estado }: { estado: EstadoEnvios }) {
   if (!estado) return null;
@@ -35,15 +36,25 @@ export function BotonesEnvio({ id, tieneTelefono, tieneCorreo }: { id: number; t
   );
 }
 
-export function EnvioLote({ personas, whatsapp, correo }: { personas: PersonaCredencial[]; whatsapp: boolean; correo: boolean }) {
+export function AccionesCredenciales({ personas }: { personas: PersonaCredencial[] }) {
   const [estado, enviar, pendiente] = useActionState(enviarLoteAccion, null);
-  if (!whatsapp && !correo) return <p>No hay envíos pendientes con datos de contacto.</p>;
+  const [seleccion, cambiar] = useState(new Set<number>());
+  const elegidas = new Set(personas.filter((p) => seleccion.has(p.id)).map((p) => p.id));
+  const desactivado = pendiente || !elegidas.size;
   return (
-    <form action={enviar} className="stack">
-      <SelectorCredenciales personas={personas} />
-      <CanalEnvio whatsapp={whatsapp} correo={correo} />
-      <button disabled={pendiente}>{pendiente ? "Procesando…" : "Procesar envíos"}</button>
-      <Resultado estado={estado} />
-    </form>
+    <div className="card stack">
+      <SelectorCredenciales personas={personas} elegidas={elegidas} cambiar={cambiar} />
+      <form method="post" action="/admin/credenciales/pdf" target="_blank" className="flex flex-wrap gap-3">
+        {[...elegidas].map((id) => <input key={id} type="hidden" name="ids" value={id} />)}
+        <button name="formato" value="a4" disabled={desactivado}>Abrir PDF A4</button>
+        <button name="formato" value="individual" formTarget={elegidas.size > 1 ? "_self" : "_blank"} className="secondary" disabled={desactivado}>{elegidas.size > 1 ? "Descargar ZIP de PDFs" : "Abrir PDF individual"}</button>
+      </form>
+      <form action={enviar} className="stack">
+        {[...elegidas].map((id) => <input key={id} type="hidden" name="ids" value={id} />)}
+        <CanalEnvio whatsapp correo />
+        <button disabled={desactivado}>{pendiente ? "Procesando…" : "Procesar envíos"}</button>
+        <Resultado estado={estado} />
+      </form>
+    </div>
   );
 }

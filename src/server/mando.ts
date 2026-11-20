@@ -1,19 +1,27 @@
 import { cubrirCargos, type AsignacionCargo, type Cargo, type PersonaCargo, type TipoCobertura } from "../domain/cargos";
 import { calcularMando, type JuntaMando, type Indicadores } from "../domain/mando";
-import { query } from "./db";
+import { query, withTx } from "./db";
+import type { Modo } from "./config";
 import type { Serie, ZonaColor } from "../domain/juntas";
 
-export type EstadoMando = { generado_en: string; indicadores: Indicadores; juntas: JuntaMando[] };
+export type EstadoMando = { generado_en: string; indicadores: Indicadores; juntas: JuntaMando[]; modo: Modo };
 
 export const PERSONAS_CARGO = `SELECT m.id, m.rol, m.fila_origen, m.apellidos, v.junta_origen_id, v.junta_actual_id, v.ingresado, v.con_excepcion
        FROM mjrv m JOIN v_mjrv_asignacion v ON v.mjrv_id = m.id`;
-export const leerAsignaciones = () => query<AsignacionCargo>("SELECT mjrv_id, junta_id, cargo, origen FROM asignaciones_cargo WHERE activa");
+const ASIGNACIONES = "SELECT mjrv_id, junta_id, cargo, origen FROM asignaciones_cargo WHERE activa";
+export const leerAsignaciones = () => query<AsignacionCargo>(ASIGNACIONES);
 
 export async function estadoMando(): Promise<EstadoMando> {
-  const juntas = await query<{ id: number; serie: Serie; numero: number; zona: ZonaColor }>("SELECT id, serie, numero, zona_color AS zona FROM juntas_madrid ORDER BY serie, numero");
-  const personas = await query<PersonaCargo>(PERSONAS_CARGO);
-  const movimientos = await query<{ junta_origen_id: number; junta_destino_id: number }>("SELECT DISTINCT junta_origen_id, junta_destino_id FROM decisiones_movimiento WHERE decision = 'aceptada'");
-  return { generado_en: new Date().toISOString(), ...calcularMando(juntas, personas, movimientos, await leerAsignaciones()) };
+  return withTx(async (client) => {
+    // El aviso de modo y el estado deben corresponder a la misma lectura.
+    await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const { rows: [config] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1");
+    const { rows: juntas } = await client.query<{ id: number; serie: Serie; numero: number; zona: ZonaColor }>("SELECT id, serie, numero, zona_color AS zona FROM juntas_madrid ORDER BY serie, numero");
+    const { rows: personas } = await client.query<PersonaCargo>(PERSONAS_CARGO);
+    const { rows: movimientos } = await client.query<{ junta_origen_id: number; junta_destino_id: number }>("SELECT DISTINCT junta_origen_id, junta_destino_id FROM decisiones_movimiento WHERE decision = 'aceptada'");
+    const { rows: asignaciones } = await client.query<AsignacionCargo>(ASIGNACIONES);
+    return { generado_en: new Date().toISOString(), modo: config?.modo ?? "prueba", ...calcularMando(juntas, personas, movimientos, asignaciones) };
+  });
 }
 
 export type MiembroFicha = {
