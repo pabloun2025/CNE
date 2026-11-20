@@ -1,0 +1,49 @@
+name: Diagnosticar cuentas CNE (solo lectura)
+
+# Consulta únicamente la identidad, tipo y estado de las cuentas de acceso.
+# No se imprimen contraseñas, hashes, tokens ni otros secretos.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Preparar conexión SSH
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          set +x
+          if [ -z "$ORACLE_SSH_KEY" ]; then
+            echo "Falta el secreto ORACLE_SSH_KEY."
+            exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
+          chmod 600 ~/.ssh/oracle
+
+      - name: Consultar cuentas relevantes sin modificar nada
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 'bash -s' <<'REMOTE'
+          set -eu
+          echo '=== CUENTAS DE ACCESO: correo | tipo | activa | debe cambiar | pendiente de definir | tiene contraseña ==='
+          sudo docker exec cne-prod-cne-postgres-1 psql -X -v ON_ERROR_STOP=1 -U cne_owner -d cne -At -F ' | ' -c "
+            BEGIN READ ONLY;
+            SELECT correo, tipo, activo, debe_cambiar, password_pendiente, (password_hash IS NOT NULL)
+              FROM cne.usuarios
+             WHERE tipo = 'superadmin'
+                OR correo IN ('admin', 'pabloun@gmail.com')
+             ORDER BY tipo, correo;
+            COMMIT;"
+          echo '=== FIN: solo lectura; no se alteraron contraseñas, sesiones ni datos electorales ==='
+          REMOTE
+
+      - name: Eliminar clave SSH temporal
+        if: always()
+        run: rm -f ~/.ssh/oracle
