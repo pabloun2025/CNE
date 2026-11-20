@@ -2,7 +2,7 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 20-11-2026.** Continúe por la [sección 11](#11-búsqueda-de-recibos-y-enlaces-de-estación-20-11-2026). Las secciones 3 y 9 recogen hitos anteriores.
+**Último estado, 20-11-2026.** Consulte la [sección 12](#12-operación-y-entrega-del-20-11-2026) para el diagnóstico de WhatsApp y la entrega vigente.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -21,12 +21,12 @@ Documento para que otra IA (o persona) continúe el trabajo sin perder contexto.
 
 ## 3. Estado: qué está construido y publicado
 
-Producción: **https://madrid.consulado.app** — versión `c6134f4` (main), publicada el 18-11-2026 15:35 UTC. Arranca en **modo prueba** (banda visible). 882 pruebas automáticas en verde.
+Producción: **https://madrid.consulado.app**. La versión verificada el 20-11-2026 es `6f18158`. Los bloques iniciales se publicaron el 18-11-2026.
 
 | Bloque | Estado |
 |---|---|
 | M01–M17 primera versión (accesos, importador Excel/CSV, fichas MJRV, credencial CR80 + A4 con QR de cédula, operadores con PIN y enlaces de estación, puerta, centro de mando, propuestas deterministas, documentos `/d` con fotos cifradas, parámetros de pago, finanzas con acta y confirmación atómica, panel financiero) | Publicado |
-| M18–M23, M25 (2FA TOTP obligatoria superadmin, «Borrar datos de prueba y preparar para elección» con respaldo verificado, informe de cierre PDF/Excel, envío de credenciales, inicio admin, captura automática de cédula, matriz de permisos) | Publicado |
+| M19–M23, M25 («Borrar datos de prueba y preparar para elección» con respaldo verificado, informe de cierre PDF/Excel, envío de credenciales, inicio admin, captura automática de cédula, matriz de permisos) | Publicado |
 | M24 (reserva en finanzas) | Sustituido por D12 (aviso no bloqueante) |
 | D01–D13 decisiones del 18-11 (importe fijo EUR, «Comprobante de pago», reingreso amarillo, baja = rojo, tres cargos por junta, incorporar votantes, traslados con cargo, línea WhatsApp propia de CNE, cola de envío real con interruptor, enlace `/d` en el mensaje, aviso en finanzas, borrar fotos) | Publicado |
 | C1–C3 cuentas: la cuenta `admin` define su contraseña en el primer ingreso; roles `consul` / `coordinador` / `financiero`; las otras cuentas las crea la superadmin | Publicado |
@@ -43,18 +43,18 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 
 ### Rutas principales
 
-`/admin` (inicio, mjrv, importar, credenciales, operadores, mando, documentos y cartel, finanzas, informes) · `/superadmin` (cuentas y roles, modo prueba, datos de demostración, preparar elección y respaldo, envíos y línea de WhatsApp, borrar fotos, verificación 2FA) · `/e/<token>` estaciones (puerta, documentación, centro de mando, finanzas) con nombre + PIN · `/d` formulario público de la cédula · `/api/salud`.
+`/admin` (inicio, mjrv, importar, credenciales, operadores, mando, documentos y cartel, finanzas, informes) · `/superadmin` (cuentas y roles, modo prueba, datos de demostración, preparar elección y respaldo, envíos y línea de WhatsApp, borrar fotos) · `/e/<token>` estaciones (puerta, documentación, centro de mando, finanzas) con nombre + PIN · `/d` formulario público de la cédula · `/api/salud`.
 
 ## 4. Infraestructura y despliegue
 
 - **Servidor:** VM Oracle `ubuntu@51.170.51.109` (23 GB RAM), compartida con consulares (`citas-prod`), teinvito (`teinvito-prod`) y DEMP (`demp-whatsapp`). **Nunca tocar contenedores, redes ni volúmenes ajenos.**
 - CNE vive en `/home/ubuntu/cne`, proyecto Compose `cne-prod`: `cne-postgres` (PostgreSQL 16 propio), `cne-migrate` (aplica `db/schema.sql` + `db/migrations/` + `db/grants.sql`), `cne-app` (Next.js 16, puerto 38473; une también la red `citas-prod_interna` con alias `cne-app` para el túnel y para llegar a `evolution-api:8080`), `cne-backup` (copia diaria, 14 días, en `/home/ubuntu/cne/backups`).
-- **Secretos del servidor** en `/home/ubuntu/cne/.env.production` (600). `APP_MASTER_KEY` se generó allí: **no debe cambiar nunca** (cifra fotos y 2FA). Recomendar a Pablo guardarla fuera del servidor. Las claves de Evolution/Brevo se copian en cada despliegue desde `/home/ubuntu/consulares/.env.production` (solo lectura).
+- **Secretos del servidor** en `/home/ubuntu/cne/.env.production` (600). `APP_MASTER_KEY` se generó allí: **no debe cambiar** porque cifra fotografías y documentos archivados. Las claves de Evolution/Brevo se copian en cada despliegue desde `/home/ubuntu/consulares/.env.production` (solo lectura).
 - **Dominio:** `madrid.consulado.app`, regla añadida al túnel Cloudflare «recordatorio» (el de consulares), servicio `http://cne-app:38473`. No existe `consulares.app` en la cuenta de Cloudflare.
 - **Secretos de GitHub** (pabloun2025/CNE): `ORACLE_SSH_KEY` (clave dedicada `cne_deploy`, autorizada en la VM) y `CLOUDFLARE_API_TOKEN`. Pasos para el usuario en `docs/secretos-paso-a-paso.md`.
 - **Flujos de GitHub Actions** (lanzar con `workflow_dispatch`, ref `main`):
   - `oracle-deploy.yml` — entrada `accion` = `desplegar` (pasa CI y publica `main`; hace `pg_dump` previo y guarda `cne:anterior`) o `revertir` (vuelve a la imagen anterior).
-  - `verificar-sitios.yml` — comprueba desde fuera `madrid.consulado.app` y que `recordatorio.consulado.app` sigue bien. **Ejecutarlo tras cada despliegue** (desde este entorno no hay salida a esos dominios).
+  - `verificar-sitios.yml` — comprueba desde fuera `madrid.consulado.app` y que `recordatorio.consulado.app` sigue bien. **Ejecutarlo tras cada despliegue**.
   - `dominio.yml` — `comprobar` (solo lectura) / `crear` hostname en el túnel conservando las reglas existentes.
   - `oracle-inspect.yml` y `cloudflare-inspect.yml` — inspección de solo lectura.
   - `ci.yml` — tipos, lint, pruebas, compilación.
@@ -70,7 +70,7 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 
 ## 6. Decisiones de Pablo vigentes (18-11-2026)
 
-- Importe **fijo en EUR** (sin USD ni tipo de cambio). Acta = «Comprobante de pago», **modelo provisional** hasta que haya plantilla oficial.
+- Acta = «Comprobante de pago», **modelo provisional** hasta que haya plantilla oficial. La entrega del 20-11 registra la referencia USD y el importe entregado en EUR por separado.
 - Rótulo de credencial: **el que traiga el Excel** (si usa M/F: M = masculino, F = femenino, con aviso).
 - WhatsApp: mismo despliegue de Evolution API de consulares, **línea propia `cne-madrid`** vinculada desde `/superadmin/envios`. Envío real **apagado** hasta que la superadmin lo encienda escribiendo `ENVIO REAL`; 20–45 s entre mensajes, 9–21 h todos los días, 150/día, pausa tras 5 fallos.
 - Puerta: segundo escaneo **amarillo**, decide el operador («Dejar pasar»); rojo = desconocida o **dada de baja**.
@@ -84,9 +84,9 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 
 ### De Pablo (insumos y decisiones)
 1. **Excel nominativo de MJRV** — lo más urgente. Con 150 WhatsApp/día, el envío de credenciales debe empezar **a más tardar el 24-11**. Revisar el archivo antes de cargarlo (columnas, rótulo, cargos, duplicados); no inventar datos.
-2. **Importe en EUR** por persona (lo configura `consul` o `financiero` en Finanzas).
+2. **Importe en EUR** por persona y **referencia en USD** (lo configura `consul` o `financiero` en Finanzas después de publicar la entrega del 20-11).
 3. **Nombre del remitente del correo** (Q-D2). Sin él no se puede encender el correo real.
-4. **Definir su contraseña de superadmin** si aún no lo hizo, configurar la 2FA y guardar códigos de recuperación y `APP_MASTER_KEY`.
+4. **Verificar el acceso a superadministración** para habilitar envíos reales después de las comprobaciones operativas.
 5. **Vincular la línea de WhatsApp** de CNE (QR en `/superadmin/envios`) con un teléfono dedicado, y decidir cuándo encender el envío real.
 6. Decisión abierta **P-10**: ¿el traslado debe confirmarse cuando la persona llega físicamente? (hoy cuenta al aceptar).
 7. Confirmar el **orden de cercanía de zonas** (hoy: deducido del plano) y la **distribución del QR de documentos** (hoy: cartel + enlace en el mensaje).
@@ -96,10 +96,8 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 1. **Ensayo con dispositivos reales** (lista `docs/diseno/08-comprobacion-primera-version.md`, secciones C, D, G, H): cámara y lector QR en móviles, captura automática (calibrar `src/domain/captura-auto.ts`), impresión de credenciales A4/CR80 y del acta, vinculación de WhatsApp y un envío real controlado a teléfonos de prueba de Pablo, «Preparar elección» en modo prueba.
 2. **Vulnerabilidad alta** que reporta `npm audit` en una dependencia: revisar y corregir antes del 29-11 sin romper la compilación.
 3. **Respaldo de «Preparar elección»** queda en `/tmp` del contenedor (se pierde al reiniciar); la copia válida es la que se descarga. Valorar montarlo en `/home/ubuntu/cne/backups`.
-4. Restablecer la 2FA de la superadmin no tiene pantalla (requiere `UPDATE` manual con autorización de Pablo; SQL en 08 §G).
-5. Si `pabloun@gmail.com` coincidiera con una cuenta admin, el arranque fallaría por unicidad (improbable).
-6. Copias externas: las diarias quedan solo en la VM; valorar copia cifrada fuera (R2 ya se usa en teinvito).
-7. La noche del 28-11: comprobar que no queda actividad de prueba, ejecutar «Borrar datos de prueba y preparar para elección», descargar el respaldo y verificar el modo elección.
+4. Copias externas: las diarias quedan solo en la VM; valorar copia cifrada fuera (R2 ya se usa en teinvito).
+5. La noche del 28-11: comprobar que no queda actividad de prueba, ejecutar «Borrar datos de prueba y preparar para elección», descargar el respaldo y verificar el modo elección.
 
 ## 8. Documentos entregados a Pablo (no versionados, generados en la conversación)
 
@@ -153,7 +151,7 @@ Pantallas tocadas:
 
 - **Integrado en GitHub.** `main` incorporó `4e5a60b`, con los envíos, la impresión y el circuito de pagos en EUR. Pasaron 1.033 pruebas locales en Node 22, la comprobación de tipos, la compilación y el [CI de main](https://github.com/pabloun2025/CNE/actions/runs/44629945951).
 - **Producción.** El [despliegue en Oracle del 20-11-2026](https://github.com/pabloun2025/CNE/actions/runs/44678378168) terminó correctamente para `0081339`, que incluye la entrega y el traspaso. El flujo pasó el CI y la verificación de salud de CNE desde la red compartida.
-- **Comprobación pública pendiente.** Ejecutar [Verificar sitios](https://github.com/pabloun2025/CNE/actions/workflows/verificar-sitios.yml) y confirmar que `/api/salud` informa la versión `0081339`. El proxy sigue bloqueando con 403 la API de GitHub Actions y las consultas directas a los sitios publicados. El borrador con esos dominios sigue pendiente de aplicar.
+- **Comprobación pública posterior.** El 20-11-2026 volvieron a funcionar el acceso a GitHub Actions y las consultas a los sitios publicados. La comprobación pública más reciente confirmó la versión posterior `1e4dba0`.
 - **Comprobaciones operativas.** En Superadministración → Envíos, vincular el teléfono de CNE a la instancia `cne-madrid` de Evolution y verificar el remitente de Brevo. En Credenciales, se puede enviar desde una ficha o por junta, zona, todas las fichas activas o selección manual, por uno o ambos canales. Probar una hoja A4 con hasta 10 tarjetas de 54 × 85,6 mm a tamaño real (100 %) y comprobar el corte y el QR. Las pruebas de la entrega usaron datos sintéticos y envíos simulados.
 - **Finanzas.** La configuración y el acta emplean el importe fijo en EUR. Los informes indican cuántos pagos confirmados históricos carecen de importe EUR. El total suma los importes registrados.
 
@@ -166,4 +164,21 @@ Pantallas tocadas:
 - **Emitir en contingencia** permite elegir una ficha o un lote de hasta 100 por nombre o junta, sin aportar fotos ni pasar por validación de cédula. Se requiere el importe en EUR y el firmante configurados para emitir un recibo nuevo. La emisión y la reimpresión dejan intactos la validación y la confirmación del pago.
 - Cada ficha tiene un recibo principal por modo. Reimprimir conserva el número y el importe original. Los documentos históricos conservan su número y se pueden consultar. Si hay varios, el principal es el asociado al pago o el primero con importe EUR registrado. Un recibo histórico sin importe y sin pago se puede completar con el EUR configurado, conservando su número.
 - La primera parte de la entrega es `74f3653`. Pasaron 1.056 pruebas en Node 22, tipos y compilación. Se comprobaron a 375 px la descarga, la emisión en lote, la copia al portapapeles y el texto de WhatsApp.
-- El último despliegue confirmado sigue siendo `0081339`. Para publicar esta entrega, ejecutar [Deploy to Oracle](https://github.com/pabloun2025/CNE/actions/workflows/oracle-deploy.yml) desde `main` con la acción `desplegar`. El despliegue aplica el archivo de recibos y la regla de numeración única. Si se revierte a una imagen anterior tras las migraciones, sus intentos de insertar otro recibo para la misma ficha quedan bloqueados por el índice.
+- El [despliegue de `1e4dba0`](https://github.com/pabloun2025/CNE/actions/runs/44687366846) aplicó el archivo de recibos y la regla de numeración única. Si se revierte a una imagen anterior tras las migraciones, sus intentos de insertar otro recibo para la misma ficha quedan bloqueados por el índice.
+
+## 12. Operación y entrega del 20-11-2026
+
+- **Oracle.** El despliegue de `6f18158` terminó correctamente y el endpoint público `/api/salud` devolvió esa versión y `base: ok`. [Despliegue en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44692116977)
+- **Evolution.** La comprobación desde el contenedor de CNE confirmó que usa la API real y que la consulta de `cne-madrid` devuelve 404. La instancia se crea al pulsar «Vincular teléfono». La inspección registra solo los códigos HTTP y el estado, y comprobó que hay una cuenta de superadministración activa. [Inspección de Oracle](https://github.com/pabloun2025/CNE/actions/runs/44690016520)
+- **Vinculación.** En la versión desplegada, abra [Superadministración → Envíos](https://madrid.consulado.app/superadmin/envios#whatsapp) en una pantalla distinta del teléfono. Pulse «Vincular teléfono» y escanee el QR desde WhatsApp → Dispositivos vinculados → Vincular un dispositivo. Tras confirmar «Vinculada», la superadministración puede habilitar el envío real con la frase `ENVIO REAL` cuando corresponda.
+
+### Entrega preparada para Oracle
+
+- **Commit de código:** `d6e2e96` en `main`.
+- **Configuración → Envío de credenciales.** El cónsul puede consultar Evolution, vincular el móvil mediante QR y desvincularlo desde su propia sesión. Superadministración gestiona la activación de los envíos reales y el remitente de Brevo. Los estados de la API, del móvil y del envío aparecen por separado.
+- **Puerta.** Ingreso manual por cédula con teclado numérico. Si la credencial capturada carece de QR, se busca primero la cédula y después los nombres y apellidos cuando es necesario. El operador confirma la coincidencia única. Un caso ambiguo requiere comprobar la identidad. El modelo de reconocimiento en español va incluido en la aplicación.
+- **Credenciales.** Una lista con selección individual, múltiple o todas las coincidencias permite enviar por correo, WhatsApp o ambos y descargar un PDF, un ZIP de PDF individuales o las planchas A4. El cónsul ajusta las medidas en Configuración. Con 54 × 85,6 mm caben 11 piezas por A4 apaisado. Las planchas comparan orientaciones y filas y muestran líneas de corte. Imprima al 100 %.
+- **Recibos.** Finanzas y cónsul pueden buscar y descargar uno o todos los comprobantes seleccionados en PDF o ZIP. Las copias conservan el número, los valores registrados y los importes históricos ausentes. Si un acta histórica sin pago sigue pendiente de completar en EUR, el flujo de emisión ofrece una acción explícita que conserva el número. Finanzas configura EUR entregados y la referencia USD como valores independientes. Hasta que se configure USD, su referencia queda pendiente. El total pagado se calcula en EUR.
+- **Centro de mando e informes.** Pantalla completa para 95 juntas y acceso al detalle desde cada junta. Los enlaces de estación usan botones de icono con etiquetas accesibles. El informe de cierre exporta en PDF o Excel las columnas elegidas por Finanzas y excluye fotos de cédula.
+- **Validación.** Pasaron 1.119 pruebas en Node 22, TypeScript y la compilación de producción. ESLint registró cero errores y una advertencia preexistente en el script de Unslop. En Chromium a 375 px se probaron puerta con vídeo sintético, el QR de vinculación, la selección y las descargas de credenciales y recibos, los informes y la copia de enlaces. El centro de mando también se comprobó en horizontal y en pantalla completa nativa de escritorio.
+- **Despliegue pendiente.** Se comprobó la migración desde el esquema en producción con PostgreSQL 16. Una segunda aplicación no repitió migraciones, el rol `cne_app` pudo guardar medidas y se conservó el importe EUR previo. Para publicar este código ejecute [Deploy to Oracle](https://github.com/pabloun2025/CNE/actions/workflows/oracle-deploy.yml) desde `main` con `desplegar` y después [Verificar sitios](https://github.com/pabloun2025/CNE/actions/workflows/verificar-sitios.yml). Quedan pendientes el escaneo con el móvil de WhatsApp, una prueba con la cámara física de puerta y una impresión a tamaño real.
