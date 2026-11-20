@@ -53,6 +53,11 @@ async function main() {
       "UPDATE cne.sesiones SET revocada_en = now() WHERE usuario_id = $1 AND revocada_en IS NULL",
       [r.rows[0].id]
     );
+    // Eliminar bloqueos por intentos fallidos de ESTE usuario, no de los demás.
+    const { createHash } = require("node:crypto");
+    const claveCorreo = "correo:" + createHash("sha256")
+      .update(r.rows[0].correo).digest("hex");
+    await cliente.query("DELETE FROM cne.intentos_acceso WHERE clave = $1", [claveCorreo]);
     await cliente.query("COMMIT");
     transaccion = false;
     console.log("OK: contraseña restablecida para la única cuenta superadmin activa.");
