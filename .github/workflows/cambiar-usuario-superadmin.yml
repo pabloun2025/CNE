@@ -1,0 +1,97 @@
+name: Cambiar usuario de SUPERADMIN
+
+# Una sola modificación de la cuenta vigente: nimat2107 -> superadmin.
+# No cambia la contraseña, el rol, las demás cuentas ni los datos electorales.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmacion:
+        description: 'Escriba exactamente CAMBIAR USUARIO SUPERADMIN'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cne-renombrar-superadmin
+  cancel-in-progress: false
+
+jobs:
+  cambiar-usuario:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validar confirmación y preparar conexión
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          CONFIRMACION: ${{ inputs.confirmacion }}
+        run: |
+          set -euo pipefail
+          set +x
+          if [ "$CONFIRMACION" != "CAMBIAR USUARIO SUPERADMIN" ]; then
+            echo "Confirmación incorrecta: no se cambió el usuario."
+            exit 1
+          fi
+          if [ -z "$ORACLE_SSH_KEY" ]; then
+            echo "Falta el secreto ORACLE_SSH_KEY."
+            exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
+          chmod 600 ~/.ssh/oracle
+
+      - name: Renombrar únicamente la cuenta verificada
+        run: |
+          set -euo pipefail
+          set +x
+          ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 'bash -s' <<'REMOTE'
+          set -eu
+          sudo docker exec -i cne-prod-cne-postgres-1 psql -X -v ON_ERROR_STOP=1 -U cne_owner -d cne <<'SQL'
+          BEGIN;
+          DO $cne$
+          DECLARE
+            objetivo bigint;
+            cantidad int;
+          BEGIN
+            SELECT count(*) INTO cantidad
+              FROM cne.usuarios
+             WHERE tipo = 'superadmin' AND activo = true;
+            IF cantidad <> 1 THEN
+              RAISE EXCEPTION 'Se esperaban 1 cuenta superadmin activa, existen %; no se modificó nada.', cantidad;
+            END IF;
+
+            SELECT id INTO objetivo
+              FROM cne.usuarios
+             WHERE tipo = 'superadmin' AND correo = 'nimat2107' AND activo = true
+             FOR UPDATE;
+
+            IF objetivo IS NULL THEN
+              IF EXISTS (SELECT 1 FROM cne.usuarios
+                          WHERE correo = 'superadmin' AND tipo = 'superadmin' AND activo = true) THEN
+                RAISE NOTICE 'La cuenta ya utiliza el usuario superadmin; no se modifica nada.';
+              ELSE
+                RAISE EXCEPTION 'No se encontró nimat2107 como superadmin activa; no se modificó nada.';
+              END IF;
+            ELSE
+              IF EXISTS (SELECT 1 FROM cne.usuarios WHERE correo = 'superadmin') THEN
+                RAISE EXCEPTION 'El usuario superadmin ya existe en otra cuenta; no se modificó nada.';
+              END IF;
+              UPDATE cne.usuarios SET correo = 'superadmin' WHERE id = objetivo;
+              UPDATE cne.sesiones SET revocada_en = now()
+               WHERE usuario_id = objetivo AND revocada_en IS NULL;
+              RAISE NOTICE 'Usuario renombrado: nimat2107 -> superadmin. Contraseña conservada. Sesiones cerradas.';
+            END IF;
+          END
+          $cne$;
+          COMMIT;
+          SELECT correo, tipo, activo, debe_cambiar
+            FROM cne.usuarios
+           WHERE tipo = 'superadmin' AND activo = true;
+          SQL
+          REMOTE
+
+      - name: Borrar clave SSH temporal
+        if: always()
+        run: rm -f ~/.ssh/oracle
