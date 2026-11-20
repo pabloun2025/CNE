@@ -32,6 +32,25 @@ jobs:
           echo '=== USO DE RECURSOS ==='; sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}'
           echo '=== PROYECTOS COMPOSE ==='; sudo docker compose ls
           echo '=== REDES ==='; sudo docker network ls --format '{{.Name}}' | sort
+          echo '=== EVOLUTION API DESDE CNE ==='
+          sudo docker exec cne-prod-cne-app-1 ./node_modules/.bin/tsx -e '
+            import { clienteEvolution } from "./src/server/envios/evolution";
+            const cliente = clienteEvolution({ fetch: async (url, opciones) => {
+              try {
+                const respuesta = await fetch(url, opciones);
+                console.log("Evolution HTTP", respuesta.status);
+                return respuesta;
+              } catch (error) {
+                const codigo = error?.cause?.code;
+                console.log("Evolution: error de red", /^[A-Z0-9_]+$/.test(codigo ?? "") ? codigo : "sin código");
+                throw error;
+              }
+            }});
+            if (cliente.simulado) console.log("Evolution: modo simulado");
+            else cliente.resumen().then(({ existe, estado }) => {
+              console.log("Evolution: línea CNE", existe ? estado : "sin crear");
+            }).catch(() => { console.log("Evolution: no se pudo consultar la línea de CNE"); });
+          ' || echo 'No se pudo ejecutar la comprobación desde el contenedor de CNE.'
           echo '=== VOLUMENES ==='; sudo docker system df
           echo '=== PUERTOS ==='; sudo ss -lntp | sed -E 's/users:\(.*\)//'
           echo '=== NOMBRES DE VARIABLES (sin valores) ==='
