@@ -1,11 +1,15 @@
-import { faltanParametros, montosParaActa } from "../domain/pago";
+import { PDFDocument } from "pdf-lib";
+import type { PoolClient } from "pg";
+import { faltanParametros, montosParaActa, type ParametrosPago } from "../domain/pago";
 import { registrarAuditoria } from "./auditoria";
 import { leerDocumento } from "./documentos";
 import { query, withTx } from "./db";
 import type { SesionEstacion } from "./estaciones";
 import { leerModo } from "./config";
 import { leerParametros } from "./pago";
-import { actaPago } from "./pdf/acta";
+import { actaPago, type DatosActa } from "./pdf/acta";
+import { decryptBuffer, encryptBuffer } from "./crypto";
+import { numeroActa } from "../domain/recibos";
 
 // La ventanilla es un enlace, o la cuenta de financiero / cónsul en el módulo de pago.
 export type ActorPago = {
@@ -92,7 +96,8 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
   const lados = (await query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [m.id])).map((x) => x.lado);
   const params = await leerParametros();
   const imp = montosParaActa(params);
-  const acta = (await query<{ id: number; impresion_n: number }>("SELECT id, impresion_n FROM actas_pago WHERE mjrv_id = $1 ORDER BY id DESC LIMIT 1", [m.id]))[0];
+  const acta = (await query<{ id: number; impresion_n: number; importe_eur: string | null }>(
+    "SELECT id, impresion_n, importe_eur::text FROM actas_pago WHERE mjrv_id = $1 AND recibo_principal", [m.id]))[0];
   const pago = (await query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null; es_prueba: boolean }>(
     `SELECT p.confirmado_en::text AS en, ${SQL_QUIEN} AS operador, p.importe_usd::text, p.importe_eur::text, p.es_prueba FROM pagos_confirmados p ${JOIN_QUIEN} WHERE p.mjrv_id = $1`, [m.id]))[0];
   const documentosCompletos = lados.includes("anverso") && lados.includes("reverso");
@@ -115,56 +120,162 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
   return {
     mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
     anverso: lados.includes("anverso"), reverso: lados.includes("reverso"), documentosCompletos, cedulaValidada: m.cedula_validada_en != null,
-    parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeUsd: null, importeEur: imp.estado === "ok" ? imp.eur : null,
+    parametrosCompletos: faltan.length === 0, faltanParametros: faltan, importeUsd: null,
+    importeEur: acta?.importe_eur ?? (imp.estado === "ok" ? imp.eur : null),
     acta: acta ? { id: acta.id, impresionN: acta.impresion_n } : null,
     pago: pago ? { en: pago.en, operador: pago.operador, importeUsd: pago.importe_usd ?? "", importeEur: pago.importe_eur, simulado: pago.es_prueba } : null,
     estado, modoPrueba: (await leerModo()) === "prueba", otrosPuestos,
   };
 }
 
-export type ResultadoActa = { ok: true; pdf: Uint8Array; borrador: boolean; numero: string } | { ok: false; status: 400 | 404 | 409; mensaje: string };
+export type ResultadoActa = { ok: true; pdf: Uint8Array; borrador: boolean; numero: string; actaId: number | null } | { ok: false; status: 400 | 404 | 409; mensaje: string };
 
-// Generar o reimprimir el acta. Registra actas_pago (impresion_n) salvo en borrador. NO registra el pago.
+type DatosGuardados = ParametrosPago & { persona_recibo?: DatosActa["persona"]; contingencia?: boolean };
+type ActaEmitida = {
+  id: number; impresion_n: number; creado_en: Date; importe_eur: string | null; parametros: DatosGuardados;
+  recibo_cifrado: Buffer | null; recibo_nonce: Buffer | null;
+};
+const CAMPOS_ACTA = "id, impresion_n, creado_en, importe_eur::text, parametros, recibo_cifrado, recibo_nonce";
+
+async function contextoEmision(client: PoolClient) {
+  // El modo permanece fijo durante la emisión, incluso cuando se genera un lote.
+  return (await client.query<{ prueba: boolean; modo_recibo: string }>(
+    "SELECT modo = 'prueba' AS prueba, modo_recibo FROM configuracion WHERE id = 1 FOR SHARE")).rows[0];
+}
+
+async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjrvId: number, params: ParametrosPago,
+  modo: Awaited<ReturnType<typeof contextoEmision>>, contingencia: boolean, firma?: Buffer): Promise<ResultadoActa> {
+  if (firma && modo.modo_recibo !== "digital") return { ok: false, status: 409, mensaje: "El modo digital no está activado." };
+  const quien = puestoDe(s);
+  const [m] = (await client.query<{ cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean }>(
+    "SELECT cedula, apellidos, nombres, cargo_original, activo FROM mjrv WHERE id = $1 FOR UPDATE", [mjrvId])).rows;
+  if (!m) return { ok: false, status: 404, mensaje: "La ficha no existe." };
+
+  const [existente] = (await client.query<ActaEmitida>(`SELECT ${CAMPOS_ACTA} FROM actas_pago WHERE mjrv_id = $1 AND recibo_principal`, [mjrvId])).rows;
+  if (!m.activo && !(contingencia && existente)) return { ok: false, status: 404, mensaje: "La ficha está de baja." };
+  const imp = montosParaActa(params);
+  const importePendiente = existente && !existente.importe_eur && m.activo && imp.estado === "ok";
+  const pagado = (!contingencia || importePendiente) &&
+    Boolean((await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [mjrvId])).rows[0]);
+  const completarImporte = importePendiente && !pagado;
+  if (!contingencia) {
+    if (pagado) return { ok: false, status: 409, mensaje: "Esta persona ya tiene el pago confirmado. Busque su recibo para reimprimirlo." };
+    if (await otroPagoEnCurso(client, mjrvId, quien)) return { ok: false, status: 409, mensaje: "Otra persona está haciendo este pago. No se puede continuar." };
+  }
+
+  let anexo: DatosActa["anexo"];
+  if (!contingencia) {
+    const anverso = await leerDocumento(mjrvId, "anverso", client);
+    const reverso = await leerDocumento(mjrvId, "reverso", client);
+    if (!anverso || !reverso) return { ok: false, status: 409, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." };
+    anexo = { anverso, reverso };
+  }
+
+  if (!existente && imp.estado !== "ok" && (contingencia || firma)) {
+    return { ok: false, status: 409, mensaje: `Configure ${imp.faltan.join(" y ")} antes de emitir recibos.` };
+  }
+  if (firma && existente && !existente.importe_eur && !completarImporte) return { ok: false, status: 409, mensaje: "El recibo histórico carece de importe en EUR." };
+
+  if (existente) {
+    const numero = numeroActa(existente.id, modo.prueba);
+    await client.query("UPDATE actas_pago SET impresion_n = impresion_n + 1 WHERE id = $1", [existente.id]);
+    await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
+      actorNombre: quien.nombre, accion: "acta_reimpresa", entidad: "actas_pago", entidadId: existente.id, datos: { contingencia } }, client);
+    if (contingencia && !completarImporte && existente.recibo_cifrado && existente.recibo_nonce) {
+      return { ok: true, pdf: decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), borrador: false, numero, actaId: existente.id };
+    }
+    if (!contingencia && !completarImporte) {
+      const [firmado] = (await client.query<{ pdf: Buffer }>("SELECT pdf FROM firmas_recibo WHERE acta_id = $1", [existente.id])).rows;
+      if (firmado) return { ok: true, pdf: firmado.pdf, borrador: false, numero, actaId: existente.id };
+    }
+  }
+
+  const [j] = (await client.query<{ vigente: string }>(
+    `SELECT jv.serie || jv.numero AS vigente FROM mjrv m JOIN juntas_madrid jv ON jv.id = coalesce((
+       SELECT d.junta_destino_id FROM decisiones_movimiento d
+        WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' AND ($2::timestamptz IS NULL OR d.creado_en <= $2)
+        ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id) WHERE m.id = $1`, [mjrvId, existente?.creado_en ?? null])).rows;
+  const persona = { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaVigente: j.vigente };
+  const guardados = completarImporte ? { ...params, persona_recibo: existente.parametros.persona_recibo ?? persona, contingencia }
+    : existente?.parametros ?? { ...params, persona_recibo: persona, contingencia };
+  let acta = existente;
+  if (!acta && imp.estado === "ok") {
+    [acta] = (await client.query<ActaEmitida>(
+      `INSERT INTO actas_pago (mjrv_id, operador_id, usuario_id, importe_eur, parametros, impresion_n)
+       VALUES ($1,$2,$3,$4,$5::jsonb,1) RETURNING ${CAMPOS_ACTA}`,
+      [mjrvId, quien.operadorId, quien.usuarioId, imp.eur, JSON.stringify(guardados)])).rows;
+    await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
+      actorNombre: quien.nombre, accion: "acta_generada", entidad: "actas_pago", entidadId: acta.id, datos: { mjrv: mjrvId, contingencia } }, client);
+  }
+  if (completarImporte && imp.estado === "ok") {
+    [acta] = (await client.query<ActaEmitida>(
+      `UPDATE actas_pago SET importe_eur = $2, parametros = $3::jsonb WHERE id = $1 RETURNING ${CAMPOS_ACTA}`,
+      [existente.id, imp.eur, JSON.stringify(guardados)])).rows;
+    await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
+      actorNombre: quien.nombre, accion: "acta_importe_completado", entidad: "actas_pago", entidadId: existente.id, datos: { mjrv: mjrvId, contingencia } }, client);
+  }
+  const numero = numeroActa(acta?.id ?? null, modo.prueba);
+  const importe = acta?.importe_eur;
+  const datos: DatosActa = {
+    numero, impresionN: existente ? existente.impresion_n + 1 : 1, prueba: modo.prueba, borrador: !importe,
+    emitidaEn: acta?.creado_en ?? new Date(), persona: guardados.persona_recibo ?? persona,
+    importe: importe ? { eur: importe } : null,
+    pagador: guardados.pagador_nombre ? { nombre: guardados.pagador_nombre, cargo: guardados.pagador_cargo ?? "" } : null,
+    firmaReceptor: firma, contingencia: guardados.contingencia, reconstruido: !!existente && !guardados.persona_recibo,
+  };
+  const pdf = await actaPago({ ...datos, anexo });
+  if (acta && (!existente || completarImporte || firma)) {
+    const recibo = anexo ? await actaPago({ ...datos, impresionN: 1 }) : pdf;
+    const { ciphertext, nonce } = encryptBuffer(Buffer.from(recibo));
+    await client.query("UPDATE actas_pago SET recibo_cifrado = $2, recibo_nonce = $3 WHERE id = $1", [acta.id, ciphertext, nonce]);
+  }
+  if (acta && firma) {
+    await client.query("INSERT INTO firmas_recibo (mjrv_id, usuario_id, pdf, acta_id, es_prueba) VALUES ($1,$2,$3,$4,$5)",
+      [mjrvId, quien.usuarioId, Buffer.from(pdf), acta.id, modo.prueba]);
+  }
+  return { ok: true, pdf, borrador: !importe, numero, actaId: acta?.id ?? null };
+}
+
 export async function generarActa(s: SesionEstacion | ActorPago, mjrvId: number, verificado: boolean, firma?: Buffer): Promise<ResultadoActa> {
   if (!verificado) return { ok: false, status: 400, mensaje: "Marque «He verificado que cumplió sus funciones»." };
-  const quien = puestoDe(s);
   const params = await leerParametros();
-  const imp = montosParaActa(params);
-  const completos = faltanParametros(params).length === 0 && imp.estado === "ok";
-  const prueba = (await leerModo()) === "prueba";
-  const datos = await withTx(async (client) => {
-    const m = (await client.query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean }>("SELECT id, cedula, apellidos, nombres, cargo_original, activo FROM mjrv WHERE id = $1 FOR UPDATE", [mjrvId])).rows[0];
-    if (!m || !m.activo) return { error: { status: 404 as const, mensaje: "La ficha no existe o está de baja." } };
-    if ((await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [mjrvId])).rows[0]) return { error: { status: 409 as const, mensaje: "Esta persona ya tiene el pago confirmado." } };
-    if (await otroPagoEnCurso(client, mjrvId, quien)) return { error: { status: 409 as const, mensaje: "Otra persona está haciendo este pago. No se puede continuar." } };
-    const lados = (await client.query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [mjrvId])).rows.map((r) => r.lado);
-    if (lados.length < 2) return { error: { status: 409 as const, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." } };
-    const j = (await client.query<{ vigente: string }>(
-      `SELECT jv.serie || jv.numero AS vigente FROM mjrv m
-         JOIN juntas_madrid jv ON jv.id = coalesce((SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id) WHERE m.id = $1`, [mjrvId])).rows[0];
-    let actaId = 0, impresionN = 1;
-    if (completos && imp.estado === "ok") {
-      impresionN = (await client.query<{ n: number }>("SELECT count(*)::int + 1 AS n FROM actas_pago WHERE mjrv_id = $1", [mjrvId])).rows[0].n;
-      actaId = (await client.query<{ id: number }>(
-        "INSERT INTO actas_pago (mjrv_id, operador_id, usuario_id, importe_eur, parametros, impresion_n) VALUES ($1,$2,$3,$4,$5::jsonb,$6) RETURNING id",
-        [mjrvId, quien.operadorId, quien.usuarioId, imp.eur, JSON.stringify(params), impresionN])).rows[0].id;
-      await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId, actorNombre: quien.nombre, accion: "acta_generada", entidad: "actas_pago", entidadId: actaId, datos: { mjrv: mjrvId, impresion: impresionN } }, client);
-    }
-    return { m, j, actaId, impresionN };
-  });
-  if ("error" in datos && datos.error) return { ok: false, ...datos.error };
-  const { m, j, actaId, impresionN } = datos as { m: { cedula: string; apellidos: string; nombres: string; cargo_original: string }; j: { vigente: string }; actaId: number; impresionN: number };
-  const [anverso, reverso] = [await leerDocumento(mjrvId, "anverso"), await leerDocumento(mjrvId, "reverso")];
-  if (!anverso || !reverso) return { ok: false, status: 409, mensaje: "Faltan fotos de la cédula: no se puede generar el acta." };
-  const numero = completos ? `${prueba ? "PRUEBA" : "MAD"}-${String(actaId).padStart(6, "0")}` : `${prueba ? "PRUEBA" : "MAD"}-BORRADOR`;
-  const pdf = await actaPago({
-    numero, impresionN, prueba, borrador: !completos, emitidaEn: new Date(),
-    persona: { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaVigente: j.vigente },
-    importe: completos && imp.estado === "ok" ? { eur: imp.eur } : null,
-    pagador: params.pagador_nombre ? { nombre: params.pagador_nombre, cargo: params.pagador_cargo ?? "" } : null,
-    anverso, reverso, firmaReceptor: firma,
-  });
-  return { ok: true, pdf, borrador: !completos, numero };
+  return withTx(async (client) => emitirActa(client, s, mjrvId, params, await contextoEmision(client), false, firma));
+}
+
+export const MAX_RECIBOS_LOTE = 100;
+type ResultadoLoteRecibos = { ok: true; pdf: Uint8Array; numeros: string[] } | { ok: false; status: 400 | 404 | 409; mensaje: string };
+class EmisionRechazada extends Error {
+  constructor(readonly resultado: Extract<ResultadoActa, { ok: false }>) {
+    super(resultado.mensaje);
+  }
+}
+
+export async function generarRecibosContingencia(actor: ActorPago, seleccion: number[]): Promise<ResultadoLoteRecibos> {
+  const ids = [...new Set(seleccion)].sort((a, b) => a - b);
+  if (!ids.length || ids.length > MAX_RECIBOS_LOTE || ids.some((id) => !Number.isSafeInteger(id) || id < 1)) {
+    return { ok: false, status: 400, mensaje: `Seleccione entre 1 y ${MAX_RECIBOS_LOTE} fichas válidas.` };
+  }
+  const params = await leerParametros();
+  try {
+    return await withTx(async (client) => {
+      const modo = await contextoEmision(client);
+      const numeros: string[] = [];
+      const lote = await PDFDocument.create();
+      for (const id of ids) {
+        const recibo = await emitirActa(client, actor, id, params, modo, true);
+        if (!recibo.ok) throw new EmisionRechazada(recibo);
+        numeros.push(recibo.numero);
+        if (ids.length === 1) return { ok: true, pdf: recibo.pdf, numeros };
+        const pdf = await PDFDocument.load(recibo.pdf);
+        const [pagina] = await lote.copyPages(pdf, [0]);
+        lote.addPage(pagina);
+      }
+      return { ok: true, pdf: await lote.save(), numeros };
+    });
+  } catch (e) {
+    if (e instanceof EmisionRechazada) return e.resultado;
+    throw e;
+  }
 }
 
 export type ResultadoPago =
@@ -189,7 +300,7 @@ export async function confirmarPago(s: SesionEstacion | ActorPago, d: { mjrvId: 
     if (docs < 2) return { ok: false as const, mensaje: "Faltan fotos de la cédula." };
     const r = await client.query<{ id: number; confirmado_en: string; es_prueba: boolean; importe_usd: string | null; importe_eur: string | null }>(
       `INSERT INTO pagos_confirmados (mjrv_id, acta_id, importe_usd, tipo_cambio, importe_eur, funciones_verificadas, operador_id, enlace_id, usuario_id)
-       SELECT $1, a.id, a.importe_usd, a.tipo_cambio, a.importe_eur, true, $3, $4, $5 FROM actas_pago a WHERE a.id = $2 AND a.mjrv_id = $1 AND a.importe_eur > 0
+       SELECT $1, a.id, a.importe_usd, a.tipo_cambio, a.importe_eur, true, $3, $4, $5 FROM actas_pago a WHERE a.id = $2 AND a.mjrv_id = $1 AND a.importe_eur > 0 AND a.recibo_principal
        ON CONFLICT (mjrv_id, es_prueba) DO NOTHING RETURNING id, confirmado_en::text, es_prueba, importe_usd::text, importe_eur::text`,
       [d.mjrvId, d.actaId, quien.operadorId, quien.enlaceId, quien.usuarioId]);
     if (!r.rows[0]) {

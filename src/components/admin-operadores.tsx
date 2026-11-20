@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { crearEnlaceAccion, crearOperadorAccion, restablecerPinAccion, type EstadoEstacion } from "@/server/estacion-actions";
-import { FUNCIONES, FUNCION_NOMBRE } from "@/domain/estaciones";
+import { FUNCIONES, FUNCION_NOMBRE, type Funcion } from "@/domain/estaciones";
 
 const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
 const boton = "rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60";
@@ -52,5 +52,32 @@ export function FormEnlace() {
       <button disabled={p} className={boton}>Crear enlace</button>
       <Msg e={e} />
     </form>
+  );
+}
+
+export function AccionesEnlaceEstacion({ url, etiqueta, funcion }: { url: string; etiqueta: string; funcion: Funcion }) {
+  const [copia, setCopia] = useState<"copiado" | "manual" | null>(null);
+  const mensaje = `CNE Madrid · ${FUNCION_NOMBRE[funcion]} · ${etiqueta}\n${url}\nAcceda con su PIN asignado.`;
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopia("copiado");
+    } catch {
+      setCopia("manual");
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="secondary px-3 py-2" onClick={copiar}>Copiar enlace</button>
+        <a className="button-like secondary" href={`https://wa.me/?text=${encodeURIComponent(mensaje)}`} target="_blank" rel="noreferrer">
+          Compartir por WhatsApp
+        </a>
+      </div>
+      {copia && <p role="status" className="text-sm">{copia === "copiado" ? "Enlace copiado." : "Toque el enlace para seleccionarlo y copiarlo."}</p>}
+      {copia === "manual" && <input aria-label="Enlace de estación para copiar" readOnly value={url} onFocus={(e) => e.currentTarget.select()} />}
+    </div>
   );
 }

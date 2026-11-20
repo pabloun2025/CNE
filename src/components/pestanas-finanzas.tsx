@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Las cuatro pantallas de finanzas siguen en su ruta. Aquí solo se eligen, como las pestañas de DEMP.
 const PESTANAS = [
   { href: "/admin/finanzas", texto: "Finanzas" },
   { href: "/admin/finanzas/pagar", texto: "Módulo de pago" },
   { href: "/admin/finanzas/escanear", texto: "Escanear QR" },
   { href: "/admin/finanzas/imprimir", texto: "Impresión de actas" },
+  { href: "/admin/finanzas/recibos", texto: "Recibos" },
 ];
 
 export function PestanasFinanzas() {

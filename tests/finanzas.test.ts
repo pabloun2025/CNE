@@ -79,8 +79,8 @@ describe("finanzas: acta y confirmación", () => {
     expect(plano).not.toContain("USD");
     expect(plano).toContain("EUR 55.00");
     expect(plano).toContain("ANVERSO");
-    await generarActa(s, a, true);
-    expect((await consultarDueno<{ impresion_n: number }>("SELECT impresion_n FROM cne.actas_pago ORDER BY id")).map((x) => x.impresion_n)).toEqual([1, 2]);
+    expect(await generarActa(s, a, true)).toMatchObject({ ok: true, numero: r1.numero, actaId: r1.actaId });
+    expect((await consultarDueno<{ impresion_n: number }>("SELECT impresion_n FROM cne.actas_pago ORDER BY id")).map((x) => x.impresion_n)).toEqual([2]);
     const f = (await fichaPago("0000000001"))!;
     expect(f).toMatchObject({ estado: "acta_preparada", importeUsd: null, importeEur: "55.00", pago: null });
     expect((await consultarDueno("SELECT 1 FROM cne.pagos_confirmados")).length).toBe(0);

@@ -13,8 +13,9 @@ export type DatosActa = {
   persona: { apellidos: string; nombres: string; cedula: string; cargo: string; juntaVigente: string };
   importe: { eur: string } | null;
   pagador: { nombre: string; cargo: string } | null;
-  anverso: Buffer;
-  reverso: Buffer;
+  anexo?: { anverso: Buffer; reverso: Buffer };
+  reconstruido?: boolean;
+  contingencia?: boolean;
   firmaReceptor?: Buffer;
 };
 
@@ -92,6 +93,14 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
   const p1 = pdf.addPage([W, H]);
   let y = encabezado(p1, ["CONSULADO GENERAL DEL", "ECUADOR EN MADRID", "Madrid · España", "Jornada electoral: 29 de noviembre de 2026"]);
   y -= 13 * MM;
+  if (d.reconstruido) {
+    p1.drawText(latin("COPIA RECONSTRUIDA · VERIFIQUE LOS DATOS CON LA FICHA ACTUAL"), { x: ML, y, size: 8, font: bold, color: suave });
+    y -= 12;
+  }
+  if (d.contingencia) {
+    p1.drawText(latin("EMISIÓN DE CONTINGENCIA · SIN CONFIRMACIÓN DE PAGO NI VALIDACIÓN DE CÉDULA"), { x: ML, y, size: 8, font: bold, color: suave });
+    y -= 12;
+  }
   const estado = d.borrador ? "BORRADOR · IMPORTE PENDIENTE DE APROBACIÓN" : "MODELO DE TRABAJO · PENDIENTE DE VALIDACIÓN INSTITUCIONAL";
   p1.drawText(latin(estado), { x: ML, y, size: 8, font: bold, color: suave });
   y -= 16;
@@ -200,8 +209,9 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
     centrado(f[2], x, y - (f[1] ? 40 : 28), normal, 9);
   });
 
-  pie(p1, "El recibo se firma tras la entrega física del efectivo. Su impresión no equivale a pago confirmado en el sistema. El registro electrónico del desembolso se realiza después de la entrega.", "Pág. 1 / 2");
+  pie(p1, "El recibo se firma tras la entrega física del efectivo. Su impresión no equivale a pago confirmado en el sistema. El registro electrónico del desembolso se realiza después de la entrega.", d.anexo ? "Pág. 1 / 2" : d.reconstruido ? "Copia reconstruida" : "Pág. 1 / 1");
   marcaDeAgua(p1, bold, d.prueba);
+  if (!d.anexo) return pdf.save();
 
   const p2 = pdf.addPage([W, H]);
   let y2 = encabezado(p2, ["CONSULADO GENERAL DEL", "ECUADOR EN MADRID", "Anexo de identidad · Jornada 2026"]);
@@ -215,7 +225,7 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
   y2 -= 6 * MM;
 
   const altoImg = 58 * MM;
-  for (const [rotulo, buf] of [["ANVERSO · CÉDULA DE IDENTIDAD", d.anverso], ["REVERSO · CÉDULA DE IDENTIDAD", d.reverso]] as const) {
+  for (const [rotulo, buf] of [["ANVERSO · CÉDULA DE IDENTIDAD", d.anexo.anverso], ["REVERSO · CÉDULA DE IDENTIDAD", d.anexo.reverso]] as const) {
     const altoPanel = 8 * MM + altoImg;
     p2.drawRectangle({ x: ML, y: y2 - altoPanel, width: ancho, height: altoPanel, borderColor: linea, borderWidth: 0.8 });
     p2.drawRectangle({ x: ML, y: y2 - 8 * MM, width: ancho, height: 8 * MM, color: fondo });

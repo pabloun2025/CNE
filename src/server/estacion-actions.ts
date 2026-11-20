@@ -34,7 +34,7 @@ export async function crearEnlaceAccion(_: EstadoEstacion, f: FormData): Promise
   const sesion = await requireAdmin();
   const r = await crearEnlace(sesion, texto(f, "funcion"), texto(f, "etiqueta"));
   revalidatePath("/admin/operadores");
-  return r.ok ? { aviso: "Enlace creado. Aparece abajo con su QR." } : { error: r.mensaje };
+  return r.ok ? { aviso: "Enlace creado. Puede copiarlo o compartirlo en la lista." } : { error: r.mensaje };
 }
 
 export async function revocarEnlaceAccion(f: FormData): Promise<void> {
