@@ -280,7 +280,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO.** Aceptar un movimiento deja la junta en verde y le añade la marca de movimiento. El verde de «3 presentes» y la marca de movimiento conviven: la marca dice que hubo traslado.
 
-**DECIDIDO (21-11-2026).** El Centro de mando empieza por Amarillo · Hombres. Agrupa las juntas por color y las presenta en orden numérico dentro de cada zona. En pantalla completa se ven las 95 juntas y los indicadores en una sola vista. El selector del mapa permite ampliar una zona. Los filtros de presencia y disponibilidad permiten resaltar las juntas de interés en la vista habitual. Los números visibles proceden de las series H/M de las credenciales.
+**DECIDIDO (21-11-2026).** El Centro de mando abre en Amarillo · Hombres. La vista de trabajo muestra una zona a la vez, con tarjetas del mismo tamaño, números grandes y los recuentos de presentes y faltantes. El selector por color cambia la zona y el filtro acota las juntas por estado. La vista general muestra las 95 juntas y los indicadores en pantalla completa. En pantallas pequeñas admite desplazamiento vertical para mantener la lectura. En ambas vistas, el orden es numérico dentro de cada zona y las juntas se identifican con la serie H/M de las credenciales.
 
 **DECIDIDO.** Numeración de las fichas.
 

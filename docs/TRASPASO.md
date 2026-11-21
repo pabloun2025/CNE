@@ -307,3 +307,9 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Se verificaron el orden numérico, la ampliación de zona y las 95 juntas sin desplazamiento en los seis tamaños de la sección anterior. Los botones de trabajo se comprobaron a 375 y 1440 px con fichas ficticias. Pasaron 1.124 pruebas, TypeScript y la compilación.
 - Para preparar la jornada falta cuadrar el padrón definitivo y resolver el pago que figura en elección. La prueba presencial pendiente incluye el móvil de Puerta, fotos con el móvil de Documentación y una impresión a tamaño real de la credencial y del recibo. Activar los canales elegidos cuando el padrón esté confirmado.
 - Oracle publicó `6cc6558`. Madrid respondió con la versión esperada y Recordatorio respondió tras la publicación. [CI](https://github.com/pabloun2025/CNE/actions/runs/44943306558) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44943306712) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44943610756)
+
+## 28. Vista de trabajo por zona en el Centro de mando
+
+- La pantalla de trabajo abre en Amarillo · Hombres. Los seis botones permiten cambiar de zona y el filtro acota las juntas visibles por estado. Las tarjetas tienen el mismo tamaño dentro de la vista, muestran el número de junta en grande y etiquetan los recuentos de presentes y faltantes.
+- «Vista general de las 95 juntas» abre el tablero completo. Los seis grupos mantienen el orden numérico y todas las fichas se pueden abrir desde ambas vistas. En Chromium a 1366 × 768 caben las 95 juntas sin desplazamiento. A 1024 × 600, 375 × 667 y 320 × 568 se admite desplazamiento vertical. En los cuatro tamaños se comprobaron el tamaño uniforme de las fichas, los filtros, la apertura del detalle y el regreso a la zona seleccionada.
+- Pasaron 1.124 pruebas automatizadas, TypeScript y la compilación de producción. ESLint informó cero errores y la advertencia previa de Unslop.

@@ -13,9 +13,9 @@ import estilos from "./centro-mando.module.css";
 type Estado = { generado_en: string; indicadores: Indicadores; juntas: JuntaMando[]; modo: Modo };
 
 const ARO = { nadie: "#dc2626", faltan: "#d97706", completa: "#15803d" } as const;
-type VistaMapa = "todas" | ZonaColor;
 const FILTROS: { id: Filtro; texto: string }[] = [
-  { id: "faltan", texto: "Faltan miembros" }, { id: "transferibles", texto: "Con suplentes transferibles" }, { id: "completas", texto: "Completas" }, { id: "todas", texto: "Todas" },
+  { id: "todas", texto: "Todos los estados" }, { id: "faltan", texto: "Faltan miembros" },
+  { id: "completas", texto: "Completas" }, { id: "transferibles", texto: "Con suplentes transferibles" },
 ];
 
 function etiquetaFicha(j: JuntaMando) {
@@ -32,34 +32,42 @@ function CifrasMando({ indicadores: i, className }: { indicadores: Indicadores; 
   );
 }
 
-function MapaJuntas({ grupos, vista = "todas", visibles, abrir }: {
+function TarjetaJunta({ junta: j, abrir, resumida = false }: {
+  junta: JuntaMando; abrir: (id: number) => void; resumida?: boolean;
+}) {
+  const estado = j.estado === "completa" ? "Completa" : j.estado === "nadie" ? "Sin nadie" : "Incompleta";
+  return (
+    <button type="button" className={estilos.tarjeta} aria-label={etiquetaFicha(j)}
+      onClick={(e) => { e.currentTarget.focus(); abrir(j.id); }}>
+      <span className={estilos.cabeceraJunta}>
+        <strong>{j.serie}{j.numero}</strong>
+        <span aria-hidden="true" className={estilos.estadoJunta} style={{ background: ARO[j.estado] }} title={estado} />
+        {j.movimiento && <span aria-hidden="true" className={estilos.marca} title="Hubo traslado">⇄</span>}
+      </span>
+      {resumida ? <span className={estilos.resumenCuentas}>{j.presentes} / {j.faltan}</span> : (
+        <span className={estilos.cuentas}>
+          <span><b>{j.presentes}</b> <small>Presentes</small></span>
+          <span><b>{j.faltan}</b> <small>Faltan</small></span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+function MapaJuntas({ grupos, abrir }: {
   grupos: ReturnType<typeof gruposMapaMadrid>;
-  vista?: VistaMapa;
-  visibles?: Set<number>;
   abrir: (id: number) => void;
 }) {
   return (
-    <div className={`${estilos.zonas} ${vista === "todas" ? "" : estilos.ampliada}`} role="region" aria-label="Mapa de juntas de Madrid">
-      {grupos.filter((g) => vista === "todas" || g.zona === vista).map((g) => {
-        const columnas = Math.max(...g.filas.map((fila) => fila.length));
-        return (
-          <section key={g.zona} className={estilos.zona} aria-label={g.titulo}>
-            <h3><span aria-hidden="true" className={estilos.colorZona} style={{ background: ZONA_HEX[g.zona] }} />{g.titulo}</h3>
-            {g.filas.map((fila, i) => (
-              <div key={i} className={estilos.fila} style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}>
-                {fila.map((j) => (
-                  <button key={j.id} type="button" className={estilos.tarjeta} aria-label={etiquetaFicha(j)}
-                    style={{ borderInlineStartColor: ARO[j.estado], visibility: visibles && !visibles.has(j.id) ? "hidden" : undefined }}
-                    onClick={(e) => { e.currentTarget.focus(); abrir(j.id); }}>
-                    <span className={estilos.serie}>{j.serie}{j.numero}{j.movimiento && <span aria-hidden="true" title="Hubo traslado" className={estilos.marca}>⇄</span>}</span>
-                    <span className={estilos.cuentas}>{j.presentes} / {j.faltan}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </section>
-        );
-      })}
+    <div className={estilos.resumen} role="region" aria-label="Mapa de juntas de Madrid">
+      {grupos.map((grupo) => (
+        <section key={grupo.zona} className={estilos.grupoResumen} aria-label={grupo.titulo}>
+          <h3><span aria-hidden="true" className={estilos.colorZona} style={{ background: ZONA_HEX[grupo.zona] }} />{grupo.titulo}</h3>
+          <div className={estilos.cuadriculaResumen}>
+            {grupo.filas.flat().map((j) => <TarjetaJunta key={j.id} junta={j} abrir={abrir} resumida />)}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -70,7 +78,7 @@ export function CentroMando() {
   const [abierta, setAbierta] = useState<number | null>(null);
   const [incorporando, setIncorporando] = useState(false);
   const [abiertaPantalla, setAbiertaPantalla] = useState<number | null>(null);
-  const [vistaMapa, setVistaMapa] = useState<VistaMapa>("todas");
+  const [zona, setZona] = useState<ZonaColor>("amarillo");
   const botonPantalla = useRef<HTMLButtonElement>(null);
   const ventana = useRef<HTMLDialogElement>(null);
   const tablero = useRef<HTMLDivElement>(null);
@@ -98,7 +106,6 @@ export function CentroMando() {
 
   async function alCerrarPantalla() {
     setAbiertaPantalla(null);
-    setVistaMapa("todas");
     if (document.fullscreenElement === tablero.current && tablero.current) {
       await document.exitFullscreen().catch(() => undefined);
     }
@@ -106,24 +113,51 @@ export function CentroMando() {
   }
 
   if (!datos) return <p>{falla ? "No se pudo cargar el centro de mando. Reintentando…" : "Cargando…"}</p>;
-  const lista = filtrarJuntas(datos.juntas, filtro);
   const grupos = gruposMapaMadrid(datos.juntas);
+  const grupoActivo = grupos.find((g) => g.zona === zona);
+  const visibles = new Set(filtrarJuntas(datos.juntas, filtro).map((j) => j.id));
+  const juntasZona = grupoActivo?.filas.flat() ?? [];
+  const lista = juntasZona.filter((j) => visibles.has(j.id));
   const actualizacion = falla ? `Sin actualizar desde ${ultima ? horaCorta(ultima) : "—"}` : `Actualizado ${ultima ? horaCorta(ultima) : ""}`;
   const estadoActualizacion = falla ? "font-bold text-red-700" : "text-slate-600";
   return (
-    <div className="space-y-3">
-      <CifrasMando indicadores={datos.indicadores} className="indicadores" />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className={`text-xs ${estadoActualizacion}`}>Hay / faltan · {actualizacion}</p>
-        <button ref={botonPantalla} type="button" className="quiet" onClick={activarPantalla}>Pantalla completa</button>
+    <div className="stack-lg">
+      <CifrasMando indicadores={datos.indicadores} className={estilos.indicadores} />
+      <div className={estilos.linea}>
+        <p className={`text-sm ${estadoActualizacion}`} role={falla ? "status" : undefined}>{actualizacion}</p>
+        <button ref={botonPantalla} type="button" className="quiet" onClick={activarPantalla}>Vista general de las 95 juntas</button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {FILTROS.map((f) => <button key={f.id} onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id} className={`border-2 px-3 py-2 text-sm ${filtro === f.id ? "border-stone-900 bg-stone-900 text-white" : "border-stone-900 bg-white"}`}>{f.texto}</button>)}
-      </div>
-
-      {lista.length === 0 && <p>No hay juntas con este filtro.</p>}
-      <MapaJuntas grupos={grupos} visibles={filtro === "todas" ? undefined : new Set(lista.map((j) => j.id))} abrir={setAbierta} />
+      <section className={estilos.trabajo} aria-label="Juntas por zona">
+        <div className={estilos.selectorZonas} role="group" aria-label="Seleccionar zona">
+          {ZONAS.map((color) => (
+            <button key={color} type="button" className={estilos.zonaBoton} aria-pressed={zona === color}
+              onClick={() => { setZona(color); setAbierta(null); }}>
+              <span aria-hidden="true" className={estilos.colorZona} style={{ background: ZONA_HEX[color] }} />
+              {ZONA_NOMBRE[color]}
+            </button>
+          ))}
+        </div>
+        <div className={estilos.zonaActiva} style={{ borderTopColor: ZONA_HEX[zona] }}>
+          <div className={estilos.cabeceraZona}>
+            <div>
+              <h2>{grupoActivo?.titulo ?? ZONA_NOMBRE[zona]}</h2>
+              <p>{juntasZona.length} juntas · {juntasZona.filter((j) => j.estado === "completa").length} completas</p>
+            </div>
+            <label className={estilos.filtro}>
+              Estado de la junta
+              <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)}>
+                {FILTROS.map((f) => <option key={f.id} value={f.id}>{f.texto}</option>)}
+              </select>
+            </label>
+          </div>
+          {lista.length === 0 ? <p className="empty">No hay juntas de esta zona con ese estado.</p> : (
+            <div className={estilos.cuadricula} role="region" aria-label="Juntas de la zona seleccionada">
+              {lista.map((j) => <TarjetaJunta key={j.id} junta={j} abrir={setAbierta} />)}
+            </div>
+          )}
+        </div>
+      </section>
       <TarjetaPropuesta onCambio={refrescar} />
       <button onClick={() => setIncorporando(true)} className="border-2 border-stone-900 px-4 py-3">Incorporar votante</button>
       {incorporando && <FormIncorporar juntas={datos.juntas} onCerrar={() => setIncorporando(false)} onCambio={refrescar} />}
@@ -141,15 +175,11 @@ export function CentroMando() {
               {datos.modo === "prueba" && <p role="status" className={estilos.prueba}>MODO PRUEBA — los datos son simulados</p>}
               <CifrasMando indicadores={datos.indicadores} className={estilos.indicadores} />
               <div className={estilos.linea}>
-                <p>Hay / faltan</p>
-                <select className={estilos.selectorMapa} aria-label="Vista del mapa" value={vistaMapa} onChange={(e) => setVistaMapa(e.target.value as VistaMapa)}>
-                  <option value="todas">Todas las juntas</option>
-                  {ZONAS.map((zona) => <option key={zona} value={zona}>Zona {ZONA_NOMBRE[zona]}</option>)}
-                </select>
+                <p>Presentes / faltan</p>
                 <p className={estadoActualizacion}>{actualizacion}</p>
               </div>
             </div>
-            <MapaJuntas grupos={grupos} vista={vistaMapa} abrir={setAbiertaPantalla} />
+            <MapaJuntas grupos={grupos} abrir={setAbiertaPantalla} />
             {abiertaPantalla !== null && <FichaJunta juntaId={abiertaPantalla} onCerrar={() => setAbiertaPantalla(null)} onCambio={refrescar} compacta />}
           </div>
         </dialog>
