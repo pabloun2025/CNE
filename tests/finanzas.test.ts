@@ -7,7 +7,10 @@ import { closePools } from "@/server/db";
 import { guardarDocumento } from "@/server/documentos";
 import type { SesionEstacion } from "@/server/estaciones";
 import { confirmarPago, fichaPago, generarActa } from "@/server/finanzas";
-import { validarCedula } from "@/server/mjrv";
+import { listarEscaneadosFinanzas, registrarEscaneoFinanzas } from "@/server/escaneos-finanzas";
+import { resumenFinanzas } from "@/server/finanzas-resumen";
+import { obtenerFicha, validarCedula } from "@/server/mjrv";
+import { resumenAdmin } from "@/server/resumen-admin";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const foto = () => sharp(randomBytes(900 * 600 * 3), { raw: { width: 900, height: 600, channels: 3 } }).jpeg({ quality: 70 }).toBuffer();
@@ -160,5 +163,57 @@ describe("finanzas: acta y confirmación", () => {
     expect(emitida).toMatchObject({ ok: true });
     if (!emitida.ok) throw new Error("Falta el recibo definitivo");
     expect(await generarActa(s2, c, true)).toMatchObject({ ok: true, numero: emitida.numero });
+  });
+
+  it("revalida un pasaporte fotografiado después de una cédula y habilita su cobro", async () => {
+    const cedula = "0000000004";
+    const mjrvId = await persona(cedula);
+    await completarParametros();
+    await conFotos(mjrvId);
+    expect(await validar(mjrvId)).toMatchObject({ ok: true });
+    const antes = await resumenAdmin();
+    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", numeroPasaporte: "PRUEBA123", imagen: await foto(), origen: "estacion" }))
+      .toMatchObject({ ok: true });
+
+    expect(await registrarEscaneoFinanzas(s.enlaceId, cedula)).toBe(true);
+    expect(await registrarEscaneoFinanzas(s.enlaceId, "PRUEBA123")).toBe(false);
+    expect(await fichaPago(cedula)).toMatchObject({ cedula, pasaporte: true, numeroPasaporte: "PRUEBA123", documentosCompletos: true, cedulaValidada: false });
+    expect(await obtenerFicha(mjrvId)).toMatchObject({ cedula, pasaporte: true, numeroPasaporte: "PRUEBA123", completos: true });
+    expect((await resumenAdmin()).pagos.documentosCompletos).toBe(antes.pagos.documentosCompletos);
+    expect((await resumenFinanzas()).filas.find((f) => f.id === mjrvId)).toMatchObject({ cedula, fotosCompletas: true, cedulaValidada: false });
+
+    const acta = await generarActa(s, mjrvId, true);
+    if (!acta.ok || acta.actaId === null) throw new Error("Falta el recibo definitivo con pasaporte");
+    expect((await listarEscaneadosFinanzas(true)).escaneados.some((f) => f.mjrvId === mjrvId)).toBe(false);
+    expect(await confirmarPago(s, { mjrvId, actaId: acta.actaId, verificado: true })).toMatchObject({ ok: false, mensaje: expect.stringContaining("validar") });
+    expect(await validar(mjrvId)).toMatchObject({ ok: true });
+    expect((await listarEscaneadosFinanzas(true)).escaneados).toContainEqual(expect.objectContaining({ mjrvId, cedula, documentado: true }));
+    expect(await confirmarPago(s, { mjrvId, actaId: acta.actaId, verificado: true })).toMatchObject({ ok: true, importeEur: "58.82" });
+  });
+
+  it("Caja exige reimprimir un recibo pendiente si se reemplaza el documento por un pasaporte", async () => {
+    const cedula = "0000000005";
+    const mjrvId = await persona(cedula);
+    await completarParametros();
+    await conFotos(mjrvId);
+    expect(await validar(mjrvId)).toMatchObject({ ok: true });
+    const original = await generarActa(s, mjrvId, true);
+    if (!original.ok || original.actaId === null) throw new Error("Falta el recibo original");
+    const [{ creado_en, ordinal_recibo }] = await consultarDueno<{ creado_en: Date; ordinal_recibo: number }>(
+      "SELECT creado_en, ordinal_recibo FROM cne.actas_pago WHERE id = $1", [original.actaId]);
+    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", numeroPasaporte: "PRUEBA789", imagen: await foto(), origen: "estacion" })).toMatchObject({ ok: true });
+    expect(await validar(mjrvId)).toMatchObject({ ok: true });
+    expect(await fichaPago(cedula)).toMatchObject({ acta: { id: original.actaId, documentoPendiente: true } });
+    expect((await listarEscaneadosFinanzas(true)).escaneados.some((f) => f.mjrvId === mjrvId)).toBe(false);
+    expect(await confirmarPago(s, { mjrvId, actaId: original.actaId, verificado: true })).toMatchObject({ ok: false, mensaje: expect.stringContaining("Reimprima") });
+
+    const reimpresion = await generarActa(s, mjrvId, true);
+    expect(reimpresion).toMatchObject({ ok: true, numero: original.numero, actaId: original.actaId });
+    expect(await consultarDueno(`SELECT creado_en, ordinal_recibo, importe_eur::text AS importe, parametros->'persona_recibo' AS persona
+      FROM cne.actas_pago WHERE mjrv_id = $1`, [mjrvId])).toEqual([expect.objectContaining({ creado_en, ordinal_recibo, importe: "58.82",
+        persona: expect.objectContaining({ cedula: "PRUEBA789", tipoDocumento: "pasaporte", apellidos: `APELLIDO PRUEBA ${cedula}` }) })]);
+    expect((await fichaPago(cedula))?.acta?.documentoPendiente).toBeUndefined();
+    expect((await listarEscaneadosFinanzas(true)).escaneados).toContainEqual(expect.objectContaining({ mjrvId, documentado: true }));
+    expect(await confirmarPago(s, { mjrvId, actaId: original.actaId, verificado: true })).toMatchObject({ ok: true, importeEur: "58.82" });
   });
 });

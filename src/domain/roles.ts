@@ -32,7 +32,7 @@ export const ENLACES_ADMIN: { href: string; texto: string; roles: RolAdmin[] }[]
 export const PASOS_MADRID: { href: string; texto: string; roles: RolAdmin[] }[] = [
   { href: "/admin/credenciales", texto: "Credencial", roles: SOLO_CONSUL },
   { href: "/admin/operadores", texto: "Puerta", roles: SOLO_CONSUL },
-  { href: "/admin/documentos", texto: "Foto de la cédula", roles: SOLO_CONSUL },
+  { href: "/admin/documentos", texto: "Documentos de identidad", roles: SOLO_CONSUL },
   { href: "/admin/finanzas", texto: "Pago", roles: CONSUL_Y_FINANCIERO },
   { href: "/admin/mando", texto: "Constitución", roles: CONSUL_Y_COORDINADOR },
 ];

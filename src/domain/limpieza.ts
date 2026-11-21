@@ -4,10 +4,10 @@ export type CategoriaLimpieza = { tabla: string; etiqueta: string };
 export const CATEGORIAS_LIMPIEZA: CategoriaLimpieza[] = [
   { tabla: "pagos_confirmados", etiqueta: "Confirmaciones de pago simuladas" },
   { tabla: "actas_pago", etiqueta: "Actas de pago de prueba" },
-  { tabla: "documentos_mjrv", etiqueta: "Fotos de cédula de ensayo" },
+  { tabla: "documentos_mjrv", etiqueta: "Fotos de documentos de identidad de ensayo" },
   { tabla: "fichas_abiertas_finanzas", etiqueta: "Fichas abiertas en finanzas" },
   { tabla: "escaneos_finanzas", etiqueta: "Escaneos de finanzas" },
-  { tabla: "cedulas_validadas", etiqueta: "Validaciones de cédula de ensayo" },
+  { tabla: "cedulas_validadas", etiqueta: "Validaciones de documentos de identidad de ensayo" },
   { tabla: "pendientes_impresion", etiqueta: "Actas pendientes de imprimir" },
   { tabla: "firmas_recibo", etiqueta: "Recibos firmados en pantalla" },
   { tabla: "asignaciones_cargo", etiqueta: "Cargos asumidos" },

@@ -22,10 +22,10 @@ export type ResultadoEscaneo =
 // Un escaneo hace una sola cosa. No abre el recibo y no confirma el pago.
 export async function escanearParaRecibo(actor: ActorPago, cedula: string): Promise<ResultadoEscaneo> {
   const f = await fichaPago(cedula);
-  if (!f) return { ok: false, mensaje: "No encontramos esa cédula." };
+  if (!f) return { ok: false, mensaje: "No encontramos la ficha." };
   if (!f.activo) return { ok: false, mensaje: "La ficha está de baja." };
   if (f.pago) return { ok: false, mensaje: "Ya pagado. No vuelva a pagar." };
-  if (!f.documentosCompletos) return { ok: false, mensaje: "Faltan las fotos de la cédula." };
+  if (!f.documentosCompletos) return { ok: false, mensaje: "Faltan fotos del documento de identidad." };
   const modo = await leerModoRecibo();
   if (modo === "digital") return { ok: true, modo, mjrvId: f.mjrvId, junta: f.juntaVigente, nombre: f.nombre };
   const ya = await query("SELECT id FROM pendientes_impresion WHERE mjrv_id = $1 AND impreso_en IS NULL", [f.mjrvId]);

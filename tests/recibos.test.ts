@@ -206,4 +206,40 @@ describe("archivo de recibos de Madrid", () => {
     expect(await descargarSeleccionRecibos(sesion, { modo: "prueba", referencias: [{ tipo: "acta", id: ids[0].id }, { tipo: "acta", id: 99999 }] }))
       .toMatchObject({ ok: false, status: 404 });
   });
+
+  it("actualiza el documento de contingencia en la reimpresión y conserva el archivo después del pago", async () => {
+    const [{ id: mjrvId }] = await consultarDueno<{ id: number }>(
+      "INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id) SELECT '0000000046','ORIGINAL PRUEBA','NOMBRE PRUEBA','VOCAL','vocal',id FROM cne.juntas_madrid WHERE serie='H' AND numero=1 RETURNING id");
+    const emision = await generarRecibosContingencia(actor, [mjrvId]);
+    if (!emision.ok) throw new Error("Falta el recibo de contingencia");
+    const [{ id, numero }] = (await buscarRecibos(emision.numeros[0], 1)).filas;
+    const original = (await descargarRecibo("acta", id))!;
+    expect(await contieneTexto(original.pdf, "0000000046")).toBe(true);
+    await consultarDueno("UPDATE cne.mjrv SET apellidos = 'CAMBIO PRUEBA' WHERE id = $1", [mjrvId]);
+    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", numeroPasaporte: "PRUEBA456", imagen: await foto(), origen: "estacion" }))
+      .toMatchObject({ ok: true });
+    expect(await descargarRecibo("acta", id, undefined, true)).toEqual(original);
+    expect(await validarCedula({ portal: "finanzas", tipo: "usuario", id: actor.usuarioId!, nombre: actor.operadorNombre }, mjrvId)).toMatchObject({ ok: true });
+    expect(await confirmarPago(actor, { mjrvId, actaId: id, verificado: true })).toMatchObject({ ok: false, mensaje: expect.stringContaining("Reimprima") });
+
+    const reimpresion = await generarActa(actor, mjrvId, true);
+    if (!reimpresion.ok) throw new Error(reimpresion.mensaje);
+    expect(reimpresion).toMatchObject({ numero, actaId: id });
+    const copia = (await descargarRecibo("acta", id, undefined, true))!;
+    for (const pdf of [reimpresion.pdf, copia.pdf]) {
+      expect(await contieneTexto(pdf, "PRUEBA456")).toBe(true);
+      expect(await contieneTexto(pdf, "ORIGINAL PRUEBA")).toBe(true);
+      expect(await contieneTexto(pdf, "EUR 58,82")).toBe(true);
+      expect(await contieneTexto(pdf, "0000000046")).toBe(false);
+      expect(pdf.length).toBeGreaterThan(original.pdf.length);
+    }
+    const actualizado = (await descargarRecibo("acta", id))!;
+    expect(await contieneTexto(actualizado.pdf, "PRUEBA456")).toBe(true);
+    expect(await contieneTexto(actualizado.pdf, "ORIGINAL PRUEBA")).toBe(true);
+    expect(await confirmarPago(actor, { mjrvId, actaId: id, verificado: true })).toMatchObject({ ok: true, importeEur: "58.82" });
+    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", numeroPasaporte: "PRUEBA654", imagen: await foto(), origen: "estacion" }))
+      .toMatchObject({ ok: true });
+    expect(await descargarRecibo("acta", id, undefined, true)).toEqual(actualizado);
+    expect(await descargarRecibo("acta", id)).toEqual(actualizado);
+  });
 });

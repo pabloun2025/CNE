@@ -6,7 +6,7 @@ import type { Sesion } from "./auth";
 import type { Modo } from "./config";
 import { decryptBuffer } from "./crypto";
 import { query, withTx } from "./db";
-import { leerDocumento } from "./documentos";
+import { documentosParaRecibo } from "./documentos";
 import { actaPago, type DatosActa } from "./pdf/acta";
 import { crearZip } from "./zip";
 
@@ -66,6 +66,14 @@ export async function buscarRecibos(q: string, pagina: number): Promise<{ filas:
   return { filas: recibos, total, modo, siguiente: pagina * POR_PAGINA < total };
 }
 
+export function anexoDeRecibo(persona: DatosActa["persona"], documentos: Awaited<ReturnType<typeof documentosParaRecibo>>): DatosActa["anexo"] {
+  const { anexo, numeroPasaporte } = documentos;
+  if (persona.tipoDocumento === "pasaporte") {
+    return numeroPasaporte === persona.cedula ? anexo : undefined;
+  }
+  return numeroPasaporte ? undefined : anexo;
+}
+
 export async function descargarRecibo(tipo: TipoRecibo, id: number, client?: PoolClient, incluirCedula = false): Promise<{ numero: string; pdf: Uint8Array } | null> {
   if (incluirCedula && !client) {
     return withTx(async (tx) => {
@@ -105,18 +113,15 @@ export async function descargarRecibo(tipo: TipoRecibo, id: number, client?: Poo
       WHERE a.id = $1`, [id]);
   if (!a) return null;
   const numero = numeroActa(id, a.es_prueba, a.ordinal_recibo);
-  let anexo: DatosActa["anexo"];
-  if (incluirCedula && a.ordinal_recibo !== null) {
-    const anverso = await leerDocumento(a.mjrv_id, "anverso", client);
-    const reverso = await leerDocumento(a.mjrv_id, "reverso", client);
-    if (anverso || reverso) anexo = { anverso: anverso ?? undefined, reverso: reverso ?? undefined };
-  }
+  const persona = a.parametros?.persona_recibo ?? { apellidos: a.apellidos, nombres: a.nombres, cedula: a.cedula, cargo: a.cargo, juntaVigente: a.junta };
+  const documentos = incluirCedula && a.ordinal_recibo !== null ? await documentosParaRecibo(a.mjrv_id, client) : {};
+  const anexo = anexoDeRecibo(persona, documentos);
   if (!anexo && a.recibo_cifrado && a.recibo_nonce) return { numero, pdf: decryptBuffer(a.recibo_cifrado, a.recibo_nonce) };
   const nombrePagador = a.parametros?.pagador_nombre;
   const pdf = await actaPago({
     numero, impresionN: a.impresion_n, prueba: a.es_prueba, borrador: !a.importe_eur, emitidaEn: a.creado_en,
     reconstruido: !a.recibo_cifrado || !a.recibo_nonce, anexo,
-    persona: a.parametros?.persona_recibo ?? { apellidos: a.apellidos, nombres: a.nombres, cedula: a.cedula, cargo: a.cargo, juntaVigente: a.junta },
+    persona,
     contingencia: a.parametros?.contingencia,
     importe: { eur: a.importe_eur, usd: a.importe_usd, cambio: a.ordinal_recibo === null ? a.tipo_cambio : RECIBOS_TIPO_CAMBIO },
     ordinalRecibo: a.ordinal_recibo,

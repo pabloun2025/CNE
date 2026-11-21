@@ -39,7 +39,7 @@ export default async function SuperInicio() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Fotos de cédula</h2>
+        <h2 className="text-lg font-semibold">Fotos de documentos de identidad</h2>
         <div className="mt-2"><FormBorrarFotos fotos={fotos.fotos} personas={fotos.personas} sinPago={fotos.sinPago} /></div>
       </section>
 

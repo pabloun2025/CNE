@@ -22,7 +22,7 @@ export default async function EmitirRecibos({ searchParams }: { searchParams: Pr
     <main className="stack-lg">
       <h1>Emitir recibos de contingencia</h1>
       <Link href="/admin/finanzas/recibos" className="underline">Volver a Recibos</Link>
-      <p>Seleccione las fichas por nombre o junta. El primer recibo definitivo ocupa su puesto en la serie. Las reimpresiones conservan el número y el importe. Para pagar, complete primero la validación de cédula.</p>
+      <p>Seleccione las fichas por nombre o junta. El primer recibo definitivo ocupa su puesto en la serie. Las reimpresiones conservan el número y el importe. Para pagar, valide primero el documento de identidad.</p>
       <form action="/admin/finanzas/recibos/emitir" className="card flex flex-wrap items-end gap-3">
         <label className="min-w-0 flex-1">Nombre, apellido o cédula
           <input name="q" type="search" maxLength={120} defaultValue={q} />

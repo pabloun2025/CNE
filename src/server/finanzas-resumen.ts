@@ -24,14 +24,14 @@ export async function resumenFinanzas(): Promise<ResumenFinanzas> {
             CASE WHEN m.incorporado_en IS NOT NULL AND m.es_prueba = en_prueba() THEN m.incorporado_por ELSE nullif(btrim(i.nombre || ' ' || i.apellido), '') END AS "operadorIngreso",
             v.validada_en::text AS "validacionEn",
             CASE WHEN p.id IS NOT NULL THEN 'pagada'
-                 WHEN d.n < 2 THEN 'documentacion_incompleta'
+                 WHEN d.mjrv_id IS NULL THEN 'documentacion_incompleta'
                  WHEN EXISTS (SELECT 1 FROM actas_pago a WHERE a.mjrv_id = m.id) THEN 'acta_preparada'
                  ELSE 'lista' END AS estado,
             p.importe_eur::text AS eur, p.confirmado_en::text AS hora, coalesce(nullif(btrim(o.nombre || ' ' || o.apellido), ''), u.nombre) AS operador, coalesce(p.es_prueba, false) AS simulado,
-            (v.validada_en IS NOT NULL) AS "cedulaValidada", (d.n = 2) AS "fotosCompletas"
+            (v.validada_en IS NOT NULL) AS "cedulaValidada", (d.mjrv_id IS NOT NULL) AS "fotosCompletas"
        FROM mjrv m
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT x.junta_destino_id FROM decisiones_movimiento x WHERE x.mjrv_id = m.id AND x.decision = 'aceptada' ORDER BY x.creado_en DESC, x.id DESC LIMIT 1), m.junta_origen_id)
-       CROSS JOIN LATERAL (SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = m.id) d
+       LEFT JOIN v_documentos_completos d ON d.mjrv_id = m.id
        LEFT JOIN v_cedulas_validadas v ON v.mjrv_id = m.id
        LEFT JOIN lecturas_puerta l ON l.mjrv_id = m.id AND l.resultado = 'valido'
        LEFT JOIN operadores_madrid i ON i.id = l.operador_id

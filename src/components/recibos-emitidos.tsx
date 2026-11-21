@@ -23,7 +23,7 @@ export function RecibosEmitidos({ filas, total, modo, q, pagina }: { filas: Reci
         </>
       ) : elegidas.map((id) => <input key={id} type="hidden" name="recibo" value={id} />)}
       <div className="card stack">
-        <label className="flex items-center gap-3"><input type="checkbox" name="anexo" value="1" /> Incluir las fotos disponibles de la cédula en los recibos nuevos</label>
+        <label className="flex items-center gap-3"><input type="checkbox" name="anexo" value="1" /> Incluir las fotos disponibles del documento de identidad</label>
         <label className="flex items-center gap-3">
           <input type="checkbox" checked={todas} onChange={(e) => {
             setTodas(e.target.checked);

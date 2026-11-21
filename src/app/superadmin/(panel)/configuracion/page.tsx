@@ -24,9 +24,9 @@ export default async function ConfiguracionMadrid() {
         <FormMedidasCredencial medidas={medidas} />
       </section>
       <section id="documentos" className="card stack">
-        <h2>Formulario público de cédula</h2>
+        <h2>Formulario público de cédula o pasaporte</h2>
         <p>Disponible en <a className="underline break-all" href={enlace} target="_blank" rel="noreferrer">{enlace}</a></p>
-        <p><a className="button-like secondary" target="_blank" rel="noreferrer" href="/admin/documentos/cartel">Abrir guía A4 de cédula y pago</a></p>
+        <p><a className="button-like secondary" target="_blank" rel="noreferrer" href="/admin/documentos/cartel">Abrir guía A4 de documentos y pago</a></p>
       </section>
     </div>
   );

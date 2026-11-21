@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { CapturaCedula } from "@/components/captura-cedula";
+import { CapturaDocumentosPuesto } from "@/components/captura-cedula";
 import { leerPdfRecibo, VisorRecibo, type PdfRecibo } from "@/components/visor-recibo";
+import type { LadoDocumento } from "@/domain/documentos";
 import type { FichaPago } from "@/server/finanzas";
 
 const moneda = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
@@ -17,6 +18,8 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
   const [verificado, verificar] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [mostrarCaptura, setMostrarCaptura] = useState(false);
+  const [revisionFotos, setRevisionFotos] = useState(0);
   const [recibo, setRecibo] = useState<Recibo | null>(null);
   const urlRecibo = recibo?.url;
   useEffect(() => () => { if (urlRecibo) URL.revokeObjectURL(urlRecibo); }, [urlRecibo]);
@@ -28,9 +31,10 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
     const respuesta = await r.json() as { encontrada: boolean; ficha?: FichaPago };
     const nuevaFicha = respuesta.ficha ?? null;
     setFicha(nuevaFicha);
+    setMostrarCaptura(false);
     setRecibo((actual) => conservarRecibo && actual && actual.mjrvId === nuevaFicha?.mjrvId && actual.modoPrueba === nuevaFicha.modoPrueba ? actual : null);
     verificar(false);
-    if (!respuesta.encontrada) throw new Error("No encontramos esa cédula.");
+    if (!respuesta.encontrada) throw new Error("No encontramos ese número.");
   };
 
   const ejecutar = async (accion: () => Promise<void>) => {
@@ -41,22 +45,25 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
     finally { setOcupado(false); }
   };
 
-  const subir = async (lado: "anverso" | "reverso", imagen: Blob) => {
+  const subir = async (lado: LadoDocumento, imagen: Blob, numeroPasaporte?: string) => {
     if (!ficha) return false;
+    setMensaje("");
+    setOcupado(true);
     try {
       const f = new FormData();
       f.set("mjrvId", String(ficha.mjrvId));
       f.set("lado", lado);
       f.set("imagen", imagen, `${lado}.jpg`);
+      if (numeroPasaporte) f.set("numeroPasaporte", numeroPasaporte);
       const r = await fetch("/api/admin/finanzas/foto", { method: "POST", body: f });
       if (!r.ok) throw new Error((await r.json()).error ?? "No se pudo guardar la foto.");
       await consultar(ficha.cedula);
-      setMensaje("");
+      setRevisionFotos((actual) => actual + 1);
       return true;
     } catch (e) {
       setMensaje(e instanceof Error ? e.message : "No se pudo guardar la foto.");
       return false;
-    }
+    } finally { setOcupado(false); }
   };
 
   const validar = () => ficha && ejecutar(async () => {
@@ -85,13 +92,12 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
     setMensaje("Pago confirmado.");
   });
 
-  const lado = ficha && !ficha.anverso ? "anverso" : ficha && !ficha.reverso ? "reverso" : null;
-  const listaCaja = !!ficha?.acta && !ficha.acta.importePendiente && ficha.cedulaValidada && ficha.documentosCompletos;
+  const listaCaja = !!ficha?.acta && !ficha.acta.importePendiente && !ficha.acta.documentoPendiente && ficha.cedulaValidada && ficha.documentosCompletos;
   return (
     <section className="card stack">
       <h2>{caja ? "Confirmar pago" : "Revisar ficha"}</h2>
       <form onSubmit={(e) => { e.preventDefault(); void ejecutar(() => consultar(cedula)); }} className="flex flex-wrap items-end gap-2">
-        <label className="min-w-0 flex-1">Cédula<input value={cedula} onChange={(e) => setCedula(e.target.value)} inputMode="numeric" autoComplete="off" required /></label>
+        <label className="min-w-0 flex-1">Número registrado en la ficha<input value={cedula} onChange={(e) => setCedula(e.target.value)} autoComplete="off" required /></label>
         <button disabled={ocupado}>Buscar</button>
       </form>
       {cedulaInicial && <CargaInicial cedula={cedulaInicial} cargar={(c) => ejecutar(() => consultar(c))} />}
@@ -111,24 +117,31 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
                 </label>
                 <button disabled={!verificado || ocupado} onClick={confirmar}>Confirmar pago entregado</button>
               </>
-            ) : <p role="status">El recibo definitivo y la cédula validada deben estar listos antes del pago.</p>
+            ) : <p role="status">{ficha.acta?.documentoPendiente ? "Reimprima el recibo con el documento vigente antes de confirmar el pago." : "El recibo definitivo y el documento validado deben estar listos antes del pago."}</p>
           ) : (
             <>
               {ficha.otrosPuestos.length > 0 && <p role="status">Esta ficha está abierta en otro puesto.</p>}
-              {(ficha.anverso || ficha.reverso) && (
+              {ficha.acta?.documentoPendiente && <p role="status">Reimprima el recibo con el documento vigente antes de entregarlo a Caja.</p>}
+              {ficha.numeroPasaporte && <p>Número de pasaporte <strong>{ficha.numeroPasaporte}</strong></p>}
+              {(ficha.anverso || ficha.reverso || ficha.pasaporte) && (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {(["anverso", "reverso"] as const).filter((l) => ficha[l]).map((l) => (
+                  {(["anverso", "reverso", "pasaporte"] as const).filter((l) => ficha[l]).map((l) => (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img key={l} src={`/api/admin/finanzas/cedula/${ficha.mjrvId}/${l}`} alt={`Cédula · ${l}`} className="max-h-48 w-full rounded border object-contain" />
+                    <img key={l} src={`/api/admin/finanzas/cedula/${ficha.mjrvId}/${l}?v=${revisionFotos}`} alt={l === "pasaporte" ? "Página de datos del pasaporte" : `Cédula · ${l}`} className="max-h-48 w-full rounded border object-contain" />
                   ))}
                 </div>
               )}
-              {lado && <CapturaCedula rotulo={lado === "anverso" ? "Anverso" : "Reverso"} onUsar={(imagen) => subir(lado, imagen)} />}
-              {ficha.documentosCompletos && !ficha.cedulaValidada && <button disabled={ocupado} onClick={validar}>Validar cédula</button>}
+              {ficha.documentosCompletos && <button type="button" className="secondary" disabled={ocupado} onClick={() => setMostrarCaptura(!mostrarCaptura)}>{mostrarCaptura ? "Cerrar captura" : "Volver a fotografiar el documento"}</button>}
+              {(!ficha.documentosCompletos || mostrarCaptura) && (
+                <fieldset key={ficha.mjrvId} disabled={ocupado}>
+                  <CapturaDocumentosPuesto fotos={ficha} onUsar={subir} seguirConReverso />
+                </fieldset>
+              )}
+              {ficha.documentosCompletos && !ficha.cedulaValidada && <button disabled={ocupado} onClick={validar}>Validar documento</button>}
               {!ficha.cedulaValidada && <form method="post" action="/api/admin/finanzas/recibos/emitir" target="_blank">
                 <input type="hidden" name="id" value={ficha.mjrvId} />
                 <input type="hidden" name="modo" value={ficha.modoPrueba ? "prueba" : "eleccion"} />
-                <button className="secondary">Imprimir en contingencia</button>
+                <button className="secondary" disabled={ocupado}>Imprimir en contingencia</button>
               </form>}
               {!recibo && ficha.cedulaValidada && ficha.documentosCompletos && (
                 <>

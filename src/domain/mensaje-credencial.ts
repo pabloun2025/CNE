@@ -10,6 +10,7 @@ const RECINTO = "Caja Mágica";
 const DIRECCION = "Camino de Perales 23, 28041 Madrid";
 const MAPA = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${RECINTO}, ${DIRECCION}`)}`;
 const LIMITE_INGRESO = "HORA LÍMITE DE INGRESO: 08:00";
+const DOCUMENTOS_PAGO = "Para su comprobante de pago, busque su ficha con el número registrado en su credencial. Elija un solo documento. Si elige cédula, suba fotos del anverso y reverso. Si elige pasaporte, escriba su número tal como figura en el documento y suba una foto de la página de datos.";
 
 function enlaceDocumentos(host?: string | null): string | null {
   const dominio = (host ?? "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
@@ -17,12 +18,12 @@ function enlaceDocumentos(host?: string | null): string | null {
 }
 
 export function textoCredencial(d: DatosMensaje): string {
-  const base = `Buen día, ${d.nombres}. Le enviamos su credencial de miembro de Junta Receptora del Voto (${d.rotulo}). Preséntela con su cédula.`;
+  const base = `Buen día, ${d.nombres}. Le enviamos su credencial de miembro de Junta Receptora del Voto (${d.rotulo}). Presente el QR y lleve su documento de identidad.`;
   const enlace = enlaceDocumentos(d.host);
   // Con Android puede llevar la credencial en Google Wallet; iPhone sigue con el PDF y el QR.
   const wallet = d.wallet ? ` Si usa Android, también puede guardarla en Google Wallet: ${d.wallet}` : "";
   if (!enlace) return base + wallet;
-  return `${base}${wallet} Para su comprobante de pago necesitamos la foto de su cédula (anverso y reverso). Puede subirla aquí: ${enlace}`;
+  return `${base}${wallet} ${DOCUMENTOS_PAGO} Formulario de documentación en ${enlace}`;
 }
 
 const escapar = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -37,8 +38,7 @@ export function correoCredencial(d: DatosCorreo): { asunto: string; texto: strin
   const zona = `Zona ${ZONA_NOMBRE[d.zona]}`;
   const llegada = "Debe haber ingresado al recinto a más tardar a las 08:00 (hora de Madrid). Llegue con suficiente antelación para registrar su entrada y localizar su zona y su junta.";
   const horario = "La instalación de las juntas comenzará a las 08:30. La votación se desarrollará de 09:00 a 19:00 y, posteriormente, se realizará el escrutinio.";
-  const acceso = "Puede presentar la credencial PDF adjunta impresa o desde su teléfono móvil. El código QR permitirá registrar su llegada. Lleve también su cédula de identidad.";
-  const documentos = "Para preparar su comprobante de pago, cargue las fotografías del anverso y reverso de su cédula en el siguiente enlace.";
+  const acceso = "Puede presentar la credencial PDF adjunta impresa o desde su teléfono móvil. El código QR permitirá registrar su llegada. Lleve también el documento de identidad que vaya a usar para el pago.";
   const enlace = enlaceDocumentos(d.host);
   const wallet = d.wallet ?? null;
   const walletTexto = "Si usa Android, puede guardar su credencial en Google Wallet. En iPhone use el PDF adjunto.";
@@ -47,7 +47,7 @@ export function correoCredencial(d: DatosCorreo): { asunto: string; texto: strin
     saludo, adjunto, `SU ASIGNACIÓN\n${junta}\n${zona}\n${ubicacion}\n${DIRECCION}\nCómo llegar en Google Maps\n${MAPA}`,
     `${LIMITE_INGRESO}\n${llegada}`, horario, `Acceso al recinto\n${acceso}`,
     ...(wallet ? [`${walletTexto}\n${TEXTO_WALLET}\n${wallet}`] : []),
-    ...(enlace ? [`${documentos}\nFormulario de documentación\n${enlace}`] : []), "Atentamente,\n" + firma,
+    ...(enlace ? [`${DOCUMENTOS_PAGO}\nFormulario de documentación\n${enlace}`] : []), "Atentamente,\n" + firma,
   ].join("\n\n");
   const html = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${asunto}</title></head>
@@ -68,7 +68,7 @@ export function correoCredencial(d: DatosCorreo): { asunto: string; texto: strin
         <p style="margin:0 0 16px;padding:12px 14px;background-color:#eaf1f8;border-left:4px solid #12325a"><strong>Acceso al recinto</strong><br>${acceso}</p>
         ${wallet ? `<p style="margin:0 0 16px">${walletTexto}</p>
         <p style="margin:0 0 16px"><a href="${escapar(wallet)}" style="display:inline-block;padding:12px 20px;background-color:#000000;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:24px">${TEXTO_WALLET}</a></p>` : ""}
-        ${enlace ? `<p style="margin:0 0 16px">${documentos}<br><a style="color:#174c83" href="${escapar(enlace)}">Formulario de documentación</a></p>` : ""}
+        ${enlace ? `<p style="margin:0 0 16px">${DOCUMENTOS_PAGO}<br><a style="color:#174c83" href="${escapar(enlace)}">Formulario de documentación</a></p>` : ""}
         <p style="margin:0">Atentamente,<br>${firma}</p>
       </td></tr>
     </table>

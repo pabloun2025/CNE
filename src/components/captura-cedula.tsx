@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { normalizarNumeroPasaporte, type EstadoDocs, type LadoDocumento, type TipoDocumento } from "@/domain/documentos";
 
 const ID1 = 85.6 / 54;
+const PAGINA_PASAPORTE = 125 / 88;
 const MAX_PX = 1600;
+
+export type EstadoFotos = Omit<EstadoDocs, "completos">;
+export const ROTULO_FOTO = { anverso: "Anverso (la cara con su foto)", reverso: "Reverso (la otra cara)", pasaporte: "Página de datos del pasaporte (la página con su foto)" };
 
 function aBlob(origen: CanvasImageSource, x: number, y: number, ancho: number, alto: number): Promise<Blob | null> {
   const escala = Math.min(1, MAX_PX / Math.max(ancho, alto));
@@ -16,9 +21,11 @@ function aBlob(origen: CanvasImageSource, x: number, y: number, ancho: number, a
   return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
 }
 
-export function CapturaCedula({ rotulo, onUsar }: {
+export function CapturaCedula({ rotulo, onUsar, documento = "cedula", onVolver }: {
   rotulo: string;
   onUsar: (imagen: Blob) => boolean | void | Promise<boolean | void>;
+  documento?: TipoDocumento;
+  onVolver?: () => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const [sinCamara, setSinCamara] = useState(false);
@@ -67,8 +74,9 @@ export function CapturaCedula({ rotulo, onUsar }: {
   }, [previa]);
 
   const lista = dim.w > 0 && dim.h > 0;
-  const ancho = Math.min(dim.w, dim.h * ID1) * 0.92;
-  const alto = ancho / ID1;
+  const relacionDocumento = documento === "pasaporte" ? PAGINA_PASAPORTE : ID1;
+  const ancho = Math.min(dim.w, dim.h * relacionDocumento) * 0.92;
+  const alto = ancho / relacionDocumento;
   const x = (dim.w - ancho) / 2;
   const y = (dim.h - alto) / 2;
 
@@ -102,6 +110,7 @@ export function CapturaCedula({ rotulo, onUsar }: {
   const marco = (r: number) => ({ width: `min(100%, calc((100dvh - 14rem) * ${r}))`, maxHeight: "calc(100dvh - 14rem)" });
   return (
     <div className="flex flex-col gap-2">
+      {onVolver && <button type="button" disabled={ocupada} onClick={onVolver} className="secondary self-start border-2 border-stone-900 px-4 py-3">← Volver</button>}
       <p className="shrink-0 font-semibold">{rotulo}</p>
       {/* El vídeo sigue montado al previsualizar y al pasar a la otra cara. */}
       <div hidden={!!previa}>
@@ -134,7 +143,7 @@ export function CapturaCedula({ rotulo, onUsar }: {
       {previa && (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={previa.url} alt={`Vista previa del ${rotulo}`} className="mx-auto min-h-0 rounded border object-contain" style={marco(ID1)} />
+          <img src={previa.url} alt={`Vista previa · ${rotulo}`} className="mx-auto min-h-0 rounded border object-contain" style={marco(relacionDocumento)} />
           <div className="flex gap-3">
             <button type="button" disabled={ocupada} onClick={() => void usar()} className="flex-1 bg-green-800 px-4 py-4 text-lg text-white disabled:opacity-60">Usar esta foto</button>
             <button type="button" disabled={ocupada} onClick={() => setPrevia(null)} className="flex-1 border-2 border-stone-900 px-4 py-4 text-lg">Repetir</button>
@@ -142,6 +151,92 @@ export function CapturaCedula({ rotulo, onUsar }: {
         </>
       )}
       {error && <p role="alert" className="text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+export function ElegirDocumento({ onElegir }: { onElegir: (tipo: TipoDocumento) => void }) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="font-semibold">¿Qué documento va a fotografiar?</legend>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={() => onElegir("cedula")} className="border-2 border-stone-900 bg-stone-900 px-3 py-3 text-white">Cédula</button>
+        <button type="button" onClick={() => onElegir("pasaporte")} className="border-2 border-stone-900 bg-stone-900 px-3 py-3 text-white">Pasaporte</button>
+        <span className="text-center text-sm">Anverso y reverso</span>
+        <span className="text-center text-sm">Página de datos</span>
+      </div>
+    </fieldset>
+  );
+}
+
+export function AvisoCambioDocumento({ tipo, fotos }: { tipo: TipoDocumento; fotos: EstadoFotos }) {
+  if (tipo === "pasaporte" && (fotos.anverso || fotos.reverso)) {
+    return <p role="note" className="font-medium text-amber-900">Al guardar el pasaporte, reemplazará las fotos de la cédula.</p>;
+  }
+  if (tipo === "cedula" && fotos.pasaporte) {
+    return <p role="note" className="font-medium text-amber-900">Al guardar la primera foto de la cédula, reemplazará la foto del pasaporte.</p>;
+  }
+  return null;
+}
+
+export function PedirNumeroPasaporte({ inicial = "", onContinuar }: { inicial?: string; onContinuar: (numero: string) => void }) {
+  const [numero, setNumero] = useState(inicial);
+  const [error, setError] = useState("");
+  return (
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      const normalizado = normalizarNumeroPasaporte(numero);
+      if (normalizado) onContinuar(normalizado);
+      else setError("Escriba entre 5 y 20 caracteres. Use letras, números o guiones y empiece por una letra o un número.");
+    }} className="space-y-2">
+      <label className="block font-medium">Número de pasaporte
+        <input value={numero} onChange={(e) => { setNumero(e.target.value); setError(""); }} autoComplete="off" autoCapitalize="characters" spellCheck={false}
+          required aria-invalid={!!error}
+          className="mt-1 w-full rounded border border-slate-400 px-3 py-3" />
+      </label>
+      {error && <p role="alert" className="text-red-700">{error}</p>}
+      <button type="submit" className="w-full bg-stone-900 px-4 py-3 text-white">Continuar</button>
+    </form>
+  );
+}
+
+export function CapturaDocumentosPuesto({ fotos, onUsar, seguirConReverso = false }: {
+  fotos: EstadoFotos;
+  onUsar: (lado: LadoDocumento, imagen: Blob, numeroPasaporte?: string) => Promise<boolean>;
+  seguirConReverso?: boolean;
+}) {
+  const [tipo, setTipo] = useState<TipoDocumento | null>(null);
+  const [lado, setLado] = useState<LadoDocumento | null>(null);
+  const [numeroPasaporte, setNumeroPasaporte] = useState("");
+
+  if (!tipo) return <ElegirDocumento onElegir={setTipo} />;
+
+  return (
+    <div className="space-y-2">
+      <AvisoCambioDocumento tipo={tipo} fotos={fotos} />
+      {lado ? (
+        <CapturaCedula rotulo={ROTULO_FOTO[lado]} documento={tipo} onVolver={() => setLado(null)} onUsar={async (imagen) => {
+          const guardada = await onUsar(lado, imagen, lado === "pasaporte" ? numeroPasaporte : undefined);
+          if (guardada) {
+            setLado(seguirConReverso && lado === "anverso" && !fotos.reverso ? "reverso" : null);
+            if (lado === "pasaporte") setTipo(null);
+          }
+          return guardada;
+        }} />
+      ) : (
+        <>
+          <button type="button" onClick={() => setTipo(null)} className="secondary border-2 border-stone-900 px-4 py-3">Cambiar tipo de documento</button>
+          {tipo === "pasaporte" ? (
+            <PedirNumeroPasaporte inicial={numeroPasaporte} onContinuar={(numero) => { setNumeroPasaporte(numero); setLado("pasaporte"); }} />
+          ) : (
+            <div className="grid gap-2">
+              {(["anverso", "reverso"] as const).map((cara) => (
+                <button key={cara} type="button" onClick={() => setLado(cara)} className="bg-stone-900 px-4 py-3 text-white">{fotos[cara] ? "Sustituir" : "Fotografiar"} {cara}</button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

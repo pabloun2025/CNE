@@ -13,11 +13,12 @@ export type DatosActa = {
   emitidaEn: Date;
   persona: {
     apellidos: string; nombres: string; cedula: string; cargo: string; juntaVigente: string;
+    tipoDocumento?: "cedula" | "pasaporte";
     zona?: string | null; telefono?: string | null; correo?: string | null;
   };
   importe: { usd: string | null; eur: string | null; cambio?: string | null };
   pagador: { nombre: string; cargo: string } | null;
-  anexo?: { anverso?: Buffer; reverso?: Buffer };
+  anexo?: { anverso?: Buffer; reverso?: Buffer; pasaporte?: Buffer };
   reconstruido?: boolean;
   contingencia?: boolean;
   firmaReceptor?: Buffer;
@@ -147,11 +148,14 @@ async function actaOficial(d: DatosActa): Promise<Uint8Array> {
   trazo(izquierda + 8, 218, centro - 8, 218, true);
   trazo(centro + 8, 218, derecha - 8, 218, true);
 
-  for (const [titulo, x, archivo] of [
+  const anchoMarco = mitad - 6;
+  const fotos = d.persona.tipoDocumento === "pasaporte" ? [
+    ["PÁGINA DE DATOS DEL PASAPORTE", centro - anchoMarco / 2, d.anexo?.pasaporte],
+  ] as const : [
     ["ANVERSO DE LA CÉDULA", izquierda, d.anexo?.anverso],
     ["REVERSO DE LA CÉDULA", centro + 6, d.anexo?.reverso],
-  ] as const) {
-    const anchoMarco = mitad - 6;
+  ] as const;
+  for (const [titulo, x, archivo] of fotos) {
     texto(titulo, x, 188, anchoMarco, { font: bold, alineacion: "centro" });
     page.drawRectangle({ x, y: 40, width: anchoMarco, height: 139, borderWidth: 0.6, borderColor: negro });
     if (archivo) {
@@ -246,10 +250,11 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
   y -= hCampo + 5 * MM;
 
   seccion("DATOS DEL MIEMBRO DE JUNTA");
+  const esPasaporte = d.persona.tipoDocumento === "pasaporte";
   const filas: [string, string, boolean][] = [
     ["APELLIDOS", d.persona.apellidos, true],
     ["NOMBRES", d.persona.nombres, true],
-    ["CÉDULA DE IDENTIDAD", d.persona.cedula, true],
+    [esPasaporte ? "PASAPORTE" : "CÉDULA DE IDENTIDAD", d.persona.cedula, true],
     ["JUNTA RECEPTORA DEL VOTO", d.persona.juntaVigente, true],
     ["FUNCIÓN EN LA JUNTA", d.persona.cargo, false],
   ];
@@ -305,7 +310,7 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
   const pag = d.pagador ?? { nombre: "(pendiente)", cargo: "" };
   const firmas: [string, string, string][] = [
     [pag.nombre, pag.cargo, "Firma de quien entrega el pago"],
-    [`${d.persona.nombres} ${d.persona.apellidos}`, `C. I. ${d.persona.cedula}`, "Firma de quien recibe el pago"],
+    [`${d.persona.nombres} ${d.persona.apellidos}`, `${esPasaporte ? "Pasaporte" : "C. I."} ${d.persona.cedula}`, "Firma de quien recibe el pago"],
   ];
   const anchoFirma = (ancho - 12 * MM) / 2;
   const centrado = (texto: string, x: number, yy: number, f: PDFFont, size: number) => {
@@ -326,10 +331,13 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
     centrado(f[2], x, y - (f[1] ? 40 : 28), normal, 9);
   });
 
-  const { anverso, reverso } = d.anexo ?? {};
-  pie(p1, "El recibo se firma tras la entrega física del efectivo. Su impresión no equivale a pago confirmado en el sistema. El registro electrónico del desembolso se realiza después de la entrega.", anverso && reverso ? "Pág. 1 / 2" : d.reconstruido ? "Copia reconstruida" : "Pág. 1 / 1");
+  const { anverso, reverso, pasaporte } = d.anexo ?? {};
+  const fotos = esPasaporte
+    ? pasaporte ? [["PÁGINA DE DATOS DEL PASAPORTE", pasaporte]] as const : []
+    : anverso && reverso ? [["ANVERSO · CÉDULA DE IDENTIDAD", anverso], ["REVERSO · CÉDULA DE IDENTIDAD", reverso]] as const : [];
+  pie(p1, "El recibo se firma tras la entrega física del efectivo. Su impresión no equivale a pago confirmado en el sistema. El registro electrónico del desembolso se realiza después de la entrega.", fotos.length ? "Pág. 1 / 2" : d.reconstruido ? "Copia reconstruida" : "Pág. 1 / 1");
   marcaDeAgua(p1, bold, d.prueba);
-  if (!anverso || !reverso) return pdf.save();
+  if (!fotos.length) return pdf.save();
 
   const p2 = pdf.addPage([W, H]);
   let y2 = encabezado(p2, ["CONSULADO GENERAL DEL", "ECUADOR EN MADRID", "Anexo de identidad · Jornada 2026"]);
@@ -338,12 +346,12 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
   y2 -= 18;
   p2.drawText("ANEXO — DOCUMENTO DE IDENTIDAD", { x: ML, y: y2, size: 16, font: bold, color: marino });
   y2 -= 16;
-  const intro = partir(`Anverso y reverso de la cédula vinculada a la ficha del MJRV y al comprobante ${d.numero}.`, normal, 9.5, ancho);
+  const intro = partir(`${esPasaporte ? "Página de datos del pasaporte vinculado" : "Anverso y reverso de la cédula vinculada"} a la ficha del MJRV y al comprobante ${d.numero}.`, normal, 9.5, ancho);
   intro.forEach((l) => { p2.drawText(latin(l), { x: ML, y: y2, size: 9.5, font: normal, color: suave }); y2 -= 12; });
   y2 -= 6 * MM;
 
   const altoImg = 58 * MM;
-  for (const [rotulo, buf] of [["ANVERSO · CÉDULA DE IDENTIDAD", anverso], ["REVERSO · CÉDULA DE IDENTIDAD", reverso]] as const) {
+  for (const [rotulo, buf] of fotos) {
     const altoPanel = 8 * MM + altoImg;
     p2.drawRectangle({ x: ML, y: y2 - altoPanel, width: ancho, height: altoPanel, borderColor: linea, borderWidth: 0.8 });
     p2.drawRectangle({ x: ML, y: y2 - 8 * MM, width: ancho, height: 8 * MM, color: fondo });
@@ -355,7 +363,7 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
     y2 -= altoPanel + 4 * MM;
   }
 
-  const ref = `MJRV: ${d.persona.nombres} ${d.persona.apellidos}  |  C. I.: ${d.persona.cedula}  |  JRV: ${d.persona.juntaVigente}`;
+  const ref = `MJRV: ${d.persona.nombres} ${d.persona.apellidos}  |  ${esPasaporte ? "Pasaporte" : "C. I."}: ${d.persona.cedula}  |  JRV: ${d.persona.juntaVigente}`;
   const refLineas = partir(ref, normal, 9, ancho - 16);
   const hRef = 6 * MM + refLineas.length * 12;
   p2.drawRectangle({ x: ML, y: y2 - hRef, width: 3, height: hRef, color: amarillo });

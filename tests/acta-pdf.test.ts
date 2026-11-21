@@ -15,9 +15,9 @@ const datos = {
   pagador: { nombre: "PAGADOR PRUEBA", cargo: "CARGO PRUEBA" },
 };
 
-async function leerRecibo(bytes: Uint8Array) {
+async function leerRecibo(bytes: Uint8Array, paginaN = 0) {
   const documento = await PDFDocument.load(bytes);
-  const pagina = documento.getPage(0);
+  const pagina = documento.getPage(paginaN);
   const contenido = pagina.node.Contents();
   const flujo = contenido instanceof PDFArray ? contenido.lookup(0, PDFRawStream) : contenido;
   if (!(flujo instanceof PDFRawStream)) throw new Error("Falta el contenido del recibo");
@@ -67,6 +67,21 @@ describe("PDF del recibo oficial de pago", () => {
     expect(anchosImagenes).toHaveLength(1); // Solo el logotipo.
   });
 
+  it("imprime el número de pasaporte y una sola imagen de su página de datos en el FO-04", async () => {
+    const pasaporte = await sharp({ create: { width: 1000, height: 700, channels: 3, background: "#add8dc" } }).jpeg().toBuffer();
+    const persona = { ...datos.persona, cedula: "TEST0001", tipoDocumento: "pasaporte" as const };
+    const { documento, pagina, texto, anchosImagenes } = await leerRecibo(await actaPago({ ...datos, persona, anexo: { pasaporte } }));
+
+    expect(documento.getPageCount()).toBe(1);
+    expect(pagina.getWidth()).toBeCloseTo((297 * 72) / 25.4);
+    expect(pagina.getHeight()).toBeCloseTo((210 * 72) / 25.4);
+    expect(texto).toContain("cédula o pasaporte Nro. TEST0001");
+    expect(texto).toContain("PÁGINA DE DATOS DEL PASAPORTE");
+    expect(texto).not.toMatch(/ANVERSO|REVERSO/);
+    expect(anchosImagenes).toHaveLength(2); // Logotipo y página de datos.
+    expect(anchosImagenes).toContain(1000);
+  });
+
   it.each([
     { caso: "la emisión original", opciones: {} },
     { caso: "la reimpresión", opciones: { impresionN: 2 } },
@@ -107,5 +122,19 @@ describe("PDF del recibo oficial de pago", () => {
     expect(texto).toContain("USD 127.25");
     expect(texto).toContain("EUR 55.00");
     expect(anchosImagenes).toHaveLength(1);
+  });
+
+  it("identifica el pasaporte también en una reimpresión del formato anterior", async () => {
+    const pasaporte = await sharp({ create: { width: 1000, height: 700, channels: 3, background: "#add8dc" } }).jpeg().toBuffer();
+    const persona = { ...datos.persona, cedula: "TEST0001", tipoDocumento: "pasaporte" as const };
+    const pdf = await actaPago({ ...datos, numero: "MAD-001234", ordinalRecibo: null, persona, anexo: { pasaporte } });
+
+    const { documento, texto } = await leerRecibo(pdf);
+    expect(documento.getPageCount()).toBe(2);
+    expect(texto).toContain("PASAPORTE\nTEST0001");
+    expect(texto).toContain("MAD-001234");
+    const anexo = await leerRecibo(pdf, 1);
+    expect(anexo.texto).toContain("PÁGINA DE DATOS DEL PASAPORTE");
+    expect(anexo.anchosImagenes).toContain(1000);
   });
 });

@@ -41,7 +41,7 @@ export function PanelFinanciero() {
     const f = new FormData();
     f.set("id", String(id));
     const r = await validarCedulaAccion(f);
-    setAviso(r.ok ? "Cédula validada." : r.mensaje ?? "No se pudo validar.");
+    setAviso(r.ok ? "Documento validado." : r.mensaje ?? "No se pudo validar.");
     setOcupado(false);
     refrescar();
   };
@@ -50,17 +50,17 @@ export function PanelFinanciero() {
       {datos.pagosSinImporteEur > 0 && <p role="status">Pagos confirmados sin importe EUR registrado: {datos.pagosSinImporteEur}. El total solo incluye importes conocidos.</p>}
       {datos.modoPrueba && <p className="border-2 border-stone-900 bg-stone-100 p-2 text-sm font-semibold">Modo prueba: los pagos y los importes son simulados.</p>}
       <div className="home-cards">
-        {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Sin cédula validada", datos.sinCedulaValidada], ["Total entregado EUR", datos.totalEur]].map(([t, v]) => (
+        {[["Pagados", datos.pagados], ["Pendientes", datos.pendientes], ["Documentación incompleta", datos.documentacionIncompleta], ["Sin documento validado", datos.sinCedulaValidada], ["Total entregado EUR", datos.totalEur]].map(([t, v]) => (
           <article key={String(t)} className="home-card stat"><h3>{t}</h3><p className="stat-figure">{v}</p></article>
         ))}
       </div>
       <p className={`text-xs ${falla ? "font-bold text-red-700" : "text-slate-600"}`}>{falla ? `Sin actualizar desde ${ultima ? horaCorta(ultima) : "—"}` : `Actualizado ${ultima ? horaCorta(ultima) : ""}`}</p>
       <div className="flex flex-wrap gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Apellidos o cédula" aria-label="Apellidos o cédula" className="px-2 py-2" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Apellidos o número registrado" aria-label="Apellidos o número registrado" className="min-w-0 max-w-full px-2 py-2" />
         <select value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Estado" className="px-2 py-2">
           <option value="">Todos los estados</option>{Object.entries(ESTADO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <label className="flex items-center gap-2 px-2 py-2 text-sm font-medium"><input type="checkbox" checked={soloSinValidar} onChange={(e) => setSoloSinValidar(e.target.checked)} /> Solo sin cédula validada</label>
+        <label className="flex items-center gap-2 px-2 py-2 text-sm font-medium"><input type="checkbox" checked={soloSinValidar} onChange={(e) => setSoloSinValidar(e.target.checked)} /> Solo sin documento validado</label>
       </div>
       {aviso && <p role="status" className="font-semibold">{aviso}</p>}
       {!!elegibles.length && (
@@ -114,10 +114,10 @@ function PersonaFila({ f, editando, apellidos, nombres, ocupado, onApellidos, on
         <>
           <div>{f.nombre}</div>
           <div className="text-slate-600">{f.cedula}</div>
-          <p className={f.cedulaValidada ? "text-green-800" : "font-semibold text-red-700"}>{f.cedulaValidada ? "Cédula validada" : f.fotosCompletas ? "Cédula sin validar" : "Cédula sin validar · faltan fotos"}</p>
+          <p className={f.cedulaValidada ? "text-green-800" : "font-semibold text-red-700"}>{f.cedulaValidada ? "Documento validado" : f.fotosCompletas ? "Documento sin validar" : "Documento sin validar · faltan fotos"}</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={onEditar} className="border border-stone-900 px-2 py-1">Corregir nombre</button>
-            {!f.cedulaValidada && <button type="button" disabled={ocupado || !f.fotosCompletas} onClick={onValidar} className="border border-stone-900 px-2 py-1 disabled:opacity-50">Validar cédula</button>}
+            {!f.cedulaValidada && <button type="button" disabled={ocupado || !f.fotosCompletas} onClick={onValidar} className="border border-stone-900 px-2 py-1 disabled:opacity-50">Validar documento</button>}
           </div>
         </>
       )}

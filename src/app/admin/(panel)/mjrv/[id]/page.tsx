@@ -30,7 +30,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
       </div>
 
       <section className="grid gap-1 text-sm sm:grid-cols-2">
-        <p><strong>Cédula:</strong> {m.cedula}</p>
+        <p><strong>Número registrado:</strong> {m.cedula}</p>
         <p><strong>Cargo original:</strong> {m.cargo_original} (rol: {m.rol})</p>
         <p><strong>Junta de origen:</strong> {m.origen}</p>
         <p><strong>Junta vigente:</strong> {m.vigente}{m.vigente !== m.origen ? " (trasladado)" : ""}</p>
@@ -38,19 +38,20 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
         <p><strong>Credencial preparada:</strong> {hora(m.credencial_generada_en)}</p>
         <p><strong>Contacto:</strong> {[m.correo, m.telefono_e164].filter(Boolean).join(" · ") || "sin datos"}</p>
         <p><strong>Llegada:</strong> {m.incorporado_en ? `${hora(m.incorporado_en)} (incorporada)` : m.ingreso_en ? hora(m.ingreso_en) : "no registrada"}</p>
-        <p><strong>Documentos:</strong> {m.anverso && m.reverso ? "completos" : `faltan ${[!m.anverso && "anverso", !m.reverso && "reverso"].filter(Boolean).join(" y ")}`}</p>
+        <p><strong>Documento:</strong> {m.pasaporte ? "página de datos del pasaporte guardada" : m.anverso && m.reverso ? "ambas caras de la cédula guardadas" : m.anverso ? "falta el reverso de la cédula" : m.reverso ? "falta el anverso de la cédula" : "sin fotos"}</p>
         <p><strong>Actas generadas:</strong> {m.actas}</p>
         <p className="sm:col-span-2"><strong>Pago:</strong> {m.pago ? `Pagado el ${hora(m.pago.en)} por ${m.pago.operador}: ${m.pago.importe_eur ? `${m.pago.importe_eur} EUR` : "importe EUR no registrado"}` : "sin pago confirmado"}</p>
       </section>
 
-      {(m.anverso || m.reverso) && (
+      {(m.anverso || m.reverso || m.pasaporte) && (
         <section>
-          <h2 className="font-semibold">Fotos de la cédula</h2>
+          <h2 className="font-semibold">Fotos del documento</h2>
+          {m.numeroPasaporte && <p>Número de pasaporte <strong>{m.numeroPasaporte}</strong></p>}
           <div className="mt-1 flex flex-wrap gap-3">
-            {(["anverso", "reverso"] as const).filter((l) => m[l]).map((l) => (
+            {(["anverso", "reverso", "pasaporte"] as const).filter((l) => m[l]).map((l) => (
               <a key={l} href={`/api/admin/documentos/${m.id}/${l}`} target="_blank" rel="noreferrer">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/api/admin/documentos/${m.id}/${l}`} alt={`Miniatura del ${l}`} width={160} className="rounded border" />
+                <img src={`/api/admin/documentos/${m.id}/${l}`} alt={l === "pasaporte" ? "Página de datos del pasaporte" : `Cédula · ${l}`} width={160} className="rounded border" />
               </a>
             ))}
           </div>

@@ -2,14 +2,14 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 21-11-2026.** Consulte la [sección 20](#20-formulario-fijo-y-guía-a4) para la guía y el formulario de cédula, la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales y la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio.
+**Último estado, 21-11-2026.** Consulte la [sección 21](#21-cédula-o-pasaporte-para-el-pago) para la captura y la guía, la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales y la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio.
 
 ## 1. Qué es y qué alcance tiene hoy
 
 - Repositorio privado `pabloun2025/CNE`. Rama de trabajo `claude/optimistic-wozniak-ksg62y`; **producción se publica solo desde `main`** (Pablo autorizó trabajar sobre `main`).
 - **Alcance vigente: solo el sistema operativo de Madrid** (miembros de las juntas receptoras del voto, MJRV) para la jornada del **29-11-2026** en la Caja Mágica (95 juntas: H 1–41, M 1–54, seis zonas de color).
 - **Fuera de alcance por decisión de Pablo (18-11):** el portal de reporte consular y el tablero DGSMH **no se construyen**. Sus documentos de diseño (00–06) quedan como referencia; la maqueta estática del tablero sigue en `maqueta/` y en https://tablero-dgsmh.onrender.com (Render, sitio estático gratuito).
-- Las tres funciones principales del sistema (así lo presenta Pablo): **el QR de la credencial sirve para armar las juntas**, **la foto de la cédula sirve para el comprobante de pago**, y **el pago es ordenado y seguro** (nadie cobra dos veces).
+- Las tres funciones principales del sistema (así lo presenta Pablo): **el QR de la credencial sirve para armar las juntas**, **las fotos de la cédula o del pasaporte sirven para el comprobante de pago**, y **el pago es ordenado y seguro** (nadie cobra dos veces).
 
 ## 2. Orden de lectura
 
@@ -255,3 +255,12 @@ Pantallas tocadas:
 - Cónsul y Superadministración pueden abrir la guía A4 desde Documentos de identidad o Configuración. La guía explica cómo fotografiar las dos caras y cómo firmar el recibo impreso y cobrar en Caja. Incluye el QR, el enlace en texto y los importes según la emisión de los recibos. [Guía A4 en CNE](https://madrid.consulado.app/admin/documentos/cartel)
 - Pasaron 1.116 pruebas, TypeScript y la compilación. En Chromium a 375 px se completó la carga de las dos caras con una ficha ficticia y el ajuste antiguo desactivado. Se verificaron la página A4 y la lectura del QR desde la guía en blanco y negro.
 - Oracle publicó `4da3625`. La base respondió correctamente y `/d` abrió sin iniciar sesión. Recordatorio respondió tras el despliegue. [CI](https://github.com/pabloun2025/CNE/actions/runs/44911307858) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44911308043) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44911574121)
+
+## 21. Cédula o pasaporte para el pago
+
+- En `/d`, la persona busca su ficha por el número registrado en el padrón, confirma sus iniciales y junta y elige el documento antes de abrir la cámara. La cédula requiere anverso y reverso. El pasaporte requiere su número y una sola foto de la página con los datos y el retrato. Si el número del pasaporte difiere del número de la ficha, se registra aparte para el recibo. [Formulario público](https://madrid.consulado.app/d)
+- Documentación y Finanzas ofrecen la misma elección. Las fotos se cifran y las vistas previas requieren una cuenta autorizada. Cambiar de documento sustituye las fotos del otro tipo en el modo activo y obliga a revisar la identidad otra vez. El FO-04 sigue en una sola hoja A4 horizontal y lleva el anexo del documento elegido.
+- Si cambia el documento de un recibo pendiente, Caja espera a que Revisión valide la identidad y reimprima. La reimpresión conserva el número, el importe y la fecha. Si el recibo ya está firmado o pagado, se conserva el PDF archivado.
+- El PDF de la guía, el correo institucional y WhatsApp explican las dos opciones. La guía conserva el QR de acceso y los importes de 58,82 € para los primeros 190 recibos y 58,83 € para los siguientes 95. [Guía A4 en CNE](https://madrid.consulado.app/admin/documentos/cartel)
+- En Chromium a 375 px se completaron ambas opciones del formulario público y el envío desde Documentación con fichas ficticias. En escritorio se verificaron la vista previa privada, la validación y descarga del FO-04. Tras sustituir el pasaporte, Caja pidió reimprimir y habilitó el siguiente paso con el mismo número de recibo.
+- Pasaron 1.122 pruebas, TypeScript y la compilación de producción. ESLint informó cero errores y la advertencia previa de Unslop. Se revisaron visualmente la guía y el recibo ficticio y se leyó el QR desde la guía renderizada.

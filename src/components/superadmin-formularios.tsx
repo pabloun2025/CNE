@@ -106,7 +106,7 @@ export function FormReiniciarOperativo({ resumen, revision, conserva }: { resume
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold text-red-800">Borrado irreversible de TODO el operativo, tanto en modo prueba como en modo elección.</p>
-      <p className="text-sm">Se eliminarán las fichas MJRV importadas desde Excel y las de demostración, sus ingresos, movimientos, fotografías de cédula, recibos, pagos, firmas, revocaciones y el historial y la cola de envíos de credenciales. No se crea ninguna copia de seguridad.</p>
+      <p className="text-sm">Se eliminarán las fichas MJRV importadas desde Excel y las de demostración, sus ingresos, movimientos, fotos de documentos de identidad, recibos, pagos, firmas, revocaciones y el historial y la cola de envíos de credenciales. No se crea ninguna copia de seguridad.</p>
       <p className="text-sm font-medium">Registros operativos que se eliminarán en ambos modos <strong>({resumen.reduce((total, fila) => total + fila.n, 0)})</strong></p>
       <ul className="list-disc pl-5 text-sm">{resumen.map((r) => <li key={r.etiqueta}>{r.etiqueta}: <strong>{r.n}</strong></li>)}</ul>
       <p className="text-sm font-medium">Se conservan:</p>
@@ -168,7 +168,7 @@ export function FormBorrarFotos({ fotos, personas, sinPago }: { fotos: number; p
       <p className="text-sm font-medium text-red-800">Borrar es definitivo: finanzas volverá a pedir las fotos. Las copias de seguridad diarias guardan las fotos cifradas hasta 14 días.</p>
       <form action={enviar} className="max-w-sm space-y-3">
         <label className="block text-sm font-medium">Para confirmar escriba «BORRAR FOTOS»<input name="confirmacion" autoComplete="off" required className={campo} /></label>
-        <button disabled={pendiente || fotos === 0} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar todas las fotos de cédula</button>
+        <button disabled={pendiente || fotos === 0} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar todas las fotos de documentos</button>
       </form>
       <Resultado estado={estado} />
     </div>

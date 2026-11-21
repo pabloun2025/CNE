@@ -103,7 +103,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
     expect(t).toContain("Buen día, NOMBRE PRUEBA.");
     expect(t).toContain("(H01)");
     expect(t).toContain("comprobante de pago");
-    expect(t).toContain("anverso y reverso");
+    expect(t).toMatch(/número registrado.*credencial.*un solo documento.*cédula.*anverso y reverso.*pasaporte.*número.*página de datos/);
     expect(t.endsWith("https://madrid.ejemplo.invalid/d")).toBe(true);
   });
   it("tolera https:// y barras en el host; sin host no inventa ningún enlace", () => {
@@ -144,7 +144,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
       expect(cuerpo).toContain("09:00 a 19:00");
       expect(cuerpo).toContain("escrutinio");
       expect(cuerpo).toContain("código QR");
-      expect(cuerpo).toContain("cédula de identidad");
+      expect(cuerpo).toContain("Lleve también el documento de identidad que vaya a usar para el pago.");
       expect(cuerpo).not.toContain("antes de las 08:30");
       expect(cuerpo).toContain(`${serie}${numero}`);
       expect(cuerpo).toContain(color);
@@ -159,7 +159,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
     for (const cuerpo of [correo.texto, correo.html]) {
       expect(cuerpo).toContain("Formulario de documentación");
       expect(cuerpo).toContain("https://madrid.consulado.app/d");
-      expect(cuerpo).toContain("cargue las fotografías del anverso y reverso");
+      expect(cuerpo).toMatch(/número registrado.*credencial.*un solo documento.*cédula.*anverso y reverso.*pasaporte.*número.*página de datos/);
     }
   });
 
@@ -177,8 +177,8 @@ describe("D08 · texto del mensaje de la credencial", () => {
       expect(html).toContain('href="https://madrid.ejemplo.invalid/d"');
       expect(texto).toContain("H1");
       expect(texto).toContain("Amarillo");
-      expect(texto).toContain("cargue las fotografías del anverso y reverso");
-      expect(html).toContain("cargue las fotografías del anverso y reverso");
+      expect(texto).toContain("página de datos");
+      expect(html).toContain("página de datos");
     } finally {
       if (antes === undefined) delete process.env.HOST_MADRID; else process.env.HOST_MADRID = antes;
     }

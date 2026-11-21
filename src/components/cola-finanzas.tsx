@@ -51,13 +51,13 @@ export function ColaFinanzas({ caja = false }: { caja?: boolean }) {
                 <div className="min-w-0">
                   <Link href={{ pathname: caja ? "/admin/finanzas/caja" : "/admin/finanzas/pagar", query: { cedula: f.cedula } }}
                     onClick={() => setCedulaAbierta(f.cedula)} aria-current={cedulaAbierta === f.cedula ? "true" : undefined}>{f.nombre}</Link>
-                  <p className="text-sm">{f.junta} · {f.cedula}{!caja && (f.documentado ? " · Cédula validada" : " · Cédula pendiente")}</p>
+                  <p className="text-sm">{f.junta} · {f.cedula}{!caja && (f.documentado ? " · Documento validado" : " · Documento pendiente")}</p>
                 </div>
               </li>
             ))}
           </ul>
           {!filas.length && <p>El filtro no tiene coincidencias.</p>}
-          {caja && <label className="flex items-center gap-2"><input type="checkbox" name="anexo" value="1" /> Incluir fotos de la cédula</label>}
+          {caja && <label className="flex items-center gap-2"><input type="checkbox" name="anexo" value="1" /> Incluir fotos del documento de identidad</label>}
           <button disabled={!seleccionadas.length || falla}>{caja
             ? `Descargar ${seleccionadas.length > 1 ? "ZIP" : "PDF"}`
             : "Imprimir en contingencia"}</button>

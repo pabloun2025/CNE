@@ -5,7 +5,7 @@ import { POST as buscar } from "@/app/api/d/buscar/route";
 import { POST as foto } from "@/app/api/d/foto/route";
 import { closePools } from "@/server/db";
 import type { Sesion } from "@/server/auth";
-import { borrarTodasLasFotos, buscarPorCedula, estadoDocumentos, guardarDocumento, leerDocumento, LIMITE_PUBLICO, resumenFotos } from "@/server/documentos";
+import { borrarTodasLasFotos, buscarPorCedula, documentosParaRecibo, estadoDocumentos, guardarDocumento, leerDocumento, LIMITE_PUBLICO, resumenFotos } from "@/server/documentos";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 // Foto ficticia de ruido: pesa lo bastante y cada una es distinta.
@@ -14,7 +14,14 @@ async function imagen(ancho = 1000, alto = 650): Promise<Buffer> {
 }
 const peticion = (url: string, cuerpo: BodyInit, ip = "203.0.113.1", json = false) =>
   new Request(`http://localhost${url}`, { method: "POST", body: cuerpo, headers: { "cf-connecting-ip": ip, ...(json ? { "content-type": "application/json" } : {}) } });
-const formulario = (lado: string, cedula: string, img: Buffer) => { const f = new FormData(); f.set("lado", lado); f.set("cedula", cedula); f.set("imagen", new File([new Uint8Array(img)], "x.jpg", { type: "image/jpeg" })); return f; };
+function formulario(lado: string, cedula: string, img: Buffer, numeroPasaporte?: string) {
+  const f = new FormData();
+  f.set("lado", lado);
+  f.set("cedula", cedula);
+  f.set("imagen", new File([new Uint8Array(img)], "x.jpg", { type: "image/jpeg" }));
+  if (numeroPasaporte !== undefined) f.set("numeroPasaporte", numeroPasaporte);
+  return f;
+}
 
 let id: number;
 let original: Buffer;
@@ -101,5 +108,41 @@ describe("documentos de identidad", () => {
       expect(await estadoDocumentos(id)).toMatchObject({ anverso: false, reverso: false, completos: false });
       expect(await resumenFotos()).toMatchObject({ fotos: 0, personas: 0 });
     });
+  });
+
+  it("al elegir pasaporte pide el número, completa con una página y sustituye únicamente las fotos del modo actual", async () => {
+    const subir = (datos: FormData) => foto(peticion("/api/d/foto", datos, "203.0.113.52"));
+    const cedula = "0000000002";
+    const [{ id: ficha }] = await consultarDueno<{ id: number }>(
+      `INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+       SELECT $1, 'APELLIDO PRUEBA 002', 'NOMBRE PRUEBA', 'VOCAL', 'vocal', id FROM cne.juntas_madrid WHERE serie = 'H' AND numero = 12
+       RETURNING id`, [cedula]);
+    await consultarDueno(
+      `INSERT INTO cne.documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, bytes, ancho, alto, sha256, origen, es_prueba)
+       VALUES ($1, 'anverso', decode('00', 'hex'), decode('00', 'hex'), 30000, 10, 10, decode(md5('foto ficticia'), 'hex'), 'estacion', false)`, [ficha]);
+    const anverso = await imagen();
+    const pagina = await imagen();
+    await guardarDocumento({ mjrvId: ficha, lado: "anverso", imagen: anverso, origen: "estacion" });
+    expect((await subir(formulario("pasaporte", cedula, pagina))).status).toBe(400);
+    expect((await subir(formulario("pasaporte", cedula, pagina, "P 1"))).status).toBe(400);
+    expect(await estadoDocumentos(ficha)).toEqual({ anverso: true, reverso: false, completos: false });
+
+    const r = await subir(formulario("pasaporte", cedula, pagina, "  prueba025  "));
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: true, anverso: false, reverso: false, pasaporte: true, completos: true });
+    const consulta = await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula }), "203.0.113.52", true));
+    expect(await consulta.json()).toEqual({ encontrada: true, iniciales: "N. A.", junta: "H12", anverso: false, reverso: false, pasaporte: true });
+    expect(await buscarPorCedula("PRUEBA025")).toBeNull();
+    const doc = await documentosParaRecibo(ficha);
+    expect(doc).toEqual({ numeroPasaporte: "PRUEBA025", anexo: { pasaporte: await leerDocumento(ficha, "pasaporte") } });
+    expect(doc.anexo?.pasaporte?.subarray(0, 3).toString("hex")).toBe("ffd8ff");
+    expect(await consultarDueno("SELECT lado, es_prueba FROM cne.documentos_mjrv WHERE mjrv_id = $1 ORDER BY es_prueba", [ficha])).toEqual([
+      { lado: "anverso", es_prueba: false }, { lado: "pasaporte", es_prueba: true },
+    ]);
+
+    expect((await subir(formulario("anverso", cedula, anverso))).status).toBe(200);
+    expect(await estadoDocumentos(ficha)).toEqual({ anverso: true, reverso: false, completos: false });
+    expect(await leerDocumento(ficha, "pasaporte")).toBeNull();
+    expect((await documentosParaRecibo(ficha)).numeroPasaporte).toBeUndefined();
   });
 });

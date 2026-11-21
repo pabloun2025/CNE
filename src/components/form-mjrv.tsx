@@ -21,7 +21,7 @@ export function FormMjrv({ id, inicial }: { id?: number; inicial?: DatosMjrv }) 
   return (
     <form action={enviar} className="grid max-w-xl gap-3">
       {id && <input type="hidden" name="id" value={id} />}
-      <label className="text-sm font-medium">Cédula
+      <label className="text-sm font-medium">Número de cédula o pasaporte
         <input name="cedula" defaultValue={v?.cedula} required minLength={CEDULA_MIN} maxLength={CEDULA_MAX} pattern="[0-9A-Za-z-]{5,20}" className={campo} />
       </label>
       <label className="text-sm font-medium">Apellidos<input name="apellidos" defaultValue={v?.apellidos} required className={campo} /></label>

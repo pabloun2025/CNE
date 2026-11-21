@@ -16,8 +16,8 @@ export async function resumenAdmin(): Promise<ResumenAdmin> {
     estadoMando(),
     resumenCredenciales(),
     query<{ completos: number; incompletos: number }>(
-      `SELECT count(*) FILTER (WHERE d.n = 2)::int AS completos, count(*) FILTER (WHERE d.n < 2)::int AS incompletos
-         FROM mjrv m CROSS JOIN LATERAL (SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = m.id) d WHERE m.activo`),
+      `SELECT count(d.mjrv_id)::int AS completos, count(*) FILTER (WHERE d.mjrv_id IS NULL)::int AS incompletos
+         FROM mjrv m LEFT JOIN v_documentos_completos d ON d.mjrv_id = m.id WHERE m.activo`),
     query<{ n: number; sin_importe: number; total: string }>(
       "SELECT count(*)::int AS n, count(*) FILTER (WHERE importe_eur IS NULL)::int AS sin_importe, coalesce(sum(importe_eur), 0)::text AS total FROM pagos_confirmados"),
     leerModo(),

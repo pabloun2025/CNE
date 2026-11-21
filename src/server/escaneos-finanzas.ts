@@ -41,7 +41,8 @@ export async function listarEscaneadosFinanzas(caja: boolean) {
                coalesce(e.creado_en, a.creado_en) AS "escaneadoEn", a.id AS "actaId",
                a.id IS NOT NULL AS emitido, false AS pagado,
                EXISTS (SELECT 1 FROM v_cedulas_validadas v WHERE v.mjrv_id = m.id)
-                 AND (SELECT count(*) FROM documentos_mjrv d WHERE d.mjrv_id = m.id) = 2 AS documentado
+                 AND EXISTS (SELECT 1 FROM v_documentos_completos d WHERE d.mjrv_id = m.id)
+                 AND (NOT $1 OR NOT EXISTS (SELECT 1 FROM v_identidad_recibo_pendiente i WHERE i.acta_id = a.id)) AS documentado
           FROM mjrv m
           LEFT JOIN escaneos_finanzas e ON e.mjrv_id = m.id
           LEFT JOIN actas_pago a ON a.mjrv_id = m.id AND a.recibo_principal AND a.importe_eur > 0
