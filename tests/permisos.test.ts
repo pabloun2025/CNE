@@ -88,6 +88,7 @@ const ACCIONES: Record<string, Regla> = {
   "superadmin-actions#crearAdminAccion": SOLO_SUPER, "superadmin-actions#cambiarRolAccion": SOLO_SUPER, "superadmin-actions#restablecerAdminAccion": SOLO_SUPER, "superadmin-actions#activarAdminAccion": SOLO_SUPER,
   "superadmin-actions#cambiarModoAccion": SOLO_SUPER, "superadmin-actions#cargarDemoAccion": SOLO_SUPER, "superadmin-actions#quitarDemoAccion": SOLO_SUPER,
   "superadmin-actions#respaldarAccion": SOLO_SUPER, "superadmin-actions#prepararEleccionAccion": SOLO_SUPER,
+  "superadmin-actions#reiniciarOperativoAccion": SOLO_SUPER,
   "superadmin-actions#interruptorEnvioAccion": SOLO_SUPER, "superadmin-actions#reanudarEnviosAccion": SOLO_SUPER, "superadmin-actions#guardarRemitenteAccion": SOLO_SUPER,
   "superadmin-actions#borrarFotosAccion": SOLO_SUPER,
   "superadmin-actions#crearLineaAccion": SOLO_SUPER, "superadmin-actions#desvincularLineaAccion": SOLO_SUPER,

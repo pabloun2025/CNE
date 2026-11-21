@@ -98,10 +98,13 @@ export async function prepararEleccionAccion(_: EstadoSuper, f: FormData): Promi
 // Reinicio integral de ensayos de ambos modos. No crea respaldo.
 export async function reiniciarOperativoAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
-  const r = await reiniciarOperativo(sesion, String(f.get("confirmacion") ?? ""));
+  const r = await reiniciarOperativo(sesion, String(f.get("confirmacion") ?? ""), String(f.get("revision") ?? ""));
+  if (!r.ok) {
+    if (r.recuentoCambio) revalidatePath("/superadmin");
+    return { error: r.mensaje };
+  }
   revalidatePath("/superadmin", "layout");
   revalidatePath("/admin", "layout");
-  if (!r.ok) return { error: r.mensaje };
   const total = r.antes.reduce((n, x) => n + x.n, 0);
   return {
     aviso: "Operativo reiniciado: sin fichas MJRV ni actividad, en modo elección. Los envíos reales quedaron apagados.",

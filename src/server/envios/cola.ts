@@ -13,13 +13,13 @@ import type { ResultadoProveedor } from "./http";
 export type ResultadoCanal = { accion: "enviado" | "fallo" | "omitido" | "pausado" | "candado"; motivo?: string };
 export type OpcionesCola = { ahora?: Date; azar?: () => number; clientes?: Clientes; canales?: CanalEnvio[] };
 
-const CLAVE_CANDADO = 4343;
+export const CLAVE_CANDADO_COLA = 4343;
 export const MENSAJE_INTERRUMPIDO = "Interrumpido: no se sabe si salió. Reintente si no le llegó.";
 
 // Nunca se reenvía a ciegas: una fila que quedó «en cola» ya intentada (intentos = 1) al arrancar pasa a fallo.
 export async function recuperarInterrumpidas(): Promise<number> {
   return withTx(async (client) => {
-    await client.query("SELECT pg_advisory_xact_lock($1)", [CLAVE_CANDADO]);
+    await client.query("SELECT pg_advisory_xact_lock($1)", [CLAVE_CANDADO_COLA]);
     const r = await client.query(
       `UPDATE envios_credencial
           SET estado = CASE WHEN brevo_estado IS NULL THEN 'fallo' ELSE 'enviada_al_servicio' END,
@@ -40,7 +40,7 @@ export async function procesarCola(opciones: OpcionesCola = {}): Promise<Record<
   const client = await pool.connect();
   try {
     // Un solo proceso a la vez: candado de sesión (se libera solo si la conexión se corta).
-    const tengo = (await client.query<{ ok: boolean }>("SELECT pg_try_advisory_lock($1) AS ok", [CLAVE_CANDADO])).rows[0].ok;
+    const tengo = (await client.query<{ ok: boolean }>("SELECT pg_try_advisory_lock($1) AS ok", [CLAVE_CANDADO_COLA])).rows[0].ok;
     if (!tengo) {
       for (const c of canales) resultado[c] = { accion: "candado", motivo: "otro proceso está enviando" };
       return resultado;
@@ -49,7 +49,7 @@ export async function procesarCola(opciones: OpcionesCola = {}): Promise<Record<
       const clientes = opciones.clientes ?? clientesPorDefecto();
       for (const canal of canales) resultado[canal] = await procesarCanal(client, canal, reloj, azar, clientes);
     } finally {
-      await client.query("SELECT pg_advisory_unlock($1)", [CLAVE_CANDADO]);
+      await client.query("SELECT pg_advisory_unlock($1)", [CLAVE_CANDADO_COLA]);
     }
   } finally {
     client.release();

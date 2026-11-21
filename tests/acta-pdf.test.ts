@@ -67,6 +67,22 @@ describe("PDF del recibo oficial de pago", () => {
     expect(anchosImagenes).toHaveLength(1); // Solo el logotipo.
   });
 
+  it.each([
+    { caso: "la emisión original", opciones: {} },
+    { caso: "la reimpresión", opciones: { impresionN: 2 } },
+    { caso: "la copia reconstruida", opciones: { reconstruido: true } },
+    { caso: "la emisión de contingencia", opciones: { contingencia: true } },
+  ])("imprime los cinco campos de Madrid en $caso", async ({ opciones }) => {
+    const persona = { ...datos.persona, zona: "Azul" };
+    const { texto } = await leerRecibo(await actaPago({ ...datos, ...opciones, persona }));
+
+    expect.soft(texto).toContain("CIRCUNSCRIPCIÓN:\nEuropa, Asia y Oceanía\n");
+    expect.soft(texto).toContain("PAÍS:\nEspaña\n");
+    expect.soft(texto).toContain("OFICINA CONSULAR:\nConsulado General del Ecuador en Madrid\n");
+    expect.soft(texto).toContain("ZONA:\nMadrid\n");
+    expect.soft(texto).toContain("DIRECCIÓN DOMICILIARIA:\nMadrid\n");
+  });
+
   it("deja la firma manuscrita en blanco aunque se facilite una imagen de firma", async () => {
     const firmaReceptor = await sharp({ create: { width: 80, height: 40, channels: 4, background: "#171717" } }).png().toBuffer();
     const { texto, anchosImagenes } = await leerRecibo(await actaPago({ ...datos, firmaReceptor }));

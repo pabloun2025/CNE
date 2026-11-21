@@ -29,7 +29,7 @@ export default async function Recibos({ searchParams }: { searchParams: Promise<
       {total === 0 ? (
         <p>{q ? "No se encontraron recibos con esa búsqueda." : "Aún no hay recibos emitidos en el modo actual."}</p>
       ) : (
-        <RecibosEmitidos key={`${modo}:${q}`} filas={filas} total={total} modo={modo} q={q} />
+        <RecibosEmitidos key={`${modo}:${q}`} filas={filas} total={total} modo={modo} q={q} pagina={pagina} />
       )}
       {(pagina > 1 || siguiente) && (
         <nav aria-label="Páginas de recibos" className="flex flex-wrap items-center gap-3">

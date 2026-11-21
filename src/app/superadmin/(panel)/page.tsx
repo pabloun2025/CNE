@@ -4,7 +4,7 @@ import { leerModo } from "@/server/config";
 import { contarDemo } from "@/server/demo";
 import { resumenFotos } from "@/server/documentos";
 import { CONSERVA_REINICIO } from "@/domain/limpieza";
-import { resumenReinicioTotal } from "@/server/reiniciar-operativo";
+import { resumenReinicioTotal, revisionReinicio } from "@/server/reiniciar-operativo";
 import { requireSuperadmin } from "@/server/guard";
 import { activarAdminAccion } from "@/server/superadmin-actions";
 import { FRASE_MODO, listarAdmins } from "@/server/superadmin";
@@ -19,7 +19,7 @@ export default async function SuperInicio() {
         <h1 className="text-xl font-semibold">Modo del sistema</h1>
         <p className="mt-1">Ahora: <strong>{modo === "prueba" ? "MODO PRUEBA" : "MODO ELECCIÓN"}</strong>.</p>
         {modo === "prueba" ? (
-          <p className="mt-1 text-sm">Pasar a elección aquí oculta los registros de prueba pero no los borra. Para borrar todos los registros de los ensayos, incluso los importados desde Excel, use «Borrar todo y preparar la elección».</p>
+          <p className="mt-1 text-sm">Pasar a elección aquí oculta los registros de prueba. Para eliminar todos los datos operativos, incluidas las fichas importadas desde Excel, use «Borrar todo y reiniciar operativo».</p>
         ) : (
           <p className="mt-1 text-sm">Volver a prueba mostraría de nuevo los registros de prueba.</p>
         )}
@@ -34,8 +34,8 @@ export default async function SuperInicio() {
       )}
 
       <section>
-        <h2 className="text-lg font-semibold">Borrar todo y preparar la elección</h2>
-        <div className="mt-2"><FormReiniciarOperativo resumen={resumen} conserva={CONSERVA_REINICIO} /></div>
+        <h2 className="text-lg font-semibold">Borrar todo y reiniciar operativo</h2>
+        <div className="mt-2"><FormReiniciarOperativo resumen={resumen} revision={revisionReinicio(resumen)} conserva={CONSERVA_REINICIO} /></div>
       </section>
 
       <section>

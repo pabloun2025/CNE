@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import { faltanDatosRecibo, type ParametrosPago } from "../domain/pago";
 import { registrarAuditoria } from "./auditoria";
 import { leerDocumento } from "./documentos";
-import { query, withTx } from "./db";
+import { withTx } from "./db";
 import type { SesionEstacion } from "./estaciones";
 import type { Modo } from "./config";
 import { leerParametros } from "./pago";
@@ -66,16 +66,16 @@ async function otroPagoEnCurso(client: { query: (sql: string, params: unknown[])
   return r.rows.length > 0;
 }
 
-async function anotarApertura(mjrvId: number, p: Puesto & { nombre: string }) {
+async function anotarApertura(client: PoolClient, mjrvId: number, p: Puesto & { nombre: string }) {
   if (p.enlaceId != null) {
-    await query(
+    await client.query(
       `INSERT INTO fichas_abiertas_finanzas (mjrv_id, enlace_id, operador_nombre) VALUES ($1, $2, $3)
        ON CONFLICT (mjrv_id, enlace_id, es_prueba) DO UPDATE SET operador_nombre = EXCLUDED.operador_nombre, abierta_en = now()`,
       [mjrvId, p.enlaceId, p.nombre],
     );
     return;
   }
-  await query(
+  await client.query(
     `INSERT INTO fichas_abiertas_finanzas (mjrv_id, usuario_id, operador_nombre) VALUES ($1,$2,$3)
      ON CONFLICT (mjrv_id, usuario_id, es_prueba) WHERE usuario_id IS NOT NULL
        DO UPDATE SET operador_nombre = EXCLUDED.operador_nombre, abierta_en = now()`,
@@ -87,30 +87,38 @@ export const MINUTOS_AVISO = 5;
 
 // Abrir la ficha queda anotado para avisar a los demás puestos que están revisando los datos.
 export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorPago): Promise<FichaPago | null> {
-  const m = (await query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string; cedula_validada: boolean }>(
+  return withTx(async (client) => {
+    // La consulta y la apertura usan el mismo modo y no se intercalan con el reinicio.
+    await client.query("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
+    return leerFichaPago(client, cedulaBruta, s);
+  });
+}
+
+async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: SesionEstacion | ActorPago): Promise<FichaPago | null> {
+  const { rows: [m] } = await client.query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string; cedula_validada: boolean }>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.activo, jo.serie || jo.numero AS origen,
             EXISTS (SELECT 1 FROM v_cedulas_validadas v WHERE v.mjrv_id = m.id) AS cedula_validada,
             jv.serie || jv.numero AS vigente
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id)
-      WHERE m.cedula = $1`, [cedulaNorm(cedulaBruta)]))[0];
+      WHERE m.cedula = $1 FOR KEY SHARE OF m`, [cedulaNorm(cedulaBruta)]);
   if (!m) return null;
-  const lados = (await query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [m.id])).map((x) => x.lado);
-  const params = await leerParametros();
-  const [serie] = await query<{ es_prueba: boolean; ultimo_ordinal: number }>(
+  const lados = (await client.query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [m.id])).rows.map((x) => x.lado);
+  const params = await leerParametros(client);
+  const { rows: [serie] } = await client.query<{ es_prueba: boolean; ultimo_ordinal: number }>(
     "SELECT es_prueba, ultimo_ordinal FROM secuencia_recibos WHERE es_prueba = cne.en_prueba()");
-  const [acta] = await query<{ id: number; impresion_n: number; ordinal_recibo: number | null; importe_usd: string | null; importe_eur: string | null; tipo_cambio: string | null }>(
+  const { rows: [acta] } = await client.query<{ id: number; impresion_n: number; ordinal_recibo: number | null; importe_usd: string | null; importe_eur: string | null; tipo_cambio: string | null }>(
     "SELECT id, impresion_n, ordinal_recibo, importe_usd::text, importe_eur::text, tipo_cambio::text FROM actas_pago WHERE mjrv_id = $1 AND recibo_principal", [m.id]);
-  const pago = (await query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null; es_prueba: boolean }>(
-    `SELECT p.confirmado_en::text AS en, ${SQL_QUIEN} AS operador, p.importe_usd::text, p.importe_eur::text, p.es_prueba FROM pagos_confirmados p ${JOIN_QUIEN} WHERE p.mjrv_id = $1`, [m.id]))[0];
+  const { rows: [pago] } = await client.query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null; es_prueba: boolean }>(
+    `SELECT p.confirmado_en::text AS en, ${SQL_QUIEN} AS operador, p.importe_usd::text, p.importe_eur::text, p.es_prueba FROM pagos_confirmados p ${JOIN_QUIEN} WHERE p.mjrv_id = $1`, [m.id]);
   const documentosCompletos = lados.includes("anverso") && lados.includes("reverso");
   const estado: EstadoPago = pago ? "pagada" : !documentosCompletos ? "documentacion_incompleta" : acta ? "acta_preparada" : "lista";
   const faltan = acta?.importe_eur ? [] : faltanDatosRecibo(params);
   let otrosPuestos: FichaPago["otrosPuestos"] = [];
   if (s) {
     const p = puestoDe(s);
-    await anotarApertura(m.id, p);
-    otrosPuestos = (await query<{ etiqueta: string; operador: string; hace_min: number }>(
+    await anotarApertura(client, m.id, p);
+    otrosPuestos = (await client.query<{ etiqueta: string; operador: string; hace_min: number }>(
       `SELECT coalesce(e.etiqueta, 'Módulo de pago') AS etiqueta, f.operador_nombre AS operador,
               floor(extract(epoch FROM now() - f.abierta_en) / 60)::int AS hace_min
          FROM fichas_abiertas_finanzas f LEFT JOIN enlaces_estacion e ON e.id = f.enlace_id
@@ -118,7 +126,7 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
           AND (CASE WHEN $2::bigint IS NOT NULL THEN f.enlace_id IS DISTINCT FROM $2 ELSE TRUE END)
           AND (CASE WHEN $4::bigint IS NOT NULL THEN f.usuario_id IS DISTINCT FROM $4 ELSE TRUE END)
         ORDER BY f.abierta_en DESC`, [m.id, p.enlaceId, MINUTOS_AVISO, p.usuarioId]))
-      .map((x) => ({ etiqueta: x.etiqueta, operador: x.operador, haceMin: x.hace_min }));
+      .rows.map((x) => ({ etiqueta: x.etiqueta, operador: x.operador, haceMin: x.hace_min }));
   }
   return {
     mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,

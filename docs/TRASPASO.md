@@ -2,7 +2,7 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 21-11-2026.** Consulte la [sección 13](#13-circuito-de-los-tres-puestos-de-madrid) para el circuito desplegado, la numeración y los enlaces.
+**Último estado, 21-11-2026.** Consulte la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para el reinicio y la impresión y la [sección 13](#13-circuito-de-los-tres-puestos-de-madrid) para el circuito de los tres puestos.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -233,3 +233,10 @@ Pantallas tocadas:
 - **Ensayo:** con datos reales, en modo elección; lo que quede del ensayo se revisa después.
 - **Copia externa:** no hace falta.
 - **Noche del 28-11:** la IA revisa con Pablo desde el servidor qué quedó del ensayo (ingresos, pagos, recibos) y Pablo confirma qué borrar.
+
+## 18. Reinicio integral y recibos de Madrid
+
+- **Superadministración → Borrar todo y reiniciar operativo.** Muestra el recuento por categoría y exige escribir `BORRAR TODO`. Si cambian las cifras, las vuelve a mostrar y pide confirmación. Si hay actividad que impida adquirir los bloqueos, el reinicio se cancela. La acción borra en una sola transacción la actividad y las fichas Excel, manuales y de demostración en ambos modos. Los ordinales de recibos vuelven a empezar en uno. Quedan las cuentas, los operadores, los enlaces, las 95 juntas, la configuración del formulario público, el firmante y la auditoría. El modo final es elección y los envíos reales quedan apagados. La acción no crea respaldos.
+- **Recibo FO-04.** La plantilla oficial fija circunscripción «Europa, Asia y Oceanía», país «España», oficina «Consulado General del Ecuador en Madrid», zona «Madrid» y dirección domiciliaria «Madrid». Las pruebas verifican emisión, reimpresión, contingencia y reconstrucción. La inspección visual comprobó un A4 apaisado con ambas fotos dentro de sus recuadros. Los PDF históricos ya archivados se conservan como originales.
+- **Impresión.** Revisión y el archivo de recibos muestran la vista previa y permiten imprimir, abrir o descargar el PDF. El navegador intenta abrir su cuadro de impresión al quedar lista la vista. El botón manual reutiliza el mismo documento. Caja confirma el pago después de la firma física y de la entrega del efectivo. Se abrió el cuadro de impresión en Chrome, Edge y Firefox de escritorio para Linux, con el FO-04 apaisado en una página. Queda pendiente la prueba con la impresora física del puesto en Windows o macOS.
+- **Comprobaciones locales.** Pasaron 1.110 pruebas, TypeScript y la compilación. ESLint registró cero errores y una advertencia previa en Unslop. PostgreSQL aislado permitió importar Excel ficticios, registrar actividad en ambos modos, simular un fallo de auditoría y verificar la concurrencia, la configuración preservada y la nueva emisión desde el ordinal uno. Se probó también con un propietario sujeto a RLS. Superadministración se comprobó a 375 y 1440 px. En Finanzas, contra la compilación de producción local, la emisión y la reimpresión generaron una sola acta y cero pagos.

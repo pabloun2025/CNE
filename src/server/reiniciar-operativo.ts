@@ -2,14 +2,14 @@ import type { PoolClient } from "pg";
 import { registrarAuditoria } from "./auditoria";
 import type { Sesion } from "./auth";
 import { withOwnerTx } from "./db";
-import { normalizarFrase } from "../domain/limpieza";
+import { CLAVE_CANDADO_COLA } from "./envios/cola";
 
 export const FRASE_REINICIO_TOTAL = "BORRAR TODO";
 
 export type RecuentoReinicio = { tabla: string; etiqueta: string; n: number }[];
 export type ResultadoReinicio =
   | { ok: true; antes: RecuentoReinicio; despues: RecuentoReinicio }
-  | { ok: false; mensaje: string };
+  | { ok: false; mensaje: string; recuentoCambio?: true };
 
 // Son actividades de la jornada (ensayo y elección), nunca las cuentas, los PIN,
 // los enlaces de puesto, las 95 juntas, los parámetros ni la auditoría.
@@ -33,6 +33,11 @@ const GLOBALES = [
   ["credenciales_revocadas", "Revocaciones de credenciales"],
   ["mjrv", "Fichas MJRV, incluidas las importadas del Excel"],
 ] as const;
+
+const recuentoCambiado = new Error("recuento cambiado");
+
+// El formulario confirma los recuentos que vio el operador. Se comprueban otra vez bajo bloqueo.
+export const revisionReinicio = (resumen: RecuentoReinicio): string => resumen.map(({ n }) => n).join(",");
 
 async function fijarModo(client: PoolClient, modo: "prueba" | "eleccion") {
   await client.query("UPDATE cne.configuracion SET modo = $1 WHERE id = 1", [modo]);
@@ -75,23 +80,26 @@ export async function resumenReinicioTotal(): Promise<RecuentoReinicio> {
 
 // Solo desde superadministración y con confirmación textual explícita.
 // No crea ningún respaldo y jamás se ejecuta al desplegar, entrar o cambiar de modo.
-export async function reiniciarOperativo(sesion: Sesion, confirmacion: string): Promise<ResultadoReinicio> {
+export async function reiniciarOperativo(sesion: Sesion, confirmacion: string, revision: string): Promise<ResultadoReinicio> {
   if (sesion.tipo !== "superadmin") throw new Error("Solo la superadministración puede reiniciar el operativo.");
-  if (normalizarFrase(confirmacion) !== FRASE_REINICIO_TOTAL) {
+  if (confirmacion.trim() !== FRASE_REINICIO_TOTAL) {
     return { ok: false, mensaje: "Escriba «BORRAR TODO» para confirmar. No se eliminó ningún dato." };
   }
 
   try {
     return await withOwnerTx(async (client) => {
-      // Impedir que el trabajador de correo/WhatsApp envíe mientras se limpia.
-      // Coincide con el advisory lock de src/server/envios/cola.ts.
+      // Espera a que termine un intento de envío antes de tocar la cola.
       await client.query("SET LOCAL lock_timeout = '6s'");
-      await client.query("SELECT pg_advisory_xact_lock(4343)");
-      await client.query("SELECT modo FROM cne.configuracion WHERE id = 1 FOR UPDATE");
-      // No permitir importaciones, altas, lecturas ni pagos concurrentes.
-      await client.query("LOCK TABLE cne.mjrv IN ACCESS EXCLUSIVE MODE");
+      await client.query("SELECT pg_advisory_xact_lock($1)", [CLAVE_CANDADO_COLA]);
+      const config = await client.query("SELECT modo FROM cne.configuracion WHERE id = 1 FOR UPDATE");
+      if (config.rowCount !== 1) throw new Error("Falta la configuración del operativo");
+      // Primero se bloquea el padrón para respetar el orden de los flujos que toman una ficha y luego escriben actividad.
+      const hijas = [...POR_MODO, ...GLOBALES].filter(([tabla]) => tabla !== "mjrv").map(([tabla]) => `cne.${tabla}`);
+      // No retiene unos bloqueos mientras otra operación necesita adquirirlos para liberar los suyos.
+      await client.query(`LOCK TABLE cne.mjrv, ${hijas.join(", ")}, cne.secuencia_recibos IN EXCLUSIVE MODE NOWAIT`);
 
       const antes = await contarTodo(client);
+      if (revisionReinicio(antes) !== revision) throw recuentoCambiado;
       for (const modo of ["prueba", "eleccion"] as const) {
         await fijarModo(client, modo);
         const esPrueba = modo === "prueba";
@@ -99,36 +107,28 @@ export async function reiniciarOperativo(sesion: Sesion, confirmacion: string): 
         for (const [tabla] of POR_MODO) {
           await client.query(`DELETE FROM cne.${tabla} WHERE es_prueba = $1`, [esPrueba]);
         }
-        await client.query(
+        const numeracion = await client.query(
           "UPDATE cne.secuencia_recibos SET ultimo_ordinal = 0 WHERE es_prueba = $1", [esPrueba],
         );
-        const quedan = await client.query<{ n: number }>(
-          "SELECT count(*)::int AS n FROM cne.secuencia_recibos WHERE es_prueba = $1 AND ultimo_ordinal <> 0", [esPrueba],
-        );
-        if (quedan.rows[0].n !== 0) throw new Error("No se pudo reiniciar la numeración de los recibos.");
+        if (numeracion.rowCount !== 1) throw new Error("Falta una serie de recibos");
       }
 
       // Estas tablas no están separadas por modo; incluyen también las fichas
       // reales importadas durante los ensayos en modo elección.
       for (const [tabla] of GLOBALES) await client.query(`DELETE FROM cne.${tabla}`);
 
-      // Se conserva la configuración (servidores, remitente, firmante, etc.),
-      // pero los envíos reales quedan desactivados tras el reinicio.
+      const despues = await contarTodo(client);
+      if (despues.some((fila) => fila.n !== 0)) {
+        throw new Error("Quedaron registros operativos después del borrado.");
+      }
       await client.query(
         `UPDATE cne.configuracion
-            SET modo = 'eleccion', documentos_publico_abierto = false,
-                whatsapp_real = false, correo_real = false,
+            SET modo = 'eleccion', whatsapp_real = false, correo_real = false,
                 whatsapp_proximo_en = NULL, correo_proximo_en = NULL,
                 whatsapp_pausa_motivo = NULL, correo_pausa_motivo = NULL,
                 actualizado_en = now(), actualizado_por = $1 WHERE id = 1`,
         [sesion.usuarioId],
       );
-
-      const despues = await contarTodo(client);
-      if (despues.some((fila) => fila.n !== 0)) {
-        throw new Error("Quedaron registros operativos después del borrado.");
-      }
-      await client.query("UPDATE cne.configuracion SET modo = 'eleccion' WHERE id = 1");
       await registrarAuditoria({
         portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId,
         actorNombre: sesion.nombre, accion: "reinicio_total_operativo",
@@ -137,6 +137,13 @@ export async function reiniciarOperativo(sesion: Sesion, confirmacion: string): 
       return { ok: true as const, antes, despues };
     });
   } catch (e) {
-    return { ok: false, mensaje: `No se eliminó ningún dato: ${(e as Error).message}` };
+    if (e === recuentoCambiado) {
+      return { ok: false, mensaje: "Cambió el recuento. Revise las cifras actualizadas y vuelva a escribir «BORRAR TODO».", recuentoCambio: true };
+    }
+    const codigo = (e as { code?: string }).code;
+    if (codigo === "55P03" || codigo === "40P01") {
+      return { ok: false, mensaje: "Hay actividad en curso. No se eliminó ningún dato. Revise el recuento y vuelva a intentarlo." };
+    }
+    return { ok: false, mensaje: "El reinicio encontró un error y se revirtió por completo. No se eliminó ningún dato." };
   }
 }

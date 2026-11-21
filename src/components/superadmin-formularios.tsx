@@ -101,23 +101,23 @@ export function FormDemo({ cargadas }: { cargadas: number }) {
   );
 }
 
-export function FormReiniciarOperativo({ resumen, conserva }: { resumen: { etiqueta: string; n: number }[]; conserva: string[] }) {
+export function FormReiniciarOperativo({ resumen, revision, conserva }: { resumen: { etiqueta: string; n: number }[]; revision: string; conserva: string[] }) {
   const [estado, enviar, pendiente] = useActionState(reiniciarOperativoAccion, null);
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold text-red-800">Borrado irreversible de TODO el operativo, tanto en modo prueba como en modo elección.</p>
       <p className="text-sm">Se eliminarán las fichas MJRV importadas desde Excel y las de demostración, sus ingresos, movimientos, fotografías de cédula, recibos, pagos, firmas, revocaciones y el historial y la cola de envíos de credenciales. No se crea ninguna copia de seguridad.</p>
-      <p className="text-sm font-medium">Registros operativos que se eliminarán (ambos modos):</p>
+      <p className="text-sm font-medium">Registros operativos que se eliminarán en ambos modos <strong>({resumen.reduce((total, fila) => total + fila.n, 0)})</strong></p>
       <ul className="list-disc pl-5 text-sm">{resumen.map((r) => <li key={r.etiqueta}>{r.etiqueta}: <strong>{r.n}</strong></li>)}</ul>
       <p className="text-sm font-medium">Se conservan:</p>
       <ul className="list-disc pl-5 text-sm">{conserva.map((texto) => <li key={texto}>{texto}</li>)}</ul>
       <p className="text-sm">Al finalizar, el sistema quedará en modo elección, vacío de actividad y preparado para importar nuevamente los MJRV. El correo y WhatsApp reales quedarán apagados hasta que se habiliten expresamente. Los mensajes ya enviados a terceros no pueden retirarse.</p>
-      <p className="text-sm font-semibold">Antes de reiniciar, cierre las demás estaciones y suspenda los envíos. Esta operación no debe utilizarse durante la jornada real.</p>
       <form action={enviar} className="max-w-sm space-y-3">
+        <input type="hidden" name="revision" value={revision} />
         <label className="block text-sm font-medium">Para confirmar el borrado irreversible escriba «BORRAR TODO»
-          <input name="confirmacion" autoComplete="off" required className={campo} />
+          <input key={revision} name="confirmacion" autoComplete="off" required pattern="BORRAR TODO" className={campo} />
         </label>
-        <button disabled={pendiente} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar todo y reiniciar operativo</button>
+        <button disabled={pendiente} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">{pendiente ? "Reiniciando…" : "Borrar todo y reiniciar operativo"}</button>
       </form>
       <Resultado estado={estado} />
     </div>

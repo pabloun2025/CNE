@@ -1,10 +1,12 @@
+import type { PoolClient } from "pg";
 import { PARAMETROS_VACIOS, validarParametros, type ParametrosPago } from "../domain/pago";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import { query, withTx } from "./db";
 
-export async function leerParametros(): Promise<ParametrosPago> {
-  const f = await query<ParametrosPago>("SELECT importe_usd::text, importe_eur::text, pagador_nombre, pagador_cargo, lugar FROM parametros_pago WHERE id = 1");
+export async function leerParametros(client?: PoolClient): Promise<ParametrosPago> {
+  const sql = "SELECT importe_usd::text, importe_eur::text, pagador_nombre, pagador_cargo, lugar FROM parametros_pago WHERE id = 1";
+  const f = client ? (await client.query<ParametrosPago>(sql)).rows : await query<ParametrosPago>(sql);
   return f[0] ?? PARAMETROS_VACIOS;
 }
 
