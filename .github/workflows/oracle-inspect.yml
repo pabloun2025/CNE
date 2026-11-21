@@ -1,71 +1,57 @@
-name: Inspeccionar servidor Oracle (solo lectura)
+name: Preparar la clase de Google Wallet de CNE
 
-# Muestra capacidad, contenedores, redes y NOMBRES de variables (nunca valores).
-# No cambia nada en el servidor. Requiere el secreto ORACLE_SSH_KEY en este repositorio.
-on:
-  workflow_dispatch:
+on: workflow_dispatch
 
 permissions:
   contents: read
 
 jobs:
-  inspect:
+  preparar:
+    if: github.ref == 'refs/heads/ops/preparar-emisor-wallet-cne'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Preparar clave SSH
+      - name: Comprobar el emisor institucional y preparar la clase de CNE
         env:
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
         run: |
-          test -n "$ORACLE_SSH_KEY" || { echo "Falta el secreto ORACLE_SSH_KEY en pabloun2025/CNE"; exit 1; }
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
-          chmod 600 ~/.ssh/oracle
-
-      - name: Inspeccionar sin exponer secretos
-        run: |
-          ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
-            ubuntu@51.170.51.109 'bash -s' <<'REMOTE'
-          set -u
-          echo '=== SISTEMA ==='; hostname; uname -m; nproc; uptime; free -h; df -h /
-          echo '=== DOCKER ==='; sudo docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
-          echo '=== USO DE RECURSOS ==='; sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}'
-          echo '=== PROYECTOS COMPOSE ==='; sudo docker compose ls
-          echo '=== REDES ==='; sudo docker network ls --format '{{.Name}}' | sort
-          echo '=== EVOLUTION API DESDE CNE ==='
-          sudo docker exec cne-prod-cne-app-1 ./node_modules/.bin/tsx -e '
-            import { clienteEvolution } from "./src/server/envios/evolution";
-            const cliente = clienteEvolution({ fetch: async (url, opciones) => {
-              try {
-                const respuesta = await fetch(url, opciones);
-                console.log("Evolution HTTP", respuesta.status);
-                return respuesta;
-              } catch (error) {
-                const codigo = error?.cause?.code;
-                console.log("Evolution: error de red", /^[A-Z0-9_]+$/.test(codigo ?? "") ? codigo : "sin código");
-                throw error;
-              }
-            }});
-            if (cliente.simulado) console.log("Evolution: modo simulado");
-            else cliente.resumen().then(({ existe, estado }) => {
-              console.log("Evolution: línea CNE", existe ? estado : "sin crear");
-            }).catch(() => { console.log("Evolution: no se pudo consultar la línea de CNE"); });
-          ' || echo 'No se pudo ejecutar la comprobación desde el contenedor de CNE.'
-          echo '=== ACCESO A CONFIGURACIÓN DE ENVÍOS ==='
-          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
-            "SELECT 'Superadministraciones activas: ' || count(*) FROM cne.usuarios WHERE tipo = 'superadmin' AND activo"
-          echo '=== VOLUMENES ==='; sudo docker system df
-          echo '=== PUERTOS ==='; sudo ss -lntp | sed -E 's/users:\(.*\)//'
-          echo '=== NOMBRES DE VARIABLES (sin valores) ==='
-          for f in /home/ubuntu/consulares/.env.production /home/ubuntu/consulares/docker/evolution.env /home/ubuntu/teinvito/.env.production /home/ubuntu/cne/.env.production; do
-            [ -f "$f" ] || continue; echo "ARCHIVO: $f"
-            sudo sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$f" | sort -u
-          done
-          echo '=== TUNEL CLOUDFLARE ==='; sudo docker ps --filter ancestor=cloudflare/cloudflared --format '{{.Names}}' ; ls /etc/cloudflared 2>/dev/null
-          echo '=== BASES POSTGRES ==='
-          for c in $(sudo docker ps --format '{{.Names}}' | grep -Ei 'postgres|db'); do echo "CONTENEDOR: $c"; sudo docker exec "$c" psql -U postgres -Atc "select datname from pg_database where not datistemplate" 2>/dev/null || echo "(sin acceso con usuario postgres)"; done
-          REMOTE
-
-      - name: Borrar clave temporal
-        if: always()
-        run: rm -f ~/.ssh/oracle
+          set -euo pipefail
+          umask 077
+          llave=$(mktemp)
+          trap 'rm -f -- "$llave"' EXIT
+          printf '%s\n' "$ORACLE_SSH_KEY" > "$llave"
+          ssh -i "$llave" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 \
+            'sudo docker exec -i teinvito-prod-app-1 node -' <<'JS'
+          const { createSign } = require("node:crypto");
+          async function preparar() {
+            const emisor = process.env.GOOGLE_WALLET_ISSUER_ID?.trim();
+            const cuenta = process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL?.trim();
+            const clave = process.env.GOOGLE_WALLET_PRIVATE_KEY?.trim().replace(/\\n/g, "\n");
+            if (!emisor || !/^\d+$/.test(emisor) || !cuenta || !clave) throw Error("Falta la configuración institucional.");
+            const codificar = x => Buffer.from(JSON.stringify(x)).toString("base64url");
+            const ahora = Math.floor(Date.now() / 1000);
+            const url = "https://oauth2.googleapis.com/token";
+            const datos = codificar({alg:"RS256",typ:"JWT"}) + "." + codificar({iss:cuenta,aud:url,scope:"https://www.googleapis.com/auth/wallet_object.issuer",iat:ahora,exp:ahora+300});
+            const assertion = datos + "." + createSign("RSA-SHA256").update(datos).sign(clave).toString("base64url");
+            const r = await fetch(url, {
+              method:"POST", body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion}), signal:AbortSignal.timeout(15000),
+            });
+            if (!r.ok) throw Error("Google rechazó la autenticación del emisor (HTTP " + r.status + ").");
+            const accessToken = (await r.json()).access_token;
+            if (typeof accessToken !== "string") throw Error("Google no devolvió una credencial temporal.");
+            const headers = {authorization:"Bearer " + accessToken,"content-type":"application/json"};
+            const clase = emisor + ".cne_madrid_mjrv_2026_v1";
+            const coleccion = "https://walletobjects.googleapis.com/walletobjects/v1/genericClass";
+            const leer = () => fetch(coleccion + "/" + encodeURIComponent(clase), {headers,signal:AbortSignal.timeout(15000)});
+            const encontrada = await leer();
+            if (encontrada.status === 404) {
+              const creada = await fetch(coleccion, {method:"POST",headers,body:JSON.stringify({id:clase}),signal:AbortSignal.timeout(15000)});
+              if (!creada.ok && creada.status !== 409) throw Error("Google rechazó la clase de CNE (HTTP " + creada.status + ").");
+              if (!(await leer()).ok) throw Error("Google no confirmó la clase de pases.");
+            } else if (!encontrada.ok) {
+              throw Error("Google no permitió consultar la clase de CNE (HTTP " + encontrada.status + ").");
+            }
+            console.log("Emisor institucional autenticado. Clase de credenciales de CNE verificada en Google Wallet.");
+          }
+          void preparar().catch(error => {console.error(error.message);process.exitCode=1;});
+          JS
