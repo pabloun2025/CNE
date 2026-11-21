@@ -122,10 +122,10 @@ async function actaOficial(d: DatosActa): Promise<Uint8Array> {
   trazo(centro, 204, centro, 366);
   trazo(centro, 414, centro, 456);
 
-  campo(izquierda + 8, 443, "CIRCUNSCRIPCIÓN:");
+  campo(izquierda + 8, 443, "CIRCUNSCRIPCIÓN:", "Europa, Asia y Oceanía");
   campo(centro + 8, 443, "PAÍS:", "España");
   campo(izquierda + 8, 422, "OFICINA CONSULAR:", "Consulado General del Ecuador en Madrid");
-  campo(centro + 8, 422, "ZONA:", d.persona.zona);
+  campo(centro + 8, 422, "ZONA:", "Madrid");
 
   const nombre = `${d.persona.nombres} ${d.persona.apellidos}`.trim();
   const usd = d.importe.usd?.replace(".", ",") ?? "________";
@@ -137,7 +137,7 @@ async function actaOficial(d: DatosActa): Promise<Uint8Array> {
 
   texto("RECIBÍ CONFORME", izquierda, 351, mitad, { font: bold, color: blanco, size: 10, alineacion: "centro" });
   texto("ENTREGUÉ CONFORME", centro, 351, mitad, { font: bold, color: blanco, size: 10, alineacion: "centro" });
-  campo(izquierda + 8, 330, "DIRECCIÓN DOMICILIARIA:");
+  campo(izquierda + 8, 330, "DIRECCIÓN DOMICILIARIA:", "Madrid");
   campo(izquierda + 8, 309, "NÚMERO DE TELÉFONO:", d.persona.telefono);
   campo(izquierda + 8, 289, "CORREO ELECTRÓNICO:", d.persona.correo);
   campo(centro + 8, 330, "NOMBRE Y APELLIDO:", d.pagador?.nombre);
