@@ -285,3 +285,9 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 
 - El correo pide llevar «su cédula o pasaporte». Las instrucciones de correo y WhatsApp indican qué fotos corresponden a cada documento. El acceso al formulario sigue usando el número de cédula. Pasaron las 20 pruebas de envíos, TypeScript y ESLint en los archivos modificados.
 - Oracle publicó `98550d8` y Madrid respondió con la versión esperada. Brevo aceptó la muestra corregida solicitada por Pablo, con una credencial ficticia. [CI](https://github.com/pabloun2025/CNE/actions/runs/44937072801) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44937072690) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44937433111)
+
+## 25. Alta visible y encuadre de puerta
+
+- En MJRV, «Crear nueva ficha» aparece como acción principal sobre las opciones de importar e imprimir. A 375 px ocupa el ancho disponible. Se comprobó que abre el formulario a 375 y 1440 px. Oracle publicó `1d47fa1`. [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44937618622) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44937910864)
+- En Puerta, el visor más bajo deja a la vista los botones de ingreso manual. El recuadro amarillo toma la proporción configurada de la credencial (54 × 85,6 mm por defecto). El recorte coincide con el área que ve el operador y OCR procesa los bloques de texto por separado. Si falta cédula legible, se compara el nombre completo. Una coincidencia requiere confirmación.
+- Pasaron 1.123 pruebas, TypeScript y la compilación. ESLint informó cero errores y la advertencia previa de Unslop. En Chromium a 375 × 667 px se usaron fotogramas de una credencial ficticia para comprobar cédula, nombres y apellidos, botones visibles y confirmación. Tras mantener un QR 5,5 segundos se leyó un segundo QR distinto sin duplicar el primero. La comprobación con un teléfono físico en Puerta sigue pendiente.

@@ -1,5 +1,6 @@
 import { CabeceraEstacion } from "@/components/cabecera-estacion";
 import { FUNCION_NOMBRE } from "@/domain/estaciones";
+import { medidasCredencial } from "@/server/credencial-config";
 import { enlacePorToken } from "@/server/estaciones";
 import { requireEstacion } from "@/server/guard";
 import { redirect } from "next/navigation";
@@ -20,7 +21,7 @@ export default async function Trabajo({ params }: { params: Promise<{ token: str
     <div className="funcionario">
       <CabeceraEstacion token={token} funcion={FUNCION_NOMBRE[enlace.funcion]} etiqueta={enlace.etiqueta} operador={operador} />
       <main className="mx-auto max-w-7xl p-3">
-        {enlace.funcion === "puerta" && <Puerta token={token} />}
+        {enlace.funcion === "puerta" && <Puerta token={token} medidas={await medidasCredencial()} />}
         {enlace.funcion === "mando" && <Mando />}
         {enlace.funcion === "documentacion" && <Documentacion token={token} />}
         {enlace.funcion === "finanzas" && <Finanzas token={token} />}

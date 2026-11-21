@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LectorQr } from "@/components/lector-qr";
 import { feedback, unlockAudio } from "@/components/sonidos";
+import type { MedidasCredencial } from "@/domain/credencial-layout";
 import { COLOR_LECTURA, tonoLectura } from "@/domain/puerta-aviso";
 import { cedulaManualValida } from "@/domain/puerta-nombre";
 import type { Coincidencia, Lectura } from "@/server/puerta";
@@ -26,7 +27,7 @@ function Aviso({ p, origen }: { p: Pantalla; origen: Origen }) {
   return (<><p className="text-4xl font-extrabold leading-tight">No se pudo comprobar</p><p className="text-2xl">Repita la lectura.</p></>);
 }
 
-export function Puerta({ token }: { token: string }) {
+export function Puerta({ token, medidas }: { token: string; medidas: MedidasCredencial }) {
   const [pantalla, setPantalla] = useState<{ lectura: Pantalla; origen: Origen } | null>(null);
   const [encima, setEncima] = useState(false);
   const [cont, setCont] = useState<Contadores | null>(null);
@@ -34,6 +35,7 @@ export function Puerta({ token }: { token: string }) {
   const [manual, setManual] = useState("");
   const [pendiente, setPendiente] = useState<{ codigo: string; ficha: Coincidencia } | null>(null);
   const [procesando, setProcesando] = useState(false);
+  const [mensajeCredencial, setMensajeCredencial] = useState("");
   const entrada = useRef<HTMLInputElement>(null);
   const tituloConfirmacion = useRef<HTMLHeadingElement>(null);
   const botonManual = useRef<HTMLButtonElement>(null);
@@ -80,12 +82,17 @@ export function Puerta({ token }: { token: string }) {
       const { lectura, contadores } = (await r.json()) as { lectura: Lectura | Coincidencia; contadores: Contadores };
       setCont(contadores);
       if (lectura.resultado === "pendiente") {
+        setMensajeCredencial("");
         setPantalla(null);
         setEncima(false);
         setPendiente({ codigo, ficha: lectura });
         return;
       }
-      if (origen === "credencial" && !confirmarId && lectura.resultado === "desconocido") return;
+      if (origen === "credencial" && !confirmarId && lectura.resultado === "desconocido") {
+        setMensajeCredencial("Acerque la credencial o use el ingreso manual");
+        return;
+      }
+      setMensajeCredencial("");
       setPendiente(null);
       if (origen === "cedula" || origen === "nombre") {
         if (lectura.resultado === "desconocido" || lectura.resultado === "ambiguo") entrada.current?.select();
@@ -96,7 +103,8 @@ export function Puerta({ token }: { token: string }) {
       else if (tono === "rechazo") feedback("rechazo");
       mostrar(lectura, origen);
     } catch {
-      if (origen !== "credencial" || confirmarId) mostrar({ resultado: "error" }, origen);
+      if (origen === "credencial" && !confirmarId) setMensajeCredencial("No se pudo comprobar. Use el ingreso manual");
+      else mostrar({ resultado: "error" }, origen);
     } finally {
       setProcesando(false);
       enCurso.current = false;
@@ -109,6 +117,7 @@ export function Puerta({ token }: { token: string }) {
     setPendiente(null);
     setPantalla(null);
     setEncima(false);
+    setMensajeCredencial("");
   }
 
   const aviso = pantalla ? <Aviso p={pantalla.lectura} origen={pantalla.origen} /> : null;
@@ -117,7 +126,7 @@ export function Puerta({ token }: { token: string }) {
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <p className="cifra text-center text-2xl font-bold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="block text-base font-semibold">Este puesto: {cont?.esteEnlace ?? "—"}</span></p>
-      <LectorQr encuadre tokenPuerta={token} pausado={encima || !!modoManual || !!pendiente || procesando} onCodigo={(c, origen) => { if (!modoManual && !pendiente) void enviar(c, origen); }}>
+      <LectorQr encuadre tokenPuerta={token} medidas={medidas} mensajeCredencial={mensajeCredencial} pausado={encima || !!modoManual || !!pendiente || procesando} onCodigo={(c, origen) => { if (!modoManual && !pendiente) void enviar(c, origen); }}>
         {encima && aviso && <div aria-hidden="true" className={`absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 overflow-y-auto p-3 text-center ${color}`}>{aviso}</div>}
       </LectorQr>
       {pantalla && <div role="alert" className={`p-4 text-center ${color}`}>{aviso}</div>}
@@ -132,7 +141,7 @@ export function Puerta({ token }: { token: string }) {
           </div>
         </section>
       )}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <button ref={botonManual} type="button" aria-expanded={modoManual === "cedula"} aria-controls="ingreso-manual" className="border border-stone-500 px-4 py-2 font-semibold" disabled={procesando} onClick={() => abrirManual("cedula")}>Ingreso manual por cédula</button>
         <button type="button" aria-expanded={modoManual === "nombre"} aria-controls="ingreso-manual" className="px-3 py-2 underline" disabled={procesando} onClick={() => abrirManual("nombre")}>Ingreso por nombre</button>
       </div>

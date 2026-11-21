@@ -2,43 +2,37 @@
 
 import jsQR from "jsqr";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { CR80, type MedidasCredencial } from "@/domain/credencial-layout";
 import { unlockAudio } from "./sonidos";
 
 type Detector = { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
 
-type DetectorTexto = { detect: (imagen: HTMLCanvasElement) => Promise<{ rawValue: string }[]> };
-
-function capturarCredencial(video: HTMLVideoElement): HTMLCanvasElement | null {
+function capturarCredencial(video: HTMLVideoElement, marco: HTMLElement): HTMLCanvasElement | null {
   const w = video.videoWidth, h = video.videoHeight;
-  if (!w || !h) return null;
-  // El visor muestra el centro del vídeo. Leer ese recuadro evita tomar texto de sus bordes ocultos.
-  const lado = Math.min(w, h) * 0.85;
+  if (!w || !h || !marco.offsetWidth || !marco.offsetHeight) return null;
+  // El vídeo y la guía están centrados. Deshace el escalado de object-fit: cover.
+  const escala = Math.max(video.clientWidth / w, video.clientHeight / h);
+  if (!escala) return null;
+  const ancho = marco.offsetWidth / escala, alto = marco.offsetHeight / escala;
+  const salida = Math.min(1, 1200 / Math.max(ancho, alto));
   const lienzo = document.createElement("canvas");
-  lienzo.width = lienzo.height = Math.min(1200, Math.round(lado));
+  lienzo.width = Math.round(ancho * salida);
+  lienzo.height = Math.round(alto * salida);
   const contexto = lienzo.getContext("2d");
   if (!contexto) return null;
-  contexto.drawImage(video, (w - lado) / 2, (h - lado) / 2, lado, lado, 0, 0, lienzo.width, lienzo.height);
+  contexto.drawImage(video, (w - ancho) / 2, (h - alto) / 2, ancho, alto, 0, 0, lienzo.width, lienzo.height);
   return lienzo;
 }
 
-// Si el fotograma no trae QR, se lee el texto de la credencial en el navegador o en el servidor.
-async function leerCredencialImpresa(video: HTMLVideoElement, tokenPuerta: string): Promise<string> {
-  const lienzo = capturarCredencial(video);
+async function leerCredencialImpresa(video: HTMLVideoElement, marco: HTMLElement, tokenPuerta: string, signal: AbortSignal): Promise<string> {
+  const lienzo = capturarCredencial(video, marco);
   if (!lienzo) return "";
-  const Ctor = (window as unknown as { TextDetector?: new () => DetectorTexto }).TextDetector;
-  if (Ctor) {
-    try {
-      const bloques = await new Ctor().detect(lienzo);
-      const texto = bloques.map((b) => b.rawValue).join("\n").trim();
-      if (texto) return texto;
-    } catch { /* este navegador no leyó el texto */ }
-  }
-  const imagen = await new Promise<Blob | null>((resolve) => lienzo.toBlob(resolve, "image/jpeg", 0.8));
+  const imagen = await new Promise<Blob | null>((resolve) => lienzo.toBlob(resolve, "image/jpeg", 0.88));
   if (!imagen) return "";
   const f = new FormData();
   f.set("imagen", imagen, "credencial.jpg");
-  const r = await fetch("/api/e/puerta/texto", { method: "POST", headers: { authorization: `Bearer ${tokenPuerta}` }, body: f });
-  if (!r.ok) return "";
+  const r = await fetch("/api/e/puerta/texto", { method: "POST", headers: { authorization: `Bearer ${tokenPuerta}` }, body: f, signal });
+  if (!r.ok) throw new Error("Lector de texto no disponible");
   const d = (await r.json()) as { texto?: string };
   return (d.texto ?? "").trim();
 }
@@ -46,12 +40,24 @@ async function leerCredencialImpresa(video: HTMLVideoElement, tokenPuerta: strin
 // Cámara trasera con BarcodeDetector o, si no existe (Safari, Firefox), jsQR sobre cada fotograma.
 // «Activar cámara» es un toque del usuario: también desbloquea el audio. No decide nada: entrega el texto leído.
 // tokenPuerta: en la puerta, si no hay QR, intenta leer los datos impresos.
-// encuadre: la puerta usa el visor cuadrado de teinvito. Pago y documentación no.
+// La puerta ajusta la guía a la credencial impresa. Finanzas conserva su guía de QR.
 // abrirAlEntrar: el escáner de Finanzas intenta abrir la cámara al entrar.
-export function LectorQr({ onCodigo, onError, tokenPuerta, pausado = false, encuadre = false, abrirAlEntrar = false, children }: { onCodigo: (texto: string, origen: "qr" | "credencial") => void; onError?: () => void; tokenPuerta?: string; pausado?: boolean; encuadre?: boolean; abrirAlEntrar?: boolean; children?: ReactNode }) {
+export function LectorQr({ onCodigo, onError, tokenPuerta, medidas = CR80, mensajeCredencial, pausado = false, encuadre = false, abrirAlEntrar = false, children }: {
+  onCodigo: (texto: string, origen: "qr" | "credencial") => void;
+  onError?: () => void;
+  tokenPuerta?: string;
+  medidas?: MedidasCredencial;
+  mensajeCredencial?: string;
+  pausado?: boolean;
+  encuadre?: boolean;
+  abrirAlEntrar?: boolean;
+  children?: ReactNode;
+}) {
   const video = useRef<HTMLVideoElement>(null);
+  const marco = useRef<HTMLDivElement>(null);
   const [activa, setActiva] = useState(abrirAlEntrar);
   const [falloCamara, setFalloCamara] = useState(false);
+  const [estadoTexto, setEstadoTexto] = useState<"error" | "ilegible" | null>(null);
   const alCodigo = useRef(onCodigo);
   const alError = useRef(onError);
   const detenerLectura = useRef(pausado);
@@ -63,6 +69,7 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, pausado = false, encu
     let flujo: MediaStream | null = null;
     let temporizador = 0;
     let cancelado = false;
+    const peticiones = new AbortController();
     const Ctor = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
     let detector: Detector | null = null;
     try { if (Ctor) detector = new Ctor({ formats: ["qr_code"] }); } catch { /* pruebe jsQR */ }
@@ -97,7 +104,9 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, pausado = false, encu
       ultimos[origen] = { valor, momento: ahora };
       alCodigo.current(valor, origen);
     };
-    const camara = navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: "environment" } }) ?? Promise.reject(new Error("Cámara no disponible"));
+    const camara = navigator.mediaDevices?.getUserMedia?.({ video: tokenPuerta
+      ? { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+      : { facingMode: "environment" } }) ?? Promise.reject(new Error("Cámara no disponible"));
     camara.then(async (m) => {
       if (cancelado) { m.getTracks().forEach((t) => t.stop()); return; }
       flujo = m;
@@ -110,6 +119,7 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, pausado = false, encu
         void leer().then((valor) => {
           if (cancelado || detenerLectura.current) return;
           if (valor) {
+            setEstadoTexto(null);
             revisionQr++;
             sinQrDesde = null;
             if (tokenPuerta && qrVisible === valor) return;
@@ -124,14 +134,20 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, pausado = false, encu
             if (ahora - sinQrDesde < 2000) return;
             qrVisible = "";
           }
-          if (!tokenPuerta || leyendoTexto || Date.now() - ultimoIntento < 2000) return;
+          if (!tokenPuerta || !marco.current || leyendoTexto || Date.now() - ultimoIntento < 2000) return;
           leyendoTexto = true;
-          ultimoIntento = Date.now();
           const revision = revisionQr;
-          void leerCredencialImpresa(v, tokenPuerta).then((texto) => {
+          void leerCredencialImpresa(v, marco.current, tokenPuerta, peticiones.signal).then((texto) => {
             // Un QR detectado mientras se leía el texto tiene prioridad.
-            if (revision === revisionQr) entregar(texto, "credencial");
-          }).catch(() => undefined).finally(() => { leyendoTexto = false; });
+            if (cancelado || detenerLectura.current || revision !== revisionQr) return;
+            setEstadoTexto(texto ? null : "ilegible");
+            entregar(texto, "credencial");
+          }).catch(() => {
+            if (!cancelado && !detenerLectura.current && revision === revisionQr) setEstadoTexto("error");
+          }).finally(() => {
+            ultimoIntento = Date.now();
+            leyendoTexto = false;
+          });
         }).catch(() => undefined).finally(() => { ocupado = false; });
       }, detector ? 500 : 300);
     }).catch(() => {
@@ -142,20 +158,30 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, pausado = false, encu
     });
     return () => {
       cancelado = true;
+      peticiones.abort();
       window.clearInterval(temporizador);
       flujo?.getTracks().forEach((t) => t.stop());
     };
   }, [activa, tokenPuerta]);
 
+  const altoVisor = "clamp(128px, 31svh, 224px)";
+  const proporcion = medidas.ancho / medidas.alto;
+  const textoGuia = estadoTexto === "error" ? "Lectura de texto no disponible. Use el ingreso manual."
+    : estadoTexto === "ilegible" ? "Acerque la credencial o use el ingreso manual"
+    : mensajeCredencial || "Centre la credencial completa o su QR";
   return (
-    <div className={encuadre ? "relative mx-auto aspect-square max-h-[45vh] w-full max-w-[45vh] overflow-hidden border-2 border-stone-900 bg-black" : "relative overflow-hidden border-2 border-stone-900 bg-black"} style={encuadre ? undefined : { minHeight: 240 }}>
+    <div className={tokenPuerta ? "relative mx-auto w-full max-w-md overflow-hidden border-2 border-stone-900 bg-black"
+      : encuadre ? "relative mx-auto aspect-square max-h-[45vh] w-full max-w-[45vh] overflow-hidden border-2 border-stone-900 bg-black"
+      : "relative overflow-hidden border-2 border-stone-900 bg-black"}
+      style={tokenPuerta ? { height: altoVisor } : encuadre ? undefined : { minHeight: 240 }}>
       <video ref={video} playsInline muted className={encuadre ? "h-full w-full object-cover" : "h-full max-h-[60vh] w-full object-cover"} />
       {encuadre && activa && (
         <>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
-            <div className="aspect-square w-[65%] border-4 border-[#f2b705] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
+            <div ref={marco} className="aspect-square w-[65%] border-[3px] border-[#f2b705] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]"
+              style={tokenPuerta ? { aspectRatio: proporcion, width: `min(82%, calc((${altoVisor} - 46px) * ${proporcion}))` } : undefined} />
           </div>
-          <p className="pointer-events-none absolute inset-x-0 bottom-1 px-2 text-center text-xs font-medium text-white [text-shadow:0_1px_2px_#000]">{tokenPuerta ? "Encuadre el QR o la credencial en el recuadro amarillo" : "Encuadre el QR en el recuadro amarillo"}</p>
+          <p className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-center text-xs font-medium text-white" role={tokenPuerta ? "status" : undefined}>{tokenPuerta ? textoGuia : "Encuadre el QR en el recuadro amarillo"}</p>
         </>
       )}
       {children}

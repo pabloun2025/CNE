@@ -10,6 +10,10 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   const imagen = form?.get("imagen");
   if (!(imagen instanceof File) || imagen.size < 1000 || imagen.size > 1_500_000) return Response.json({ texto: "" });
-  const texto = await textoDeImagen(Buffer.from(await imagen.arrayBuffer()));
-  return Response.json({ texto });
+  try {
+    const texto = await textoDeImagen(Buffer.from(await imagen.arrayBuffer()), request.signal);
+    return Response.json({ texto });
+  } catch {
+    return Response.json({ error: "Lector de texto temporalmente no disponible." }, { status: 503 });
+  }
 }
