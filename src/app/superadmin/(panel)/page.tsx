@@ -1,17 +1,17 @@
-import { FormBorrarFotos, FormCambiarRol, FormCrearAdmin, FormDemo, FormModo, FormPreparar, FormRestablecer } from "@/components/superadmin-formularios";
+import { FormBorrarFotos, FormCambiarRol, FormCrearAdmin, FormDemo, FormModo, FormReiniciarOperativo, FormRestablecer } from "@/components/superadmin-formularios";
 import { ETIQUETA_ROL } from "@/domain/roles";
 import { leerModo } from "@/server/config";
 import { contarDemo } from "@/server/demo";
 import { resumenFotos } from "@/server/documentos";
-import { CONSERVA } from "@/domain/limpieza";
-import { resumenLimpieza } from "@/server/preparar-eleccion";
+import { CONSERVA_REINICIO } from "@/domain/limpieza";
+import { resumenReinicioTotal } from "@/server/reiniciar-operativo";
 import { requireSuperadmin } from "@/server/guard";
 import { activarAdminAccion } from "@/server/superadmin-actions";
 import { FRASE_MODO, listarAdmins } from "@/server/superadmin";
 
 export default async function SuperInicio() {
   const sesion = await requireSuperadmin();
-  const [modo, admins, demo, resumen, fotos] = await Promise.all([leerModo(), listarAdmins(sesion), contarDemo(), resumenLimpieza(), resumenFotos()]);
+  const [modo, admins, demo, resumen, fotos] = await Promise.all([leerModo(), listarAdmins(sesion), contarDemo(), resumenReinicioTotal(), resumenFotos()]);
   const destino = modo === "prueba" ? "eleccion" : "prueba";
   return (
     <main className="mx-auto max-w-3xl space-y-8">
@@ -19,7 +19,7 @@ export default async function SuperInicio() {
         <h1 className="text-xl font-semibold">Modo del sistema</h1>
         <p className="mt-1">Ahora: <strong>{modo === "prueba" ? "MODO PRUEBA" : "MODO ELECCIÓN"}</strong>.</p>
         {modo === "prueba" ? (
-          <p className="mt-1 text-sm">Pasar a elección aquí oculta los registros de prueba pero no los borra. Para limpiar y pasar a elección use «Preparar elección».</p>
+          <p className="mt-1 text-sm">Pasar a elección aquí oculta los registros de prueba pero no los borra. Para borrar todos los registros de los ensayos, incluso los importados desde Excel, use «Borrar todo y preparar la elección».</p>
         ) : (
           <p className="mt-1 text-sm">Volver a prueba mostraría de nuevo los registros de prueba.</p>
         )}
@@ -34,8 +34,8 @@ export default async function SuperInicio() {
       )}
 
       <section>
-        <h2 className="text-lg font-semibold">Preparar elección</h2>
-        <div className="mt-2"><FormPreparar resumen={resumen} conserva={CONSERVA} /></div>
+        <h2 className="text-lg font-semibold">Borrar todo y preparar la elección</h2>
+        <div className="mt-2"><FormReiniciarOperativo resumen={resumen} conserva={CONSERVA_REINICIO} /></div>
       </section>
 
       <section>
