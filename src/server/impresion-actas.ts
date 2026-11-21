@@ -2,6 +2,7 @@ import { PDFDocument } from "pdf-lib";
 import type { ActorPago } from "./finanzas";
 import { fichaPago, generarActa } from "./finanzas";
 import { query } from "./db";
+import { normalizarFechaRecibo } from "./pdf/fecha-recibo";
 
 export type ModoRecibo = "impresion" | "digital";
 
@@ -65,7 +66,7 @@ export async function loteFirmas(): Promise<Uint8Array | null> {
   if (!filas.length) return null;
   const salida = await PDFDocument.create();
   for (const f of filas) {
-    const doc = await PDFDocument.load(f.pdf);
+    const doc = await PDFDocument.load(await normalizarFechaRecibo(f.pdf));
     const paginas = await salida.copyPages(doc, doc.getPageIndices());
     paginas.forEach((p) => salida.addPage(p));
   }

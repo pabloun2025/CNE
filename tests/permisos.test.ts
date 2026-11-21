@@ -38,6 +38,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/admin/finanzas/escaneados": FINANZAS,
   "GET /api/admin/finanzas/recibos/[tipo]/[id]": FINANZAS,
   "POST /api/admin/finanzas/recibos/descargar": FINANZAS,
+  "POST /api/admin/finanzas/recibos/contingencia": FINANZAS,
   "POST /api/admin/finanzas/recibos/emitir": FINANZAS,
   "GET /api/admin/finanzas/cedula/[id]/[lado]": FINANZAS,
   "POST /api/admin/finanzas/ficha": FINANZAS,
@@ -63,6 +64,7 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/webhooks/brevo": [], // autentica el token de Brevo, no una sesión de CNE
   "POST /api/d/foto": "publica", // la ruta valida el archivo y limita peticiones por IP
   "POST /api/d/buscar": "publica",
+  "GET /d/guia": "publica",
 };
 
 // ─── Acciones de servidor: «archivo#nombre» ───

@@ -9,7 +9,6 @@ const FECHA = "29 de noviembre de 2026";
 const RECINTO = "Caja Mágica";
 const DIRECCION = "Camino de Perales 23, 28041 Madrid";
 const MAPA = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${RECINTO}, ${DIRECCION}`)}`;
-const LIMITE_INGRESO = "HORA LÍMITE DE INGRESO: 08:00";
 const DOCUMENTOS_PAGO = "Para su comprobante de pago, busque su ficha con su número de cédula y suba imágenes de su cédula o pasaporte. Si usa la cédula, fotografíe el anverso y el reverso. Si no tiene la cédula física, suba una sola foto de la página de datos del pasaporte.";
 
 function enlaceDocumentos(host?: string | null): string | null {
@@ -30,46 +29,56 @@ const escapar = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").re
 
 export function correoCredencial(d: DatosCorreo): { asunto: string; texto: string; html: string } {
   const firma = "Consulado General del Ecuador en Madrid";
-  const asunto = `Su credencial de MJRV – ${FECHA}`;
+  const titulo = "Su credencial electoral";
+  const asunto = `${titulo} – ${FECHA}`;
   const saludo = `Buen día, ${d.nombres}.`;
-  const adjunto = `Le enviamos adjunta en PDF su credencial como miembro de una Junta Receptora del Voto (MJRV), para la jornada electoral del domingo ${FECHA}.`;
   const ubicacion = `${RECINTO}, nivel −2`;
-  const junta = `Junta ${d.junta}`;
-  const zona = `Zona ${ZONA_NOMBRE[d.zona]}`;
-  const llegada = "Debe haber ingresado al recinto a más tardar a las 08:00 (hora de Madrid). Llegue con suficiente antelación para registrar su entrada y localizar su zona y su junta.";
-  const horario = "La instalación de las juntas comenzará a las 08:30. La votación se desarrollará de 09:00 a 19:00 y, posteriormente, se realizará el escrutinio.";
-  const acceso = "Puede presentar la credencial PDF adjunta impresa o desde su teléfono móvil. El código QR permitirá registrar su llegada. Lleve también su cédula o pasaporte.";
+  const junta = `Junta ${d.junta} · Zona ${ZONA_NOMBRE[d.zona]}`;
+  const llegada = "Entre al recinto a más tardar a las 08:00 (hora de Madrid).";
+  const horario = "Instalación de las juntas a las 08:30. Votación de 09:00 a 19:00. Después, recuento de votos.";
+  const acceso = "Su credencial está en el PDF adjunto. Muestre el código QR en papel o en su móvil. Lleve también su cédula o pasaporte.";
   const enlace = enlaceDocumentos(d.host);
+  const fotos = "Suba las fotos antes de ir al punto de pago";
+  const abrir = "Subir fotos de mi documento";
+  const buscar = "Escriba su número de cédula, incluso si va a usar su pasaporte. Pulse «Continuar» y luego «Sí, soy yo».";
+  const cedula = "Cédula · Tome dos fotos, una de delante y otra de atrás.";
+  const pasaporte = "Pasaporte · Si no tiene la cédula física, tome una foto de la página donde sale su foto.";
+  const guardar = "Pulse «Tomar foto» y luego «Usar esta foto» en cada imagen.";
+  const listo = "Espere a que aparezca «Listo». Al terminar su trabajo en la junta, vaya al punto de pago.";
+  const guia = "Ver guía con dibujos (PDF)";
   const wallet = d.wallet ?? null;
-  const walletTexto = "Si usa Android, puede guardar su credencial en Google Wallet. En iPhone use el PDF adjunto.";
 
   const texto = [
-    saludo, adjunto, `SU ASIGNACIÓN\n${junta}\n${zona}\n${ubicacion}\n${DIRECCION}\nCómo llegar en Google Maps\n${MAPA}`,
-    `${LIMITE_INGRESO}\n${llegada}`, horario, `Acceso al recinto\n${acceso}`,
-    ...(wallet ? [`${walletTexto}\n${TEXTO_WALLET}\n${wallet}`] : []),
-    ...(enlace ? [`${DOCUMENTOS_PAGO}\nFormulario de documentación\n${enlace}`] : []), "Atentamente,\n" + firma,
+    saludo, `Domingo ${FECHA}\n${junta}\n${ubicacion}\n${DIRECCION}\n${llegada}\nCómo llegar en Google Maps: ${MAPA}`,
+    acceso,
+    ...(wallet ? [`${TEXTO_WALLET}: ${wallet}`] : []),
+    ...(enlace ? [`${fotos}\n${abrir}: ${enlace}\n1. ${buscar}\n2. ${cedula}\n   ${pasaporte}\n   ${guardar}\n3. ${listo}\n${guia}: ${enlace}/guia`] : []),
+    horario, firma,
   ].join("\n\n");
   const html = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${asunto}</title></head>
 <body style="margin:0;background-color:#f3f5f8;color:#202b3c;font:16px/1.5 Arial,sans-serif;overflow-wrap:anywhere">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:16px 12px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:12px 8px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;text-align:left">
-      <tr><td style="padding:20px 24px;background-color:#12325a;color:#ffffff;border-top:4px solid #f0c94f;font-weight:bold">${firma}</td></tr>
-      <tr><td style="padding:24px">
-        <h1 style="margin:0 0 16px;color:#12325a;font:700 24px/1.25 Arial,sans-serif">${asunto}</h1>
+      <tr><td style="padding:12px 16px;background-color:#12325a;color:#ffffff;border-top:4px solid #f0c94f;font-weight:bold">${firma}</td></tr>
+      <tr><td style="padding:16px">
+        <h1 style="margin:0 0 12px;color:#12325a;font:700 25px/1.25 Arial,sans-serif">${titulo}</h1>
         <p style="margin:0 0 12px">${escapar(saludo)}</p>
-        <p style="margin:0 0 16px">${escapar(adjunto)}</p>
-        <p style="margin:0 0 16px;padding:12px 14px;background-color:#f3f5f8;border-left:4px solid ${ZONA_HEX[d.zona]}">
-          <strong>SU ASIGNACIÓN</strong><br><strong>${escapar(junta)} · ${zona}</strong><br>${ubicacion}<br>${DIRECCION}<br>
-          <a style="color:#174c83" href="${escapar(MAPA)}">Cómo llegar en Google Maps</a>
+        <p style="margin:0 0 12px;padding:12px;background-color:#f3f5f8;border-left:4px solid ${ZONA_HEX[d.zona]}">
+          <strong>${escapar(junta)}</strong><br>Domingo ${FECHA}<br>${ubicacion}<br>${DIRECCION}<br>
+          <strong>${llegada}</strong><br><a style="color:#174c83" href="${escapar(MAPA)}">Cómo llegar en Google Maps</a>
         </p>
-        <p style="margin:0 0 16px;padding:12px 14px;background-color:#fff5e6;border-left:4px solid #b96c12"><strong>${LIMITE_INGRESO}</strong><br>${llegada}</p>
-        <p style="margin:0 0 16px">${escapar(horario)}</p>
-        <p style="margin:0 0 16px;padding:12px 14px;background-color:#eaf1f8;border-left:4px solid #12325a"><strong>Acceso al recinto</strong><br>${acceso}</p>
-        ${wallet ? `<p style="margin:0 0 16px">${walletTexto}</p>
-        <p style="margin:0 0 16px"><a href="${escapar(wallet)}" style="display:inline-block;padding:12px 20px;background-color:#000000;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:24px">${TEXTO_WALLET}</a></p>` : ""}
-        ${enlace ? `<p style="margin:0 0 16px">${DOCUMENTOS_PAGO}<br><a style="color:#174c83" href="${escapar(enlace)}">Formulario de documentación</a></p>` : ""}
-        <p style="margin:0">Atentamente,<br>${firma}</p>
+        <p style="margin:0 0 12px">${acceso}</p>
+        ${wallet ? `<p style="margin:0 0 12px"><a href="${escapar(wallet)}" style="color:#174c83">${TEXTO_WALLET}</a></p>` : ""}
+        ${enlace ? `<h2 style="margin:20px 0 8px;color:#12325a;font:700 20px/1.3 Arial,sans-serif">${fotos}</h2>
+        <p style="margin:0 0 12px"><a style="display:inline-block;padding:12px 16px;background-color:#12325a;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:6px" href="${escapar(enlace)}">${abrir}</a></p>
+        <ol style="margin:0 0 8px;padding-left:24px">
+          <li style="margin:0 0 8px">${buscar}</li>
+          <li style="margin:0 0 8px"><strong>${cedula}</strong><br>${pasaporte}<br>${guardar}</li>
+          <li style="margin:0 0 8px"><strong>${listo}</strong></li>
+        </ol>
+        <p style="margin:0 0 16px"><a style="color:#174c83" href="${escapar(enlace)}/guia">${guia}</a></p>` : ""}
+        <p style="margin:0;color:#394d65;font-size:14px">${horario}</p>
       </td></tr>
     </table>
   </td></tr></table>

@@ -53,7 +53,9 @@ export function FormularioDocumentos() {
           <label className="block font-medium">Número de cédula
             <input value={cedula} onChange={(e) => setCedula(e.target.value)} inputMode="numeric" autoComplete="off" autoCapitalize="characters" required className="mt-1 w-full rounded border border-slate-400 px-3 py-4 text-xl" />
           </label>
+          <p className="text-sm">Escriba su número de cédula aunque vaya a usar el pasaporte.</p>
           <button disabled={cargando} className="w-full rounded bg-blue-700 px-4 py-4 text-lg font-bold text-white disabled:opacity-60">Continuar</button>
+          <a href="/d/guia" target="_blank" rel="noreferrer" className="inline-block text-blue-800 underline">Ver guía con dibujos (PDF)</a>
         </form>
       )}
       {paso === "confirmar" && hallada && (
@@ -73,7 +75,13 @@ export function FormularioDocumentos() {
             onVolver={() => { setMensaje(""); setPaso("documento"); }} />
         </div>
       )}
-      {paso === "fin" && <p role="status" className="border-2 border-stone-900 p-4 text-lg font-semibold">{hallada?.pasaporte ? "Listo. La foto de su pasaporte se guardó." : "Listo. Sus dos fotos se guardaron."}</p>}
+      {paso === "fin" && (
+        <div role="status" className="rounded border border-green-700 bg-green-50 p-4 text-lg">
+          <p className="font-bold">Listo</p>
+          <p>{hallada?.pasaporte ? "Se guardó la foto de su pasaporte." : "Se guardaron las dos fotos de su cédula."}</p>
+          <p className="mt-2">Al terminar su trabajo en la junta, vaya al punto de pago con su credencial y su documento.</p>
+        </div>
+      )}
       {mensaje && <p role="alert" className="banner bad">{mensaje}</p>}
       </main>
     </div>

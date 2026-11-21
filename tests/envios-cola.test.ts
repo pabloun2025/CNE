@@ -257,10 +257,10 @@ describe("cola de envío real", () => {
     const f = falsos();
     expect((await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
     expect(f.mail[0]).toMatchObject({
-      asunto: "Su credencial de MJRV – 29 de noviembre de 2026",
+      asunto: "Su credencial electoral – 29 de noviembre de 2026",
       remitente: { nombre: "Remitente Prueba", direccion: "remitente@ejemplo.invalid" },
       adjunto: { nombre: nombreArchivo },
-      texto: expect.stringContaining("El código QR permitirá registrar su llegada."),
+      texto: expect.stringContaining("Muestre el código QR en papel o en su móvil."),
       html: expect.stringContaining("Consulado General del Ecuador en Madrid"),
     });
     expect(f.mail[0].texto).toContain("H1");

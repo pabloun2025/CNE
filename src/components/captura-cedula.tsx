@@ -8,7 +8,7 @@ const PAGINA_PASAPORTE = 125 / 88;
 const MAX_PX = 1600;
 
 export type EstadoFotos = Omit<EstadoDocs, "completos">;
-export const ROTULO_FOTO = { anverso: "Anverso (la cara con su foto)", reverso: "Reverso (la otra cara)", pasaporte: "Página de datos del pasaporte (la página con su foto)" };
+export const ROTULO_FOTO = { anverso: "Parte de delante (con su foto)", reverso: "Parte de atrás", pasaporte: "Página del pasaporte donde sale su foto" };
 
 function aBlob(origen: CanvasImageSource, x: number, y: number, ancho: number, alto: number): Promise<Blob | null> {
   const escala = Math.min(1, MAX_PX / Math.max(ancho, alto));
@@ -162,8 +162,8 @@ export function ElegirDocumento({ onElegir }: { onElegir: (tipo: TipoDocumento) 
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={() => onElegir("cedula")} className="border-2 border-stone-900 bg-stone-900 px-3 py-3 text-white">Cédula</button>
         <button type="button" onClick={() => onElegir("pasaporte")} className="border-2 border-stone-900 bg-stone-900 px-3 py-3 text-white">Pasaporte</button>
-        <span className="text-center text-sm">Anverso y reverso</span>
-        <span className="text-center text-sm">Página de datos, si no tiene la cédula física</span>
+        <span className="text-center text-sm">Dos fotos, delante y atrás</span>
+        <span className="text-center text-sm">Una foto de la página con su foto</span>
       </div>
     </fieldset>
   );

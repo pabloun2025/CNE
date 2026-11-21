@@ -8,6 +8,7 @@ import type { SesionEstacion } from "./estaciones";
 import type { Modo } from "./config";
 import { leerParametros } from "./pago";
 import { actaPago, type DatosActa } from "./pdf/acta";
+import { normalizarFechaRecibo } from "./pdf/fecha-recibo";
 import { decryptBuffer, encryptBuffer } from "./crypto";
 import { CUPO_RECIBOS, importeReciboEUR, numeroActa, RECIBOS_IMPORTE_USD, RECIBOS_TIPO_CAMBIO } from "../domain/recibos";
 import { anexoDeRecibo } from "./recibos";
@@ -213,7 +214,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
       actorNombre: quien.nombre, accion: "acta_reimpresa", entidad: "actas_pago", entidadId: existente.id,
       datos: actualizarDocumento ? { contingencia, documentoActualizado: true } : { contingencia } }, client);
-    if (firmado) return { ok: true, pdf: firmado.pdf, borrador: false, numero, actaId: existente.id };
+    if (firmado) return { ok: true, pdf: await normalizarFechaRecibo(firmado.pdf, existente.parametros.contingencia), borrador: false, numero, actaId: existente.id };
   }
 
   const [j] = (await client.query<{ vigente: string }>(
@@ -231,7 +232,8 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
   if (actualizarDocumento || persona.tipoDocumento === "pasaporte") persona.cedula = m.cedula;
   const anexo = anexoDeRecibo(persona, fotos);
   if (contingencia && !anexo && existente?.recibo_cifrado && existente.recibo_nonce) {
-    return { ok: true, pdf: decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), borrador: !existente.importe_eur,
+    const pdf = await normalizarFechaRecibo(decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), existente.parametros.contingencia);
+    return { ok: true, pdf, borrador: !existente.importe_eur,
       numero: numeroActa(existente.id, modo.prueba, existente.ordinal_recibo), actaId: existente.id };
   }
   const guardados = existente?.parametros ?? { ...params, persona_recibo: persona, contingencia };

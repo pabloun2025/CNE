@@ -31,10 +31,11 @@ describe("cartel para miembros de junta", () => {
 
     const texto = textoDelCartel(pdf);
     expect(texto).toContain(url);
-    expect(texto).toMatch(/número de cédula.*iniciales.*junta.*Sí, soy yo/);
-    expect(texto).toMatch(/un solo documento.*buena luz.*Cédula.*anverso.*reverso.*Pasaporte.*no tiene la cédula física.*una sola foto.*página de datos/);
+    expect(texto).toMatch(/número de cédula.*Sí, soy yo/);
+    expect(texto).toMatch(/Cédula.*2 fotos.*Delante.*Atrás.*Pasaporte.*1 foto.*Página donde sale su foto/);
     expect(texto).toMatch(/Usar esta foto.*Listo/);
-    expect(texto).toMatch(/Pase por Finanzas.*QR de su credencial.*escaneará el QR.*revisará su documento.*imprimirá el recibo.*Firme el recibo en papel.*efectivo en Caja/);
+    expect(texto).toMatch(/Listo.*punto de pago.*QR de su credencial.*Firme.*efectivo/i);
+    expect(texto).not.toMatch(/Finanzas|financiero/i);
     expect(texto).not.toContain("CARTEL DE PRUEBA");
   });
 

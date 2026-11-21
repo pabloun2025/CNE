@@ -17,9 +17,17 @@ export default async function Recibos({ searchParams }: { searchParams: Promise<
     <main className="stack-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1>Recibos</h1>
-        <Link className="button-like" href="/admin/finanzas/recibos/emitir">Emitir en contingencia</Link>
+        <Link className="button-like" href="/admin/finanzas/recibos/emitir">Emitir recibos numerados</Link>
       </div>
       <PestanasFinanzas />
+      <form action="/api/admin/finanzas/recibos/contingencia" method="post" className="card flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2>Actas para completar a mano</h2>
+          <p className="hint">Una hoja por integrante del padrón activo, sin fotos. Complete a mano el número y el importe en euros.</p>
+        </div>
+        <input name="modo" type="hidden" value={modo} />
+        <button className="bg-blue-700 px-4 py-2">Descargar PDF de contingencia</button>
+      </form>
       <form action="/admin/finanzas/recibos" className="card flex flex-wrap items-end gap-3">
         <label className="min-w-0 flex-1">Nombre, cédula o número de recibo
           <input name="q" type="search" defaultValue={q} maxLength={120} placeholder="Nombre, cédula o MAD-000123" />

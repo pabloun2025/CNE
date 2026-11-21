@@ -7,7 +7,9 @@ import type { Modo } from "./config";
 import { decryptBuffer } from "./crypto";
 import { query, withTx } from "./db";
 import { documentosParaRecibo } from "./documentos";
-import { actaPago, type DatosActa } from "./pdf/acta";
+import { leerParametros } from "./pago";
+import { actaPago, actasContingencia, type DatosActa } from "./pdf/acta";
+import { normalizarFechaRecibo } from "./pdf/fecha-recibo";
 import { crearZip } from "./zip";
 
 export type TipoRecibo = "acta" | "firma";
@@ -82,7 +84,7 @@ export async function descargarRecibo(tipo: TipoRecibo, id: number, client?: Poo
   if (tipo === "firma") {
     const [f] = await consultar<{ pdf: Buffer }>("SELECT pdf FROM firmas_recibo WHERE id = $1 AND acta_id IS NULL", [id]);
     if (!f) return null;
-    const original = await PDFDocument.load(f.pdf);
+    const original = await PDFDocument.load(await normalizarFechaRecibo(f.pdf));
     const recibo = await PDFDocument.create();
     const [pagina] = await recibo.copyPages(original, [0]);
     recibo.addPage(pagina);
@@ -112,7 +114,9 @@ export async function descargarRecibo(tipo: TipoRecibo, id: number, client?: Poo
   const persona = a.parametros?.persona_recibo ?? { apellidos: a.apellidos, nombres: a.nombres, cedula: a.cedula, cargo: a.cargo, juntaVigente: a.junta };
   const fotos = incluirCedula && a.ordinal_recibo !== null ? await documentosParaRecibo(a.mjrv_id, client) : undefined;
   const anexo = anexoDeRecibo(persona, fotos);
-  if (!anexo && a.recibo_cifrado && a.recibo_nonce) return { numero, pdf: decryptBuffer(a.recibo_cifrado, a.recibo_nonce) };
+  if (!anexo && a.recibo_cifrado && a.recibo_nonce) {
+    return { numero, pdf: await normalizarFechaRecibo(decryptBuffer(a.recibo_cifrado, a.recibo_nonce), a.parametros?.contingencia) };
+  }
   const nombrePagador = a.parametros?.pagador_nombre;
   const pdf = await actaPago({
     numero, impresionN: a.impresion_n, prueba: a.es_prueba, borrador: !a.importe_eur, emitidaEn: a.creado_en,
@@ -124,6 +128,30 @@ export async function descargarRecibo(tipo: TipoRecibo, id: number, client?: Poo
     pagador: nombrePagador ? { nombre: nombrePagador, cargo: a.parametros.pagador_cargo ?? "" } : null,
   });
   return { numero, pdf };
+}
+
+export async function descargarActasContingencia(sesion: Sesion, modo: Modo): Promise<
+  { ok: true; pdf: Uint8Array } | { ok: false; status: 404 | 409; mensaje: string }
+> {
+  return withTx(async (client) => {
+    const { rows: [config] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
+    if (modo !== config.modo) return { ok: false, status: 409, mensaje: "El modo cambió. Actualice la página antes de descargar." };
+    // El padrón maestro también sirve para ensayar. Las fichas de demostración solo se imprimen en prueba.
+    const { rows: personas } = await client.query<DatosActa["persona"]>(
+      `SELECT m.apellidos, m.nombres, m.cedula, m.cargo_original AS cargo, j.serie || j.numero AS "juntaVigente",
+              m.telefono_e164 AS telefono, m.correo
+         FROM mjrv m JOIN v_mjrv_asignacion v ON v.mjrv_id = m.id
+         JOIN juntas_madrid j ON j.id = v.junta_actual_id
+        WHERE $1 = 'prueba' OR NOT m.es_prueba
+        ORDER BY j.serie, j.numero, m.apellidos, m.nombres, m.id`, [modo]);
+    if (!personas.length) return { ok: false, status: 404, mensaje: "No hay fichas activas en el padrón para descargar." };
+    const { pagador_nombre, pagador_cargo } = await leerParametros(client);
+    const pagador = pagador_nombre ? { nombre: pagador_nombre, cargo: pagador_cargo ?? "" } : null;
+    const pdf = await actasContingencia(personas, pagador, modo === "prueba");
+    await registrarAuditoria({ portal: "finanzas", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre,
+      accion: "actas_contingencia_descargadas", entidad: "mjrv", datos: { modo, fichas: personas.length } }, client);
+    return { ok: true, pdf };
+  });
 }
 
 export type SeleccionRecibosEmitidos = { modo: Modo; incluirCedula?: boolean } & ({ referencias: ReferenciaRecibo[] } | { q: string; total: number });

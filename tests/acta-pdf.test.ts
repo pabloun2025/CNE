@@ -1,7 +1,8 @@
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { actaPago } from "@/server/pdf/acta";
+import { actaPago, actasContingencia } from "@/server/pdf/acta";
+import { normalizarFechaRecibo } from "@/server/pdf/fecha-recibo";
 
 const datos = {
   numero: "MAD-2026-001",
@@ -98,6 +99,19 @@ describe("PDF del recibo oficial de pago", () => {
     expect.soft(texto).toContain("DIRECCIÓN DOMICILIARIA:\nMadrid\n");
   });
 
+  it.each([
+    { ordinalRecibo: 1, etiqueta: "EMISIÓN: " },
+    { ordinalRecibo: null, etiqueta: "FECHA DE EMISIÓN\n" },
+  ])("conserva la fecha local sin hora y aplica la fecha electoral en contingencia ($ordinalRecibo)", async ({ ordinalRecibo, etiqueta }) => {
+    const emitidaEn = new Date("2026-11-20T23:45:00Z");
+    const normal = await leerRecibo(await actaPago({ ...datos, ordinalRecibo, emitidaEn, reconstruido: true }));
+    expect(normal.texto).toContain(`${etiqueta}21/11/26`);
+    expect(normal.texto).not.toMatch(/\b\d{1,2}:\d{2}\b/);
+    const contingencia = await leerRecibo(await actaPago({ ...datos, ordinalRecibo, emitidaEn, contingencia: true }));
+    expect(contingencia.texto).toContain(`${etiqueta}29 de noviembre de 2026`);
+    expect(contingencia.texto).not.toMatch(/\b\d{1,2}:\d{2}\b/);
+  });
+
   it("deja la firma manuscrita en blanco aunque se facilite una imagen de firma", async () => {
     const firmaReceptor = await sharp({ create: { width: 80, height: 40, channels: 4, background: "#171717" } }).png().toBuffer();
     const { texto, anchosImagenes } = await leerRecibo(await actaPago({ ...datos, firmaReceptor }));
@@ -136,5 +150,64 @@ describe("PDF del recibo oficial de pago", () => {
     const anexo = await leerRecibo(pdf, 1);
     expect(anexo.texto).toContain("PÁGINA DE DATOS DEL PASAPORTE");
     expect(anexo.anchosImagenes).toContain(1000);
+  });
+});
+
+describe("PDF de contingencia para completar a mano", () => {
+  it("incluye por ficha una página A4 apaisada con el número y el EUR en blanco, sin anexo ni hora", async () => {
+    const personaPasaporte = { ...datos.persona, tipoDocumento: "pasaporte" as const };
+    const segunda = { ...datos.persona, juntaVigente: "M55", cedula: "0000000002" };
+    const pdf = await actasContingencia([personaPasaporte, segunda], datos.pagador, true);
+    const primera = await leerRecibo(pdf);
+    expect(primera.documento.getPageCount()).toBe(2);
+
+    for (const [indice, ficha] of [personaPasaporte, segunda].entries()) {
+      const { pagina, texto, anchosImagenes } = await leerRecibo(pdf, indice);
+      expect(pagina.getWidth()).toBeCloseTo((297 * 72) / 25.4);
+      expect(pagina.getHeight()).toBeCloseTo((210 * 72) / 25.4);
+      expect(texto).toContain("CONTINGENCIA · PARA COMPLETAR A MANO");
+      expect(texto).toContain("NRO. ____________");
+      expect(texto).toContain("FECHA: 29 de noviembre de 2026");
+      expect(texto).toContain("Importe entregado: EUR ____________");
+      expect(texto).toContain("USD 70,00");
+      expect(texto).toContain("1,190");
+      expect(texto).toContain(ficha.cedula);
+      expect(texto).toContain(ficha.juntaVigente);
+      expect(texto).toContain("PAGADOR PRUEBA");
+      expect(texto).toContain("PRUEBA");
+      expect(texto).not.toMatch(/\b\d{1,2}:\d{2}\b|MAD-2026|58,8[23]|ANVERSO|REVERSO|PÁGINA DE DATOS/);
+      expect(anchosImagenes).toHaveLength(1);
+    }
+  });
+});
+
+describe("fecha en recibos PDF archivados", () => {
+  it.each([
+    { encabezado: "NRO. MAD-2026-001   |   EMISIÓN: ", contingencia: false },
+    { encabezado: "FECHA DE EMISIÓN\n", contingencia: false },
+    { encabezado: "NRO. MAD-2026-001   |   EMISIÓN: ", contingencia: true },
+    { encabezado: "FECHA DE EMISIÓN\n", contingencia: true },
+  ])("actualiza solo la fecha visible del archivo ($encabezado, contingencia $contingencia)", async ({ encabezado, contingencia }) => {
+    const archivo = await PDFDocument.create();
+    const pagina = archivo.addPage();
+    (encabezado + "20/11/26, 11:45").split("\n").forEach((texto, i) => pagina.drawText(texto, { y: 700 - i * 24 }));
+    pagina.drawText("Texto original. Hora de prueba 11:45. EUR 58,82.", { y: 620 });
+    if (contingencia) pagina.drawText("EMISIÓN DE CONTINGENCIA", { y: 580 });
+    const firma = await archivo.embedPng(await sharp({ create: { width: 80, height: 40, channels: 4, background: "#171717" } }).png().toBuffer());
+    pagina.drawImage(firma, { x: 100, y: 300, width: 80, height: 40 });
+    const guardado = await archivo.save();
+
+    const copia = await normalizarFechaRecibo(guardado);
+    const { documento, texto, anchosImagenes } = await leerRecibo(copia);
+    expect(texto).toContain(encabezado + (contingencia ? "29/11/26" : "20/11/26"));
+    expect(texto).not.toContain("20/11/26, 11:45");
+    expect(texto).toContain("Texto original. Hora de prueba 11:45. EUR 58,82.");
+    expect(anchosImagenes).toEqual([80]);
+    const operandoAnterior = Buffer.from("20/11/26, 11:45", "latin1").toString("hex").toUpperCase();
+    const flujos = documento.context.enumerateIndirectObjects().map(([, objeto]) => objeto)
+      .filter((objeto) => objeto instanceof PDFRawStream);
+    expect(flujos.some((flujo) => Buffer.from(decodePDFRawStream(flujo).decode()).toString("latin1").includes(operandoAnterior))).toBe(false);
+    expect((await leerRecibo(guardado)).texto).toContain("20/11/26, 11:45");
+    expect(await normalizarFechaRecibo(copia)).toBe(copia);
   });
 });

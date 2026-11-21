@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { eurosEnLetras } from "../../domain/pago";
 import { A4, MM } from "../../domain/credencial-layout";
+import { RECIBOS_IMPORTE_USD, RECIBOS_TIPO_CAMBIO } from "../../domain/recibos";
+import { FECHA_CONTINGENCIA } from "./fecha-recibo";
 
 export type DatosActa = {
   numero: string;
@@ -38,7 +40,9 @@ const amarillo = rgb(0xe1 / 255, 0xb3 / 255, 0x25 / 255);
 const papel = rgb(0xf7 / 255, 0xf9 / 255, 0xfb / 255);
 
 const latin = (t: string) => t.replace(/[^\u0020-\u00ff\u2013\u2014\u2018\u2019\u201c\u201d\u2022\u20ac\u2026]/g, "?");
-const fechaMadrid = (d: Date) => new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(d);
+const fechaMadrid = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short" });
+const fechaRecibo = (d: DatosActa) => d.contingencia ? FECHA_CONTINGENCIA : fechaMadrid.format(d.emitidaEn);
+const ESPACIO_MANUSCRITO = "____________";
 const logoBytes = Uint8Array.from(readFileSync(join(process.cwd(), "src/server/pdf/logo-cne.jpg")));
 // Logotipo del formulario oficial FO-04, extraído de la plantilla Word en blanco.
 const logoOficialBytes = Uint8Array.from(readFileSync(join(process.cwd(), "src/server/pdf/logo-recibo-cne.png")));
@@ -63,14 +67,30 @@ function marcaDeAgua(page: PDFPage, f: PDFFont, prueba: boolean) {
 }
 
 export async function actaPago(d: DatosActa): Promise<Uint8Array> {
-  return d.ordinalRecibo == null ? actaHistorica(d) : actaOficial(d);
+  if (d.ordinalRecibo == null) return actaHistorica(d);
+  const plantilla = await prepararActaOficial();
+  await agregarActaOficial(plantilla, d);
+  return plantilla.pdf.save();
 }
 
-async function actaOficial(d: DatosActa): Promise<Uint8Array> {
+export async function actasContingencia(personas: DatosActa["persona"][], pagador: DatosActa["pagador"], prueba: boolean): Promise<Uint8Array> {
+  const plantilla = await prepararActaOficial();
+  const importe = { usd: RECIBOS_IMPORTE_USD, eur: null, cambio: RECIBOS_TIPO_CAMBIO };
+  for (const persona of personas) await agregarActaOficial(plantilla, { manual: true, persona, pagador, prueba, importe });
+  return plantilla.pdf.save();
+}
+
+async function prepararActaOficial() {
   const pdf = await PDFDocument.create();
   const normal = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await pdf.embedPng(logoOficialBytes);
+  return { pdf, normal, bold, logo };
+}
+
+type ActaManual = Pick<DatosActa, "persona" | "pagador" | "prueba" | "importe"> & { manual: true };
+
+async function agregarActaOficial({ pdf, normal, bold, logo }: Awaited<ReturnType<typeof prepararActaOficial>>, d: DatosActa | ActaManual) {
   const page = pdf.addPage([A4.alto * MM, A4.ancho * MM]);
   const negro = rgb(0, 0, 0);
   const blanco = rgb(1, 1, 1);
@@ -111,10 +131,13 @@ async function actaOficial(d: DatosActa): Promise<Uint8Array> {
   texto("RECIBO DE PAGO - MJRV", izquierda, 509, ancho, { font: bold, size: 15, alineacion: "centro" });
   texto("PROCESO: ELECCIONES SECCIONALES Y CPCCS 2027", izquierda, 488, ancho, { font: bold, size: 11, alineacion: "centro" });
 
-  const numero = d.impresionN > 1 ? `${d.numero} · REIMPRESIÓN ${d.impresionN}` : d.numero;
-  const avisos = [d.borrador && "BORRADOR", d.reconstruido && "COPIA RECONSTRUIDA", d.contingencia && "EMISIÓN DE CONTINGENCIA"].filter(Boolean).join(" · ");
+  const manual = "manual" in d;
+  const numero = manual ? ESPACIO_MANUSCRITO : d.impresionN > 1 ? `${d.numero} · REIMPRESIÓN ${d.impresionN}` : d.numero;
+  const avisos = manual ? "CONTINGENCIA · PARA COMPLETAR A MANO"
+    : [d.borrador && "BORRADOR", d.reconstruido && "COPIA RECONSTRUIDA", d.contingencia && "EMISIÓN DE CONTINGENCIA"].filter(Boolean).join(" · ");
+  const fecha = manual ? `FECHA: ${FECHA_CONTINGENCIA}` : `EMISIÓN: ${fechaRecibo(d)}`;
   texto(avisos, izquierda, 467, mitad, { font: bold, size: 8 });
-  texto(`NRO. ${numero}   |   EMISIÓN: ${fechaMadrid(d.emitidaEn)}`, centro, 467, mitad, { font: bold, alineacion: "derecha" });
+  texto(`NRO. ${numero}   |   ${fecha}`, centro, 467, mitad, { font: bold, alineacion: "derecha" });
 
   page.drawRectangle({ x: izquierda, y: 344, width: ancho, height: 22, color: azulOficial });
   page.drawRectangle({ x: izquierda, y: 204, width: ancho, height: 252, borderWidth: 0.6, borderColor: negro });
@@ -130,7 +153,7 @@ async function actaOficial(d: DatosActa): Promise<Uint8Array> {
 
   const nombre = `${d.persona.nombres} ${d.persona.apellidos}`.trim();
   const usd = d.importe.usd?.replace(".", ",") ?? "________";
-  const eur = d.importe.eur?.replace(".", ",") ?? "________";
+  const eur = d.importe.eur?.replace(".", ",") ?? (manual ? ESPACIO_MANUSCRITO : "________");
   const cambio = d.importe.cambio?.replace(".", ",") ?? "________";
   texto(`Yo, ${nombre}, con cédula Nro. ${d.persona.cedula}, declaro haber recibido USD ${usd},`, izquierda + 8, 399, ancho - 16);
   texto(`por haber participado en la Junta Receptora del Voto Nro. ${d.persona.juntaVigente} con el nombramiento de ${d.persona.cargo}.`, izquierda + 8, 386, ancho - 16);
@@ -149,7 +172,7 @@ async function actaOficial(d: DatosActa): Promise<Uint8Array> {
   trazo(centro + 8, 218, derecha - 8, 218, true);
 
   const anchoMarco = mitad - 6;
-  const fotos = d.persona.tipoDocumento === "pasaporte" ? [
+  const fotos = manual ? [] : d.persona.tipoDocumento === "pasaporte" ? [
     ["PÁGINA DE DATOS DEL PASAPORTE", centro - anchoMarco / 2, d.anexo?.pasaporte],
   ] as const : [
     ["ANVERSO DE LA CÉDULA", izquierda, d.anexo?.anverso],
@@ -167,7 +190,6 @@ async function actaOficial(d: DatosActa): Promise<Uint8Array> {
 
   texto("Código: FO-04(PE-PX-SU-02); Versión: 2", izquierda, 23, ancho, { size: 8 });
   marcaDeAgua(page, bold, d.prueba);
-  return pdf.save();
 }
 
 // Conserva el formato de las actas emitidas antes del recibo oficial.
@@ -245,7 +267,7 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
   const mitad = ancho / 2;
   p1.drawRectangle({ x: ML, y: y - hCampo, width: ancho, height: hCampo, borderColor: linea, borderWidth: 0.8 });
   campo(ML, y - hCampo, mitad, hCampo, "NÚMERO DEL COMPROBANTE", numero);
-  campo(ML + mitad, y - hCampo, mitad, hCampo, "FECHA DE EMISIÓN", fechaMadrid(d.emitidaEn));
+  campo(ML + mitad, y - hCampo, mitad, hCampo, "FECHA DE EMISIÓN", fechaRecibo(d));
   caja(ML, y - hCampo, mitad, hCampo, true, false);
   y -= hCampo + 5 * MM;
 

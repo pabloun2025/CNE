@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Sesion } from "@/server/auth";
+import { encryptBuffer } from "@/server/crypto";
 import { closePools } from "@/server/db";
 import { guardarDocumento } from "@/server/documentos";
 import { confirmarPago, fichaPago, generarActa, generarRecibosContingencia, type ActorPago } from "@/server/finanzas";
@@ -107,10 +108,27 @@ describe("archivo de recibos de Madrid", () => {
     expect(await guardarFirma(actor, segunda, firma)).toEqual({ ok: true });
     const nuevas = (await buscarRecibos("0000000042", 1)).filas;
     expect(nuevas).toMatchObject([{ tipo: "acta", reconstruido: false }]);
+    const [{ id: actaId, numero }] = nuevas;
+    const emitido = "20/11/26";
+    const pdfAnterior = await PDFDocument.create();
+    pdfAnterior.addPage().drawText(`NRO. ${numero}   |   EMISIÓN: ${emitido}, 11:45`);
+    await consultarDueno("UPDATE cne.firmas_recibo SET pdf = $2 WHERE acta_id = $1", [actaId, Buffer.from(await pdfAnterior.save())]);
+    await consultarDueno("UPDATE cne.actas_pago SET creado_en = $2 WHERE id = $1", [actaId, new Date("2026-11-20T10:45:00Z")]);
+    const normal = await generarActa(actor, segunda, true);
+    const desdeContingencia = await generarRecibosContingencia(actor, [segunda]);
+    if (!normal.ok || !desdeContingencia.ok) throw new Error("Falta reimprimir el recibo firmado");
+    for (const pdf of [normal.pdf, desdeContingencia.pdf]) {
+      expect(await contieneTexto(pdf, `EMISIÓN: ${emitido}`)).toBe(true);
+      expect(await contieneTexto(pdf, "11:45")).toBe(false);
+      expect(await contieneTexto(pdf, "29 de noviembre de 2026")).toBe(false);
+    }
     await consultarDueno("UPDATE cne.firmas_recibo SET acta_id = NULL WHERE mjrv_id = $1", [segunda]);
     const [firmada] = (await buscarRecibos("0000000042", 1)).filas.filter((f) => f.tipo === "firma");
     expect(firmada).toMatchObject({ pagado: null });
-    expect((await PDFDocument.load((await descargarRecibo("firma", firmada.id))!.pdf)).getPageCount()).toBe(1);
+    const { pdf: copia } = (await descargarRecibo("firma", firmada.id))!;
+    expect((await PDFDocument.load(copia)).getPageCount()).toBe(1);
+    expect(await contieneTexto(copia, `EMISIÓN: ${emitido}`)).toBe(true);
+    expect(await contieneTexto(copia, "11:45")).toBe(false);
   });
 
   it("emite y reimprime un lote sin fotos ni validación, con un número por persona y sin registrar pagos", async () => {
@@ -129,6 +147,7 @@ describe("archivo de recibos de Madrid", () => {
     expect(lote.numeros).toEqual(repetido.numeros);
     expect(new Set(lote.numeros).size).toBe(2);
     expect((await PDFDocument.load(lote.pdf)).getPageCount()).toBe(2);
+    expect(await contieneTexto(lote.pdf, "EMISIÓN: 29 de noviembre de 2026")).toBe(true);
     expect(await consultarDueno("SELECT id FROM cne.actas_pago WHERE mjrv_id = ANY($1::bigint[])", [ids])).toHaveLength(2);
     await expect(consultarDueno(
       "INSERT INTO cne.actas_pago (mjrv_id, usuario_id, importe_eur, parametros, impresion_n) VALUES ($1,$2,55,'{}',1)",
@@ -137,6 +156,31 @@ describe("archivo de recibos de Madrid", () => {
     expect(await consultarDueno("SELECT id FROM cne.mjrv WHERE id = ANY($1::bigint[]) AND cedula_validada_en IS NOT NULL", [ids])).toHaveLength(0);
     const [acta] = (await buscarRecibos(lote.numeros[0], 1)).filas;
     expect(await confirmarPago(actor, { mjrvId: ids[0], actaId: acta.id, verificado: true })).toMatchObject({ ok: false });
+  });
+
+  it("quita la hora de las copias de archivo sin alterar la fecha operativa ni el PDF guardado", async () => {
+    const [{ id: mjrvId }] = await consultarDueno<{ id: number }>(
+      "INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id) SELECT '0000000047','ARCHIVO PRUEBA','NOMBRE PRUEBA','VOCAL','vocal',id FROM cne.juntas_madrid WHERE serie='H' AND numero=1 RETURNING id");
+    const lote = await generarRecibosContingencia(actor, [mjrvId]);
+    if (!lote.ok) throw new Error("Falta el recibo de contingencia");
+    const [{ id, numero }] = (await buscarRecibos(lote.numeros[0], 1)).filas;
+    const encabezado = `NRO. ${numero}   |   EMISIÓN: `;
+    const fechaOperativa = new Date("2026-11-20T10:45:00Z");
+    const archivo = await PDFDocument.create();
+    archivo.addPage().drawText(`${encabezado}20/11/26, 11:45`);
+    const { ciphertext, nonce } = encryptBuffer(Buffer.from(await archivo.save()));
+    await consultarDueno("UPDATE cne.actas_pago SET creado_en = $2, recibo_cifrado = $3, recibo_nonce = $4 WHERE id = $1",
+      [id, fechaOperativa, ciphertext, nonce]);
+
+    const copia = (await descargarRecibo("acta", id))!;
+    const reimpresion = await generarRecibosContingencia(actor, [mjrvId]);
+    if (!reimpresion.ok) throw new Error("Falta la reimpresión de contingencia");
+    for (const pdf of [copia.pdf, reimpresion.pdf]) {
+      expect(await contieneTexto(pdf, encabezado + "29/11/26")).toBe(true);
+      expect(await contieneTexto(pdf, "11:45")).toBe(false);
+    }
+    expect(await consultarDueno("SELECT creado_en, recibo_cifrado, recibo_nonce FROM cne.actas_pago WHERE id = $1", [id]))
+      .toEqual([{ creado_en: fechaOperativa, recibo_cifrado: ciphertext, recibo_nonce: nonce }]);
   });
 
   it("archiva el borrador legado con sus cifras ausentes y emite un único recibo definitivo", async () => {

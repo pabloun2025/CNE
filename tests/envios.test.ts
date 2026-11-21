@@ -116,8 +116,8 @@ describe("D08 · texto del mensaje de la credencial", () => {
     expect(correo.html).toContain("ANA &lt; PRUEBA");
     expect(correo.html).toContain("H1 &amp; H2");
     expect(correo.texto).toContain("ANA < PRUEBA");
-    expect(correo.html).not.toContain("Formulario de documentación");
-    expect(correo.texto).not.toContain("Formulario de documentación");
+    expect(correo.html).not.toContain("Subir fotos de mi documento");
+    expect(correo.texto).not.toContain("Subir fotos de mi documento");
   });
 
   it.each([
@@ -131,18 +131,17 @@ describe("D08 · texto del mensaje de la credencial", () => {
     const zona = zonaDe(serie, numero);
     if (!zona) throw new Error("La junta de prueba debe existir.");
     const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", junta: `${serie}${numero}`, zona });
-    expect(correo.asunto).toBe("Su credencial de MJRV – 29 de noviembre de 2026");
+    expect(correo.asunto).toBe("Su credencial electoral – 29 de noviembre de 2026");
     expect(correo.html).toContain(tono);
     for (const cuerpo of [correo.html, correo.texto]) {
       expect(cuerpo).toContain("29 de noviembre de 2026");
       expect(cuerpo).toContain("Caja Mágica");
       expect(cuerpo).toContain("Camino de Perales 23");
       expect(cuerpo).toContain("nivel −2");
-      expect(cuerpo).toContain("HORA LÍMITE DE INGRESO: 08:00");
-      expect(cuerpo).toContain("a más tardar a las 08:00");
-      expect(cuerpo).toContain("instalación de las juntas comenzará a las 08:30");
+      expect(cuerpo).toContain("Entre al recinto a más tardar a las 08:00");
+      expect(cuerpo).toContain("Instalación de las juntas a las 08:30");
       expect(cuerpo).toContain("09:00 a 19:00");
-      expect(cuerpo).toContain("escrutinio");
+      expect(cuerpo).toContain("recuento de votos");
       expect(cuerpo).toContain("código QR");
       expect(cuerpo).toContain("Lleve también su cédula o pasaporte.");
       expect(cuerpo).not.toContain("antes de las 08:30");
@@ -154,12 +153,15 @@ describe("D08 · texto del mensaje de la credencial", () => {
     expect(new URL(mapa!).searchParams.get("destination")).toBe("Caja Mágica, Camino de Perales 23, 28041 Madrid");
   });
 
-  it("ofrece el formulario abierto con su enlace", () => {
+  it("enlaza el formulario y la guía y pide terminar las fotos antes de ir al punto de pago", () => {
     const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", junta: "H1", zona: "amarillo", host: "madrid.consulado.app" });
     for (const cuerpo of [correo.texto, correo.html]) {
-      expect(cuerpo).toContain("Formulario de documentación");
+      expect(cuerpo).toContain("Subir fotos de mi documento");
       expect(cuerpo).toContain("https://madrid.consulado.app/d");
-      expect(cuerpo).toMatch(/número de cédula.*imágenes de su cédula o pasaporte.*anverso y el reverso.*no tiene la cédula física.*una sola foto.*página de datos del pasaporte/);
+      expect(cuerpo).toContain("https://madrid.consulado.app/d/guia");
+      expect(cuerpo).toMatch(/número de cédula[\s\S]*?dos fotos[\s\S]*?delante[\s\S]*?atrás[\s\S]*?una foto[\s\S]*?página donde sale su foto/);
+      expect(cuerpo).toMatch(/Usar esta foto[\s\S]*?«Listo»[\s\S]*?punto de pago/i);
+      expect(cuerpo).not.toMatch(/finanzas|financiero/i);
     }
   });
 
@@ -177,8 +179,8 @@ describe("D08 · texto del mensaje de la credencial", () => {
       expect(html).toContain('href="https://madrid.ejemplo.invalid/d"');
       expect(texto).toContain("H1");
       expect(texto).toContain("Amarillo");
-      expect(texto).toContain("página de datos");
-      expect(html).toContain("página de datos");
+      expect(texto).toContain("página donde sale su foto");
+      expect(html).toContain("página donde sale su foto");
     } finally {
       if (antes === undefined) delete process.env.HOST_MADRID; else process.env.HOST_MADRID = antes;
     }
