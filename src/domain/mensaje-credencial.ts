@@ -29,13 +29,14 @@ export function correoCredencial(d: DatosCorreo): { asunto: string; texto: strin
   const fecha = "Domingo 29 de noviembre de 2026";
   const ubicacion = `${RECINTO}, nivel −2 · ${DIRECCION}`;
   const asignacion = `Junta ${d.junta} · Zona ${ZONA_NOMBRE[d.zona]}`;
-  const llegada = "Preséntese antes de las 08:30, hora de Madrid, para registrar su ingreso. La instalación de las juntas comienza a las 08:30 y la votación se realiza de 09:00 a 19:00.";
+  const llegada = "Debe haber ingresado al recinto a más tardar a las 08:00 (hora de Madrid). Llegue con suficiente antelación para registrar su entrada y localizar su zona y su junta.";
+  const horario = "La instalación de las juntas comenzará a las 08:30; la votación se desarrollará de 09:00 a 19:00 y, posteriormente, se realizará el escrutinio.";
   const acceso = "Si no puede imprimirla, guarde el PDF en su teléfono móvil y muestre el código QR en la puerta para registrar su acceso. Lleve también su cédula de identidad.";
   const documentos = "Para preparar su comprobante de pago, cargue las fotos del anverso y el reverso de su cédula en el formulario de Madrid.";
   const enlace = enlaceDocumentos(d.host);
 
   const texto = [
-    saludo, adjunto, `${fecha}\n${asignacion}\n${ubicacion}\nCómo llegar en Google Maps\n${MAPA}`, llegada, acceso,
+    saludo, adjunto, `${fecha}\n${asignacion}\n${ubicacion}\nCómo llegar en Google Maps\n${MAPA}`, llegada, horario, acceso,
     ...(enlace ? [`${documentos}\n${enlace}`] : []), "Atentamente,\n" + firma,
   ].join("\n\n");
   const html = `<!doctype html>
@@ -52,7 +53,8 @@ export function correoCredencial(d: DatosCorreo): { asunto: string; texto: strin
           <strong>${escapar(asignacion)}</strong><br>${fecha}<br>${ubicacion}<br>
           <a style="color:#174c83" href="${escapar(MAPA)}">Cómo llegar en Google Maps</a>
         </p>
-        <p style="margin:0 0 16px">${llegada}</p>
+        <p style="margin:0 0 16px;padding:12px 14px;background-color:#fff5e6;border-left:4px solid #b96c12"><strong>Hora límite de ingreso: 08:00</strong><br>${escapar(llegada)}</p>
+        <p style="margin:0 0 16px">${escapar(horario)}</p>
         <p style="margin:0 0 16px;padding:12px 14px;background-color:#eaf1f8;border-left:4px solid #12325a"><strong>Acceso al recinto</strong><br>${acceso}</p>
         ${enlace ? `<p style="margin:0 0 16px">${documentos}<br><a style="color:#174c83" href="${escapar(enlace)}">Abrir el formulario de Madrid</a></p>` : ""}
         <p style="margin:0">Atentamente,<br>${firma}</p>
