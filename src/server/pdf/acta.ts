@@ -132,7 +132,7 @@ async function actaOficial(d: DatosActa): Promise<Uint8Array> {
   const usd = d.importe.usd?.replace(".", ",") ?? "________";
   const eur = d.importe.eur?.replace(".", ",") ?? "________";
   const cambio = d.importe.cambio?.replace(".", ",") ?? "________";
-  texto(`Yo, ${nombre}, con cédula o pasaporte Nro. ${d.persona.cedula}, declaro haber recibido USD ${usd},`, izquierda + 8, 399, ancho - 16);
+  texto(`Yo, ${nombre}, con cédula Nro. ${d.persona.cedula}, declaro haber recibido USD ${usd},`, izquierda + 8, 399, ancho - 16);
   texto(`por haber participado en la Junta Receptora del Voto Nro. ${d.persona.juntaVigente} con el nombramiento de ${d.persona.cargo}.`, izquierda + 8, 386, ancho - 16);
   texto(`Importe entregado: EUR ${eur}    ·    Tipo de cambio (USD por EUR): ${cambio}`, izquierda + 8, 373, ancho - 16, { font: bold });
 
@@ -254,7 +254,7 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
   const filas: [string, string, boolean][] = [
     ["APELLIDOS", d.persona.apellidos, true],
     ["NOMBRES", d.persona.nombres, true],
-    [esPasaporte ? "PASAPORTE" : "CÉDULA DE IDENTIDAD", d.persona.cedula, true],
+    ["CÉDULA DE IDENTIDAD", d.persona.cedula, true],
     ["JUNTA RECEPTORA DEL VOTO", d.persona.juntaVigente, true],
     ["FUNCIÓN EN LA JUNTA", d.persona.cargo, false],
   ];
@@ -310,7 +310,7 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
   const pag = d.pagador ?? { nombre: "(pendiente)", cargo: "" };
   const firmas: [string, string, string][] = [
     [pag.nombre, pag.cargo, "Firma de quien entrega el pago"],
-    [`${d.persona.nombres} ${d.persona.apellidos}`, `${esPasaporte ? "Pasaporte" : "C. I."} ${d.persona.cedula}`, "Firma de quien recibe el pago"],
+    [`${d.persona.nombres} ${d.persona.apellidos}`, `C. I. ${d.persona.cedula}`, "Firma de quien recibe el pago"],
   ];
   const anchoFirma = (ancho - 12 * MM) / 2;
   const centrado = (texto: string, x: number, yy: number, f: PDFFont, size: number) => {
@@ -363,7 +363,7 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
     y2 -= altoPanel + 4 * MM;
   }
 
-  const ref = `MJRV: ${d.persona.nombres} ${d.persona.apellidos}  |  ${esPasaporte ? "Pasaporte" : "C. I."}: ${d.persona.cedula}  |  JRV: ${d.persona.juntaVigente}`;
+  const ref = `MJRV: ${d.persona.nombres} ${d.persona.apellidos}  |  C. I.: ${d.persona.cedula}  |  JRV: ${d.persona.juntaVigente}`;
   const refLineas = partir(ref, normal, 9, ancho - 16);
   const hRef = 6 * MM + refLineas.length * 12;
   p2.drawRectangle({ x: ML, y: y2 - hRef, width: 3, height: hRef, color: amarillo });

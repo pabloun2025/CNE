@@ -216,7 +216,7 @@ describe("archivo de recibos de Madrid", () => {
     const original = (await descargarRecibo("acta", id))!;
     expect(await contieneTexto(original.pdf, "0000000046")).toBe(true);
     await consultarDueno("UPDATE cne.mjrv SET apellidos = 'CAMBIO PRUEBA' WHERE id = $1", [mjrvId]);
-    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", numeroPasaporte: "PRUEBA456", imagen: await foto(), origen: "estacion" }))
+    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", imagen: await foto(), origen: "estacion" }))
       .toMatchObject({ ok: true });
     expect(await descargarRecibo("acta", id, undefined, true)).toEqual(original);
     expect(await validarCedula({ portal: "finanzas", tipo: "usuario", id: actor.usuarioId!, nombre: actor.operadorNombre }, mjrvId)).toMatchObject({ ok: true });
@@ -227,17 +227,17 @@ describe("archivo de recibos de Madrid", () => {
     expect(reimpresion).toMatchObject({ numero, actaId: id });
     const copia = (await descargarRecibo("acta", id, undefined, true))!;
     for (const pdf of [reimpresion.pdf, copia.pdf]) {
-      expect(await contieneTexto(pdf, "PRUEBA456")).toBe(true);
+      expect(await contieneTexto(pdf, "PÁGINA DE DATOS DEL PASAPORTE")).toBe(true);
       expect(await contieneTexto(pdf, "ORIGINAL PRUEBA")).toBe(true);
       expect(await contieneTexto(pdf, "EUR 58,82")).toBe(true);
-      expect(await contieneTexto(pdf, "0000000046")).toBe(false);
+      expect(await contieneTexto(pdf, "0000000046")).toBe(true);
       expect(pdf.length).toBeGreaterThan(original.pdf.length);
     }
     const actualizado = (await descargarRecibo("acta", id))!;
-    expect(await contieneTexto(actualizado.pdf, "PRUEBA456")).toBe(true);
+    expect(await contieneTexto(actualizado.pdf, "0000000046")).toBe(true);
     expect(await contieneTexto(actualizado.pdf, "ORIGINAL PRUEBA")).toBe(true);
     expect(await confirmarPago(actor, { mjrvId, actaId: id, verificado: true })).toMatchObject({ ok: true, importeEur: "58.82" });
-    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", numeroPasaporte: "PRUEBA654", imagen: await foto(), origen: "estacion" }))
+    expect(await guardarDocumento({ mjrvId, lado: "anverso", imagen: await foto(), origen: "estacion" }))
       .toMatchObject({ ok: true });
     expect(await descargarRecibo("acta", id, undefined, true)).toEqual(actualizado);
     expect(await descargarRecibo("acta", id)).toEqual(actualizado);

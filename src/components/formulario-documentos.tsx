@@ -2,18 +2,17 @@
 
 import { useState } from "react";
 import type { LadoDocumento } from "@/domain/documentos";
-import { AvisoCambioDocumento, CapturaCedula, ElegirDocumento, PedirNumeroPasaporte, ROTULO_FOTO, type EstadoFotos } from "./captura-cedula";
+import { AvisoCambioDocumento, CapturaCedula, ElegirDocumento, ROTULO_FOTO, type EstadoFotos } from "./captura-cedula";
 import { Masthead } from "./marca";
 
 type Hallada = EstadoFotos & { iniciales: string; junta: string };
-type Paso = "buscar" | "confirmar" | "documento" | "numeroPasaporte" | LadoDocumento | "fin";
+type Paso = "buscar" | "confirmar" | "documento" | LadoDocumento | "fin";
 
 // El formulario público localiza la ficha antes de pedir el documento y nunca vuelve a mostrar las fotos guardadas.
 export function FormularioDocumentos() {
   const [paso, setPaso] = useState<Paso>("buscar");
   const [cedula, setCedula] = useState("");
   const [hallada, setHallada] = useState<Hallada | null>(null);
-  const [numeroPasaporte, setNumeroPasaporte] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [cargando, setCargando] = useState(false);
 
@@ -23,7 +22,7 @@ export function FormularioDocumentos() {
       const r = await fetch("/api/d/buscar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ cedula }) });
       const d = await r.json();
       if (!r.ok) setMensaje(d.error ?? "No se pudo consultar.");
-      else if (!d.encontrada) setMensaje("No encontramos ese número. Pida ayuda al personal.");
+      else if (!d.encontrada) setMensaje("No encontramos ese número de cédula. Pida ayuda al personal.");
       else { setHallada(d); setPaso("confirmar"); }
     } catch { setMensaje("No hay conexión. Intente de nuevo."); } finally { setCargando(false); }
   };
@@ -32,7 +31,6 @@ export function FormularioDocumentos() {
     setMensaje("");
     const f = new FormData();
     f.set("lado", lado); f.set("cedula", cedula); f.set("imagen", new File([imagen], `${lado}.jpg`, { type: "image/jpeg" }));
-    if (lado === "pasaporte") f.set("numeroPasaporte", numeroPasaporte);
     try {
       const r = await fetch("/api/d/foto", { method: "POST", body: f });
       const d = await r.json();
@@ -52,8 +50,8 @@ export function FormularioDocumentos() {
       <h1>Foto de su documento</h1>
       {paso === "buscar" && (
         <form onSubmit={(e) => { e.preventDefault(); void buscar(); }} className="space-y-3">
-          <label className="block font-medium">Número registrado en su ficha o credencial
-            <input value={cedula} onChange={(e) => setCedula(e.target.value)} autoComplete="off" autoCapitalize="characters" required className="mt-1 w-full rounded border border-slate-400 px-3 py-4 text-xl" />
+          <label className="block font-medium">Número de cédula
+            <input value={cedula} onChange={(e) => setCedula(e.target.value)} inputMode="numeric" autoComplete="off" autoCapitalize="characters" required className="mt-1 w-full rounded border border-slate-400 px-3 py-4 text-xl" />
           </label>
           <button disabled={cargando} className="w-full rounded bg-blue-700 px-4 py-4 text-lg font-bold text-white disabled:opacity-60">Continuar</button>
         </form>
@@ -67,19 +65,12 @@ export function FormularioDocumentos() {
           </div>
         </div>
       )}
-      {paso === "documento" && <ElegirDocumento onElegir={(tipo) => setPaso(tipo === "pasaporte" ? "numeroPasaporte" : "anverso")} />}
-      {paso === "numeroPasaporte" && hallada && (
-        <div className="space-y-3">
-          <button type="button" onClick={() => { setMensaje(""); setPaso("documento"); }} className="border-2 border-stone-900 px-4 py-3">← Volver</button>
-          <AvisoCambioDocumento tipo="pasaporte" fotos={hallada} />
-          <PedirNumeroPasaporte inicial={numeroPasaporte} onContinuar={(numero) => { setNumeroPasaporte(numero); setPaso("pasaporte"); }} />
-        </div>
-      )}
+      {paso === "documento" && <ElegirDocumento onElegir={(tipo) => setPaso(tipo === "pasaporte" ? "pasaporte" : "anverso")} />}
       {(paso === "anverso" || paso === "reverso" || paso === "pasaporte") && hallada && (
         <div className="space-y-2">
           <AvisoCambioDocumento tipo={paso === "pasaporte" ? "pasaporte" : "cedula"} fotos={hallada} />
           <CapturaCedula rotulo={ROTULO_FOTO[paso]} documento={paso === "pasaporte" ? "pasaporte" : "cedula"} onUsar={subir(paso)}
-            onVolver={() => { setMensaje(""); setPaso(paso === "pasaporte" ? "numeroPasaporte" : "documento"); }} />
+            onVolver={() => { setMensaje(""); setPaso("documento"); }} />
         </div>
       )}
       {paso === "fin" && <p role="status" className="border-2 border-stone-900 p-4 text-lg font-semibold">{hallada?.pasaporte ? "Listo. La foto de su pasaporte se guardó." : "Listo. Sus dos fotos se guardaron."}</p>}

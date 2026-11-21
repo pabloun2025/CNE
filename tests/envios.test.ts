@@ -103,7 +103,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
     expect(t).toContain("Buen día, NOMBRE PRUEBA.");
     expect(t).toContain("(H01)");
     expect(t).toContain("comprobante de pago");
-    expect(t).toMatch(/número registrado.*credencial.*un solo documento.*cédula.*anverso y reverso.*pasaporte.*número.*página de datos/);
+    expect(t).toMatch(/número de cédula.*anverso y reverso.*no tiene la cédula física.*una sola foto.*página de datos del pasaporte/);
     expect(t.endsWith("https://madrid.ejemplo.invalid/d")).toBe(true);
   });
   it("tolera https:// y barras en el host; sin host no inventa ningún enlace", () => {
@@ -159,7 +159,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
     for (const cuerpo of [correo.texto, correo.html]) {
       expect(cuerpo).toContain("Formulario de documentación");
       expect(cuerpo).toContain("https://madrid.consulado.app/d");
-      expect(cuerpo).toMatch(/número registrado.*credencial.*un solo documento.*cédula.*anverso y reverso.*pasaporte.*número.*página de datos/);
+      expect(cuerpo).toMatch(/número de cédula.*anverso y reverso.*no tiene la cédula física.*una sola foto.*página de datos del pasaporte/);
     }
   });
 

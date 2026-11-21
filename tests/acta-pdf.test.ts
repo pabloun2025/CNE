@@ -67,15 +67,15 @@ describe("PDF del recibo oficial de pago", () => {
     expect(anchosImagenes).toHaveLength(1); // Solo el logotipo.
   });
 
-  it("imprime el número de pasaporte y una sola imagen de su página de datos en el FO-04", async () => {
+  it("imprime la cédula y una sola foto del pasaporte como anexo en el FO-04", async () => {
     const pasaporte = await sharp({ create: { width: 1000, height: 700, channels: 3, background: "#add8dc" } }).jpeg().toBuffer();
-    const persona = { ...datos.persona, cedula: "TEST0001", tipoDocumento: "pasaporte" as const };
+    const persona = { ...datos.persona, tipoDocumento: "pasaporte" as const };
     const { documento, pagina, texto, anchosImagenes } = await leerRecibo(await actaPago({ ...datos, persona, anexo: { pasaporte } }));
 
     expect(documento.getPageCount()).toBe(1);
     expect(pagina.getWidth()).toBeCloseTo((297 * 72) / 25.4);
     expect(pagina.getHeight()).toBeCloseTo((210 * 72) / 25.4);
-    expect(texto).toContain("cédula o pasaporte Nro. TEST0001");
+    expect(texto).toContain("cédula Nro. 0000000001");
     expect(texto).toContain("PÁGINA DE DATOS DEL PASAPORTE");
     expect(texto).not.toMatch(/ANVERSO|REVERSO/);
     expect(anchosImagenes).toHaveLength(2); // Logotipo y página de datos.
@@ -124,14 +124,14 @@ describe("PDF del recibo oficial de pago", () => {
     expect(anchosImagenes).toHaveLength(1);
   });
 
-  it("identifica el pasaporte también en una reimpresión del formato anterior", async () => {
+  it("mantiene la cédula en el formato anterior con un pasaporte como anexo", async () => {
     const pasaporte = await sharp({ create: { width: 1000, height: 700, channels: 3, background: "#add8dc" } }).jpeg().toBuffer();
-    const persona = { ...datos.persona, cedula: "TEST0001", tipoDocumento: "pasaporte" as const };
+    const persona = { ...datos.persona, tipoDocumento: "pasaporte" as const };
     const pdf = await actaPago({ ...datos, numero: "MAD-001234", ordinalRecibo: null, persona, anexo: { pasaporte } });
 
     const { documento, texto } = await leerRecibo(pdf);
     expect(documento.getPageCount()).toBe(2);
-    expect(texto).toContain("PASAPORTE\nTEST0001");
+    expect(texto).toContain("CÉDULA DE IDENTIDAD\n0000000001");
     expect(texto).toContain("MAD-001234");
     const anexo = await leerRecibo(pdf, 1);
     expect(anexo.texto).toContain("PÁGINA DE DATOS DEL PASAPORTE");

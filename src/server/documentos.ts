@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import type { PoolClient } from "pg";
 import { sha256Bytes } from "../domain/text";
-import { normalizarNumeroPasaporte, type EstadoDocs, type LadoDocumento } from "../domain/documentos";
+import type { EstadoDocs, LadoDocumento } from "../domain/documentos";
 import { decryptBuffer, encryptBuffer } from "./crypto";
 import { normalizarFrase } from "../domain/limpieza";
 import type { Sesion } from "./auth";
@@ -43,10 +43,8 @@ export async function buscarPorCedula(cedulaBruta: string): Promise<BusquedaComp
 export type ResultadoFoto = { ok: true; estado: EstadoDocs } | { ok: false; status: 400 | 404 | 409; mensaje: string };
 
 // Re-codifica con sharp (aplica la orientación y quita EXIF), cifra y guarda. Repetir una foto la sustituye.
-export async function guardarDocumento(d: { mjrvId: number; lado: Lado; numeroPasaporte?: string; imagen: Buffer; origen: "publico" | "estacion"; operadorId?: number; enlaceId?: number }): Promise<ResultadoFoto> {
+export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: Buffer; origen: "publico" | "estacion"; operadorId?: number; enlaceId?: number }): Promise<ResultadoFoto> {
   const esPasaporte = d.lado === "pasaporte";
-  const numeroPasaporte = esPasaporte ? normalizarNumeroPasaporte(d.numeroPasaporte ?? "") : null;
-  if (esPasaporte && !numeroPasaporte) return { ok: false, status: 400, mensaje: "Escriba un número de pasaporte válido tal como aparece en el documento." };
   if (d.imagen.length < MIN_BYTES) return { ok: false, status: 400, mensaje: "La imagen es demasiado pequeña o está vacía. Vuelva a fotografiar el documento." };
   if (d.imagen.length > MAX_BYTES) return { ok: false, status: 400, mensaje: "La imagen pesa más de 2 MB. Vuelva a tomarla." };
   let procesada: Buffer, ancho: number, alto: number;
@@ -73,12 +71,12 @@ export async function guardarDocumento(d: { mjrvId: number; lado: Lado; numeroPa
       [d.mjrvId, esPasaporte]);
     const { ciphertext, nonce } = encryptBuffer(procesada);
     await client.query(
-      `INSERT INTO documentos_mjrv (mjrv_id, lado, numero_pasaporte, imagen_cifrada, nonce, bytes, ancho, alto, sha256, origen, operador_id, enlace_id, creado_en)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,clock_timestamp())
+      `INSERT INTO documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, bytes, ancho, alto, sha256, origen, operador_id, enlace_id, creado_en)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,clock_timestamp())
        ON CONFLICT (mjrv_id, lado, es_prueba) DO UPDATE SET imagen_cifrada = EXCLUDED.imagen_cifrada, nonce = EXCLUDED.nonce, bytes = EXCLUDED.bytes,
          ancho = EXCLUDED.ancho, alto = EXCLUDED.alto, sha256 = EXCLUDED.sha256, origen = EXCLUDED.origen, operador_id = EXCLUDED.operador_id,
-         enlace_id = EXCLUDED.enlace_id, numero_pasaporte = EXCLUDED.numero_pasaporte, creado_en = EXCLUDED.creado_en`,
-      [d.mjrvId, d.lado, numeroPasaporte, ciphertext, nonce, procesada.length, ancho, alto, hash, d.origen, d.operadorId ?? null, d.enlaceId ?? null]);
+         enlace_id = EXCLUDED.enlace_id, creado_en = EXCLUDED.creado_en`,
+      [d.mjrvId, d.lado, ciphertext, nonce, procesada.length, ancho, alto, hash, d.origen, d.operadorId ?? null, d.enlaceId ?? null]);
     return { ok: true as const, estado: await estadoDocumentos(d.mjrvId, client) };
   });
 }
@@ -92,23 +90,15 @@ export async function leerDocumento(mjrvId: number, lado: Lado, client?: PoolCli
   return f ? decryptBuffer(f.imagen_cifrada, f.nonce) : null;
 }
 
-export async function numeroPasaporteCapturado(mjrvId: number, client?: PoolClient): Promise<string | undefined> {
-  const sql = "SELECT numero_pasaporte FROM documentos_mjrv WHERE mjrv_id = $1 AND lado = 'pasaporte' AND es_prueba = cne.en_prueba()";
+export async function documentosParaRecibo(mjrvId: number, client?: PoolClient): Promise<Partial<Record<Lado, Buffer>> | undefined> {
+  const sql = "SELECT lado, imagen_cifrada, nonce FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba()";
   const params = [mjrvId];
-  type Fila = { numero_pasaporte: string | null };
-  const [f] = client ? (await client.query<Fila>(sql, params)).rows : await query<Fila>(sql, params);
-  return f?.numero_pasaporte ?? undefined;
-}
-
-export async function documentosParaRecibo(mjrvId: number, client?: PoolClient): Promise<{ anexo?: Partial<Record<Lado, Buffer>>; numeroPasaporte?: string }> {
-  const sql = "SELECT lado, imagen_cifrada, nonce, numero_pasaporte FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba()";
-  const params = [mjrvId];
-  type Fila = DocumentoCifrado & { lado: Lado; numero_pasaporte: string | null };
+  type Fila = DocumentoCifrado & { lado: Lado };
   const filas = client ? (await client.query<Fila>(sql, params)).rows : await query<Fila>(sql, params);
-  if (!filas.length) return {};
+  if (!filas.length) return undefined;
   const anexo: Partial<Record<Lado, Buffer>> = {};
   for (const f of filas) anexo[f.lado] = decryptBuffer(f.imagen_cifrada, f.nonce);
-  return { anexo, numeroPasaporte: filas.find((f) => f.lado === "pasaporte")?.numero_pasaporte ?? undefined };
+  return anexo;
 }
 
 // Holgado: en la Caja Mágica muchos MJRV pueden salir por la misma IP de la Wi-Fi.

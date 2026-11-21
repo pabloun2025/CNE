@@ -66,12 +66,8 @@ export async function buscarRecibos(q: string, pagina: number): Promise<{ filas:
   return { filas: recibos, total, modo, siguiente: pagina * POR_PAGINA < total };
 }
 
-export function anexoDeRecibo(persona: DatosActa["persona"], documentos: Awaited<ReturnType<typeof documentosParaRecibo>>): DatosActa["anexo"] {
-  const { anexo, numeroPasaporte } = documentos;
-  if (persona.tipoDocumento === "pasaporte") {
-    return numeroPasaporte === persona.cedula ? anexo : undefined;
-  }
-  return numeroPasaporte ? undefined : anexo;
+export function anexoDeRecibo(persona: DatosActa["persona"], fotos: DatosActa["anexo"]): DatosActa["anexo"] {
+  return (persona.tipoDocumento === "pasaporte") === Boolean(fotos?.pasaporte) ? fotos : undefined;
 }
 
 export async function descargarRecibo(tipo: TipoRecibo, id: number, client?: PoolClient, incluirCedula = false): Promise<{ numero: string; pdf: Uint8Array } | null> {
@@ -114,14 +110,14 @@ export async function descargarRecibo(tipo: TipoRecibo, id: number, client?: Poo
   if (!a) return null;
   const numero = numeroActa(id, a.es_prueba, a.ordinal_recibo);
   const persona = a.parametros?.persona_recibo ?? { apellidos: a.apellidos, nombres: a.nombres, cedula: a.cedula, cargo: a.cargo, juntaVigente: a.junta };
-  const documentos = incluirCedula && a.ordinal_recibo !== null ? await documentosParaRecibo(a.mjrv_id, client) : {};
-  const anexo = anexoDeRecibo(persona, documentos);
+  const fotos = incluirCedula && a.ordinal_recibo !== null ? await documentosParaRecibo(a.mjrv_id, client) : undefined;
+  const anexo = anexoDeRecibo(persona, fotos);
   if (!anexo && a.recibo_cifrado && a.recibo_nonce) return { numero, pdf: decryptBuffer(a.recibo_cifrado, a.recibo_nonce) };
   const nombrePagador = a.parametros?.pagador_nombre;
   const pdf = await actaPago({
     numero, impresionN: a.impresion_n, prueba: a.es_prueba, borrador: !a.importe_eur, emitidaEn: a.creado_en,
     reconstruido: !a.recibo_cifrado || !a.recibo_nonce, anexo,
-    persona,
+    persona: persona.tipoDocumento === "pasaporte" ? { ...persona, cedula: a.cedula } : persona,
     contingencia: a.parametros?.contingencia,
     importe: { eur: a.importe_eur, usd: a.importe_usd, cambio: a.ordinal_recibo === null ? a.tipo_cambio : RECIBOS_TIPO_CAMBIO },
     ordinalRecibo: a.ordinal_recibo,

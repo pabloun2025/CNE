@@ -56,7 +56,7 @@ export function PanelFinanciero() {
       </div>
       <p className={`text-xs ${falla ? "font-bold text-red-700" : "text-slate-600"}`}>{falla ? `Sin actualizar desde ${ultima ? horaCorta(ultima) : "—"}` : `Actualizado ${ultima ? horaCorta(ultima) : ""}`}</p>
       <div className="flex flex-wrap gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Apellidos o número registrado" aria-label="Apellidos o número registrado" className="min-w-0 max-w-full px-2 py-2" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Apellidos o número de cédula" aria-label="Apellidos o número de cédula" className="min-w-0 max-w-full px-2 py-2" />
         <select value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Estado" className="px-2 py-2">
           <option value="">Todos los estados</option>{Object.entries(ESTADO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>

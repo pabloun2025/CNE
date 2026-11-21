@@ -25,13 +25,12 @@ export function Documentacion({ token }: { token: string }) {
       else setFicha(d);
     } catch { setMensaje("No hay conexión."); } finally { setOcupado(false); }
   };
-  const subir = async (lado: LadoDocumento, imagen: Blob, numeroPasaporte?: string) => {
+  const subir = async (lado: LadoDocumento, imagen: Blob) => {
     if (!ficha) return false;
     setMensaje("");
     setOcupado(true);
     const f = new FormData();
     f.set("lado", lado); f.set("mjrvId", String(ficha.mjrvId)); f.set("imagen", new File([imagen], `${lado}.jpg`, { type: "image/jpeg" }));
-    if (numeroPasaporte) f.set("numeroPasaporte", numeroPasaporte);
     try {
       const r = await fetch("/api/e/documentacion/foto", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: f });
       const d = await r.json();
@@ -44,7 +43,7 @@ export function Documentacion({ token }: { token: string }) {
   return (
     <div className="mx-auto max-w-md space-y-3">
       <form onSubmit={(e) => { e.preventDefault(); void buscar(cedula); }} className="flex gap-2">
-        <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Número registrado" aria-label="Número registrado en la ficha o credencial" autoComplete="off" required disabled={ocupado} className="min-w-0 flex-1" />
+        <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Número de cédula" aria-label="Número de cédula" autoComplete="off" required disabled={ocupado} className="min-w-0 flex-1" />
         <button disabled={ocupado} className="bg-stone-900 px-4 text-white disabled:opacity-60">Buscar</button>
       </form>
       {!ficha && <LectorQr pausado={ocupado} onCodigo={(c) => { setCedula(c); void buscar(c); }} />}

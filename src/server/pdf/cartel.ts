@@ -47,7 +47,7 @@ export async function cartelDocumentos(url: string): Promise<Uint8Array> {
   page.drawImage(qr, { x: qrX, y: 483, width: lado, height: lado });
 
   tituloPaso("2", "Confirme sus datos", 444);
-  texto("Escriba el número registrado en su ficha o credencial de MJRV.\nCompruebe sus iniciales y su junta. Pulse «Sí, soy yo».", 82, 419, 15);
+  texto("Escriba su número de cédula.\nCompruebe sus iniciales y su junta. Pulse «Sí, soy yo».", 82, 419, 15);
   linea(388);
 
   tituloPaso("3", "Envíe las fotos de su documento", 363);
@@ -55,7 +55,7 @@ export async function cartelDocumentos(url: string): Promise<Uint8Array> {
   texto("Cédula", 82, 320, 15, negrita);
   texto("Envíe una foto del anverso y otra del reverso.", 169, 320, 15);
   texto("Pasaporte", 82, 302, 15, negrita);
-  texto("Escriba su número tal como figura en el documento\ny envíe una foto de la página con sus datos y su foto.", 169, 302, 15);
+  texto("Si no tiene la cédula física, envíe una sola foto\nde la página de datos del pasaporte.", 169, 302, 15);
   texto("Pulse «Usar esta foto» en cada imagen. Espere a que aparezca «Listo».", 82, 266, 14);
   linea(253);
 

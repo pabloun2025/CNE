@@ -2,7 +2,7 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 21-11-2026.** Consulte la [sección 21](#21-cédula-o-pasaporte-para-el-pago) para la captura y la guía, la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales y la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio.
+**Último estado, 21-11-2026.** Consulte la [sección 22](#22-cédula-como-identificador-y-foto-de-pasaporte) para la captura y la guía, la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales y la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -258,6 +258,8 @@ Pantallas tocadas:
 
 ## 21. Cédula o pasaporte para el pago
 
+El criterio de identificación de esta primera entrega fue corregido en la [sección 22](#22-cédula-como-identificador-y-foto-de-pasaporte).
+
 - En `/d`, la persona busca su ficha por el número registrado en el padrón, confirma sus iniciales y junta y elige el documento antes de abrir la cámara. La cédula requiere anverso y reverso. El pasaporte requiere su número y una sola foto de la página con los datos y el retrato. Si el número del pasaporte difiere del número de la ficha, se registra aparte para el recibo. [Formulario público](https://madrid.consulado.app/d)
 - Documentación y Finanzas ofrecen la misma elección. Las fotos se cifran y las vistas previas requieren una cuenta autorizada. Cambiar de documento sustituye las fotos del otro tipo en el modo activo y obliga a revisar la identidad otra vez. El FO-04 sigue en una sola hoja A4 horizontal y lleva el anexo del documento elegido.
 - Si cambia el documento de un recibo pendiente, Caja espera a que Revisión valide la identidad y reimprima. La reimpresión conserva el número, el importe y la fecha. Si el recibo ya está firmado o pagado, se conserva el PDF archivado.
@@ -265,3 +267,9 @@ Pantallas tocadas:
 - En Chromium a 375 px se completaron ambas opciones del formulario público y el envío desde Documentación con fichas ficticias. En escritorio se verificaron la vista previa privada, la validación y descarga del FO-04. Tras sustituir el pasaporte, Caja pidió reimprimir y habilitó el siguiente paso con el mismo número de recibo.
 - Pasaron 1.122 pruebas, TypeScript y la compilación de producción. ESLint informó cero errores y la advertencia previa de Unslop. Se revisaron visualmente la guía y el recibo ficticio y se leyó el QR desde la guía renderizada.
 - Oracle publicó `938a77f`. Madrid respondió con la versión esperada y la base sana. El formulario mostró la nueva búsqueda sin iniciar sesión y Recordatorio respondió después del despliegue. Las pruebas emplearon fichas ficticias y proveedores simulados. [CI](https://github.com/pabloun2025/CNE/actions/runs/44917132780) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44917144489) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44917523163)
+
+## 22. Cédula como identificador y foto de pasaporte
+
+- La cédula del padrón identifica al MJRV en el formulario, el QR y el recibo. En la ausencia de la cédula física, la opción «Pasaporte» abre directamente la captura de una sola foto de la página de datos. El correo, WhatsApp y la guía A4 explican el mismo recorrido. [Formulario público](https://madrid.consulado.app/d) · [Guía A4 en CNE](https://madrid.consulado.app/admin/documentos/cartel)
+- La migración conserva las fotos y los números que ya se guardaron. Las cargas nuevas solo guardan la foto del pasaporte. Si un recibo pendiente se emitió con el número de pasaporte, Revisión lo reimprime con la cédula y el mismo número, importe y fecha antes de que Caja confirme. Las copias archivadas de recibos firmados o pagados conservan su contenido.
+- Pasaron 1.123 pruebas en PostgreSQL aislado, TypeScript y la compilación. ESLint registró cero errores y la advertencia previa de Unslop. En Chromium a 375 px se completaron ambas capturas y la estación de Documentación. En escritorio se descargó un recibo A4 con la cédula en el campo de identificación y la foto del pasaporte al pie. Se revisaron visualmente la guía y un recibo ficticio y se verificó el QR impreso.

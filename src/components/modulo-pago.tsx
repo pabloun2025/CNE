@@ -45,7 +45,7 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
     finally { setOcupado(false); }
   };
 
-  const subir = async (lado: LadoDocumento, imagen: Blob, numeroPasaporte?: string) => {
+  const subir = async (lado: LadoDocumento, imagen: Blob) => {
     if (!ficha) return false;
     setMensaje("");
     setOcupado(true);
@@ -54,7 +54,6 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
       f.set("mjrvId", String(ficha.mjrvId));
       f.set("lado", lado);
       f.set("imagen", imagen, `${lado}.jpg`);
-      if (numeroPasaporte) f.set("numeroPasaporte", numeroPasaporte);
       const r = await fetch("/api/admin/finanzas/foto", { method: "POST", body: f });
       if (!r.ok) throw new Error((await r.json()).error ?? "No se pudo guardar la foto.");
       await consultar(ficha.cedula);
@@ -97,7 +96,7 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
     <section className="card stack">
       <h2>{caja ? "Confirmar pago" : "Revisar ficha"}</h2>
       <form onSubmit={(e) => { e.preventDefault(); void ejecutar(() => consultar(cedula)); }} className="flex flex-wrap items-end gap-2">
-        <label className="min-w-0 flex-1">Número registrado en la ficha<input value={cedula} onChange={(e) => setCedula(e.target.value)} autoComplete="off" required /></label>
+        <label className="min-w-0 flex-1">Número de cédula<input value={cedula} onChange={(e) => setCedula(e.target.value)} autoComplete="off" required /></label>
         <button disabled={ocupado}>Buscar</button>
       </form>
       {cedulaInicial && <CargaInicial cedula={cedulaInicial} cargar={(c) => ejecutar(() => consultar(c))} />}
@@ -122,7 +121,6 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
             <>
               {ficha.otrosPuestos.length > 0 && <p role="status">Esta ficha está abierta en otro puesto.</p>}
               {ficha.acta?.documentoPendiente && <p role="status">Reimprima el recibo con el documento vigente antes de entregarlo a Caja.</p>}
-              {ficha.numeroPasaporte && <p>Número de pasaporte <strong>{ficha.numeroPasaporte}</strong></p>}
               {(ficha.anverso || ficha.reverso || ficha.pasaporte) && (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {(["anverso", "reverso", "pasaporte"] as const).filter((l) => ficha[l]).map((l) => (

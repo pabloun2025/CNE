@@ -10,7 +10,7 @@ const RECINTO = "Caja Mágica";
 const DIRECCION = "Camino de Perales 23, 28041 Madrid";
 const MAPA = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${RECINTO}, ${DIRECCION}`)}`;
 const LIMITE_INGRESO = "HORA LÍMITE DE INGRESO: 08:00";
-const DOCUMENTOS_PAGO = "Para su comprobante de pago, busque su ficha con el número registrado en su credencial. Elija un solo documento. Si elige cédula, suba fotos del anverso y reverso. Si elige pasaporte, escriba su número tal como figura en el documento y suba una foto de la página de datos.";
+const DOCUMENTOS_PAGO = "Para su comprobante de pago, busque su ficha con su número de cédula. Suba fotos del anverso y reverso de la cédula. Si no tiene la cédula física, suba una sola foto de la página de datos del pasaporte.";
 
 function enlaceDocumentos(host?: string | null): string | null {
   const dominio = (host ?? "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");

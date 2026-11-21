@@ -2,7 +2,7 @@ import { PDFDocument } from "pdf-lib";
 import type { PoolClient } from "pg";
 import { faltanDatosRecibo, type ParametrosPago } from "../domain/pago";
 import { registrarAuditoria } from "./auditoria";
-import { documentosParaRecibo, estadoDocumentos, numeroPasaporteCapturado } from "./documentos";
+import { documentosParaRecibo, estadoDocumentos } from "./documentos";
 import { withTx } from "./db";
 import type { SesionEstacion } from "./estaciones";
 import type { Modo } from "./config";
@@ -36,7 +36,7 @@ export type EstadoPago = "documentacion_incompleta" | "lista" | "acta_preparada"
 
 export type FichaPago = {
   mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
-  anverso: boolean; reverso: boolean; pasaporte?: true; numeroPasaporte?: string; documentosCompletos: boolean; cedulaValidada: boolean;
+  anverso: boolean; reverso: boolean; pasaporte?: true; documentosCompletos: boolean; cedulaValidada: boolean;
   parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null; tipoCambio: string | null;
   acta: { id: number; impresionN: number; importePendiente: boolean; documentoPendiente?: true; numero: string; ordinalRecibo: number | null } | null;
   pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
@@ -104,7 +104,6 @@ async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: Sesion
       WHERE m.cedula = $1 FOR KEY SHARE OF m`, [cedulaNorm(cedulaBruta)]);
   if (!m) return null;
   const { anverso, reverso, pasaporte, completos: documentosCompletos } = await estadoDocumentos(m.id, client);
-  const numeroPasaporte = pasaporte ? await numeroPasaporteCapturado(m.id, client) : undefined;
   const { rowCount: documentosValidados } = await client.query("SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id = $1", [m.id]);
   const params = await leerParametros(client);
   const { rows: [serie] } = await client.query<{ es_prueba: boolean; ultimo_ordinal: number }>(
@@ -133,7 +132,7 @@ async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: Sesion
   }
   return {
     mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
-    anverso, reverso, ...(pasaporte ? { pasaporte, numeroPasaporte } : {}), documentosCompletos, cedulaValidada: !!documentosValidados,
+    anverso, reverso, ...(pasaporte ? { pasaporte } : {}), documentosCompletos, cedulaValidada: !!documentosValidados,
     parametrosCompletos: faltan.length === 0, faltanParametros: faltan,
     importeUsd: acta ? acta.importe_usd : RECIBOS_IMPORTE_USD,
     importeEur: acta?.importe_eur ?? null,
@@ -193,8 +192,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() FOR SHARE", [mjrvId]);
   }
 
-  const documentos = await documentosParaRecibo(mjrvId, client);
-  const fotos = documentos.anexo;
+  const fotos = await documentosParaRecibo(mjrvId, client);
   if (!contingencia && !fotos?.pasaporte && !(fotos?.anverso && fotos.reverso)) {
     return { ok: false, status: 409, mensaje: "Faltan fotos del documento de identidad. No se puede generar el acta." };
   }
@@ -227,15 +225,11 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     telefono: m.telefono_e164 ?? undefined, correo: m.correo ?? undefined };
   const persona: DatosActa["persona"] = { ...(existente?.parametros.persona_recibo ?? personaActual) };
   if (!existente || actualizarDocumento) {
-    if (documentos.numeroPasaporte) {
-      persona.cedula = documentos.numeroPasaporte;
-      persona.tipoDocumento = "pasaporte";
-    } else if (fotos?.anverso && fotos.reverso) {
-      persona.cedula = m.cedula;
-      persona.tipoDocumento = "cedula";
-    }
+    if (fotos?.pasaporte) persona.tipoDocumento = "pasaporte";
+    else if (fotos?.anverso && fotos.reverso) persona.tipoDocumento = "cedula";
   }
-  const anexo = anexoDeRecibo(persona, documentos);
+  if (actualizarDocumento || persona.tipoDocumento === "pasaporte") persona.cedula = m.cedula;
+  const anexo = anexoDeRecibo(persona, fotos);
   if (contingencia && !anexo && existente?.recibo_cifrado && existente.recibo_nonce) {
     return { ok: true, pdf: decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), borrador: !existente.importe_eur,
       numero: numeroActa(existente.id, modo.prueba, existente.ordinal_recibo), actaId: existente.id };

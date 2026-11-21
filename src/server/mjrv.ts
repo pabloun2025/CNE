@@ -7,7 +7,7 @@ import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import type { Modo } from "./config";
 import { query, withTx } from "./db";
-import { estadoDocumentos, numeroPasaporteCapturado, type EstadoDocs } from "./documentos";
+import { estadoDocumentos, type EstadoDocs } from "./documentos";
 import { PERSONAS_CARGO } from "./mando";
 
 export type FiltrosMjrv = { junta?: string; rol?: string; estado?: string; q?: string };
@@ -50,12 +50,12 @@ export type Ficha = EstadoDocs & {
   id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; rol: Rol; rotulo_credencial: string | null;
   correo: string | null; telefono_e164: string | null; activo: boolean; baja_motivo: string | null; es_prueba: boolean;
   credencial_generada_en: string | null; fuente_archivo: string | null; origen: string; vigente: string;
-  ingreso_en: string | null; incorporado_en: string | null; incorporado_por: string | null; numeroPasaporte?: string; actas: number; pago: { en: string; importe_usd: string | null; importe_eur: string | null; operador: string } | null;
+  ingreso_en: string | null; incorporado_en: string | null; incorporado_por: string | null; actas: number; pago: { en: string; importe_usd: string | null; importe_eur: string | null; operador: string } | null;
   movimientos: { creado_en: string; origen: string; destino: string; decision: string; manual: boolean; actor_nombre: string }[];
 };
 
 export async function obtenerFicha(id: number): Promise<Ficha | null> {
-  const f = await query<Omit<Ficha, keyof EstadoDocs | "movimientos" | "pago" | "actas" | "numeroPasaporte">>(
+  const f = await query<Omit<Ficha, keyof EstadoDocs | "movimientos" | "pago" | "actas">>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.rol, m.rotulo_credencial, m.correo, m.telefono_e164, m.activo, m.baja_motivo, m.es_prueba,
             m.credencial_generada_en::text, m.fuente_archivo, jo.serie || jo.numero AS origen, jv.serie || jv.numero AS vigente,
             (SELECT min(l.creado_en)::text FROM lecturas_puerta l WHERE l.mjrv_id = m.id AND l.resultado = 'valido') AS ingreso_en,
@@ -64,7 +64,6 @@ export async function obtenerFicha(id: number): Promise<Ficha | null> {
       WHERE m.id = $1`, [id]);
   if (!f[0]) return null;
   const docs = await estadoDocumentos(id);
-  const numeroPasaporte = docs.pasaporte ? await numeroPasaporteCapturado(id) : undefined;
   const actas = await query<{ n: number }>("SELECT count(*)::int AS n FROM actas_pago WHERE mjrv_id = $1", [id]);
   const pago = await query<{ en: string; importe_usd: string | null; importe_eur: string | null; operador: string }>(
     "SELECT p.confirmado_en::text AS en, p.importe_usd::text, p.importe_eur::text, coalesce(nullif(btrim(o.nombre || ' ' || o.apellido), ''), u.nombre) AS operador FROM pagos_confirmados p LEFT JOIN operadores_madrid o ON o.id = p.operador_id LEFT JOIN usuarios u ON u.id = p.usuario_id WHERE p.mjrv_id = $1", [id]);
@@ -73,7 +72,7 @@ export async function obtenerFicha(id: number): Promise<Ficha | null> {
        FROM decisiones_movimiento d JOIN juntas_madrid jo ON jo.id = d.junta_origen_id JOIN juntas_madrid jd ON jd.id = d.junta_destino_id
       WHERE d.mjrv_id = $1 ORDER BY d.creado_en DESC, d.id DESC`, [id]);
   const cobro = pago[0];
-  return { ...f[0], ...docs, ...(numeroPasaporte ? { numeroPasaporte } : {}), actas: actas[0].n, pago: cobro ?? null, movimientos };
+  return { ...f[0], ...docs, actas: actas[0].n, pago: cobro ?? null, movimientos };
 }
 
 export type DatosMjrv = { cedula: string; apellidos: string; nombres: string; cargo: string; junta: string; correo: string; telefono: string };

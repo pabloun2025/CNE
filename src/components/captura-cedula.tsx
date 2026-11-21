@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { normalizarNumeroPasaporte, type EstadoDocs, type LadoDocumento, type TipoDocumento } from "@/domain/documentos";
+import { type EstadoDocs, type LadoDocumento, type TipoDocumento } from "@/domain/documentos";
 
 const ID1 = 85.6 / 54;
 const PAGINA_PASAPORTE = 125 / 88;
@@ -163,7 +163,7 @@ export function ElegirDocumento({ onElegir }: { onElegir: (tipo: TipoDocumento) 
         <button type="button" onClick={() => onElegir("cedula")} className="border-2 border-stone-900 bg-stone-900 px-3 py-3 text-white">Cédula</button>
         <button type="button" onClick={() => onElegir("pasaporte")} className="border-2 border-stone-900 bg-stone-900 px-3 py-3 text-white">Pasaporte</button>
         <span className="text-center text-sm">Anverso y reverso</span>
-        <span className="text-center text-sm">Página de datos</span>
+        <span className="text-center text-sm">Página de datos, si no tiene la cédula física</span>
       </div>
     </fieldset>
   );
@@ -179,44 +179,28 @@ export function AvisoCambioDocumento({ tipo, fotos }: { tipo: TipoDocumento; fot
   return null;
 }
 
-export function PedirNumeroPasaporte({ inicial = "", onContinuar }: { inicial?: string; onContinuar: (numero: string) => void }) {
-  const [numero, setNumero] = useState(inicial);
-  const [error, setError] = useState("");
-  return (
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      const normalizado = normalizarNumeroPasaporte(numero);
-      if (normalizado) onContinuar(normalizado);
-      else setError("Escriba entre 5 y 20 caracteres. Use letras, números o guiones y empiece por una letra o un número.");
-    }} className="space-y-2">
-      <label className="block font-medium">Número de pasaporte
-        <input value={numero} onChange={(e) => { setNumero(e.target.value); setError(""); }} autoComplete="off" autoCapitalize="characters" spellCheck={false}
-          required aria-invalid={!!error}
-          className="mt-1 w-full rounded border border-slate-400 px-3 py-3" />
-      </label>
-      {error && <p role="alert" className="text-red-700">{error}</p>}
-      <button type="submit" className="w-full bg-stone-900 px-4 py-3 text-white">Continuar</button>
-    </form>
-  );
-}
-
 export function CapturaDocumentosPuesto({ fotos, onUsar, seguirConReverso = false }: {
   fotos: EstadoFotos;
-  onUsar: (lado: LadoDocumento, imagen: Blob, numeroPasaporte?: string) => Promise<boolean>;
+  onUsar: (lado: LadoDocumento, imagen: Blob) => Promise<boolean>;
   seguirConReverso?: boolean;
 }) {
   const [tipo, setTipo] = useState<TipoDocumento | null>(null);
   const [lado, setLado] = useState<LadoDocumento | null>(null);
-  const [numeroPasaporte, setNumeroPasaporte] = useState("");
 
-  if (!tipo) return <ElegirDocumento onElegir={setTipo} />;
+  if (!tipo) return <ElegirDocumento onElegir={(elegido) => {
+    setTipo(elegido);
+    if (elegido === "pasaporte") setLado("pasaporte");
+  }} />;
 
   return (
     <div className="space-y-2">
       <AvisoCambioDocumento tipo={tipo} fotos={fotos} />
       {lado ? (
-        <CapturaCedula rotulo={ROTULO_FOTO[lado]} documento={tipo} onVolver={() => setLado(null)} onUsar={async (imagen) => {
-          const guardada = await onUsar(lado, imagen, lado === "pasaporte" ? numeroPasaporte : undefined);
+        <CapturaCedula rotulo={ROTULO_FOTO[lado]} documento={tipo} onVolver={() => {
+          setLado(null);
+          if (lado === "pasaporte") setTipo(null);
+        }} onUsar={async (imagen) => {
+          const guardada = await onUsar(lado, imagen);
           if (guardada) {
             setLado(seguirConReverso && lado === "anverso" && !fotos.reverso ? "reverso" : null);
             if (lado === "pasaporte") setTipo(null);
@@ -226,15 +210,11 @@ export function CapturaDocumentosPuesto({ fotos, onUsar, seguirConReverso = fals
       ) : (
         <>
           <button type="button" onClick={() => setTipo(null)} className="secondary border-2 border-stone-900 px-4 py-3">Cambiar tipo de documento</button>
-          {tipo === "pasaporte" ? (
-            <PedirNumeroPasaporte inicial={numeroPasaporte} onContinuar={(numero) => { setNumeroPasaporte(numero); setLado("pasaporte"); }} />
-          ) : (
-            <div className="grid gap-2">
-              {(["anverso", "reverso"] as const).map((cara) => (
-                <button key={cara} type="button" onClick={() => setLado(cara)} className="bg-stone-900 px-4 py-3 text-white">{fotos[cara] ? "Sustituir" : "Fotografiar"} {cara}</button>
-              ))}
-            </div>
-          )}
+          <div className="grid gap-2">
+            {(["anverso", "reverso"] as const).map((cara) => (
+              <button key={cara} type="button" onClick={() => setLado(cara)} className="bg-stone-900 px-4 py-3 text-white">{fotos[cara] ? "Sustituir" : "Fotografiar"} {cara}</button>
+            ))}
+          </div>
         </>
       )}
     </div>

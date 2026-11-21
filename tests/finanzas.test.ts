@@ -172,13 +172,13 @@ describe("finanzas: acta y confirmación", () => {
     await conFotos(mjrvId);
     expect(await validar(mjrvId)).toMatchObject({ ok: true });
     const antes = await resumenAdmin();
-    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", numeroPasaporte: "PRUEBA123", imagen: await foto(), origen: "estacion" }))
+    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", imagen: await foto(), origen: "estacion" }))
       .toMatchObject({ ok: true });
 
     expect(await registrarEscaneoFinanzas(s.enlaceId, cedula)).toBe(true);
     expect(await registrarEscaneoFinanzas(s.enlaceId, "PRUEBA123")).toBe(false);
-    expect(await fichaPago(cedula)).toMatchObject({ cedula, pasaporte: true, numeroPasaporte: "PRUEBA123", documentosCompletos: true, cedulaValidada: false });
-    expect(await obtenerFicha(mjrvId)).toMatchObject({ cedula, pasaporte: true, numeroPasaporte: "PRUEBA123", completos: true });
+    expect(await fichaPago(cedula)).toMatchObject({ cedula, pasaporte: true, documentosCompletos: true, cedulaValidada: false });
+    expect(await obtenerFicha(mjrvId)).toMatchObject({ cedula, pasaporte: true, completos: true });
     expect((await resumenAdmin()).pagos.documentosCompletos).toBe(antes.pagos.documentosCompletos);
     expect((await resumenFinanzas()).filas.find((f) => f.id === mjrvId)).toMatchObject({ cedula, fotosCompletas: true, cedulaValidada: false });
 
@@ -201,7 +201,7 @@ describe("finanzas: acta y confirmación", () => {
     if (!original.ok || original.actaId === null) throw new Error("Falta el recibo original");
     const [{ creado_en, ordinal_recibo }] = await consultarDueno<{ creado_en: Date; ordinal_recibo: number }>(
       "SELECT creado_en, ordinal_recibo FROM cne.actas_pago WHERE id = $1", [original.actaId]);
-    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", numeroPasaporte: "PRUEBA789", imagen: await foto(), origen: "estacion" })).toMatchObject({ ok: true });
+    expect(await guardarDocumento({ mjrvId, lado: "pasaporte", imagen: await foto(), origen: "estacion" })).toMatchObject({ ok: true });
     expect(await validar(mjrvId)).toMatchObject({ ok: true });
     expect(await fichaPago(cedula)).toMatchObject({ acta: { id: original.actaId, documentoPendiente: true } });
     expect((await listarEscaneadosFinanzas(true)).escaneados.some((f) => f.mjrvId === mjrvId)).toBe(false);
@@ -211,9 +211,26 @@ describe("finanzas: acta y confirmación", () => {
     expect(reimpresion).toMatchObject({ ok: true, numero: original.numero, actaId: original.actaId });
     expect(await consultarDueno(`SELECT creado_en, ordinal_recibo, importe_eur::text AS importe, parametros->'persona_recibo' AS persona
       FROM cne.actas_pago WHERE mjrv_id = $1`, [mjrvId])).toEqual([expect.objectContaining({ creado_en, ordinal_recibo, importe: "58.82",
-        persona: expect.objectContaining({ cedula: "PRUEBA789", tipoDocumento: "pasaporte", apellidos: `APELLIDO PRUEBA ${cedula}` }) })]);
+        persona: expect.objectContaining({ cedula, tipoDocumento: "pasaporte", apellidos: `APELLIDO PRUEBA ${cedula}` }) })]);
     expect((await fichaPago(cedula))?.acta?.documentoPendiente).toBeUndefined();
     expect((await listarEscaneadosFinanzas(true)).escaneados).toContainEqual(expect.objectContaining({ mjrvId, documentado: true }));
+    expect(await confirmarPago(s, { mjrvId, actaId: original.actaId, verificado: true })).toMatchObject({ ok: true, importeEur: "58.82" });
+  });
+
+  it("reimprime con la cédula un recibo pendiente que guardó el número de pasaporte en la versión anterior", async () => {
+    const cedula = "0000000006";
+    const mjrvId = await persona(cedula);
+    await completarParametros();
+    await guardarDocumento({ mjrvId, lado: "pasaporte", imagen: await foto(), origen: "estacion" });
+    expect(await validar(mjrvId)).toMatchObject({ ok: true });
+    const original = await generarActa(s, mjrvId, true);
+    if (!original.ok || original.actaId === null) throw new Error("Falta el recibo original");
+    await consultarDueno(`UPDATE cne.actas_pago SET parametros = jsonb_set(parametros, '{persona_recibo,cedula}', to_jsonb('PASPRUEBA'::text))
+      WHERE id = $1`, [original.actaId]);
+    expect(await fichaPago(cedula)).toMatchObject({ acta: { documentoPendiente: true } });
+    expect(await confirmarPago(s, { mjrvId, actaId: original.actaId, verificado: true })).toMatchObject({ ok: false, mensaje: expect.stringContaining("Reimprima") });
+    expect(await generarActa(s, mjrvId, true)).toMatchObject({ ok: true, numero: original.numero, actaId: original.actaId });
+    expect(await consultarDueno("SELECT parametros #>> '{persona_recibo,cedula}' AS cedula FROM cne.actas_pago WHERE id = $1", [original.actaId])).toEqual([{ cedula }]);
     expect(await confirmarPago(s, { mjrvId, actaId: original.actaId, verificado: true })).toMatchObject({ ok: true, importeEur: "58.82" });
   });
 });

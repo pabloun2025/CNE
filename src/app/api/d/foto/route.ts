@@ -10,8 +10,7 @@ export async function POST(request: Request) {
   const lado = f?.get("lado"), cedula = f?.get("cedula"), imagen = f?.get("imagen");
   if (!f || !esLadoDocumento(lado) || typeof cedula !== "string" || !(imagen instanceof File)) return Response.json({ error: "Datos incompletos." }, { status: 400 });
   const m = await buscarPorCedula(cedula);
-  if (!m) return Response.json({ error: "No encontramos ese número en el padrón." }, { status: 404 });
-  const numeroPasaporte = f.get("numeroPasaporte");
-  const r = await guardarDocumento({ mjrvId: m.mjrvId, lado, numeroPasaporte: typeof numeroPasaporte === "string" ? numeroPasaporte : undefined, imagen: Buffer.from(await imagen.arrayBuffer()), origen: "publico" });
+  if (!m) return Response.json({ error: "No encontramos ese número de cédula." }, { status: 404 });
+  const r = await guardarDocumento({ mjrvId: m.mjrvId, lado, imagen: Buffer.from(await imagen.arrayBuffer()), origen: "publico" });
   return r.ok ? Response.json({ ok: true, ...r.estado }) : Response.json({ error: r.mensaje }, { status: r.status });
 }

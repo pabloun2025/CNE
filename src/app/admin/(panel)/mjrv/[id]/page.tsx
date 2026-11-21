@@ -46,7 +46,6 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
       {(m.anverso || m.reverso || m.pasaporte) && (
         <section>
           <h2 className="font-semibold">Fotos del documento</h2>
-          {m.numeroPasaporte && <p>Número de pasaporte <strong>{m.numeroPasaporte}</strong></p>}
           <div className="mt-1 flex flex-wrap gap-3">
             {(["anverso", "reverso", "pasaporte"] as const).filter((l) => m[l]).map((l) => (
               <a key={l} href={`/api/admin/documentos/${m.id}/${l}`} target="_blank" rel="noreferrer">
