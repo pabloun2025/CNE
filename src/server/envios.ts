@@ -7,6 +7,7 @@ import { medidasCredencial } from "./credencial-config";
 import { correoCredencial, textoCredencial } from "../domain/mensaje-credencial";
 import { leerJunta, zonaDe } from "../domain/juntas";
 import { formularioAbierto } from "./documentos";
+import { enlaceWallet } from "./wallet/google";
 import { canalEnReal } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
 import type { DatosCredencial } from "./pdf/credencial";
@@ -16,8 +17,10 @@ export type EstadoEnvio = "en_cola" | "enviada_al_servicio" | "fallo" | "entrega
 export type ResultadoEnvio = { ok: true; simulado: boolean; enCola?: boolean } | { ok: false; mensaje: string };
 
 // Texto y nombre de archivo del mensaje; lo comparten el envío inmediato (simulado) y la cola real.
-export async function mensajeCredencial(d: DatosCredencial, canal: Canal, { junta, zona }: Pick<PersonaCredencial, "junta" | "zona">): Promise<{ asunto: string; texto: string; html?: string; nombreArchivo: string }> {
-  const datos = { nombres: d.nombres, rotulo: d.rotulo, host: process.env.HOST_MADRID };
+export async function mensajeCredencial(d: DatosCredencial, canal: Canal, { id, junta, zona }: Pick<PersonaCredencial, "id" | "junta" | "zona">): Promise<{ asunto: string; texto: string; html?: string; nombreArchivo: string }> {
+  // Fichas de prueba o modo prueba: nunca hay enlace de Google Wallet.
+  const wallet = d.prueba ? null : enlaceWallet(id, process.env.HOST_MADRID);
+  const datos = { nombres: d.nombres, rotulo: d.rotulo, host: process.env.HOST_MADRID, wallet };
   const nombreArchivo = nombrePdfCredencial(junta, d.cedula);
   if (canal === "whatsapp") {
     return { asunto: "Su credencial de miembro de Junta Receptora del Voto", texto: textoCredencial(datos), nombreArchivo };
@@ -27,7 +30,7 @@ export async function mensajeCredencial(d: DatosCredencial, canal: Canal, { junt
     throw new Error("La junta o su zona de color es incoherente. Revise la asignación de la ficha.");
   }
   const documentosAbierto = datos.host?.trim() ? await formularioAbierto() : false;
-  return { ...correoCredencial({ nombres: d.nombres, host: datos.host, junta, zona, documentosAbierto }), nombreArchivo };
+  return { ...correoCredencial({ nombres: d.nombres, host: datos.host, wallet, junta, zona, documentosAbierto }), nombreArchivo };
 }
 
 const CORREO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

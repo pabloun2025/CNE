@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/server/guard";
 import { SOLO_CONSUL } from "@/domain/roles";
+import { enlaceWallet } from "@/server/wallet/google";
 import { estadoEntregasCredenciales, TEXTO_ENTREGA, type EstadoEntrega } from "@/server/envios-estado";
 
 const FILTROS: { clave: string; texto: string; estados: EstadoEntrega[] }[] = [
@@ -35,6 +36,8 @@ export default async function SeguimientoEnvios({ searchParams }: { searchParams
     return canal ? filtro.estados.includes(p[canal].estado) : filtro.estados.includes(p.correo.estado) || filtro.estados.includes(p.whatsapp.estado);
   });
 
+  const enlaces = Object.fromEntries(coinciden.map((p) => [p.id, enlaceWallet(p.id, process.env.HOST_MADRID)]));
+
   return (
     <main className="stack-lg">
       <Link href="/admin/credenciales" className="underline">Volver a credenciales</Link>
@@ -57,6 +60,7 @@ export default async function SeguimientoEnvios({ searchParams }: { searchParams
             <div className="col-span-2 sm:col-span-1">
               <Link href={`/admin/mjrv/${p.id}`} className="font-semibold underline">{p.nombre}</Link>
               <p className="text-sm">{p.junta} · {p.cedula}</p>
+              {enlaces[p.id] && <label className="block text-sm">Enlace de Google Wallet (Android)<input readOnly value={enlaces[p.id]!} className="block w-full" /></label>}
             </div>
             <div><h2 className="text-sm font-semibold">WhatsApp</h2><Estado {...p.whatsapp} /></div>
             <div><h2 className="text-sm font-semibold">Correo</h2><Estado {...p.correo} /></div>
