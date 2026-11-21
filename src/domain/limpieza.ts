@@ -29,3 +29,11 @@ export const CONSERVA: string[] = [
 
 export const FRASE_PREPARAR = "PREPARAR ELECCION";
 export const normalizarFrase = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().replace(/\s+/g, " ").toUpperCase();
+
+export const CONSERVA_REINICIO: string[] = [
+  "Las 95 juntas de Madrid y su distribución por zonas",
+  "Cuentas, contraseñas y permisos de administración y superadministración",
+  "Operadores, PIN y enlaces de estación",
+  "Configuración, claves, remitente y parámetros de pago (los envíos reales quedan apagados)",
+  "Auditoría y registros de anteriores reinicios",
+];
