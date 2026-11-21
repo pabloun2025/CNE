@@ -1,4 +1,4 @@
-# Traspaso del Proyecto CNE — estado al 20-11-2026
+# Traspaso del Proyecto CNE — estado al 21-11-2026
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
@@ -221,3 +221,15 @@ Pantallas tocadas:
 - El correo consulta el estado del formulario público de documentación y avisa si está cerrado. Una incoherencia entre la junta y su zona se registra como fallo para revisión de la ficha.
 - Pasaron 1.067 pruebas, TypeScript y compilación. ESLint registró cero errores y una advertencia previa de Unslop. Se verificaron las seis zonas, la personalización de un lote, el PDF adjunto y la vista en Chromium a 375 y 1024 px. Las pruebas de envío usaron proveedores simulados.
 - **Oracle.** La versión publicada y comprobada es `e0d32a8`. Al verificarla, el formulario público mostraba «Formulario cerrado». [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44886821013) · [Comprobación pública](https://github.com/pabloun2025/CNE/actions/runs/44887072663)
+
+## 17. Decisiones de Pablo del 21-11-2026 (interrogatorio)
+
+- **Lista de 283 fichas:** no era la real. Se borró desde la pantalla el 21-11 a las 11:06 (Madrid); la inspección de Oracle confirma 0 fichas MJRV. El sistema está en **modo elección**.
+- **Excel real:** llega hoy o mañana. Al cargarlo, revisar errores y **enviar primero a 3–5 personas** (o teléfonos de Pablo); si llega bien, al resto.
+- **Traslado:** cuenta al aceptarlo (confirmado). **Orden de zonas** celeste – rojo – azul – amarillo – verde – rosado: confirmado.
+- **Formulario `/d`:** abrirlo ya. Lo hace Pablo en Superadministración → Configuración → «Abrir formulario».
+- **Rama `cursor/arreglos-finales-08cc`** (respaldo en disco y cambio de librería de Excel): no se integra; Pablo la borra en GitHub (la sesión no puede borrar ramas ajenas).
+- **Google Wallet:** sí, terminarlo, **solo Android** (iPhone sigue con PDF y QR). Base: rama `ops/preparar-emisor-wallet-cne`; las variables `GOOGLE_WALLET_*` existen en teinvito.
+- **Ensayo:** con datos reales, en modo elección; lo que quede del ensayo se revisa después.
+- **Copia externa:** no hace falta.
+- **Noche del 28-11:** la IA revisa con Pablo desde el servidor qué quedó del ensayo (ingresos, pagos, recibos) y Pablo confirma qué borrar.
