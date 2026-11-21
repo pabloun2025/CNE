@@ -10,7 +10,7 @@ const RECINTO = "Caja Mágica";
 const DIRECCION = "Camino de Perales 23, 28041 Madrid";
 const MAPA = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${RECINTO}, ${DIRECCION}`)}`;
 const LIMITE_INGRESO = "HORA LÍMITE DE INGRESO: 08:00";
-const DOCUMENTOS_PAGO = "Para su comprobante de pago, busque su ficha con su número de cédula. Suba fotos del anverso y reverso de la cédula. Si no tiene la cédula física, suba una sola foto de la página de datos del pasaporte.";
+const DOCUMENTOS_PAGO = "Para su comprobante de pago, busque su ficha con su número de cédula y suba imágenes de su cédula o pasaporte. Si usa la cédula, fotografíe el anverso y el reverso. Si no tiene la cédula física, suba una sola foto de la página de datos del pasaporte.";
 
 function enlaceDocumentos(host?: string | null): string | null {
   const dominio = (host ?? "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
@@ -38,7 +38,7 @@ export function correoCredencial(d: DatosCorreo): { asunto: string; texto: strin
   const zona = `Zona ${ZONA_NOMBRE[d.zona]}`;
   const llegada = "Debe haber ingresado al recinto a más tardar a las 08:00 (hora de Madrid). Llegue con suficiente antelación para registrar su entrada y localizar su zona y su junta.";
   const horario = "La instalación de las juntas comenzará a las 08:30. La votación se desarrollará de 09:00 a 19:00 y, posteriormente, se realizará el escrutinio.";
-  const acceso = "Puede presentar la credencial PDF adjunta impresa o desde su teléfono móvil. El código QR permitirá registrar su llegada. Lleve también el documento de identidad que vaya a usar para el pago.";
+  const acceso = "Puede presentar la credencial PDF adjunta impresa o desde su teléfono móvil. El código QR permitirá registrar su llegada. Lleve también su cédula o pasaporte.";
   const enlace = enlaceDocumentos(d.host);
   const wallet = d.wallet ?? null;
   const walletTexto = "Si usa Android, puede guardar su credencial en Google Wallet. En iPhone use el PDF adjunto.";

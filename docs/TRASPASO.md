@@ -280,3 +280,7 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - La guía A4 comunica una compensación de 58,82 €. Los tramos se aplican en la emisión de recibos y Caja, con el importe efectivo de cada desembolso. El formulario y las plantillas de correo y WhatsApp dan las instrucciones de documentación. [Guía A4 en CNE](https://madrid.consulado.app/admin/documentos/cartel)
 - Pasaron 1.123 pruebas, TypeScript y la compilación. ESLint registró cero errores y la advertencia previa de Unslop. Se comprobó que la ruta autorizada genera una sola página A4 con 58,82 € como único importe y que el QR impreso abre el formulario fijo.
 - Oracle publicó `ba7a089`. Madrid respondió con la versión esperada y la base sana. La verificación pública también confirmó que Recordatorio responde. [CI](https://github.com/pabloun2025/CNE/actions/runs/44920751049) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44920751599) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44921112204)
+
+## 24. Cédula o pasaporte en el correo
+
+- El correo pide llevar «su cédula o pasaporte». Las instrucciones de correo y WhatsApp indican qué fotos corresponden a cada documento. El acceso al formulario sigue usando el número de cédula. Pasaron las 20 pruebas de envíos, TypeScript y ESLint en los archivos modificados.
