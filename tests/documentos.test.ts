@@ -54,18 +54,21 @@ describe("documentos de identidad", () => {
     expect(await guardarDocumento({ mjrvId: id, lado: "anverso", imagen: Buffer.alloc(2_100_000, 1), origen: "estacion" })).toMatchObject({ ok: false, status: 400 });
   });
 
-  it("formulario cerrado → 403; abierto → solo iniciales y junta", async () => {
-    expect((await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "0000000001" }), "203.0.113.5", true))).status).toBe(403);
-    await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = true");
+  it("el enlace fijo permite buscar aunque el ajuste antiguo sea falso; expone solo iniciales y junta", async () => {
+    await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = false");
     const r = await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "0000000001" }), "203.0.113.5", true));
+    expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ encontrada: true, iniciales: "N. A.", junta: "H12", anverso: true, reverso: true });
     expect(await (await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "9999999999" }), "203.0.113.5", true))).json()).toEqual({ encontrada: false });
     expect((await buscarPorCedula("0000000001"))?.nombre).toBe("APELLIDO PRUEBA 001, NOMBRE PRUEBA");
   });
 
-  it("subida pública por la ruta; 10 consultas por IP cada 15 minutos", async () => {
+  it("recibe ambas caras sin activar el ajuste antiguo y conserva el límite de consultas por IP", async () => {
+    await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = false");
     const r = await foto(peticion("/api/d/foto", formulario("anverso", "0000000001", await imagen()), "203.0.113.9"));
     expect(r.status).toBe(200);
+    const reverso = await foto(peticion("/api/d/foto", formulario("reverso", "0000000001", await imagen()), "203.0.113.9"));
+    expect(await reverso.json()).toEqual({ ok: true, anverso: true, reverso: true, completos: true });
     expect((await foto(peticion("/api/d/foto", formulario("anverso", "9999999999", await imagen()), "203.0.113.9"))).status).toBe(404);
     for (let i = 0; i < LIMITE_PUBLICO; i++) await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "0000000001" }), "203.0.113.77", true));
     expect((await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "0000000001" }), "203.0.113.77", true))).status).toBe(429);

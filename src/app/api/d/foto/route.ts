@@ -1,10 +1,9 @@
-import { buscarPorCedula, formularioAbierto, guardarDocumento, ipDeSolicitud, permitirPublico, type Lado } from "@/server/documentos";
+import { buscarPorCedula, guardarDocumento, ipDeSolicitud, permitirPublico, type Lado } from "@/server/documentos";
 
 export const dynamic = "force-dynamic";
 
 // El público sube una foto; nunca vuelve a verla (no hay ruta pública de lectura).
 export async function POST(request: Request) {
-  if (!(await formularioAbierto())) return Response.json({ error: "El formulario está cerrado." }, { status: 403 });
   if (!(await permitirPublico(ipDeSolicitud(request.headers), "foto"))) return Response.json({ error: "Demasiados envíos. Espere unos minutos o pida ayuda al personal." }, { status: 429 });
   const f = await request.formData().catch(() => null);
   const lado = f?.get("lado"), cedula = f?.get("cedula"), imagen = f?.get("imagen");

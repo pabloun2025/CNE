@@ -2,7 +2,7 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 21-11-2026.** Consulte la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales, la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio, y la [sección 13](#13-circuito-de-los-tres-puestos-de-madrid) para los tres puestos.
+**Último estado, 21-11-2026.** Consulte la [sección 20](#20-formulario-fijo-y-guía-a4) para la guía y el formulario de cédula, la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales y la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -227,7 +227,7 @@ Pantallas tocadas:
 - **Lista de 283 fichas:** no era la real. Se borró desde la pantalla el 21-11 a las 11:06 (Madrid); la inspección de Oracle confirma 0 fichas MJRV. El sistema está en **modo elección**.
 - **Excel real:** llega hoy o mañana. Al cargarlo, revisar errores y **enviar primero a 3–5 personas** (o teléfonos de Pablo); si llega bien, al resto.
 - **Traslado:** cuenta al aceptarlo (confirmado). **Orden de zonas** celeste – rojo – azul – amarillo – verde – rosado: confirmado.
-- **Formulario `/d`:** abrirlo ya. Lo hace Pablo en Superadministración → Configuración → «Abrir formulario».
+- **Formulario `/d`:** queda abierto mediante el enlace fijo de la [sección 20](#20-formulario-fijo-y-guía-a4).
 - **Rama `cursor/arreglos-finales-08cc`** (respaldo en disco y cambio de librería de Excel): no se integra; Pablo la borra en GitHub (la sesión no puede borrar ramas ajenas).
 - **Google Wallet:** sí, terminarlo, **solo Android** (iPhone sigue con PDF y QR). Base: rama `ops/preparar-emisor-wallet-cne`; las variables `GOOGLE_WALLET_*` existen en teinvito.
 - **Ensayo:** con datos reales, en modo elección; lo que quede del ensayo se revisa después.
@@ -248,3 +248,9 @@ Pantallas tocadas:
 - Los PDF individuales, los ZIP y las planchas A4 muestran el nombre de la zona debajo del rótulo grande y aplican el color de la zona al rótulo y a la silueta. El QR conserva la cédula y las planchas conservan las guías de corte. Si falta el rótulo, se usa la junta también al enviar y al abrir Google Wallet. Las fichas incorporadas desde votantes no generan credenciales.
 - Pasaron 1.124 pruebas, TypeScript y la compilación. ESLint registró cero errores y la advertencia previa de Unslop. Se verificó el alta a 375 px y se leyeron los seis QR de una plancha A4 renderizada con fichas ficticias. Las pruebas de envío y Wallet usaron proveedores simulados.
 - Oracle publicó `483db2f`. Madrid respondió con la versión esperada y la base sana. Recordatorio respondió después del despliegue. [CI](https://github.com/pabloun2025/CNE/actions/runs/44909373213) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44909373432) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44909702876)
+
+## 20. Formulario fijo y guía A4
+
+- El formulario público de cédula abre en `/d` en ambos modos. El antiguo interruptor se retiró de Superadministración. El correo y WhatsApp enlazan directamente al formulario. La consulta pública sigue mostrando iniciales y junta y conserva el límite de peticiones por IP. Las fotos se cifran al guardarlas. [Formulario público](https://madrid.consulado.app/d)
+- Cónsul y Superadministración pueden abrir la guía A4 desde Documentos de identidad o Configuración. La guía explica cómo fotografiar las dos caras y cómo firmar el recibo impreso y cobrar en Caja. Incluye el QR, el enlace en texto y los importes según la emisión de los recibos. [Guía A4 en CNE](https://madrid.consulado.app/admin/documentos/cartel)
+- Pasaron 1.116 pruebas, TypeScript y la compilación. En Chromium a 375 px se completó la carga de las dos caras con una ficha ficticia y el ajuste antiguo desactivado. Se verificaron la página A4 y la lectura del QR desde la guía en blanco y negro.

@@ -4,14 +4,12 @@ import { requireAdmin } from "@/server/guard";
 import { resumenCredenciales, seleccionarParaCredencial } from "@/server/credenciales";
 import { AccionesCredenciales } from "@/components/envios-credenciales";
 import { leerConfigEnvios } from "@/server/envios-config";
-import { formularioAbierto } from "@/server/documentos";
 
 export default async function Credenciales() {
   await requireAdmin({ roles: SOLO_CONSUL });
-  const [r, cfg, abierto, seleccion] = await Promise.all([
-    resumenCredenciales(), leerConfigEnvios(), formularioAbierto(), seleccionarParaCredencial({ alcance: "todas" }),
+  const [r, cfg, seleccion] = await Promise.all([
+    resumenCredenciales(), leerConfigEnvios(), seleccionarParaCredencial({ alcance: "todas" }),
   ]);
-  const hayHost = !!process.env.HOST_MADRID?.trim();
   return (
     <main className="max-w-2xl stack-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -29,7 +27,6 @@ export default async function Credenciales() {
         ) : (
           <p role="note">Ambos canales están en simulación. Solo la superadministración puede activar el envío real.</p>
         )}
-        {hayHost && !abierto && <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 text-sm font-medium">El formulario de la cédula está cerrado. Solicite su apertura a Superadministración antes de enviar.</p>}
       </section>
       <AccionesCredenciales personas={seleccion.personas} />
     </main>

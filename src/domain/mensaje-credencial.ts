@@ -1,7 +1,7 @@
 import { ZONA_HEX, ZONA_NOMBRE, type ZonaColor } from "./juntas";
 
 type DatosMensaje = { nombres: string; rotulo: string; host?: string | null; wallet?: string | null };
-type DatosCorreo = Omit<DatosMensaje, "rotulo"> & { junta: string; zona: ZonaColor; documentosAbierto: boolean };
+type DatosCorreo = Omit<DatosMensaje, "rotulo"> & { junta: string; zona: ZonaColor };
 
 export const TEXTO_WALLET = "Guardar en Google Wallet (Android)";
 
@@ -38,9 +38,7 @@ export function correoCredencial(d: DatosCorreo): { asunto: string; texto: strin
   const llegada = "Debe haber ingresado al recinto a más tardar a las 08:00 (hora de Madrid). Llegue con suficiente antelación para registrar su entrada y localizar su zona y su junta.";
   const horario = "La instalación de las juntas comenzará a las 08:30. La votación se desarrollará de 09:00 a 19:00 y, posteriormente, se realizará el escrutinio.";
   const acceso = "Puede presentar la credencial PDF adjunta impresa o desde su teléfono móvil. El código QR permitirá registrar su llegada. Lleve también su cédula de identidad.";
-  const documentos = d.documentosAbierto
-    ? "Para preparar su comprobante de pago, cargue las fotografías del anverso y reverso de su cédula en el siguiente enlace."
-    : "El formulario de documentación está cerrado por el momento. Cuando se habilite, podrá cargar allí las fotografías del anverso y reverso de su cédula para el comprobante de pago.";
+  const documentos = "Para preparar su comprobante de pago, cargue las fotografías del anverso y reverso de su cédula en el siguiente enlace.";
   const enlace = enlaceDocumentos(d.host);
   const wallet = d.wallet ?? null;
   const walletTexto = "Si usa Android, puede guardar su credencial en Google Wallet. En iPhone use el PDF adjunto.";

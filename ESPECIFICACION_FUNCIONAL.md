@@ -244,6 +244,8 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO (18-11-2026).** El QR de documentos se distribuye **por cartel y como enlace en el mensaje de la credencial**. Las **fotos de cédula se conservan hasta que la superadministración las borre** con un botón, con confirmación escrita y registro en la auditoría.
 
+**DECIDIDO (21-11-2026).** El formulario público de cédula está siempre disponible en `/d`. La guía A4 incluye un QR al formulario, explica cómo guardar las dos fotos y cómo cobrar en Caja tras firmar el recibo en papel. La guía indica 58,82 € para los primeros 190 recibos y 58,83 € para los 95 siguientes, por orden de emisión.
+
 ### 7.5. Pago físico y control financiero
 
 **DECIDIDO — control financiero e informe de cierre Madrid.** Pablo aprobó la opción **C**: el sistema de Madrid tendrá un **panel financiero en tiempo real** con consulta por MJRV de pago pendiente o confirmado, conteos de personas pagadas y pendientes, e **importe total entregado en EUR**. Permitirá generar un **informe de cierre descargable** con pagos efectuados y pendientes, importes y operadores responsables de cada desembolso, manteniendo trazabilidad de la confirmación efectiva del pago. El informe del módulo Madrid es distinto del informe electoral nacional de la DGSMH, que no contiene datos personales de pagos. El panel reflejará confirmaciones efectivas, **no** actas simplemente generadas o impresas.

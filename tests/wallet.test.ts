@@ -94,11 +94,11 @@ describe("Google Wallet · mensajes", () => {
   it("el texto y el correo (HTML y texto) llevan el enlace solo si existe", () => {
     expect(textoCredencial({ nombres: "N", rotulo: "H01", wallet: enlace })).toContain(enlace);
     expect(textoCredencial({ nombres: "N", rotulo: "H01" })).not.toContain("Wallet");
-    const c = correoCredencial({ nombres: "N", junta: "H1", zona: "amarillo", documentosAbierto: false, wallet: enlace });
+    const c = correoCredencial({ nombres: "N", junta: "H1", zona: "amarillo", wallet: enlace });
     expect(c.html).toContain(`href="${enlace}"`);
     expect(c.html).toContain("Guardar en Google Wallet (Android)");
     expect(c.texto).toContain(enlace);
-    const sin = correoCredencial({ nombres: "N", junta: "H1", zona: "amarillo", documentosAbierto: false });
+    const sin = correoCredencial({ nombres: "N", junta: "H1", zona: "amarillo" });
     expect(sin.html + sin.texto).not.toContain("Wallet");
   });
 });

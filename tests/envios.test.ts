@@ -112,7 +112,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
     expect(textoCredencial({ ...d })).not.toContain("comprobante");
   });
   it("el correo escapa el nombre y la asignación en HTML y omite el formulario si falta el host", () => {
-    const correo = correoCredencial({ nombres: "ANA < PRUEBA", junta: "H1 & H2", zona: "amarillo", documentosAbierto: false });
+    const correo = correoCredencial({ nombres: "ANA < PRUEBA", junta: "H1 & H2", zona: "amarillo" });
     expect(correo.html).toContain("ANA &lt; PRUEBA");
     expect(correo.html).toContain("H1 &amp; H2");
     expect(correo.texto).toContain("ANA < PRUEBA");
@@ -130,7 +130,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
   ] as const)("el correo comunica la asignación y el horario para %s%s", (serie: Serie, numero, color, tono) => {
     const zona = zonaDe(serie, numero);
     if (!zona) throw new Error("La junta de prueba debe existir.");
-    const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", junta: `${serie}${numero}`, zona, documentosAbierto: false });
+    const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", junta: `${serie}${numero}`, zona });
     expect(correo.asunto).toBe("Su credencial de MJRV – 29 de noviembre de 2026");
     expect(correo.html).toContain(tono);
     for (const cuerpo of [correo.html, correo.texto]) {
@@ -155,7 +155,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
   });
 
   it("ofrece el formulario abierto con su enlace", () => {
-    const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", junta: "H1", zona: "amarillo", documentosAbierto: true, host: "madrid.consulado.app" });
+    const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", junta: "H1", zona: "amarillo", host: "madrid.consulado.app" });
     for (const cuerpo of [correo.texto, correo.html]) {
       expect(cuerpo).toContain("Formulario de documentación");
       expect(cuerpo).toContain("https://madrid.consulado.app/d");
@@ -163,20 +163,22 @@ describe("D08 · texto del mensaje de la credencial", () => {
     }
   });
 
-  it("el envío simulado usa el HOST_MADRID del servidor en HTML y texto", async () => {
+  it("el envío simulado usa el enlace fijo en HTML y texto aunque el ajuste antiguo sea falso", async () => {
     const antes = process.env.HOST_MADRID;
     process.env.HOST_MADRID = "madrid.ejemplo.invalid";
     try {
       let texto = "";
       let html: string | undefined;
       const espia: ProveedorEnvio = { canal: "correo", enviar: async (m) => { texto = m.texto; html = m.html; return { idExterno: "X", simulado: true }; } };
+      await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = false");
       await ficha("0000000006", { correo: "prueba6@ejemplo.invalid" });
       await enviarCredencial(admin, ids["0000000006"], "correo", espia);
       expect(texto).toContain("https://madrid.ejemplo.invalid/d");
       expect(html).toContain('href="https://madrid.ejemplo.invalid/d"');
       expect(texto).toContain("H1");
       expect(texto).toContain("Amarillo");
-      expect(texto).toContain("El formulario de documentación está cerrado por el momento.");
+      expect(texto).toContain("cargue las fotografías del anverso y reverso");
+      expect(html).toContain("cargue las fotografías del anverso y reverso");
     } finally {
       if (antes === undefined) delete process.env.HOST_MADRID; else process.env.HOST_MADRID = antes;
     }

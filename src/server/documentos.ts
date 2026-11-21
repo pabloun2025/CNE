@@ -78,11 +78,6 @@ export async function leerDocumento(mjrvId: number, lado: Lado, client?: PoolCli
   return f ? decryptBuffer(f.imagen_cifrada, f.nonce) : null;
 }
 
-// ───────────── Formulario público ─────────────
-export async function formularioAbierto(): Promise<boolean> {
-  return (await query<{ a: boolean }>("SELECT documentos_publico_abierto AS a FROM configuracion WHERE id = 1"))[0]?.a ?? false;
-}
-
 // Holgado: en la Caja Mágica muchos MJRV pueden salir por la misma IP de la Wi-Fi.
 export const LIMITE_PUBLICO = 150; // consultas por IP en 15 minutos
 export const LIMITE_FOTOS_PUBLICO = 400;
@@ -99,14 +94,6 @@ export async function permitirPublico(ip: string | null, tipo: "buscar" | "foto"
 // Cloudflare pone CF-Connecting-IP; si falta, la primera de X-Forwarded-For.
 export function ipDeSolicitud(headers: Headers): string | null {
   return headers.get("cf-connecting-ip") || headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
-}
-
-export async function fijarFormulario(sesion: Sesion, abierto: boolean): Promise<void> {
-  if (sesion.tipo !== "superadmin") throw new Error("Solo Superadministración puede configurar el formulario público.");
-  await withTx(async (client) => {
-    await client.query("UPDATE configuracion SET documentos_publico_abierto = $1, actualizado_en = now(), actualizado_por = $2 WHERE id = 1", [abierto, sesion.usuarioId]);
-    await registrarAuditoria({ portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: abierto ? "formulario_documentos_abierto" : "formulario_documentos_cerrado" }, client);
-  });
 }
 
 // ───────────── Borrado de todas las fotos (superadmin, 10d) ─────────────

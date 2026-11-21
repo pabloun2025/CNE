@@ -6,7 +6,6 @@ import { nombrePdfCredencial, seleccionarParaCredencial, type PersonaCredencial,
 import { medidasCredencial } from "./credencial-config";
 import { correoCredencial, textoCredencial } from "../domain/mensaje-credencial";
 import { leerJunta, zonaDe } from "../domain/juntas";
-import { formularioAbierto } from "./documentos";
 import { enlaceWallet } from "./wallet/google";
 import { canalEnReal } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
@@ -29,8 +28,7 @@ export async function mensajeCredencial(d: DatosCredencial, canal: Canal, { id, 
   if (!asignada || zonaDe(asignada.serie, asignada.numero) !== zona) {
     throw new Error("La junta o su zona de color es incoherente. Revise la asignación de la ficha.");
   }
-  const documentosAbierto = datos.host?.trim() ? await formularioAbierto() : false;
-  return { ...correoCredencial({ nombres: d.nombres, host: datos.host, wallet, junta, zona, documentosAbierto }), nombreArchivo };
+  return { ...correoCredencial({ nombres: d.nombres, host: datos.host, wallet, junta, zona }), nombreArchivo };
 }
 
 const CORREO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

@@ -61,7 +61,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/salud": "publica",
   "GET /w/[token]": "publica", // enlace firmado por ficha; solo fichas reales activas (Google Wallet)
   "POST /api/webhooks/brevo": [], // autentica el token de Brevo, no una sesión de CNE
-  "POST /api/d/foto": "publica", // pública pero cerrada por el interruptor del admin
+  "POST /api/d/foto": "publica", // la ruta valida el archivo y limita peticiones por IP
   "POST /api/d/buscar": "publica",
 };
 
@@ -71,7 +71,6 @@ const ACCIONES: Record<string, Regla> = {
   "acceso-actions#cambiarContrasenaAdmin": "publica", "acceso-actions#cambiarContrasenaSuperadmin": "publica", // validan su propia cookie y la contraseña actual
   "acceso-actions#salirAdmin": "publica", "acceso-actions#salirSuperadmin": "publica",
   "estacion-actions#entrarEstacionAccion": "publica", "estacion-actions#cambiarOperadorAccion": "publica", // acceso a Mando por PIN
-  "documentos-actions#fijarFormularioAccion": SOLO_SUPER,
   "estacion-actions#crearOperadorAccion": SOLO_SUPER, "estacion-actions#restablecerPinAccion": SOLO_SUPER, "estacion-actions#activarOperadorAccion": SOLO_SUPER,
   "estacion-actions#crearEnlaceAccion": SOLO_SUPER, "estacion-actions#revocarEnlaceAccion": SOLO_SUPER,
   "importar-actions#revisarImportacion": SOLO_ADMIN, "importar-actions#aplicarImportacionAccion": SOLO_ADMIN,
@@ -152,7 +151,6 @@ describe("matriz de permisos", () => {
       if (!s.ok) throw new Error("PIN");
       sesionesHechas[`e_${f}` as Tipo] = { cne_estacion: s.sesionToken };
     }
-    await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = true");
   });
   afterAll(async () => {
     const { rmSync } = await import("node:fs");
@@ -209,17 +207,6 @@ describe("matriz de permisos", () => {
       expect((await enviar("cross-site")).status).toBe(403);
     });
 
-    for (const clave of ["POST /api/d/buscar", "POST /api/d/foto"]) {
-      it(`${clave} · cerrado el formulario, nadie entra (ni el personal)`, async () => {
-        await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = false");
-        try {
-          const r = rutasDescubiertas.find((x) => x.clave === clave)!;
-          for (const tipo of TIPOS) { ponerSesion(tipo); expect(await llamar(r)).toBe(403); }
-        } finally {
-          await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = true");
-        }
-      });
-    }
   });
 
   describe("acciones de servidor", () => {
