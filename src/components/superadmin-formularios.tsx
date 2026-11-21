@@ -2,7 +2,7 @@
 
 import { ETIQUETA_ROL, ROLES_ADMIN, type RolAdmin } from "@/domain/roles";
 import { useActionState } from "react";
-import { cambiarModoAccion, cargarDemoAccion, prepararEleccionAccion, respaldarAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, cambiarRolAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
+import { cambiarModoAccion, cargarDemoAccion, reiniciarOperativoAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, cambiarRolAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
 const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
 const boton = "rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60";
@@ -101,23 +101,23 @@ export function FormDemo({ cargadas }: { cargadas: number }) {
   );
 }
 
-export function FormPreparar({ resumen, conserva }: { resumen: { etiqueta: string; n: number }[]; conserva: string[] }) {
-  const [estado, enviar, pendiente] = useActionState(prepararEleccionAccion, null);
-  const [respaldo, enviarRespaldo, p2] = useActionState(respaldarAccion, null);
+export function FormReiniciarOperativo({ resumen, conserva }: { resumen: { etiqueta: string; n: number }[]; conserva: string[] }) {
+  const [estado, enviar, pendiente] = useActionState(reiniciarOperativoAccion, null);
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium">Se borrará solo lo marcado como prueba:</p>
+      <p className="text-sm font-semibold text-red-800">Borrado irreversible de TODO el operativo, tanto en modo prueba como en modo elección.</p>
+      <p className="text-sm">Se eliminarán las fichas MJRV importadas desde Excel y las de demostración, sus ingresos, movimientos, fotografías de cédula, recibos, pagos, firmas, revocaciones y el historial y la cola de envíos de credenciales. No se crea ninguna copia de seguridad.</p>
+      <p className="text-sm font-medium">Registros operativos que se eliminarán (ambos modos):</p>
       <ul className="list-disc pl-5 text-sm">{resumen.map((r) => <li key={r.etiqueta}>{r.etiqueta}: <strong>{r.n}</strong></li>)}</ul>
-      <p className="text-sm font-medium">Se conserva:</p>
-      <ul className="list-disc pl-5 text-sm">{conserva.map((c) => <li key={c}>{c}</li>)}</ul>
-      <p className="text-sm">Antes de borrar se hace un respaldo completo de la base y se comprueba. Si el respaldo falla, no se borra nada. Después el sistema pasa a modo elección.</p>
-      <form action={enviarRespaldo}><button disabled={p2} className="rounded border border-slate-500 px-4 py-3 font-semibold disabled:opacity-60">Solo crear respaldo para descargar</button></form>
-      <Resultado estado={respaldo} />
+      <p className="text-sm font-medium">Se conservan:</p>
+      <ul className="list-disc pl-5 text-sm">{conserva.map((texto) => <li key={texto}>{texto}</li>)}</ul>
+      <p className="text-sm">Al finalizar, el sistema quedará en modo elección, vacío de actividad y preparado para importar nuevamente los MJRV. El correo y WhatsApp reales quedarán apagados hasta que se habiliten expresamente. Los mensajes ya enviados a terceros no pueden retirarse.</p>
+      <p className="text-sm font-semibold">Antes de reiniciar, cierre las demás estaciones y suspenda los envíos. Esta operación no debe utilizarse durante la jornada real.</p>
       <form action={enviar} className="max-w-sm space-y-3">
-        <label className="block text-sm font-medium">Para confirmar escriba «PREPARAR ELECCIÓN»
+        <label className="block text-sm font-medium">Para confirmar el borrado irreversible escriba «BORRAR TODO»
           <input name="confirmacion" autoComplete="off" required className={campo} />
         </label>
-        <button disabled={pendiente} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar datos de prueba y preparar para elección</button>
+        <button disabled={pendiente} className="rounded bg-red-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Borrar todo y reiniciar operativo</button>
       </form>
       <Resultado estado={estado} />
     </div>
