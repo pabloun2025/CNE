@@ -83,16 +83,16 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 ## 7. Pendiente
 
 ### De Pablo (insumos y decisiones)
-1. **Excel nominativo de MJRV.** El 21-11 a las 09:02 de Madrid había 283 fichas reales activas con rótulo. Contrastar el padrón cargado con el Excel definitivo antes del lote. [Comprobación en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44882964931)
+1. **Excel nominativo de MJRV.** La inspección más reciente del 21-11 encontró una ficha real activa. Contrastar el padrón con el Excel definitivo antes del lote. [Comprobación de solo lectura en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44942739405)
 2. Decisión abierta **P-10**: ¿el traslado debe confirmarse cuando la persona llega físicamente? (hoy cuenta al aceptar).
 3. Confirmar el **orden de cercanía de zonas** (hoy: deducido del plano) y la **distribución del QR de documentos** (hoy: cartel + enlace en el mensaje).
 
 ### Técnico (para la siguiente IA)
 1. **Ensayo con dispositivos reales:** cámara y lector QR en el móvil del puesto, impresión a tamaño real de credenciales y recibo A4, y entrega de un mensaje controlado si se autoriza la prueba. Las verificaciones de esta entrega emplearon datos ficticios y cámara emulada.
-2. **Vulnerabilidad alta** que reporta `npm audit` en una dependencia: revisar y corregir antes del 29-11 sin romper la compilación.
+2. **Dependencias.** El 21-11 `npm audit --omit=dev` señaló dos dependencias con avisos altos, `pdfjs-dist` y `xlsx`. Pendiente revisar actualizaciones y probar el visor de recibos y el importador.
 3. **Respaldo de «Preparar elección»** queda en `/tmp` del contenedor (se pierde al reiniciar); la copia válida es la que se descarga. Valorar montarlo en `/home/ubuntu/cne/backups`.
 4. Copias externas: las diarias quedan solo en la VM; valorar copia cifrada fuera (R2 ya se usa en teinvito).
-5. La noche del 28-11: comprobar que no queda actividad de prueba, ejecutar «Borrar datos de prueba y preparar para elección», descargar el respaldo y verificar el modo elección.
+5. Antes de preparar el padrón definitivo, identificar el recibo y el pago confirmado que consta en modo elección. Aplicar la limpieza correspondiente solo tras verificar qué datos son de ensayo. El reinicio integral es una acción explícita de Superadministración que borra ambos modos.
 
 ## 8. Documentos entregados a Pablo (no versionados, generados en la conversación)
 
@@ -298,3 +298,11 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Las juntas empiezan en H1 de Amarillo · Hombres y siguen en orden numérico por las filas. El vial este agrupa amarillo, azul, rojo y celeste. El vial norte agrupa verde y rosado con la entrada señalada entre ambos. Los filtros conservan las posiciones del mapa y la vista completa muestra las 95 juntas.
 - Pasaron 1.124 pruebas, TypeScript y la compilación. ESLint informó cero errores y la advertencia previa de Unslop. En Chromium se verificaron las 95 tarjetas y los indicadores sin desplazamiento a 1366 × 768, 1024 × 600, 375 × 667, 320 × 568, 667 × 375 y 568 × 320. También se abrió el detalle de H1 desde pantalla completa y se comprobó la salida con Escape y la conservación del filtro.
 - Oracle publicó `f0d4d9a`. Madrid respondió con la versión esperada y la base sana. La verificación pública confirmó también que Recordatorio responde. [CI](https://github.com/pabloun2025/CNE/actions/runs/44939538285) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44939538351) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44939831398)
+
+## 27. Preparación de Madrid y acciones principales
+
+- El recuento del 21-11 en Oracle mostró 95 juntas, una ficha real activa, un recibo y un pago confirmado en modo elección. El firmante está configurado y el remitente de Brevo está verificado. La línea de WhatsApp aparece vinculada. Los dos interruptores de envío real están apagados. [Recuento y Brevo](https://github.com/pabloun2025/CNE/actions/runs/44942739405) · [Línea de WhatsApp](https://github.com/pabloun2025/CNE/actions/runs/44942530937)
+- Se aplicaron las pautas de diseño frontend y Unslop a los botones operativos. Buscar en Revisión, Imprimir en el visor y Descargar recibos usan el estilo principal. Revisión y Caja dan mayor superficie al paso principal en móvil. En Credenciales, Enviar tiene el estilo principal y la descarga usa un botón con borde.
+- El Centro de mando se organiza por color y conserva el orden numérico desde H1. Las tarjetas resaltan el número de junta y muestran el estado con una franja estrecha. En pantalla completa el selector permite ampliar una zona y volver a ver las 95 juntas.
+- Se verificaron el orden numérico, la ampliación de zona y las 95 juntas sin desplazamiento en los seis tamaños de la sección anterior. Los botones de trabajo se comprobaron a 375 y 1440 px con fichas ficticias. Pasaron 1.124 pruebas, TypeScript y la compilación.
+- Para preparar la jornada falta cuadrar el padrón definitivo y resolver el pago que figura en elección. La prueba presencial pendiente incluye el móvil de Puerta, fotos con el móvil de Documentación y una impresión a tamaño real de la credencial y del recibo. Activar los canales elegidos cuando el padrón esté confirmado.

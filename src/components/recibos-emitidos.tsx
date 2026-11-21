@@ -32,8 +32,8 @@ export function RecibosEmitidos({ filas, total, modo, q, pagina }: { filas: Reci
           Seleccionar {total === 1 ? "el recibo encontrado" : `los ${total} recibos encontrados`}
         </label>
         <div className="flex flex-wrap items-center gap-3">
-          <button disabled={cantidad === 0}>Descargar {cantidad > 1 ? "ZIP" : "PDF"}</button>
-          {cantidad > 0 && <button type="button" className="secondary" onClick={() => {
+          <button className="button-like" disabled={cantidad === 0}>Descargar {cantidad > 1 ? "ZIP" : "PDF"}</button>
+          {cantidad > 0 && <button type="button" className="button-like secondary" onClick={() => {
             setTodas(false);
             setElegidas([]);
           }}>Quitar selección</button>}

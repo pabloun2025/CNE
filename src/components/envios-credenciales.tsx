@@ -49,10 +49,10 @@ export function DistribuirCredenciales({ ids, bloqueado = false }: { ids: readon
   const [estado, enviar, pendiente] = useActionState(enviarLoteAccion, null);
   const desactivado = bloqueado || pendiente || !ids.length;
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid items-start gap-4 sm:grid-cols-2">
       <form method="post" action="/admin/credenciales/pdf" target="_blank" className="stack">
         <IdsCredenciales ids={ids} />
-        <button name="formato" value="individual" className="secondary" disabled={desactivado}>
+        <button name="formato" value="individual" className="button-like secondary" disabled={desactivado}>
           {ids.length > 1 ? "Descargar ZIP de PDFs" : "Descargar PDF individual"}
         </button>
       </form>
@@ -61,7 +61,7 @@ export function DistribuirCredenciales({ ids, bloqueado = false }: { ids: readon
         <fieldset className="stack" disabled={desactivado}>
           <CanalEnvio whatsapp correo />
           <Reenvio />
-          <button>{pendiente ? "Procesando…" : "Enviar credenciales"}</button>
+          <button className="button-like">{pendiente ? "Procesando…" : "Enviar credenciales"}</button>
         </fieldset>
         <Resultado estado={estado} />
       </form>

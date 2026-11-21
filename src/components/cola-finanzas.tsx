@@ -58,7 +58,7 @@ export function ColaFinanzas({ caja = false }: { caja?: boolean }) {
           </ul>
           {!filas.length && <p>El filtro no tiene coincidencias.</p>}
           {caja && <label className="flex items-center gap-2"><input type="checkbox" name="anexo" value="1" /> Incluir fotos del documento de identidad</label>}
-          <button disabled={!seleccionadas.length || falla}>{caja
+          <button className={caja ? "button-like" : "button-like secondary"} disabled={!seleccionadas.length || falla}>{caja
             ? `Descargar ${seleccionadas.length > 1 ? "ZIP" : "PDF"}`
             : "Imprimir en contingencia"}</button>
         </form>

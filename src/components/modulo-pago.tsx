@@ -97,7 +97,7 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
       <h2>{caja ? "Confirmar pago" : "Revisar ficha"}</h2>
       <form onSubmit={(e) => { e.preventDefault(); void ejecutar(() => consultar(cedula)); }} className="flex flex-wrap items-end gap-2">
         <label className="min-w-0 flex-1">Número de cédula<input value={cedula} onChange={(e) => setCedula(e.target.value)} autoComplete="off" required /></label>
-        <button disabled={ocupado}>Buscar</button>
+        <button className="button-like" disabled={ocupado}>Buscar</button>
       </form>
       {cedulaInicial && <CargaInicial cedula={cedulaInicial} cargar={(c) => ejecutar(() => consultar(c))} />}
       {mensaje && <p role="status" className="font-semibold">{mensaje}</p>}
@@ -114,7 +114,7 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
                 <label className="flex items-start gap-2"><input type="checkbox" checked={verificado} onChange={(e) => verificar(e.target.checked)} />
                   Verifiqué que el recibo está firmado en papel y que el efectivo fue entregado.
                 </label>
-                <button disabled={!verificado || ocupado} onClick={confirmar}>Confirmar pago entregado</button>
+                <button className="button-like w-full sm:w-auto" disabled={!verificado || ocupado} onClick={confirmar}>Confirmar pago entregado</button>
               </>
             ) : <p role="status">{ficha.acta?.documentoPendiente ? "Reimprima el recibo con el documento vigente antes de confirmar el pago." : "El recibo definitivo y el documento validado deben estar listos antes del pago."}</p>
           ) : (
@@ -129,24 +129,24 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
                   ))}
                 </div>
               )}
-              {ficha.documentosCompletos && <button type="button" className="secondary" disabled={ocupado} onClick={() => setMostrarCaptura(!mostrarCaptura)}>{mostrarCaptura ? "Cerrar captura" : "Volver a fotografiar el documento"}</button>}
+              {ficha.documentosCompletos && <button type="button" className="button-like secondary" disabled={ocupado} onClick={() => setMostrarCaptura(!mostrarCaptura)}>{mostrarCaptura ? "Cerrar captura" : "Volver a fotografiar el documento"}</button>}
               {(!ficha.documentosCompletos || mostrarCaptura) && (
                 <fieldset key={ficha.mjrvId} disabled={ocupado}>
                   <CapturaDocumentosPuesto fotos={ficha} onUsar={subir} seguirConReverso />
                 </fieldset>
               )}
-              {ficha.documentosCompletos && !ficha.cedulaValidada && <button disabled={ocupado} onClick={validar}>Validar documento</button>}
+              {ficha.documentosCompletos && !ficha.cedulaValidada && <button className="button-like" disabled={ocupado} onClick={validar}>Validar documento</button>}
               {!ficha.cedulaValidada && <form method="post" action="/api/admin/finanzas/recibos/emitir" target="_blank">
                 <input type="hidden" name="id" value={ficha.mjrvId} />
                 <input type="hidden" name="modo" value={ficha.modoPrueba ? "prueba" : "eleccion"} />
-                <button className="secondary" disabled={ocupado}>Imprimir en contingencia</button>
+                <button className="button-like secondary" disabled={ocupado}>Imprimir en contingencia</button>
               </form>}
               {!recibo && ficha.cedulaValidada && ficha.documentosCompletos && (
                 <>
                   <label className="flex items-start gap-2"><input type="checkbox" checked={verificado} onChange={(e) => verificar(e.target.checked)} />
                     Verifiqué que cumplió sus funciones como MJRV.
                   </label>
-                  <button disabled={!verificado || ocupado} onClick={emitir}>{ficha.acta ? "Reimprimir recibo" : "Emitir e imprimir recibo"}</button>
+                  <button className="button-like w-full sm:w-auto" disabled={!verificado || ocupado} onClick={emitir}>{ficha.acta ? "Reimprimir recibo" : "Emitir e imprimir recibo"}</button>
                 </>
               )}
               {!ficha.parametrosCompletos && <p role="status">Superadministración debe completar los datos del firmante.</p>}
@@ -154,7 +154,7 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
           ))}
           {ficha.pago && <Link href={{ pathname: "/admin/finanzas/recibos", query: { q: ficha.cedula } }}>Consultar el recibo</Link>}
           {!caja && recibo && <VisorRecibo key={recibo.url} archivo={recibo.archivo} url={recibo.url} nombre={recibo.nombre} />}
-          <button className="secondary" disabled={ocupado} onClick={() => { setFicha(null); setRecibo(null); setCedula(""); setMensaje(""); verificar(false); }}>Otra persona</button>
+          <button className="button-like secondary" disabled={ocupado} onClick={() => { setFicha(null); setRecibo(null); setCedula(""); setMensaje(""); verificar(false); }}>Otra persona</button>
         </div>
       )}
     </section>

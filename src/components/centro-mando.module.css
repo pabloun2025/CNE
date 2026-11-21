@@ -94,35 +94,36 @@
   gap: 5px clamp(8px, 1vw, 16px);
 }
 
-.vial {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-  padding: 4px;
+.zona {
+  gap: 2px;
+  padding: clamp(3px, .75dvh, 8px);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--card);
 }
 
-.zonas .vial h3 {
-  font: 700 clamp(11px, 1.6dvh, 16px)/1.1 var(--sans);
+.zonas .zona h3 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 700 clamp(11px, 1.8dvh, 16px)/1.15 var(--sans);
+  color: var(--navy);
 }
 
-.zona {
-  gap: 2px;
+.colorZona {
+  width: .75em;
+  height: .75em;
+  flex: none;
+  border-radius: 2px;
 }
 
-.zona h4 {
-  font-weight: 700;
-  font-size: clamp(10px, 1.55dvh, 13px);
-  line-height: 1.1;
-}
-
-.entrada {
-  border-top: 1px dashed var(--input);
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.1;
+.tablero .selectorMapa {
+  width: auto;
+  max-width: 46%;
+  min-height: 22px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: inherit;
 }
 
 .fila {
@@ -138,7 +139,11 @@
   min-width: 0;
   min-height: 0;
   padding: 0;
-  border-radius: 3px;
+  border: 1px solid var(--line);
+  border-inline-start-width: 2px;
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--navy);
   font-size: var(--texto-tarjeta);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -147,6 +152,10 @@
 .zonas .tarjeta:focus-visible {
   z-index: 1;
   outline-offset: 0;
+}
+
+.tarjeta:hover {
+  background: var(--blue-wash);
 }
 
 .serie {
@@ -158,12 +167,9 @@
 }
 
 .cuentas {
-  align-self: stretch;
-  display: grid;
-  align-items: center;
-  border: 1px solid var(--card);
-  border-radius: 4px;
-  font-weight: 700;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .detalle {
@@ -183,10 +189,10 @@
 
 @media (min-width: 540px) {
   .zonas {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .tablero .zonas {
-    --alto-tarjeta: clamp(18px, 6dvh, 62px);
+    --alto-tarjeta: clamp(18px, 6.5dvh, 62px);
     --texto-tarjeta: clamp(9px, 1.8dvh, 16px);
   }
 }
@@ -206,7 +212,10 @@
 @media (max-width: 360px) {
   .tablero .zonas {
     --alto-tarjeta: clamp(15px, 3dvh, 25px);
+    row-gap: 3px;
   }
+  .tablero .zona { padding: 3px; }
+  .tarjeta .marca { display: none; }
 }
 
 @media (min-width: 540px) and (max-height: 500px) {
@@ -227,16 +236,18 @@
     white-space: nowrap;
   }
 
-  .tablero .vial {
-    gap: 2px;
-    padding: 3px;
-  }
-
   .tablero .zona {
     gap: 1px;
+    padding: 3px;
   }
+}
 
-  .tablero .cuentas {
-    border: 0;
-  }
+.tablero .zonas.ampliada {
+  --alto-tarjeta: clamp(28px, 8dvh, 64px);
+  --texto-tarjeta: clamp(11px, 2.3dvh, 17px);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ampliada .cuentas {
+  font-size: .82em;
 }

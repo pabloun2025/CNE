@@ -252,8 +252,8 @@ a.button-like, .button-like {
   font-weight: 600; text-decoration: none;
 }
 a.button-like:hover, .button-like:hover { background: var(--blue-hover); }
-a.button-like.secondary, .button-like.secondary { background: var(--card); color: var(--blue); border: 1px solid #b9c7db; }
-a.button-like.secondary:hover { background: var(--blue-wash); }
+:is(a, button).button-like.secondary, .button-like.secondary { background: var(--card); color: var(--blue); border: 1px solid #b9c7db; }
+:is(a, button).button-like.secondary:hover { background: var(--blue-wash); }
 
 .funcionario table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .funcionario th, .funcionario td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--line-soft); vertical-align: top; }

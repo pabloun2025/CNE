@@ -63,7 +63,7 @@ export function gruposMapaMadrid(juntas: JuntaMando[]) {
     const filas = FINES_FILA[zona].map((fin, i, fines) =>
       fichas.filter((j) => j.numero > (fines[i - 1] ?? 0) && j.numero <= fin));
     return [{
-      zona, vial: zona === "verde" || zona === "rosado" ? "norte" : "este",
+      zona,
       titulo: `${ZONA_NOMBRE[zona]} · ${serie === "H" ? "Hombres" : "Mujeres"}`, filas,
     }];
   });

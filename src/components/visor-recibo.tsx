@@ -97,7 +97,7 @@ export function VisorRecibo({ archivo, url, nombre }: PdfRecibo) {
         {estado === "visor" ? (
           <a className="button-like" href={url} target="_blank" rel="noopener">Imprimir recibo</a>
         ) : (
-          <button type="button" disabled={estado !== "listo"} onClick={() => {
+          <button type="button" className="button-like" disabled={estado !== "listo"} onClick={() => {
             try { imprimir(visor.current); }
             catch { setEstado("visor"); }
           }}>Imprimir recibo</button>

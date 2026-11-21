@@ -85,13 +85,13 @@ describe("mapa de Madrid", () => {
     expect(grupos[0].filas.flat().map((f) => f.numero)).toEqual([12, 13]);
   });
 
-  it("ubica las 95 juntas en los dos viales y en filas numeradas", () => {
+  it("ubica las 95 juntas por zona y fila numérica", () => {
     const entradas = TRAMOS.flatMap(({ serie, desde, hasta, zona }) =>
       Array.from({ length: hasta - desde + 1 }, (_, i) => ({ id: (serie === "H" ? 0 : 41) + desde + i, serie, numero: desde + i, zona })));
     const mapa = gruposMapaMadrid(calcularMando(entradas.reverse(), [], []).juntas);
-    expect(mapa.map(({ zona, vial, filas }) => [zona, vial, filas.map((fila) => fila.length)])).toEqual([
-      ["amarillo", "este", [10, 11]], ["azul", "este", [10, 10]], ["rojo", "este", [4, 4]],
-      ["celeste", "este", [10, 11]], ["verde", "norte", [4, 6]], ["rosado", "norte", [4, 2, 3, 6]],
+    expect(mapa.map(({ zona, filas }) => [zona, filas.map((fila) => fila.length)])).toEqual([
+      ["amarillo", [10, 11]], ["azul", [10, 10]], ["rojo", [4, 4]],
+      ["celeste", [10, 11]], ["verde", [4, 6]], ["rosado", [4, 2, 3, 6]],
     ]);
     expect(mapa[0].filas[0].map((j) => j.numero)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(mapa[5].filas.at(-1)?.at(-1)).toMatchObject({ serie: "M", numero: 54 });
