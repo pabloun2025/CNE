@@ -91,6 +91,7 @@ describe("reiniciar operativo completo, incluso ensayos realizados en modo elecc
     expect(await cantidad("auditoria")).toBeGreaterThan(0);
     expect(await consultarDueno("SELECT es_prueba, ultimo_ordinal FROM cne.secuencia_recibos ORDER BY es_prueba")).toEqual([
       { es_prueba: false, ultimo_ordinal: 0 },
+      { es_prueba: true, ultimo_ordinal: 0 },
     ]);
     const [cfg] = await consultarDueno<{ modo: string; whatsapp_real: boolean; correo_real: boolean }>(
       "SELECT modo, whatsapp_real, correo_real FROM cne.configuracion",
