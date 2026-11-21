@@ -263,6 +263,9 @@ describe("cola de envío real", () => {
       texto: expect.stringContaining("muestre el código QR en la puerta"),
       html: expect.stringContaining("Consulado General del Ecuador en Madrid"),
     });
+    expect(f.mail[0].texto).toContain("H1");
+    expect(f.mail[0].texto).toContain("Amarillo");
+    expect(f.mail[0].html).toContain("Cómo llegar en Google Maps");
     expect(Buffer.from(f.mail[0].adjunto.base64, "base64").subarray(0, 5).toString()).toBe("%PDF-");
     expect((await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
     expect(f.mail).toHaveLength(2);

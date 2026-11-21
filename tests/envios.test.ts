@@ -111,12 +111,25 @@ describe("D08 · texto del mensaje de la credencial", () => {
     expect(textoCredencial({ ...d })).not.toContain("comprobante");
   });
   it("el correo usa los datos escapados en HTML y omite el formulario si falta el host", () => {
-    const correo = correoCredencial({ nombres: "ANA < PRUEBA", rotulo: "H01 & H02" });
+    const correo = correoCredencial({ nombres: "ANA < PRUEBA", rotulo: "H01 & H02", junta: "M9", zona: "celeste" });
     expect(correo.html).toContain("ANA &lt; PRUEBA");
     expect(correo.html).toContain("H01 &amp; H02");
     expect(correo.html).toContain("muestre el código QR en la puerta");
-    expect(correo.html).not.toContain("href=");
+    expect(correo.html).not.toContain("Abrir el formulario de Madrid");
     expect(correo.texto).not.toContain("formulario de Madrid");
+  });
+  it("el correo comunica la ubicación, las horas y la asignación en HTML y texto", () => {
+    const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", rotulo: "F09", junta: "M9", zona: "celeste" });
+    for (const cuerpo of [correo.html, correo.texto]) {
+      expect(cuerpo).toContain("29 de noviembre de 2026");
+      expect(cuerpo).toContain("Caja Mágica");
+      expect(cuerpo).toContain("Camino de Perales 23");
+      expect(cuerpo).toContain("nivel −2");
+      expect(cuerpo).toContain("08:30");
+      expect(cuerpo).toContain("M9");
+      expect(cuerpo).toContain("Celeste");
+      expect(cuerpo).toContain("https://www.google.com/maps/dir/");
+    }
   });
   it("el envío simulado usa el HOST_MADRID del servidor en HTML y texto", async () => {
     const antes = process.env.HOST_MADRID;
@@ -129,6 +142,8 @@ describe("D08 · texto del mensaje de la credencial", () => {
       await enviarCredencial(admin, ids["0000000006"], "correo", espia);
       expect(texto).toContain("https://madrid.ejemplo.invalid/d");
       expect(html).toContain('href="https://madrid.ejemplo.invalid/d"');
+      expect(texto).toContain("H1");
+      expect(texto).toContain("Amarillo");
     } finally {
       if (antes === undefined) delete process.env.HOST_MADRID; else process.env.HOST_MADRID = antes;
     }

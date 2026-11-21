@@ -106,7 +106,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
     if (sel.datos.length === 0) r = { ok: false, permanente: true, error: "La ficha está de baja o le falta el rótulo de la credencial." };
     else {
       const d = sel.datos[0];
-      const m = mensajeCredencial(d, canal, sel.personas[0].junta);
+      const m = mensajeCredencial(d, canal, sel.personas[0]);
       // El interruptor autoriza credenciales definitivas para fichas reales incluso durante el ensayo operativo.
       const pdfBase64 = Buffer.from(await credencialesIndividuales([{ ...d, prueba: false }], await medidasCredencial())).toString("base64");
       const actual = (await client.query<{ destino: string | null }>(
