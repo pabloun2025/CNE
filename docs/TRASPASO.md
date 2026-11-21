@@ -21,7 +21,7 @@ Documento para que otra IA (o persona) continúe el trabajo sin perder contexto.
 
 ## 3. Estado: qué está construido y publicado
 
-Producción: **https://madrid.consulado.app**. La versión verificada el 20-11-2026 es `232b97b`. Los bloques iniciales se publicaron el 18-11-2026.
+Producción: **https://madrid.consulado.app**. La versión verificada antes de la entrega del circuito de tres puestos es `776a7f9`.
 
 | Bloque | Estado |
 |---|---|
@@ -189,3 +189,14 @@ Pantallas tocadas:
 - **Brevo.** Se configuró el nombre visible «Consulado General del Ecuador en Madrid» sobre el remitente ya verificado. La comprobación del proveedor quedó en verde. El envío real sigue apagado. [Configuración en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44763512229)
 - **WhatsApp.** Evolution responde. `cne-madrid` necesita vincular el teléfono mediante QR desde Configuración → WhatsApp. Una vez vinculada, Superadministración puede encender el envío real. La inspección registró cero mensajes reales en cola en ambos canales. [Inspección en Oracle](https://github.com/pabloun2025/CNE/actions/runs/44763260590)
 - **Captura de cédula.** En Chromium con cámara emulada se reprodujo la pantalla negra al pulsar «Repetir». Se vuelve a crear el elemento de vídeo sin reasignarle el flujo. El paso directo de anverso a reverso en el formulario público sí se completó en esa prueba. Finanzas reutiliza el mismo componente al cambiar de cara. La simplificación del flujo está pendiente de las decisiones del usuario.
+
+## 13. Circuito de los tres puestos de Madrid
+
+- **Código.** `85d370b` en `main`.
+- **Móvil.** Los enlaces activos de Puerta, Documentación y Escaneo de Finanzas abren directamente el puesto correspondiente. El escáner financiero envía la ficha a Revisión. Caja y los documentos financieros requieren una cuenta autorizada. Mando por enlace conserva su identificación.
+- **Revisión y Caja.** En Finanzas → Revisar e imprimir se abre una ficha recibida desde el móvil o se busca por cédula. La captura manual conserva la señal después de «Repetir» y al pasar al reverso. El control de validación distingue prueba de elección y vuelve a pedir revisión si se sustituye una foto. En Caja se confirma cada desembolso después de la firma física y la entrega del efectivo. Los recibos de contingencia quedan pendientes hasta completar la documentación.
+- **Recibo.** El formato FO-04 se imprime en una hoja A4 apaisada, con ambas caras de la cédula al pie. La primera emisión definitiva reserva un ordinal. Los números 1–190 llevan 58,82 EUR y los números 191–285 llevan 58,83 EUR, con referencia de 70,00 USD y cambio de 1,190. El total teórico es 16.764,65 EUR. Un impreso sin desembolso conserva el ordinal, el importe y el número. Las copias anteriores siguen consultables con sus referencias históricas.
+- **Descargas.** Las listas de MJRV, credenciales y recibos permiten seleccionar una, varias o todas las coincidencias aptas. Las descargas individuales son PDF y las múltiples son ZIP con un PDF por persona. Las planchas permiten imprimir en conjunto. Los recibos nuevos pueden incluir las fotos vigentes al solicitar el anexo desde Finanzas.
+- **Superadministración.** Gestiona cuentas, enlaces, firmante, medidas de credenciales, formulario de documentos y envíos. El cónsul puede distribuir enlaces existentes. Coordinación abre solo Mando.
+- **Comprobaciones.** Pasaron 1.033 pruebas, TypeScript y la compilación. Chromium a 375 px comprobó el escaneo, la impresión A4, los ordinales 190 y 191, Caja con dos cuentas y la transición de la cámara al reverso. La migración sobre el esquema desplegado conservó los recibos históricos y la serie nueva empezó en cero.
+- **Canales reales.** Oracle confirmó que WhatsApp ya está vinculado y activo y que Brevo ya está verificado y activo. La comprobación consultó los proveedores y el estado de los interruptores. [Verificación de canales](https://github.com/pabloun2025/CNE/actions/runs/44840955032)
