@@ -1,11 +1,13 @@
 import { ZONA_HEX, ZONA_NOMBRE, type ZonaColor } from "./juntas";
 
 type DatosMensaje = { nombres: string; rotulo: string; host?: string | null };
-type DatosCorreo = DatosMensaje & { junta: string; zona: ZonaColor };
+type DatosCorreo = Omit<DatosMensaje, "rotulo"> & { junta: string; zona: ZonaColor; documentosAbierto: boolean };
 
+const FECHA = "29 de noviembre de 2026";
 const RECINTO = "Caja Mágica";
 const DIRECCION = "Camino de Perales 23, 28041 Madrid";
 const MAPA = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${RECINTO}, ${DIRECCION}`)}`;
+const LIMITE_INGRESO = "HORA LÍMITE DE INGRESO: 08:00";
 
 function enlaceDocumentos(host?: string | null): string | null {
   const dominio = (host ?? "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
@@ -23,21 +25,24 @@ const escapar = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").re
 
 export function correoCredencial(d: DatosCorreo): { asunto: string; texto: string; html: string } {
   const firma = "Consulado General del Ecuador en Madrid";
-  const asunto = "Su credencial de MJRV";
+  const asunto = `Su credencial de MJRV – ${FECHA}`;
   const saludo = `Buen día, ${d.nombres}.`;
-  const adjunto = `Le enviamos adjunta en PDF su credencial de miembro de una Junta Receptora del Voto (MJRV), identificada con el rótulo ${d.rotulo}.`;
-  const fecha = "Domingo 29 de noviembre de 2026";
-  const ubicacion = `${RECINTO}, nivel −2 · ${DIRECCION}`;
-  const asignacion = `Junta ${d.junta} · Zona ${ZONA_NOMBRE[d.zona]}`;
+  const adjunto = `Le enviamos adjunta en PDF su credencial como miembro de una Junta Receptora del Voto (MJRV), para la jornada electoral del domingo ${FECHA}.`;
+  const ubicacion = `${RECINTO}, nivel −2`;
+  const junta = `Junta ${d.junta}`;
+  const zona = `Zona ${ZONA_NOMBRE[d.zona]}`;
   const llegada = "Debe haber ingresado al recinto a más tardar a las 08:00 (hora de Madrid). Llegue con suficiente antelación para registrar su entrada y localizar su zona y su junta.";
-  const horario = "La instalación de las juntas comenzará a las 08:30; la votación se desarrollará de 09:00 a 19:00 y, posteriormente, se realizará el escrutinio.";
-  const acceso = "Si no puede imprimirla, guarde el PDF en su teléfono móvil y muestre el código QR en la puerta para registrar su acceso. Lleve también su cédula de identidad.";
-  const documentos = "Para preparar su comprobante de pago, cargue las fotos del anverso y el reverso de su cédula en el formulario de Madrid.";
+  const horario = "La instalación de las juntas comenzará a las 08:30. La votación se desarrollará de 09:00 a 19:00 y, posteriormente, se realizará el escrutinio.";
+  const acceso = "Puede presentar la credencial PDF adjunta impresa o desde su teléfono móvil. El código QR permitirá registrar su llegada. Lleve también su cédula de identidad.";
+  const documentos = d.documentosAbierto
+    ? "Para preparar su comprobante de pago, cargue las fotografías del anverso y reverso de su cédula en el siguiente enlace."
+    : "El formulario de documentación está cerrado por el momento. Cuando se habilite, podrá cargar allí las fotografías del anverso y reverso de su cédula para el comprobante de pago.";
   const enlace = enlaceDocumentos(d.host);
 
   const texto = [
-    saludo, adjunto, `${fecha}\n${asignacion}\n${ubicacion}\nCómo llegar en Google Maps\n${MAPA}`, llegada, horario, acceso,
-    ...(enlace ? [`${documentos}\n${enlace}`] : []), "Atentamente,\n" + firma,
+    saludo, adjunto, `SU ASIGNACIÓN\n${junta}\n${zona}\n${ubicacion}\n${DIRECCION}\nCómo llegar en Google Maps\n${MAPA}`,
+    `${LIMITE_INGRESO}\n${llegada}`, horario, `Acceso al recinto\n${acceso}`,
+    ...(enlace ? [`${documentos}\nFormulario de documentación\n${enlace}`] : []), "Atentamente,\n" + firma,
   ].join("\n\n");
   const html = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${asunto}</title></head>
@@ -50,13 +55,13 @@ export function correoCredencial(d: DatosCorreo): { asunto: string; texto: strin
         <p style="margin:0 0 12px">${escapar(saludo)}</p>
         <p style="margin:0 0 16px">${escapar(adjunto)}</p>
         <p style="margin:0 0 16px;padding:12px 14px;background-color:#f3f5f8;border-left:4px solid ${ZONA_HEX[d.zona]}">
-          <strong>${escapar(asignacion)}</strong><br>${fecha}<br>${ubicacion}<br>
+          <strong>SU ASIGNACIÓN</strong><br><strong>${escapar(junta)} · ${zona}</strong><br>${ubicacion}<br>${DIRECCION}<br>
           <a style="color:#174c83" href="${escapar(MAPA)}">Cómo llegar en Google Maps</a>
         </p>
-        <p style="margin:0 0 16px;padding:12px 14px;background-color:#fff5e6;border-left:4px solid #b96c12"><strong>Hora límite de ingreso: 08:00</strong><br>${escapar(llegada)}</p>
+        <p style="margin:0 0 16px;padding:12px 14px;background-color:#fff5e6;border-left:4px solid #b96c12"><strong>${LIMITE_INGRESO}</strong><br>${llegada}</p>
         <p style="margin:0 0 16px">${escapar(horario)}</p>
         <p style="margin:0 0 16px;padding:12px 14px;background-color:#eaf1f8;border-left:4px solid #12325a"><strong>Acceso al recinto</strong><br>${acceso}</p>
-        ${enlace ? `<p style="margin:0 0 16px">${documentos}<br><a style="color:#174c83" href="${escapar(enlace)}">Abrir el formulario de Madrid</a></p>` : ""}
+        ${enlace ? `<p style="margin:0 0 16px">${documentos}<br><a style="color:#174c83" href="${escapar(enlace)}">Formulario de documentación</a></p>` : ""}
         <p style="margin:0">Atentamente,<br>${firma}</p>
       </td></tr>
     </table>

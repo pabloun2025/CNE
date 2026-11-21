@@ -250,17 +250,17 @@ describe("cola de envío real", () => {
 
   it("correo: diseño institucional, instrucción del QR móvil y PDF adjunto y sin espera entre turnos", async () => {
     await encender("correo");
-    const a = await ficha();
+    await ficha();
     const nombreArchivo = `H1-${9000000000 + n}.pdf`;
-    const b = await ficha();
-    await enviarCredencial(admin, a, "correo"); await enviarCredencial(admin, b, "correo");
+    await ficha({ junta: 22 });
+    expect(await enviarLote(admin, "correo")).toMatchObject({ enCola: 2 });
     const f = falsos();
     expect((await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
     expect(f.mail[0]).toMatchObject({
-      asunto: "Su credencial de MJRV",
+      asunto: "Su credencial de MJRV – 29 de noviembre de 2026",
       remitente: { nombre: "Remitente Prueba", direccion: "remitente@ejemplo.invalid" },
       adjunto: { nombre: nombreArchivo },
-      texto: expect.stringContaining("muestre el código QR en la puerta"),
+      texto: expect.stringContaining("El código QR permitirá registrar su llegada."),
       html: expect.stringContaining("Consulado General del Ecuador en Madrid"),
     });
     expect(f.mail[0].texto).toContain("H1");
@@ -269,6 +269,8 @@ describe("cola de envío real", () => {
     expect(Buffer.from(f.mail[0].adjunto.base64, "base64").subarray(0, 5).toString()).toBe("%PDF-");
     expect((await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
     expect(f.mail).toHaveLength(2);
+    expect(f.mail[1].texto).toContain("Junta H22");
+    expect(f.mail[1].texto).toContain("Zona Azul");
   });
 
   it("el reenvío real conserva el mensaje anterior y admite un solo intento en cola por canal", async () => {

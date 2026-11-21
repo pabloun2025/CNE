@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
+import { zonaDe, type Serie } from "@/domain/juntas";
 import { correoCredencial, textoCredencial } from "@/domain/mensaje-credencial";
 import { enviarCredencial, enviarLote, enviosDe } from "@/server/envios";
 import { elegirProveedor, type MensajeCredencial, type ProveedorEnvio } from "@/server/envios/proveedor";
@@ -110,30 +111,58 @@ describe("D08 · texto del mensaje de la credencial", () => {
     expect(textoCredencial({ ...d, host: "" })).not.toContain("http");
     expect(textoCredencial({ ...d })).not.toContain("comprobante");
   });
-  it("el correo usa los datos escapados en HTML y omite el formulario si falta el host", () => {
-    const correo = correoCredencial({ nombres: "ANA < PRUEBA", rotulo: "H01 & H02", junta: "M9", zona: "celeste" });
+  it("el correo escapa el nombre y la asignación en HTML y omite el formulario si falta el host", () => {
+    const correo = correoCredencial({ nombres: "ANA < PRUEBA", junta: "H1 & H2", zona: "amarillo", documentosAbierto: false });
     expect(correo.html).toContain("ANA &lt; PRUEBA");
-    expect(correo.html).toContain("H01 &amp; H02");
-    expect(correo.html).toContain("muestre el código QR en la puerta");
-    expect(correo.html).not.toContain("Abrir el formulario de Madrid");
-    expect(correo.texto).not.toContain("formulario de Madrid");
+    expect(correo.html).toContain("H1 &amp; H2");
+    expect(correo.texto).toContain("ANA < PRUEBA");
+    expect(correo.html).not.toContain("Formulario de documentación");
+    expect(correo.texto).not.toContain("Formulario de documentación");
   });
-  it("el correo comunica la ubicación, las horas y la asignación en HTML y texto", () => {
-    const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", rotulo: "F09", junta: "M9", zona: "celeste" });
+
+  it.each([
+    ["H", 1, "Amarillo", "#F2C200"],
+    ["H", 22, "Azul", "#1F5FA8"],
+    ["M", 1, "Rojo", "#C62828"],
+    ["M", 9, "Celeste", "#4FC3F7"],
+    ["M", 30, "Verde", "#2E7D32"],
+    ["M", 40, "Rosado", "#F48FB1"],
+  ] as const)("el correo comunica la asignación y el horario para %s%s", (serie: Serie, numero, color, tono) => {
+    const zona = zonaDe(serie, numero);
+    if (!zona) throw new Error("La junta de prueba debe existir.");
+    const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", junta: `${serie}${numero}`, zona, documentosAbierto: false });
+    expect(correo.asunto).toBe("Su credencial de MJRV – 29 de noviembre de 2026");
+    expect(correo.html).toContain(tono);
     for (const cuerpo of [correo.html, correo.texto]) {
       expect(cuerpo).toContain("29 de noviembre de 2026");
       expect(cuerpo).toContain("Caja Mágica");
       expect(cuerpo).toContain("Camino de Perales 23");
       expect(cuerpo).toContain("nivel −2");
-      expect(cuerpo).toContain("08:00");
+      expect(cuerpo).toContain("HORA LÍMITE DE INGRESO: 08:00");
       expect(cuerpo).toContain("a más tardar a las 08:00");
-      expect(cuerpo).toContain("08:30");
+      expect(cuerpo).toContain("instalación de las juntas comenzará a las 08:30");
+      expect(cuerpo).toContain("09:00 a 19:00");
+      expect(cuerpo).toContain("escrutinio");
+      expect(cuerpo).toContain("código QR");
+      expect(cuerpo).toContain("cédula de identidad");
       expect(cuerpo).not.toContain("antes de las 08:30");
-      expect(cuerpo).toContain("M9");
-      expect(cuerpo).toContain("Celeste");
+      expect(cuerpo).toContain(`${serie}${numero}`);
+      expect(cuerpo).toContain(color);
       expect(cuerpo).toContain("https://www.google.com/maps/dir/");
     }
+    const mapa = correo.texto.match(/https:\/\/www\.google\.com\/maps\/dir\/[^\s]+/)?.[0];
+    expect(new URL(mapa!).searchParams.get("destination")).toBe("Caja Mágica, Camino de Perales 23, 28041 Madrid");
   });
+
+  it("ofrece el formulario abierto con su enlace", () => {
+    const correo = correoCredencial({ nombres: "NOMBRE PRUEBA", junta: "H1", zona: "amarillo", documentosAbierto: true, host: "madrid.consulado.app" });
+    for (const cuerpo of [correo.texto, correo.html]) {
+      expect(cuerpo).toContain("Formulario de documentación");
+      expect(cuerpo).toContain("https://madrid.consulado.app/d");
+      expect(cuerpo).toContain("cargue las fotografías del anverso y reverso");
+    }
+  });
+
   it("el envío simulado usa el HOST_MADRID del servidor en HTML y texto", async () => {
     const antes = process.env.HOST_MADRID;
     process.env.HOST_MADRID = "madrid.ejemplo.invalid";
@@ -147,8 +176,24 @@ describe("D08 · texto del mensaje de la credencial", () => {
       expect(html).toContain('href="https://madrid.ejemplo.invalid/d"');
       expect(texto).toContain("H1");
       expect(texto).toContain("Amarillo");
+      expect(texto).toContain("El formulario de documentación está cerrado por el momento.");
     } finally {
       if (antes === undefined) delete process.env.HOST_MADRID; else process.env.HOST_MADRID = antes;
     }
   });
+  it("registra el fallo y evita enviar un correo con zona incoherente", async () => {
+    await ficha("0000000015", { correo: "prueba-incoherente@ejemplo.invalid" });
+    await consultarDueno("UPDATE cne.juntas_madrid SET zona_color = 'azul' WHERE serie = 'H' AND numero = 1");
+    let enviado = false;
+    const proveedor: ProveedorEnvio = { canal: "correo", enviar: async () => { enviado = true; return { idExterno: "X", simulado: true }; } };
+    try {
+      const id = ids["0000000015"];
+      expect(await enviarCredencial(admin, id, "correo", proveedor)).toMatchObject({ ok: false });
+      expect(enviado).toBe(false);
+      expect((await enviosDe(id))[0]).toMatchObject({ estado: "fallo", error: expect.stringContaining("incoherente") });
+    } finally {
+      await consultarDueno("UPDATE cne.juntas_madrid SET zona_color = 'amarillo' WHERE serie = 'H' AND numero = 1");
+    }
+  });
+
 });

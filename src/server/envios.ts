@@ -5,6 +5,8 @@ import { credencialesIndividuales } from "./pdf/credencial";
 import { nombrePdfCredencial, seleccionarParaCredencial, type PersonaCredencial, type Seleccion } from "./credenciales";
 import { medidasCredencial } from "./credencial-config";
 import { correoCredencial, textoCredencial } from "../domain/mensaje-credencial";
+import { leerJunta, zonaDe } from "../domain/juntas";
+import { formularioAbierto } from "./documentos";
 import { canalEnReal } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
 import type { DatosCredencial } from "./pdf/credencial";
@@ -14,13 +16,18 @@ export type EstadoEnvio = "en_cola" | "enviada_al_servicio" | "fallo" | "entrega
 export type ResultadoEnvio = { ok: true; simulado: boolean; enCola?: boolean } | { ok: false; mensaje: string };
 
 // Texto y nombre de archivo del mensaje; lo comparten el envío inmediato (simulado) y la cola real.
-export function mensajeCredencial(d: DatosCredencial, canal: Canal, { junta, zona }: Pick<PersonaCredencial, "junta" | "zona">): { asunto: string; texto: string; html?: string; nombreArchivo: string } {
+export async function mensajeCredencial(d: DatosCredencial, canal: Canal, { junta, zona }: Pick<PersonaCredencial, "junta" | "zona">): Promise<{ asunto: string; texto: string; html?: string; nombreArchivo: string }> {
   const datos = { nombres: d.nombres, rotulo: d.rotulo, host: process.env.HOST_MADRID };
-  const mensaje = canal === "correo" ? correoCredencial({ ...datos, junta, zona }) : {
-    asunto: "Su credencial de miembro de Junta Receptora del Voto",
-    texto: textoCredencial(datos),
-  };
-  return { ...mensaje, nombreArchivo: nombrePdfCredencial(junta, d.cedula) };
+  const nombreArchivo = nombrePdfCredencial(junta, d.cedula);
+  if (canal === "whatsapp") {
+    return { asunto: "Su credencial de miembro de Junta Receptora del Voto", texto: textoCredencial(datos), nombreArchivo };
+  }
+  const asignada = leerJunta(junta);
+  if (!asignada || zonaDe(asignada.serie, asignada.numero) !== zona) {
+    throw new Error("La junta o su zona de color es incoherente. Revise la asignación de la ficha.");
+  }
+  const documentosAbierto = datos.host?.trim() ? await formularioAbierto() : false;
+  return { ...correoCredencial({ nombres: d.nombres, host: datos.host, junta, zona, documentosAbierto }), nombreArchivo };
 }
 
 const CORREO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -66,8 +73,8 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
   }
 
   try {
+    const m = await mensajeCredencial(d, canal, sel.personas[0]);
     const pdf = await credencialesIndividuales(sel.datos, await medidasCredencial());
-    const m = mensajeCredencial(d, canal, sel.personas[0]);
     const prov = proveedor ?? elegirProveedor(canal);
     const r = await prov.enviar({ ...m, destino, nombre: `${d.nombres} ${d.apellidos}`, rotulo: d.rotulo, pdf });
     // El estado es «enviada al servicio»: no se afirma que llegó (solo el proveedor real podría confirmarlo).
