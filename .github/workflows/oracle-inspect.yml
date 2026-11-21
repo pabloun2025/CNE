@@ -54,6 +54,13 @@ jobs:
           echo '=== ACCESO A CONFIGURACIÓN DE ENVÍOS ==='
           sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
             "SELECT 'Superadministraciones activas: ' || count(*) FROM cne.usuarios WHERE tipo = 'superadmin' AND activo"
+          echo '=== FICHAS MJRV Y MODO (solo recuentos) ==='
+          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
+            "SELECT 'Modo: ' || modo FROM cne.configuracion WHERE id = 1" || true
+          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
+            "SELECT 'MJRV es_prueba=' || es_prueba || ' activo=' || activo || ': ' || count(*) FROM cne.mjrv GROUP BY es_prueba, activo ORDER BY 1" || true
+          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
+            "SELECT 'Auditoría MJRV (últimas 10): ' || accion || ' (' || coalesce(actor_tipo,'') || ') ' || to_char(creado_en AT TIME ZONE 'Europe/Madrid','DD-MM HH24:MI') FROM cne.auditoria WHERE accion ILIKE '%mjrv%' OR accion ILIKE '%borr%' OR accion ILIKE '%import%' ORDER BY creado_en DESC LIMIT 10" || true
           echo '=== VOLUMENES ==='; sudo docker system df
           echo '=== PUERTOS ==='; sudo ss -lntp | sed -E 's/users:\(.*\)//'
           echo '=== NOMBRES DE VARIABLES (sin valores) ==='
