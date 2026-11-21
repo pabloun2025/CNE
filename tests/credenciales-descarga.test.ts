@@ -32,6 +32,7 @@ describe("descarga de la selección de credenciales", () => {
     const resp = await descargar("individual", ["1"]);
     expect(resp.status).toBe(200);
     expect(resp.headers.get("content-type")).toBe("application/pdf");
+    expect(resp.headers.get("content-disposition")).toBe('attachment; filename="H1-0000000001.pdf"');
     const pdf = await PDFDocument.load(await resp.arrayBuffer());
     expect(pdf.getPageCount()).toBe(1);
     expect(pdf.getPage(0).getWidth()).toBeCloseTo(72.25 * MM);
@@ -47,7 +48,7 @@ describe("descarga de la selección de credenciales", () => {
       const archivo = join(carpeta, "credenciales.zip");
       writeFileSync(archivo, Buffer.from(await resp.arrayBuffer()));
       const nombres = execFileSync("unzip", ["-Z1", archivo], { encoding: "utf8" }).trim().split("\n");
-      expect(nombres).toEqual(["credencial-1.pdf", "credencial-2.pdf"]);
+      expect(nombres).toEqual(["H1-0000000001.pdf", "H1-0000000002.pdf"]);
       for (const nombre of nombres) {
         const pdf = await PDFDocument.load(execFileSync("unzip", ["-p", archivo, nombre]));
         expect(pdf.getPageCount()).toBe(1);
@@ -57,6 +58,15 @@ describe("descarga de la selección de credenciales", () => {
     } finally {
       rmSync(carpeta, { recursive: true, force: true });
     }
+  });
+
+  it("abre las planchas A4 en el visor como acción de impresión", async () => {
+    const resp = await descargar("a4", ["1", "2"]);
+    expect(resp.headers.get("content-disposition")).toBe('inline; filename="credenciales-a4.pdf"');
+    const pdf = await PDFDocument.load(await resp.arrayBuffer());
+    expect(pdf.getPageCount()).toBe(1);
+    expect(pdf.getPage(0).getWidth()).toBeCloseTo(210 * MM);
+    expect(pdf.getPage(0).getHeight()).toBeCloseTo(297 * MM);
   });
 
   it("detecta que la selección cambió y evita una plancha parcial", async () => {

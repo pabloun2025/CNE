@@ -53,7 +53,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
           </div>
         </section>
       )}
-      <p><a className="underline" target="_blank" href={`/admin/credenciales/pdf?formato=individual&ids=${m.id}`}>Descargar credencial (PDF)</a></p>
+      <p><a className="underline" href={`/admin/credenciales/pdf?formato=individual&ids=${m.id}`}>Descargar credencial (PDF)</a></p>
 
       <section className="space-y-2">
         <h2 className="font-semibold">Envío de la credencial</h2>

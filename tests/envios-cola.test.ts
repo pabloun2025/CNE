@@ -252,14 +252,16 @@ describe("cola de envío real", () => {
 
   it("correo: diseño institucional, instrucción del QR móvil y PDF adjunto; ritmo de 2–5 s", async () => {
     await encender("correo");
-    const a = await ficha(), b = await ficha();
+    const a = await ficha();
+    const nombreArchivo = `H1-${9000000000 + n}.pdf`;
+    const b = await ficha();
     await enviarCredencial(admin, a, "correo"); await enviarCredencial(admin, b, "correo");
     const f = falsos();
     expect((await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
     expect(f.mail[0]).toMatchObject({
       asunto: "Su credencial de MJRV",
       remitente: { nombre: "Remitente Prueba", direccion: "remitente@ejemplo.invalid" },
-      adjunto: { nombre: expect.stringMatching(/^credencial-.*\.pdf$/) },
+      adjunto: { nombre: nombreArchivo },
       texto: expect.stringContaining("muestre el código QR en la puerta"),
       html: expect.stringContaining("Consulado General del Ecuador en Madrid"),
     });
@@ -267,6 +269,26 @@ describe("cola de envío real", () => {
     expect((await procesarCola({ ahora: en(1), azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("omitido");
     expect((await procesarCola({ ahora: en(2), azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
     expect(f.mail).toHaveLength(2);
+  });
+
+  it("el reenvío real conserva el mensaje anterior y admite un solo intento en cola por canal", async () => {
+    await encender("whatsapp");
+    const id = await ficha();
+    const seleccion = { alcance: "ids" as const, ids: [id] };
+    const { clientes } = falsos();
+    expect(await enviarLote(admin, "whatsapp", undefined, seleccion)).toMatchObject({ enCola: 1 });
+    expect((await procesarCola({ ahora: base, azar: sinAzar, clientes })).whatsapp.accion).toBe("enviado");
+    const resultados = await Promise.all([
+      enviarLote(admin, "whatsapp", undefined, seleccion, true),
+      enviarLote(admin, "whatsapp", undefined, seleccion, true),
+    ]);
+    expect(resultados.map((r) => r.enCola).sort()).toEqual([0, 1]);
+    expect((await filas()).map((fila) => fila.estado)).toEqual(["enviada_al_servicio", "en_cola"]);
+    expect((await procesarCola({ ahora: en(20), azar: sinAzar, clientes })).whatsapp.accion).toBe("enviado");
+    // La imagen anterior todavía depende del índice para detectar un envío existente.
+    expect(await consultarDueno(
+      "INSERT INTO cne.envios_credencial (mjrv_id, canal, destino, estado, simulado) VALUES ($1,'whatsapp','+34600000000','en_cola',false) ON CONFLICT DO NOTHING RETURNING id", [id],
+    )).toEqual([]);
   });
 });
 

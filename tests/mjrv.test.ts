@@ -39,6 +39,7 @@ describe("fichas de MJRV", () => {
 
   it("filtros por junta, rol, estado y búsqueda", async () => {
     expect((await listarMjrv({ junta: "H12" })).map((m) => m.cedula)).toEqual(["0000000001"]);
+    expect(await listarMjrv({ junta: "H99", estado: "todos" })).toEqual([]);
     expect((await listarMjrv({ rol: "suplente" })).map((m) => m.cedula)).toEqual(["0000000002"]);
     expect((await listarMjrv({ q: "000000000" })).length).toBe(2);
     expect((await listarMjrv({ q: "%" })).length).toBe(0);

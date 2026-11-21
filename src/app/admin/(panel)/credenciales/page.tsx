@@ -1,6 +1,5 @@
-import { planchaA4 } from "@/domain/credencial-layout";
+import Link from "next/link";
 import { SOLO_CONSUL } from "@/domain/roles";
-import { medidasCredencial } from "@/server/credencial-config";
 import { requireAdmin } from "@/server/guard";
 import { resumenCredenciales, seleccionarParaCredencial } from "@/server/credenciales";
 import { AccionesCredenciales } from "@/components/envios-credenciales";
@@ -10,19 +9,19 @@ import { formularioAbierto } from "@/server/documentos";
 
 export default async function Credenciales() {
   await requireAdmin({ roles: SOLO_CONSUL });
-  const [r, e, cfg, abierto, seleccion, medidas] = await Promise.all([
-    resumenCredenciales(), resumenEnvios(), leerConfigEnvios(), formularioAbierto(), seleccionarParaCredencial({ alcance: "todas" }), medidasCredencial(),
+  const [r, e, cfg, abierto, seleccion] = await Promise.all([
+    resumenCredenciales(), resumenEnvios(), leerConfigEnvios(), formularioAbierto(), seleccionarParaCredencial({ alcance: "todas" }),
   ]);
-  const porHoja = planchaA4(medidas).huecos.length;
-  const milimetros = (valor: number) => valor.toLocaleString("es-ES");
   const hayHost = !!process.env.HOST_MADRID?.trim();
   return (
     <main className="max-w-2xl stack-lg">
-      <h1>Credenciales</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1>Credenciales</h1>
+        <Link href="/admin/credenciales/imprimir" className="button-like secondary">Imprimir planchas A4</Link>
+      </div>
       {r.activos === 0 && <p>Cargue el Excel de MJRV para empezar.</p>}
       <p className="cifra">{r.activos} fichas activas · {r.preparadas} preparadas · {r.pendientes} pendientes.</p>
-      {r.sinRotulo > 0 && <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 font-medium">Falta el rótulo de credencial de {r.sinRotulo} personas. No se imprimirán hasta tenerlo.</p>}
-      <p>Hasta {porHoja} por hoja A4, de {milimetros(medidas.ancho)} × {milimetros(medidas.alto)} mm. Imprima a tamaño real (100 %) y recorte por las guías punteadas.</p>
+      {r.sinRotulo > 0 && <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 font-medium">Complete el rótulo de {r.sinRotulo} fichas para preparar sus credenciales.</p>}
       <section aria-label="Estado del envío por WhatsApp y correo" className="stack">
         {cfg.whatsappReal || cfg.correoReal ? (
           <p role="note">WhatsApp: {cfg.whatsappReal ? "real" : "simulado"} · Correo: {cfg.correoReal ? "real" : "simulado"}. La cola envía credenciales definitivas entre las 9 y las 21 h de Madrid. Las fichas de demostración siempre se simulan.</p>
@@ -33,7 +32,6 @@ export default async function Credenciales() {
         <p className="text-sm">Pendientes con contacto: {e.conTelefono - e.whatsapp} por WhatsApp · {e.conCorreo - e.correo} por correo.</p>
       </section>
       <AccionesCredenciales personas={seleccion.personas} />
-      <p className="text-sm">Comprobar la lectura del QR con un móvil antes de imprimir todas. En modo prueba las credenciales llevan la marca «PRUEBA».</p>
     </main>
   );
 }

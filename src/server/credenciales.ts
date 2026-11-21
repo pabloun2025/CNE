@@ -9,6 +9,8 @@ export type PersonaCredencial = { id: number; nombre: string; rotulo: string; ju
 
 export type ResultadoSeleccion = { datos: DatosCredencial[]; ids: number[]; personas: PersonaCredencial[]; sinRotulo: number; total: number };
 
+export const nombrePdfCredencial = (junta: string, cedula: string) => `${junta}-${cedula}.pdf`;
+
 export function leerIdsCredenciales(valores: (string | File)[]): number[] | null {
   if (!valores.length) return null;
   const ids = new Set<number>();

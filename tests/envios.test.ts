@@ -83,6 +83,16 @@ describe("envío simulado de credenciales", () => {
     expect(await enviarLote(admin, "whatsapp", undefined, seleccion)).toMatchObject({ enviadas: 1, omitidas: 2 });
     expect(await enviarLote(admin, "whatsapp", undefined, seleccion)).toMatchObject({ enviadas: 0, omitidas: 3 });
   });
+
+  it("reenvía solo la selección explícita y conserva el historial", async () => {
+    const id = ids["0000000001"];
+    const seleccion = { alcance: "ids" as const, ids: [id, ids["0000000004"]] };
+    expect(await enviarLote(admin, "whatsapp", undefined, seleccion, true)).toMatchObject({ enviadas: 1, omitidas: 1 });
+    const historial = (await enviosDe(id)).filter((e) => e.canal === "whatsapp");
+    expect(historial).toHaveLength(2);
+    expect(historial.every((e) => e.estado === "enviada_al_servicio")).toBe(true);
+    expect(await enviarLote(admin, "whatsapp", undefined, seleccion)).toMatchObject({ enviadas: 0, omitidas: 2 });
+  });
 });
 
 describe("D08 · texto del mensaje de la credencial", () => {

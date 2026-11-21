@@ -6,7 +6,8 @@ import { closePools } from "@/server/db";
 import { guardarDocumento } from "@/server/documentos";
 import type { ActorPago } from "@/server/finanzas";
 import { confirmarPago, fichaPago, generarActa } from "@/server/finanzas";
-import { borrarMjrv, crearMjrv, editarMjrv, obtenerFicha, validarCedula, type DatosMjrv } from "@/server/mjrv";
+import { borrarMjrv, borrarMjrvSeleccion, crearMjrv, editarMjrv, obtenerFicha, validarCedula, type DatosMjrv } from "@/server/mjrv";
+import { revocarMjrv } from "@/server/revocar-credencial";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
@@ -90,5 +91,60 @@ describe("borrar fichas", () => {
     expect(bloqueo.ok).toBe(false);
     if (!bloqueo.ok) expect(bloqueo.mensaje).toContain("quedó constituida");
     expect(await obtenerFicha(ids[0])).not.toBeNull();
+  });
+
+  it("borra las fichas seleccionadas, incluso de baja o sin rótulo, y devuelve las protegidas", async () => {
+    const crear = async (cedula: string) => {
+      const r = await crearMjrv(sesion, datos({ cedula }));
+      if (!r.ok) throw new Error(r.mensaje);
+      return r.id;
+    };
+    const activa = await crear("0000000091");
+    const baja = await crear("0000000092");
+    const sinSeleccionar = await crear("0000000093");
+    await consultarDueno("UPDATE cne.mjrv SET activo = false WHERE id = $1", [baja]);
+    const [{ id: pagada }] = await consultarDueno<{ id: number }>("SELECT id FROM cne.mjrv WHERE cedula = '0000000012'");
+    const ids = [activa, baja, baja, pagada];
+    expect(await borrarMjrvSeleccion(sesion, ids, false)).toMatchObject({ ok: false });
+    expect(await borrarMjrvSeleccion(sesion, ids, true)).toEqual({
+      ok: true, borradas: 2, retenidas: [{ id: pagada, mensaje: expect.stringContaining("Ya se pagó"), revocar: true }],
+    });
+    for (const id of [activa, baja]) expect(await obtenerFicha(id)).toBeNull();
+    for (const id of [pagada, sinSeleccionar]) expect(await obtenerFicha(id)).not.toBeNull();
+  });
+
+  it("conserva recibos históricos y continúa con el lote si hay actividad invisible en el otro modo", async () => {
+    const [vigente, otroModo, limpia] = await Promise.all(["0000000094", "0000000095", "0000000096"].map(async (cedula) => {
+      const r = await crearMjrv(sesion, datos({ cedula }));
+      if (!r.ok) throw new Error(r.mensaje);
+      return r.id;
+    }));
+    await consultarDueno(
+      `INSERT INTO cne.actas_pago (mjrv_id, usuario_id, importe_usd, importe_eur, parametros, impresion_n, es_prueba)
+       VALUES ($1, $3, 70, 58.82, '{}', 1, true), ($2, $3, 70, 58.82, '{}', 1, false)`,
+      [vigente, otroModo, usuarioId],
+    );
+    expect(await borrarMjrvSeleccion(sesion, [vigente, otroModo, limpia], true)).toMatchObject({
+      ok: true, borradas: 1, retenidas: [
+        { id: vigente, mensaje: expect.stringContaining("recibo emitido") },
+        { id: otroModo, mensaje: expect.stringContaining("otro modo") },
+      ],
+    });
+    expect(await obtenerFicha(limpia)).toBeNull();
+  });
+
+  it("al borrar una ficha notificada conserva el cómputo de la cola y una revocación existente", async () => {
+    const creada = await crearMjrv(sesion, datos({ cedula: "0000000097" }));
+    if (!creada.ok) throw new Error(creada.mensaje);
+    await revocarMjrv(sesion, creada.id);
+    await consultarDueno(
+      `INSERT INTO cne.envios_credencial (mjrv_id, canal, destino, estado, simulado, id_externo, enviado_en)
+       VALUES ($1, 'whatsapp', '+34600000000', 'enviada_al_servicio', false, 'externo-prueba', now())`, [creada.id],
+    );
+    expect(await borrarMjrv(sesion, creada.id, true)).toEqual({ ok: true });
+    expect(await consultarDueno("SELECT mjrv_id, cedula FROM cne.credenciales_revocadas WHERE cedula='0000000097'"))
+      .toEqual([{ mjrv_id: null, cedula: "0000000097" }]);
+    expect(await consultarDueno("SELECT mjrv_id, destino, id_externo FROM cne.envios_credencial WHERE enviado_en IS NOT NULL AND NOT simulado"))
+      .toEqual([{ mjrv_id: null, destino: "", id_externo: null }]);
   });
 });

@@ -21,7 +21,7 @@ export function SelectorCredenciales({ personas, elegidas, cambiar }: {
   const fueraDelFiltro = elegidas.size - coincidencias.filter((p) => elegidas.has(p.id)).length;
   return (
     <fieldset className="stack">
-      <legend>Fichas para imprimir o enviar</legend>
+      <legend>Seleccione las credenciales</legend>
       <label>Buscar por nombre o rótulo
         <input className="w-full" type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
       </label>

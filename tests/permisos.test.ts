@@ -74,6 +74,7 @@ const ACCIONES: Record<string, Regla> = {
   "estacion-actions#crearEnlaceAccion": SOLO_SUPER, "estacion-actions#revocarEnlaceAccion": SOLO_SUPER,
   "importar-actions#revisarImportacion": SOLO_ADMIN, "importar-actions#aplicarImportacionAccion": SOLO_ADMIN,
   "mjrv-actions#crearMjrvAccion": SOLO_ADMIN, "mjrv-actions#editarMjrvAccion": SOLO_ADMIN, "mjrv-actions#bajaMjrvAccion": SOLO_ADMIN, "mjrv-actions#borrarMjrvAccion": SOLO_ADMIN,
+  "mjrv-actions#borrarMjrvSeleccionAccion": SOLO_ADMIN,
   "revocar-actions#revocarCredencialAccion": SOLO_ADMIN, "revocar-actions#revocarFueraAccion": SOLO_ADMIN,
   "pago-actions#guardarParametrosAccion": SOLO_SUPER,
   "credencial-config-actions#guardarMedidasCredencialAccion": SOLO_SUPER,
@@ -256,7 +257,7 @@ describe("matriz de permisos", () => {
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "financiero"],
       mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/caja": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], informes: ["consul", "financiero"],
-      credenciales: ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
+      credenciales: ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
     const clavePagina = (f: string) => path.relative(path.join(SRC, "app/admin/(panel)"), path.dirname(f)).split(path.sep).join("/");

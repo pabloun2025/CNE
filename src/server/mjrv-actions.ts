@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "./guard";
-import { borrarMjrv, cambiarBaja, crearMjrv, editarMjrv, type DatosMjrv, type ResultadoBorrar } from "./mjrv";
+import { leerIdsCredenciales } from "./credenciales";
+import { borrarMjrv, borrarMjrvSeleccion, cambiarBaja, crearMjrv, editarMjrv, type DatosMjrv, type ResultadoBorrar } from "./mjrv";
 
 export type EstadoMjrv = { error?: string; aviso?: string; borrar?: ResultadoBorrar } | null;
 
@@ -33,7 +34,20 @@ export async function borrarMjrvAccion(_: EstadoMjrv, f: FormData): Promise<Esta
   const r = await borrarMjrv(sesion, id, f.get("confirmar") === "1");
   if (!r.ok) return { error: r.mensaje, borrar: r };
   revalidatePath("/admin/mjrv");
+  revalidatePath("/admin/credenciales");
   redirect("/admin/mjrv");
+}
+
+export async function borrarMjrvSeleccionAccion(f: FormData) {
+  const sesion = await requireAdmin();
+  const ids = leerIdsCredenciales(f.getAll("ids"));
+  if (!ids) return { ok: false as const, mensaje: "Seleccione fichas válidas." };
+  const r = await borrarMjrvSeleccion(sesion, ids, f.get("confirmar") === "1");
+  if (r.ok && r.borradas) {
+    revalidatePath("/admin/mjrv");
+    revalidatePath("/admin/credenciales");
+  }
+  return r;
 }
 
 export async function bajaMjrvAccion(f: FormData): Promise<void> {

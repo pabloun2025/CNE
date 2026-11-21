@@ -1,5 +1,5 @@
 import { medidasCredencial } from "@/server/credencial-config";
-import { leerIdsCredenciales, marcarGeneradas, seleccionarParaCredencial, type Seleccion } from "@/server/credenciales";
+import { leerIdsCredenciales, marcarGeneradas, nombrePdfCredencial, seleccionarParaCredencial, type Seleccion } from "@/server/credenciales";
 import { rechazoAdminApi, sesionApi } from "@/server/guard";
 import { credencialesIndividuales, hojasA4 } from "@/server/pdf/credencial";
 import { urlBase } from "@/server/url";
@@ -13,13 +13,13 @@ async function descargar(seleccion: Seleccion, individual: boolean, seleccionExa
     return new Response("La selección cambió. Actualice la lista y vuelva a elegir las fichas.", { status: 409 });
   }
   if (sel.datos.length === 0) {
-    return new Response(sel.sinRotulo ? `Falta el rótulo de credencial de ${sel.sinRotulo} personas.` : "No hay fichas que imprimir con ese criterio.", { status: 422 });
+    return new Response(sel.sinRotulo ? `Falta el rótulo de credencial de ${sel.sinRotulo} personas.` : "No hay credenciales con ese criterio.", { status: 422 });
   }
   const medidas = await medidasCredencial();
   const headers = { "x-excluidas-sin-rotulo": String(sel.sinRotulo), "cache-control": "private, no-store" };
   if (individual && sel.ids.length > 1) {
     const contenido = crearZip(sel.datos.map((ficha, indice) => ({
-      nombre: `credencial-${sel.ids[indice]}.pdf`,
+      nombre: nombrePdfCredencial(sel.personas[indice].junta, ficha.cedula),
       bytes: async () => {
         const pdf = await credencialesIndividuales([ficha], medidas);
         if (indice === sel.ids.length - 1) await marcarGeneradas(sel.ids);
@@ -30,8 +30,8 @@ async function descargar(seleccion: Seleccion, individual: boolean, seleccionExa
   }
   const bytes = individual ? await credencialesIndividuales(sel.datos, medidas) : await hojasA4(sel.datos, medidas);
   await marcarGeneradas(sel.ids);
-  const nombre = individual ? `credencial-${sel.ids[0]}.pdf` : "credenciales-a4.pdf";
-  return new Response(Buffer.from(bytes), { headers: { ...headers, "content-type": "application/pdf", "content-disposition": `inline; filename="${nombre}"` } });
+  const nombre = individual ? nombrePdfCredencial(sel.personas[0].junta, sel.datos[0].cedula) : "credenciales-a4.pdf";
+  return new Response(Buffer.from(bytes), { headers: { ...headers, "content-type": "application/pdf", "content-disposition": `${individual ? "attachment" : "inline"}; filename="${nombre}"` } });
 }
 
 // La ficha MJRV conserva su enlace directo al PDF.

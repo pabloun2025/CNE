@@ -23,7 +23,7 @@ export async function enviarCredencialAccion(_: EstadoEnvios, f: FormData): Prom
   if (!Number.isSafeInteger(id) || id < 1 || !seleccion.length) return { error: "Seleccione una ficha y un canal." };
 
   const respuestas = await Promise.all(seleccion.map(async (canal) => {
-    const r = await enviarCredencial(sesion, id, canal);
+    const r = await enviarCredencial(sesion, id, canal, undefined, f.get("reenviar") === "1");
     const detalle = !r.ok ? r.mensaje : r.enCola ? "En cola." : r.simulado ? "Simulado. No salió ningún mensaje." : "Enviada al servicio.";
     return { ok: r.ok, texto: `${etiquetas[canal]} · ${detalle}` };
   }));
@@ -45,7 +45,7 @@ export async function enviarLoteAccion(_: EstadoEnvios, f: FormData): Promise<Es
   }
 
   const respuestas = await Promise.all(medios.map(async (canal) => {
-    const r = await enviarLote(sesion, canal, undefined, seleccion);
+    const r = await enviarLote(sesion, canal, undefined, seleccion, f.get("reenviar") === "1");
     return `${etiquetas[canal]} · En cola ${r.enCola} · Simuladas ${r.enviadas} · Omitidas ${r.omitidas} · Fallidas ${r.fallidas}.`;
   }));
   revalidatePath("/admin/credenciales");

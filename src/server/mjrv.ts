@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { cubrirCargos, type AsignacionCargo, type PersonaCargo } from "../domain/cargos";
 import { resolverCargo, validarCedula as validarCedulaTexto, validarCorreo, validarMovil } from "../domain/ingreso";
 import { leerJunta } from "../domain/juntas";
@@ -20,7 +21,8 @@ const SQL_VIGENTE = `coalesce((SELECT d.junta_destino_id FROM decisiones_movimie
 export async function listarMjrv(f: FiltrosMjrv): Promise<FilaLista[]> {
   const where: string[] = [];
   const p: unknown[] = [];
-  const j = f.junta ? leerJunta(f.junta) : null;
+  const j = leerJunta(f.junta ?? "");
+  if (f.junta?.trim() && !j) return [];
   if (j) { p.push(j.serie, j.numero); where.push(`jo.serie = $${p.length - 1} AND jo.numero = $${p.length}`); }
   if (f.rol && ROLES.includes(f.rol)) { p.push(f.rol); where.push(`m.rol = $${p.length}`); }
   if (f.estado === "baja") where.push("NOT m.activo");
@@ -177,6 +179,9 @@ export async function cambiarBaja(sesion: Sesion, id: number, baja: boolean, mot
 }
 
 export type ResultadoBorrar = { ok: true } | { ok: false; mensaje: string; revocar?: boolean; anularJuntaId?: number };
+type ResultadoBorrarSeleccion =
+  | { ok: true; borradas: number; retenidas: { id: number; mensaje: string; revocar?: boolean; anularJuntaId?: number }[] }
+  | { ok: false; mensaje: string };
 
 type Cliente = { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }> };
 
@@ -195,31 +200,104 @@ async function juntaConstituidaCon(client: Cliente, id: number): Promise<{ etiqu
 
 const TABLAS_DE_LA_FICHA = ["fichas_abiertas_finanzas", "pendientes_impresion", "firmas_recibo", "envios_credencial", "excepciones_disponibilidad", "decisiones_movimiento", "documentos_mjrv", "actas_pago", "asignaciones_cargo", "lecturas_puerta"];
 
+async function eliminarFichas(client: PoolClient, ids: number[]) {
+  await client.query(
+    `UPDATE envios_credencial SET mjrv_id = NULL, destino = '', id_externo = NULL, error = NULL, creado_por = NULL
+      WHERE mjrv_id = ANY($1::bigint[]) AND NOT simulado AND estado <> 'en_cola'`, [ids],
+  );
+  await client.query("UPDATE credenciales_revocadas SET mjrv_id = NULL WHERE mjrv_id = ANY($1::bigint[])", [ids]);
+  for (const tabla of TABLAS_DE_LA_FICHA) await client.query(`DELETE FROM ${tabla} WHERE mjrv_id = ANY($1::bigint[])`, [ids]);
+  await client.query("DELETE FROM mjrv WHERE id = ANY($1::bigint[])", [ids]);
+}
+
+async function intentarEliminar(client: PoolClient, ids: number[]): Promise<boolean> {
+  await client.query("SAVEPOINT borrar_fichas");
+  try {
+    await eliminarFichas(client, ids);
+  } catch (e) {
+    if ((e as { code?: string }).code !== "23503") throw e;
+    await client.query("ROLLBACK TO SAVEPOINT borrar_fichas");
+    await client.query("RELEASE SAVEPOINT borrar_fichas");
+    return false;
+  }
+  await client.query("RELEASE SAVEPOINT borrar_fichas");
+  return true;
+}
+
 // El pago confirmado, el recibo emitido y la junta constituida se conservan.
 export async function borrarMjrv(sesion: Sesion, id: number, confirmar: boolean): Promise<ResultadoBorrar> {
-  if (!Number.isInteger(id) || id <= 0) return { ok: false, mensaje: "La ficha no existe." };
+  if (!Number.isSafeInteger(id) || id <= 0) return { ok: false, mensaje: "La ficha no existe." };
+  const r = await borrarMjrvSeleccion(sesion, [id], confirmar);
+  if (!r.ok) return r;
+  const retenida = r.retenidas[0];
+  return retenida ? { ok: false, ...retenida } : { ok: true };
+}
+
+export async function borrarMjrvSeleccion(sesion: Sesion, ids: number[], confirmar: boolean): Promise<ResultadoBorrarSeleccion> {
   if (!confirmar) return { ok: false, mensaje: "Confirme el borrado. No se borró nada." };
+  if (!ids.length || ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) return { ok: false, mensaje: "Seleccione fichas válidas." };
   try {
     return await withTx(async (client) => {
-      if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 FOR UPDATE", [id])).rows[0]) return { ok: false as const, mensaje: "La ficha no existe." };
-      const pago = (await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [id])).rows[0];
-      const recibo = (await client.query("SELECT 1 FROM actas_pago WHERE mjrv_id = $1 AND ordinal_recibo IS NOT NULL", [id])).rows[0];
-      const junta = await juntaConstituidaCon(client, id);
-      if (pago || recibo || junta) {
+      const seleccion = [...new Set(ids)];
+      await client.query("SET LOCAL lock_timeout = '2s'");
+      await client.query("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
+      // Orden de Mando: primero la junta, después las fichas. Puerta bloquea su ficha antes de dar ingreso.
+      await client.query("SELECT pg_advisory_xact_lock(7001, id::int) FROM (SELECT id FROM juntas_madrid ORDER BY id) juntas");
+      await client.query("LOCK TABLE mjrv IN EXCLUSIVE MODE");
+      const existentes = new Set((await client.query<{ id: number }>(
+        "SELECT id FROM mjrv WHERE id = ANY($1::bigint[])", [seleccion],
+      )).rows.map((f) => f.id));
+      // Bloquea la reserva de la cola mientras se revisa qué fichas se pueden borrar.
+      const enCurso = new Set((await client.query<{ mjrv_id: number; intentos: number }>(
+        "SELECT mjrv_id, intentos FROM envios_credencial WHERE mjrv_id = ANY($1::bigint[]) AND estado = 'en_cola' AND NOT simulado FOR UPDATE",
+        [seleccion],
+      )).rows.filter((f) => f.intentos > 0).map((f) => f.mjrv_id));
+      const protegidas = new Map((await client.query<{ mjrv_id: number; pagada: boolean }>(
+        `SELECT mjrv_id, bool_or(pagada) AS pagada FROM (
+           SELECT mjrv_id, true AS pagada FROM pagos_confirmados WHERE mjrv_id = ANY($1::bigint[])
+           UNION ALL
+           SELECT mjrv_id, false FROM actas_pago WHERE mjrv_id = ANY($1::bigint[]) AND (ordinal_recibo IS NOT NULL OR importe_eur IS NOT NULL)
+           UNION ALL
+           SELECT mjrv_id, false FROM firmas_recibo WHERE mjrv_id = ANY($1::bigint[])
+         ) protegidas GROUP BY mjrv_id`, [seleccion],
+      )).rows.map((f) => [f.mjrv_id, f.pagada]));
+      const retenidas: Extract<ResultadoBorrarSeleccion, { ok: true }>["retenidas"] = [];
+      const borrables: number[] = [];
+      for (const id of seleccion) {
+        if (!existentes.has(id)) {
+          retenidas.push({ id, mensaje: "La ficha ya no existe." });
+          continue;
+        }
+        const pagada = protegidas.get(id);
+        const junta = await juntaConstituidaCon(client, id);
         const partes = [
-          pago ? "Ya se pagó. No se borra la ficha. Puede editarla o revocar la credencial."
-            : recibo ? "La ficha tiene un recibo emitido. Puede darla de baja para conservar el historial." : "",
-          junta ? `La junta ${junta.etiqueta} quedó constituida con esta persona. No se borra. Puede editar la ficha${junta.asignacion ? " o anular la asignación del cargo" : ""}.` : "",
+          pagada ? "Ya se pagó. Puede editar la ficha o revocar la credencial."
+            : protegidas.has(id) ? "La ficha tiene un recibo emitido. Puede darla de baja para conservar el historial." : "",
+          junta ? `La junta ${junta.etiqueta} quedó constituida con esta persona. Puede editar la ficha${junta.asignacion ? " o anular la asignación del cargo" : ""}.` : "",
+          enCurso.has(id) ? "Hay un envío en curso. Vuelva a intentarlo cuando termine." : "",
         ].filter(Boolean);
-        return { ok: false as const, mensaje: partes.join(" "), revocar: !!pago, anularJuntaId: junta?.asignacion ? junta.juntaId : undefined };
+        if (partes.length) {
+          retenidas.push({ id, mensaje: partes.join(" "), ...(pagada && { revocar: true }), ...(junta?.asignacion && { anularJuntaId: junta.juntaId }) });
+        } else borrables.push(id);
       }
-      for (const tabla of TABLAS_DE_LA_FICHA) await client.query(`DELETE FROM ${tabla} WHERE mjrv_id = $1`, [id]);
-      await client.query("DELETE FROM mjrv WHERE id = $1", [id]);
-      await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "mjrv_borrado", entidad: "mjrv", entidadId: id }, client);
-      return { ok: true as const };
+      let borradas = borrables;
+      if (borrables.length) {
+        if (!await intentarEliminar(client, borrables)) {
+          // Una referencia del otro modo puede impedir el borrado de su ficha aunque la política la oculte.
+          borradas = [];
+          for (const id of borrables) {
+            if (await intentarEliminar(client, [id])) borradas.push(id);
+            else retenidas.push({ id, mensaje: "La ficha conserva actividad relacionada en otro modo." });
+          }
+        }
+        for (const id of borradas) {
+          await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "mjrv_borrado", entidad: "mjrv", entidadId: id }, client);
+        }
+      }
+      return { ok: true as const, borradas: borradas.length, retenidas };
     });
   } catch (e) {
-    if ((e as { code?: string }).code === "23503") return { ok: false, mensaje: "No se puede borrar: quedaría un pago o la junta en un estado imposible. Puede editar la ficha o revocar la credencial.", revocar: true };
+    if (["40P01", "55P03"].includes((e as { code?: string }).code ?? "")) return { ok: false, mensaje: "Hay actividad en curso. No se borró nada. Inténtelo de nuevo." };
     throw e;
   }
 }
