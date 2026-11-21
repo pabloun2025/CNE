@@ -6,6 +6,7 @@ import { activarAdmin, cambiarModo, cambiarRolAdmin, crearAdmin, restablecerAdmi
 import type { Modo } from "./config";
 import { cargarDemo, quitarDemo } from "./demo";
 import { prepararEleccion } from "./preparar-eleccion";
+import { reiniciarOperativo } from "./reiniciar-operativo";
 import { borrarTodasLasFotos } from "./documentos";
 import { crearRespaldo } from "./respaldo";
 import { crearLinea, desvincularLinea } from "./whatsapp-linea";
@@ -91,6 +92,20 @@ export async function prepararEleccionAccion(_: EstadoSuper, f: FormData): Promi
     aviso: "Listo: el sistema quedó en modo elección. Descargue el respaldo antes de salir.",
     enlace: rutaDescarga(r.respaldo.archivo),
     detalle: [...r.antes.map((a) => `${a.etiqueta}: ${a.n} borradas`), `Lote de copia interna: ${r.lote}`],
+  };
+}
+
+// Reinicio integral de ensayos de ambos modos. No crea respaldo.
+export async function reiniciarOperativoAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const r = await reiniciarOperativo(sesion, String(f.get("confirmacion") ?? ""));
+  revalidatePath("/superadmin", "layout");
+  revalidatePath("/admin", "layout");
+  if (!r.ok) return { error: r.mensaje };
+  const total = r.antes.reduce((n, x) => n + x.n, 0);
+  return {
+    aviso: "Operativo reiniciado: sin fichas MJRV ni actividad, en modo elección. Los envíos reales quedaron apagados.",
+    detalle: [`Se eliminaron ${total} registros operativos (sin respaldo).`, ...r.antes.filter((x) => x.n > 0).map((x) => `${x.etiqueta}: ${x.n}`)],
   };
 }
 
