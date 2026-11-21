@@ -72,7 +72,7 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 
 - Acta = «Comprobante de pago», **modelo provisional** hasta que haya plantilla oficial. La entrega del 20-11 registra la referencia USD y el importe entregado en EUR por separado.
 - Rótulo de credencial: **el que traiga el Excel** (si usa M/F: M = masculino, F = femenino, con aviso).
-- WhatsApp: mismo despliegue de Evolution API de consulares, **línea propia `cne-madrid`** vinculada desde `/superadmin/envios`. Envío real **apagado** hasta que la superadmin lo encienda escribiendo `ENVIO REAL`; 20–45 s entre mensajes, 9–21 h todos los días, 150/día, pausa tras 5 fallos.
+- WhatsApp: mismo despliegue de Evolution API de consulares, **línea propia `cne-madrid`** vinculada desde `/superadmin/envios`. Envío real **apagado** hasta que la superadmin lo encienda escribiendo `ENVIO REAL`; 20–45 s entre mensajes y pausa tras 5 fallos. La decisión del 21-11 quita el horario y el cupo diario de ambos canales.
 - Puerta: segundo escaneo **amarillo**, decide el operador («Dejar pasar»); rojo = desconocida o **dada de baja**.
 - Cada junta necesita **presidente, secretario y vocal**; verde solo con los tres. Orden para cubrir: suplente de la misma junta (automático, editable) → misma zona → zona más cercana (orden deducido del plano) → **votante incorporado** por el centro de mando, uno por uno.
 - Traslado cuenta **al aceptarlo**. «No viable» saca a la persona de las propuestas hasta reactivarla. El sistema propone, **decide siempre el coordinador**.

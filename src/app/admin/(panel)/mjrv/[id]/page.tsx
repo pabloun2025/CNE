@@ -2,7 +2,8 @@ import { SOLO_CONSUL } from "@/domain/roles";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotonesEnvio } from "@/components/envios-credenciales";
-import { ETIQUETA_ESTADO, enviosDe } from "@/server/envios";
+import { enviosDe } from "@/server/envios";
+import { TEXTO_ENTREGA } from "@/server/envios-estado";
 import { BorrarMjrv } from "@/components/borrar-mjrv";
 import { FormMjrv } from "@/components/form-mjrv";
 import { requireAdmin } from "@/server/guard";
@@ -57,10 +58,10 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
 
       <section className="space-y-2">
         <h2 className="font-semibold">Envío de la credencial</h2>
-        <p role="note" className="text-sm font-medium text-amber-900">Envío simulado: se registra pero no sale ningún mensaje. Si la superadministración enciende el envío real, las fichas reales (no las de demostración) quedan en cola.</p>
+        <p role="note" className="text-sm font-medium text-amber-900">Los canales activos envían las fichas reales desde la cola. Los envíos simulados se indican en el historial.</p>
         <BotonesEnvio id={m.id} tieneTelefono={!!m.telefono_e164} tieneCorreo={!!m.correo} />
         {envios.length > 0 && (
-          <ul className="text-sm">{envios.map((x) => <li key={x.id}>{hora(x.creado_en)} · {x.canal === "whatsapp" ? "WhatsApp" : "Correo"} · {ETIQUETA_ESTADO[x.estado]}{x.simulado ? " (simulado)" : ""}{x.error ? ` · ${x.error}` : ""}</li>)}</ul>
+          <ul className="text-sm">{envios.map((x) => <li key={x.id}>{hora(x.creado_en)} · {x.canal === "whatsapp" ? "WhatsApp" : "Correo"} · {TEXTO_ENTREGA[x.brevo_estado ?? x.estado]}{x.brevo_evento_en && ` (${hora(x.brevo_evento_en)})`}{x.simulado ? " (simulado)" : ""}{x.error && !x.brevo_estado ? ` · ${x.error}` : ""}</li>)}</ul>
         )}
       </section>
 

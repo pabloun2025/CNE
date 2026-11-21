@@ -117,7 +117,7 @@ export function Puerta({ token }: { token: string }) {
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <p className="cifra text-center text-2xl font-bold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="block text-base font-semibold">Este puesto: {cont?.esteEnlace ?? "—"}</span></p>
-      <LectorQr encuadre tokenPuerta={token} pausado={!!modoManual || !!pendiente || procesando} onCodigo={(c, origen) => { if (!modoManual && !pendiente) void enviar(c, origen); }}>
+      <LectorQr encuadre tokenPuerta={token} pausado={encima || !!modoManual || !!pendiente || procesando} onCodigo={(c, origen) => { if (!modoManual && !pendiente) void enviar(c, origen); }}>
         {encima && aviso && <div aria-hidden="true" className={`absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 overflow-y-auto p-3 text-center ${color}`}>{aviso}</div>}
       </LectorQr>
       {pantalla && <div role="alert" className={`p-4 text-center ${color}`}>{aviso}</div>}

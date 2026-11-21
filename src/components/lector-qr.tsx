@@ -86,6 +86,8 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, pausado = false, encu
     let leyendoTexto = false;
     let ultimoIntento = 0;
     let revisionQr = 0;
+    let qrVisible = "";
+    let sinQrDesde: number | null = null;
     const ultimos = { qr: { valor: "", momento: 0 }, credencial: { valor: "", momento: 0 } };
     const entregar = (valor: string, origen: keyof typeof ultimos) => {
       if (!valor || cancelado || detenerLectura.current) return;
@@ -109,8 +111,18 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, pausado = false, encu
           if (cancelado || detenerLectura.current) return;
           if (valor) {
             revisionQr++;
+            sinQrDesde = null;
+            if (tokenPuerta && qrVisible === valor) return;
+            qrVisible = valor;
             entregar(valor, "qr");
             return;
+          }
+          // Dé tiempo a que salga del recuadro. Un solo fotograma borroso no libera el mismo QR.
+          if (tokenPuerta && qrVisible) {
+            const ahora = Date.now();
+            sinQrDesde ??= ahora;
+            if (ahora - sinQrDesde < 2000) return;
+            qrVisible = "";
           }
           if (!tokenPuerta || leyendoTexto || Date.now() - ultimoIntento < 2000) return;
           leyendoTexto = true;

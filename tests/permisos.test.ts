@@ -59,6 +59,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
+  "POST /api/webhooks/brevo": [], // autentica el token de Brevo, no una sesión de CNE
   "POST /api/d/foto": "publica", // pública pero cerrada por el interruptor del admin
   "POST /api/d/buscar": "publica",
 };
@@ -257,7 +258,7 @@ describe("matriz de permisos", () => {
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "financiero"],
       mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/caja": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], informes: ["consul", "financiero"],
-      credenciales: ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
+      credenciales: ["consul"], "credenciales/envios": ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
     const clavePagina = (f: string) => path.relative(path.join(SRC, "app/admin/(panel)"), path.dirname(f)).split(path.sep).join("/");

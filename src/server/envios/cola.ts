@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
-import { dentroDeHorario, FALLOS_PARA_PAUSAR, pausaAlAzarMs, TOPE_DIARIO, type CanalEnvio } from "../../domain/envios-ritmo";
-import { getAppPool } from "../db";
-import { clientesPorDefecto, INICIO_DIA_MADRID, leerConfigEnvios, remitenteEfectivo, type Clientes } from "../envios-config";
+import { FALLOS_PARA_PAUSAR, pausaWhatsAppMs, type CanalEnvio } from "../../domain/envios-ritmo";
+import { getAppPool, withTx } from "../db";
+import { clientesPorDefecto, leerConfigEnvios, remitenteEfectivo, type Clientes } from "../envios-config";
 import { mensajeCredencial } from "../envios";
 import { seleccionarParaCredencial } from "../credenciales";
 import { medidasCredencial } from "../credencial-config";
@@ -18,13 +18,21 @@ export const MENSAJE_INTERRUMPIDO = "Interrumpido: no se sabe si salió. Reinten
 
 // Nunca se reenvía a ciegas: una fila que quedó «en cola» ya intentada (intentos = 1) al arrancar pasa a fallo.
 export async function recuperarInterrumpidas(): Promise<number> {
-  const pool = await getAppPool();
-  const r = await pool.query("UPDATE envios_credencial SET estado = 'fallo', error = $1 WHERE estado = 'en_cola' AND intentos = 1 AND NOT simulado", [MENSAJE_INTERRUMPIDO]);
-  return r.rowCount ?? 0;
+  return withTx(async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock($1)", [CLAVE_CANDADO]);
+    const r = await client.query(
+      `UPDATE envios_credencial
+          SET estado = CASE WHEN brevo_estado IS NULL THEN 'fallo' ELSE 'enviada_al_servicio' END,
+              error = CASE WHEN brevo_estado IS NULL THEN $1 END,
+              enviado_en = coalesce(enviado_en, brevo_evento_en)
+        WHERE estado = 'en_cola' AND intentos = 1 AND NOT simulado`, [MENSAJE_INTERRUMPIDO],
+    );
+    return r.rowCount ?? 0;
+  });
 }
 
 export async function procesarCola(opciones: OpcionesCola = {}): Promise<Record<CanalEnvio, ResultadoCanal>> {
-  const ahora = opciones.ahora ?? new Date();
+  const reloj = () => opciones.ahora ?? new Date();
   const azar = opciones.azar ?? Math.random;
   const canales = opciones.canales ?? (["whatsapp", "correo"] as CanalEnvio[]);
   const resultado: Record<CanalEnvio, ResultadoCanal> = { whatsapp: { accion: "omitido", motivo: "no tocaba" }, correo: { accion: "omitido", motivo: "no tocaba" } };
@@ -39,7 +47,7 @@ export async function procesarCola(opciones: OpcionesCola = {}): Promise<Record<
     }
     try {
       const clientes = opciones.clientes ?? clientesPorDefecto();
-      for (const canal of canales) resultado[canal] = await procesarCanal(client, canal, ahora, azar, clientes);
+      for (const canal of canales) resultado[canal] = await procesarCanal(client, canal, reloj, azar, clientes);
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [CLAVE_CANDADO]);
     }
@@ -59,17 +67,13 @@ async function pausar(client: PoolClient, canal: CanalEnvio, motivo: string): Pr
   return { accion: "pausado", motivo };
 }
 
-async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date, azar: () => number, clientes: Clientes): Promise<ResultadoCanal> {
+async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () => Date, azar: () => number, clientes: Clientes): Promise<ResultadoCanal> {
   const col = COL[canal];
   const cfg = (await client.query<{ real: boolean; proximo: Date | null; pausa: string | null }>(`SELECT ${col.real} AS real, ${col.proximo} AS proximo, ${col.pausa} AS pausa FROM configuracion WHERE id = 1`)).rows[0];
   if (!cfg.real) return { accion: "omitido", motivo: "interruptor apagado" };
   if (cfg.pausa) return { accion: "pausado", motivo: cfg.pausa };
-  if (!dentroDeHorario(ahora)) return { accion: "omitido", motivo: "fuera de horario" };
-  if (cfg.proximo && ahora < cfg.proximo) return { accion: "omitido", motivo: "esperando la pausa entre envíos" };
-
-  const hoy = (await client.query<{ n: number }>(
-    `SELECT count(*)::int AS n FROM envios_credencial WHERE canal = $1 AND estado = 'enviada_al_servicio' AND NOT simulado AND enviado_en >= ${INICIO_DIA_MADRID}`, [canal, ahora.toISOString()])).rows[0].n;
-  if (hoy >= TOPE_DIARIO[canal]) return { accion: "omitido", motivo: "tope diario alcanzado" };
+  const ahora = reloj();
+  if (canal === "whatsapp" && cfg.proximo && ahora < cfg.proximo) return { accion: "omitido", motivo: "esperando la pausa entre envíos" };
 
   const hay = (await client.query(
     `SELECT 1 FROM envios_credencial e JOIN mjrv m ON m.id = e.mjrv_id WHERE e.canal = $1 AND e.estado = 'en_cola' AND NOT e.simulado AND e.intentos = 0 AND NOT m.es_prueba LIMIT 1`, [canal])).rowCount;
@@ -113,7 +117,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date,
       } else if (canal === "whatsapp") {
         r = await clientes.whatsapp.enviarDocumento({ numero: fila.destino, texto: m.texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
       } else {
-        r = await clientes.correo.enviar({ para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
+        r = await clientes.correo.enviar({ envioId: fila.id, para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
       }
     }
   } catch (e) {
@@ -124,14 +128,18 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, ahora: Date,
   if (r.ok) {
     await client.query("UPDATE envios_credencial SET estado = 'enviada_al_servicio', id_externo = $2, enviado_en = $3 WHERE id = $1", [fila.id, r.idExterno, ahora]);
   } else {
-    await client.query("UPDATE envios_credencial SET estado = 'fallo', error = $2, enviado_en = $3 WHERE id = $1", [fila.id, r.error.slice(0, 300), ahora]);
+    const confirmado = await client.query<{ estado: string }>("UPDATE envios_credencial SET estado = CASE WHEN brevo_estado IS NULL THEN 'fallo' ELSE 'enviada_al_servicio' END, error = CASE WHEN brevo_estado IS NULL THEN $2 END, enviado_en = $3 WHERE id = $1 RETURNING estado", [fila.id, r.error.slice(0, 300), ahora]);
+    if (confirmado.rows[0]?.estado === "enviada_al_servicio") return { accion: "enviado" };
   }
-  await client.query(`UPDATE configuracion SET ${col.proximo} = $1 WHERE id = 1`, [new Date(ahora.getTime() + pausaAlAzarMs(canal, azar))]);
+  if (canal === "whatsapp") {
+    await client.query("UPDATE configuracion SET whatsapp_proximo_en = $1 WHERE id = 1", [new Date(reloj().getTime() + pausaWhatsAppMs(azar))]);
+  }
 
   if (!r.ok) {
     // Pausa tras N fallos seguidos desde la última reanudación.
     const ultimos = (await client.query<{ estado: string }>(
-      `SELECT estado FROM envios_credencial
+      `SELECT CASE WHEN brevo_estado IS NOT NULL THEN 'enviada_al_servicio' ELSE estado END AS estado
+         FROM envios_credencial
         WHERE canal = $1 AND NOT simulado AND estado IN ('enviada_al_servicio','fallo')
           AND enviado_en > coalesce((SELECT max(creado_en) FROM auditoria WHERE accion = 'envios_reanudados' AND datos->>'canal' = $1), '-infinity')
         ORDER BY enviado_en DESC, id DESC LIMIT $2`, [canal, FALLOS_PARA_PAUSAR])).rows;

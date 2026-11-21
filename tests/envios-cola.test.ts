@@ -167,25 +167,23 @@ describe("cola de envío real", () => {
     expect(texto).not.toContain("<505255454241>");
   });
 
-  it("no envía fuera de 9–21 h de Madrid", async () => {
+  it("envía también durante la noche", async () => {
     await encender("whatsapp");
     await enviarCredencial(admin, await ficha(), "whatsapp");
     const f = falsos();
     const noche = new Date(base); noche.setUTCHours(2);
-    expect(await procesarCola({ ahora: noche, clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "omitido", motivo: "fuera de horario" } });
-    expect(f.wa).toHaveLength(0);
+    expect(await procesarCola({ ahora: noche, clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "enviado" } });
+    expect(f.wa).toHaveLength(1);
   });
 
-  it("para en el tope diario", async () => {
+  it("continúa después del antiguo tope diario", async () => {
     await encender("whatsapp");
     await consultarDueno("INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, rotulo_credencial) SELECT '80000' || lpad(g::text, 5, '0'), 'APELLIDO PRUEBA', 'N', 'VOCAL', 'vocal', (SELECT id FROM cne.juntas_madrid LIMIT 1), 'H01' FROM generate_series(1, 150) g");
     await consultarDueno("INSERT INTO cne.envios_credencial (mjrv_id, canal, destino, estado, simulado, enviado_en) SELECT id, 'whatsapp', '+34600000000', 'enviada_al_servicio', false, $1 FROM cne.mjrv WHERE cedula LIKE '80000%'", [en(-3600)]);
     await enviarCredencial(admin, await ficha(), "whatsapp");
     const f = falsos();
-    expect(await procesarCola({ ahora: base, clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "omitido", motivo: "tope diario alcanzado" } });
-    expect((await estadoCola(base)).whatsapp).toMatchObject({ enviadosHoy: 150, tope: 150, enCola: 1 });
-    // Al día siguiente el contador vuelve a cero.
-    expect(await procesarCola({ ahora: en(86400), clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "enviado" } });
+    expect(await procesarCola({ ahora: base, clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "enviado" } });
+    expect((await estadoCola(base)).whatsapp).toMatchObject({ enviadosHoy: 151, enCola: 0 });
   });
 
   it("pausa tras 5 fallos seguidos y solo la superadmin reanuda", async () => {
@@ -250,7 +248,7 @@ describe("cola de envío real", () => {
     expect((await procesarCola({ ahora: base, clientes: f2.clientes })).whatsapp.accion).toBe("enviado");
   });
 
-  it("correo: diseño institucional, instrucción del QR móvil y PDF adjunto; ritmo de 2–5 s", async () => {
+  it("correo: diseño institucional, instrucción del QR móvil y PDF adjunto y sin espera entre turnos", async () => {
     await encender("correo");
     const a = await ficha();
     const nombreArchivo = `H1-${9000000000 + n}.pdf`;
@@ -266,8 +264,7 @@ describe("cola de envío real", () => {
       html: expect.stringContaining("Consulado General del Ecuador en Madrid"),
     });
     expect(Buffer.from(f.mail[0].adjunto.base64, "base64").subarray(0, 5).toString()).toBe("%PDF-");
-    expect((await procesarCola({ ahora: en(1), azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("omitido");
-    expect((await procesarCola({ ahora: en(2), azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
+    expect((await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
     expect(f.mail).toHaveLength(2);
   });
 

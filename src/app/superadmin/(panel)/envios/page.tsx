@@ -44,10 +44,9 @@ export default async function Envios() {
           <FormInterruptor canal={c.id} encendido={c.encendido} />
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
             <div><dt className="text-slate-600">En cola</dt><dd className="font-semibold">{cola[c.id].enCola}</dd></div>
-            <div><dt className="text-slate-600">Enviados hoy</dt><dd className="font-semibold">{cola[c.id].enviadosHoy} de {cola[c.id].tope}</dd></div>
-            <div><dt className="text-slate-600">Fallidos</dt><dd className="font-semibold">{cola[c.id].fallidos}</dd></div>
-            <div><dt className="text-slate-600">Próximo envío desde</dt><dd className="font-semibold">{hora(cola[c.id].proximoEn)}</dd></div>
-            <div><dt className="text-slate-600">Horario (9 a 21 h)</dt><dd className="font-semibold">{cola[c.id].dentroDeHorario ? "dentro" : "fuera"}</dd></div>
+            <div><dt className="text-slate-600">Enviados hoy</dt><dd className="font-semibold">{cola[c.id].enviadosHoy}</dd></div>
+            <div><dt className="text-slate-600">Fallos de envío</dt><dd className="font-semibold">{cola[c.id].fallidos}</dd></div>
+            {c.id === "whatsapp" && <div><dt className="text-slate-600">Próximo envío desde</dt><dd className="font-semibold">{hora(cola[c.id].proximoEn)}</dd></div>}
           </dl>
           {cola[c.id].pausa && (
             <div role="alert" className="space-y-2 rounded bg-red-50 p-3">

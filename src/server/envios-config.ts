@@ -1,4 +1,4 @@
-import { dentroDeHorario, TOPE_DIARIO, type CanalEnvio } from "../domain/envios-ritmo";
+import type { CanalEnvio } from "../domain/envios-ritmo";
 import { normalizarFrase } from "../domain/limpieza";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
@@ -20,14 +20,14 @@ function exigirSuperadmin(sesion: Sesion): void {
 export type ConfigEnvios = {
   whatsappReal: boolean; correoReal: boolean; whatsappNumero: string | null;
   correoRemitente: string | null; correoRemitenteNombre: string | null;
-  whatsappProximoEn: string | null; correoProximoEn: string | null; whatsappPausa: string | null; correoPausa: string | null;
+  whatsappProximoEn: string | null; whatsappPausa: string | null; correoPausa: string | null;
 };
 
 export async function leerConfigEnvios(): Promise<ConfigEnvios> {
-  const f = (await query<{ w: boolean; c: boolean; num: string | null; rem: string | null; nom: string | null; wp: string | null; cp: string | null; wm: string | null; cm: string | null }>(
+  const f = (await query<{ w: boolean; c: boolean; num: string | null; rem: string | null; nom: string | null; wp: string | null; wm: string | null; cm: string | null }>(
     `SELECT whatsapp_real AS w, correo_real AS c, whatsapp_numero AS num, correo_remitente AS rem, correo_remitente_nombre AS nom,
-            whatsapp_proximo_en::text AS wp, correo_proximo_en::text AS cp, whatsapp_pausa_motivo AS wm, correo_pausa_motivo AS cm FROM configuracion WHERE id = 1`))[0];
-  return { whatsappReal: f.w, correoReal: f.c, whatsappNumero: f.num, correoRemitente: f.rem, correoRemitenteNombre: f.nom, whatsappProximoEn: f.wp, correoProximoEn: f.cp, whatsappPausa: f.wm, correoPausa: f.cm };
+            whatsapp_proximo_en::text AS wp, whatsapp_pausa_motivo AS wm, correo_pausa_motivo AS cm FROM configuracion WHERE id = 1`))[0];
+  return { whatsappReal: f.w, correoReal: f.c, whatsappNumero: f.num, correoRemitente: f.rem, correoRemitenteNombre: f.nom, whatsappProximoEn: f.wp, whatsappPausa: f.wm, correoPausa: f.cm };
 }
 
 // Dirección efectiva del remitente: la guardada o, si no hay, la verificada de consulares (MAIL_FROM_ADDRESS).
@@ -109,7 +109,7 @@ export async function guardarRemitente(sesion: Sesion, direccion: string, nombre
   return { ok: true };
 }
 
-export type EstadoCanal = { enCola: number; enviadosHoy: number; fallidos: number; proximoEn: string | null; pausa: string | null; tope: number; dentroDeHorario: boolean };
+export type EstadoCanal = { enCola: number; enviadosHoy: number; fallidos: number; proximoEn: string | null; pausa: string | null };
 
 // Inicio del día de Madrid de `ahora`, para contar «hoy». Se calcula en SQL con la zona horaria.
 export const INICIO_DIA_MADRID = "(date_trunc('day', $2::timestamptz AT TIME ZONE 'Europe/Madrid') AT TIME ZONE 'Europe/Madrid')";
@@ -120,12 +120,12 @@ export async function estadoCola(ahora: Date = new Date()): Promise<Record<Canal
   for (const canal of ["whatsapp", "correo"] as const) {
     const f = (await query<{ cola: number; hoy: number; fallos: number }>(
       `SELECT count(*) FILTER (WHERE estado = 'en_cola' AND NOT simulado)::int AS cola,
-              count(*) FILTER (WHERE estado = 'enviada_al_servicio' AND NOT simulado AND enviado_en >= ${INICIO_DIA_MADRID})::int AS hoy,
-              count(*) FILTER (WHERE estado = 'fallo' AND NOT simulado)::int AS fallos
+              count(*) FILTER (WHERE (estado = 'enviada_al_servicio' OR brevo_estado IS NOT NULL) AND NOT simulado AND coalesce(enviado_en, brevo_evento_en) >= ${INICIO_DIA_MADRID})::int AS hoy,
+              count(*) FILTER (WHERE estado = 'fallo' AND brevo_estado IS NULL AND NOT simulado)::int AS fallos
          FROM envios_credencial WHERE canal = $1`, [canal, ahora.toISOString()]))[0];
     salida[canal] = {
-      enCola: f.cola, enviadosHoy: f.hoy, fallidos: f.fallos, tope: TOPE_DIARIO[canal], dentroDeHorario: dentroDeHorario(ahora),
-      proximoEn: canal === "whatsapp" ? c.whatsappProximoEn : c.correoProximoEn, pausa: canal === "whatsapp" ? c.whatsappPausa : c.correoPausa,
+      enCola: f.cola, enviadosHoy: f.hoy, fallidos: f.fallos,
+      proximoEn: canal === "whatsapp" ? c.whatsappProximoEn : null, pausa: canal === "whatsapp" ? c.whatsappPausa : c.correoPausa,
     };
   }
   return salida;

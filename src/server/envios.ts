@@ -5,12 +5,12 @@ import { credencialesIndividuales } from "./pdf/credencial";
 import { nombrePdfCredencial, seleccionarParaCredencial, type Seleccion } from "./credenciales";
 import { medidasCredencial } from "./credencial-config";
 import { correoCredencial, textoCredencial } from "../domain/mensaje-credencial";
-import { canalEnReal, leerConfigEnvios } from "./envios-config";
+import { canalEnReal } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
 import type { DatosCredencial } from "./pdf/credencial";
+import type { EstadoBrevo } from "./envios/brevo-webhook";
 
 export type EstadoEnvio = "en_cola" | "enviada_al_servicio" | "fallo" | "entregada";
-export const ETIQUETA_ESTADO: Record<EstadoEnvio, string> = { en_cola: "En cola", enviada_al_servicio: "Enviada al servicio", fallo: "Falló el envío", entregada: "Entrega confirmada" };
 export type ResultadoEnvio = { ok: true; simulado: boolean; enCola?: boolean } | { ok: false; mensaje: string };
 
 // Texto y nombre de archivo del mensaje; lo comparten el envío inmediato (simulado) y la cola real.
@@ -43,7 +43,7 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
     const nueva = (await client.query<{ id: number }>(
       `WITH anterior AS (
          SELECT 1 FROM envios_credencial WHERE mjrv_id = $1 AND canal = $2 AND simulado = $5
-           AND estado IN ('enviada_al_servicio','entregada')
+           AND (estado IN ('enviada_al_servicio','entregada') OR brevo_estado IS NOT NULL)
        )
        INSERT INTO envios_credencial (mjrv_id, canal, destino, estado, simulado, creado_por, reenvio)
        SELECT $1,$2,$3,'en_cola',$5,$4, EXISTS (SELECT 1 FROM anterior)
@@ -92,7 +92,7 @@ export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: Prove
         AND ($2::bigint[] IS NULL OR m.id = ANY($2::bigint[]))
         AND NOT EXISTS (SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = $1
           AND e.simulado = (NOT $3::boolean OR m.es_prueba)
-          AND (e.estado = 'en_cola' OR (NOT $4::boolean AND e.estado IN ('enviada_al_servicio','entregada'))))
+          AND (e.estado = 'en_cola' OR (NOT $4::boolean AND (e.estado IN ('enviada_al_servicio','entregada') OR e.brevo_estado IS NOT NULL))))
       ORDER BY m.id`, [canal, ids, real, reenviar]);
   const omitidas = seleccion.alcance === "ids" ? new Set(seleccion.ids).size - pendientes.length : 0;
   const r: ResumenLote = { intentadas: pendientes.length, enviadas: 0, omitidas, fallidas: 0, enCola: 0 };
@@ -106,20 +106,6 @@ export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: Prove
   return r;
 }
 
-export type EnvioFila = { id: number; canal: Canal; destino: string; estado: EstadoEnvio; simulado: boolean; error: string | null; creado_en: string; enviado_en: string | null };
+export type EnvioFila = { id: number; canal: Canal; destino: string; estado: EstadoEnvio; simulado: boolean; error: string | null; creado_en: string; enviado_en: string | null; brevo_estado: EstadoBrevo | null; brevo_evento_en: string | null };
 export const enviosDe = (mjrvId: number) =>
-  query<EnvioFila>("SELECT id, canal, destino, estado, simulado, error, creado_en::text, enviado_en::text FROM envios_credencial WHERE mjrv_id = $1 ORDER BY id DESC", [mjrvId]);
-
-export async function resumenEnvios(): Promise<{ conTelefono: number; conCorreo: number; whatsapp: number; correo: number }> {
-  const { whatsappReal, correoReal } = await leerConfigEnvios();
-  const f = await query<{ tel: number; cor: number; w: number; c: number }>(
-    `SELECT count(*) FILTER (WHERE m.telefono_e164 IS NOT NULL)::int AS tel, count(*) FILTER (WHERE m.correo IS NOT NULL)::int AS cor,
-            count(*) FILTER (WHERE m.telefono_e164 IS NOT NULL AND EXISTS (
-              SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = 'whatsapp'
-              AND e.simulado = (NOT $1::boolean OR m.es_prueba) AND e.estado <> 'fallo'))::int AS w,
-            count(*) FILTER (WHERE m.correo IS NOT NULL AND EXISTS (
-              SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = 'correo'
-              AND e.simulado = (NOT $2::boolean OR m.es_prueba) AND e.estado <> 'fallo'))::int AS c
-       FROM mjrv m WHERE m.activo`, [whatsappReal, correoReal]);
-  return { conTelefono: f[0].tel, conCorreo: f[0].cor, whatsapp: f[0].w, correo: f[0].c };
-}
+  query<EnvioFila>("SELECT id, canal, destino, estado, simulado, error, creado_en::text, enviado_en::text, brevo_estado, brevo_evento_en::text FROM envios_credencial WHERE mjrv_id = $1 ORDER BY id DESC", [mjrvId]);
