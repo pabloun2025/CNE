@@ -236,7 +236,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO (18-11-2026).** Sin cambios: el **traslado cuenta al aceptarlo**; «**No viable**» deja a la persona fuera de las propuestas hasta que el centro de mando la reactive. El **orden de cercanía de las zonas** es el deducido del plano: celeste – rojo – azul – amarillo (vial este, de sur a norte) – verde – rosado (vial norte, de este a oeste).
 
-### 7.4. Fotografía de la cédula
+### 7.4. Fotografía de cédula o pasaporte
 
 **ACTUALIZADO (20-11-2026).** Un **segundo QR genérico**, independiente del QR de credencial, abre el formulario de documentación. El MJRV escribe su cédula, confirma su ficha y toma manualmente el anverso y reverso. La aplicación ofrece recuadro y vista previa. Puede repetir cada toma antes de guardar. Las dos imágenes se sitúan al pie del recibo A4 y se vinculan a la validación de su modo (prueba o elección).
 
@@ -244,7 +244,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO (18-11-2026).** El QR de documentos se distribuye **por cartel y como enlace en el mensaje de la credencial**. Las **fotos de cédula se conservan hasta que la superadministración las borre** con un botón, con confirmación escrita y registro en la auditoría.
 
-**DECIDIDO (21-11-2026).** El formulario público de cédula está siempre disponible en `/d`. La guía A4 incluye un QR al formulario, explica cómo guardar las dos fotos y cómo cobrar en Caja tras firmar el recibo en papel. La guía indica 58,82 € para los primeros 190 recibos y 58,83 € para los 95 siguientes, por orden de emisión.
+**DECIDIDO (21-11-2026).** El formulario público está siempre disponible en `/d`. La persona busca su ficha con el número registrado en el padrón y elige qué documento fotografiar. Para cédula, carga el anverso y el reverso. Para pasaporte, escribe su número y carga la página de datos y retrato. Documentación y Finanzas ofrecen la misma elección. El recibo FO-04 usa el documento elegido y sus fotos al pie de una sola hoja A4 horizontal. La guía A4 incluye el QR fijo, ambas opciones y los pasos para firmar en papel y cobrar en Caja. Indica 58,82 € para los primeros 190 recibos y 58,83 € para los 95 siguientes, por orden de emisión.
 
 ### 7.5. Pago físico y control financiero
 
@@ -590,6 +590,8 @@ Al aceptar, el servidor registra: persona, origen, destino, coordinador que auto
 **PENDIENTE:** mecanismo exacto para que el coordinador conozca que el traslado físico se cumplió, porque aprobarlo en pantalla no garantiza que el suplente haya llegado a la junta de destino. No asignar por defecto confirmación formal a los coordinadores de mesa, que no tendrán cuentas del sistema.
 
 ### 13.7. Obtención de anverso y reverso de la cédula
+
+**ACTUALIZADO (21-11-2026).** Se aplica la sección 7.4. La captura es manual y se adapta al documento elegido. El cambio de documento invalida la revisión anterior. Si ya existe un recibo pendiente con otro documento, Revisión lo reimprime con el mismo número e importe antes de que Caja confirme el pago.
 
 **DECIDIDO:** QR **genérico** distinto del QR individual, formulario donde se escribe cédula, fotografía de anverso y reverso, ayuda opcional de funcionario, guía de encuadre, captura automática cuando esté correctamente alineada y recorte. Ambas imágenes sirven como anexo de la **segunda página del acta de pago**.
 
