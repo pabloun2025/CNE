@@ -8,12 +8,12 @@ import { describe, expect, it } from "vitest";
 const script = readFileSync("scripts/deploy-oracle.sh", "utf8");
 const python = script.slice(script.indexOf("<<'PY'\n") + 7, script.lastIndexOf("\nPY\n"));
 
-function ejecutar(dir: string, paquete: object, consulares = path.join(dir, "sin-consulares")) {
+function ejecutar(dir: string, paquete: object, consulares = path.join(dir, "sin-consulares"), teinvito = path.join(dir, "sin-teinvito")) {
   const generador = path.join(dir, "gen.py");
   const bootstrap = path.join(dir, "bootstrap.json");
   writeFileSync(generador, python);
   writeFileSync(bootstrap, JSON.stringify(paquete));
-  return spawnSync("python3", [generador, bootstrap, path.join(dir, "env"), consulares], { encoding: "utf8" });
+  return spawnSync("python3", [generador, bootstrap, path.join(dir, "env"), consulares, teinvito], { encoding: "utf8" });
 }
 const leer = (dir: string) => Object.fromEntries(readFileSync(path.join(dir, "env"), "utf8").trim().split("\n").map((l) => [l.split("=")[0], l.slice(l.indexOf("=") + 2, -1)]));
 
@@ -70,7 +70,7 @@ describe("deploy-oracle.sh · .env.production", () => {
     const v = leer(dir);
     expect(v).toMatchObject({ EVOLUTION_API_URL: "http://evolution-api:8080", EVOLUTION_API_KEY: "evo-FICTICIA-123", BREVO_API_KEY: "brevo-FICTICIA-456", MAIL_FROM_ADDRESS: "prueba@ejemplo.invalid" });
     expect(v.OTRA).toBeUndefined();
-    expect(r.stdout.trim()).toBe("Claves de envío: WhatsApp sí, correo sí");
+    expect(r.stdout.trim()).toBe("Claves de envío: WhatsApp sí, correo sí\nGoogle Wallet: no");
     for (const secreto of ["evo-FICTICIA-123", "brevo-FICTICIA-456", "prueba@ejemplo.invalid"]) expect(r.stdout + r.stderr).not.toContain(secreto);
   });
 
@@ -87,7 +87,7 @@ describe("deploy-oracle.sh · .env.production", () => {
     const r = ejecutar(dir, { APP_VERSION: "v1" });
     expect(r.status).toBe(0);
     expect(leer(dir)).toMatchObject({ EVOLUTION_API_KEY: "", BREVO_API_KEY: "", MAIL_FROM_ADDRESS: "" });
-    expect(r.stdout.trim()).toBe("Claves de envío: WhatsApp no, correo no");
+    expect(r.stdout.trim()).toBe("Claves de envío: WhatsApp no, correo no\nGoogle Wallet: no");
   });
 
   it("un archivo de consulares ilegible no detiene el despliegue", () => {
@@ -103,5 +103,22 @@ describe("deploy-oracle.sh · .env.production", () => {
     ejecutar(dir, { APP_VERSION: "v1" }, consularesFalso(dir, "BREVO_API_KEY=guardada-FICTICIA"));
     expect(ejecutar(dir, { APP_VERSION: "v2" }).status).toBe(0);
     expect(leer(dir).BREVO_API_KEY).toBe("guardada-FICTICIA");
+  });
+
+  it("copia las variables de Google Wallet de teinvito sin imprimirlas; sin ellas imprime «no»", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "cne-"));
+    const t = path.join(dir, "teinvito");
+    mkdirSync(t);
+    writeFileSync(path.join(t, ".env.production"), "GOOGLE_WALLET_ISSUER_ID=3388000000000000001\nGOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL=cuenta-FICTICIA@ejemplo.invalid\nGOOGLE_WALLET_PRIVATE_KEY=\"-----BEGIN-FICTICIA\\\\nabc\"\nOTRA=no\n");
+    const r = ejecutar(dir, { APP_VERSION: "v1" }, undefined, t);
+    expect(r.status).toBe(0);
+    const v = leer(dir);
+    expect(v.GOOGLE_WALLET_ISSUER_ID).toBe("3388000000000000001");
+    expect(v.GOOGLE_WALLET_PRIVATE_KEY).toContain("BEGIN-FICTICIA");
+    expect(v.OTRA).toBeUndefined();
+    expect(r.stdout).toContain("Google Wallet: sí");
+    for (const secreto of ["3388000000000000001", "cuenta-FICTICIA", "BEGIN-FICTICIA"]) expect(r.stdout + r.stderr).not.toContain(secreto);
+    // Un despliegue posterior sin la carpeta conserva lo ya copiado.
+    expect(ejecutar(dir, { APP_VERSION: "v2" }).stdout).toContain("Google Wallet: sí");
   });
 });

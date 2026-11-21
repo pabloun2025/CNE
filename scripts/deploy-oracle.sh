@@ -54,7 +54,7 @@ test -f "$BOOTSTRAP_FILE"
 install -d -m 700 "$APP_DIR/backups" "$APP_DIR/backups/pre-despliegue"
 chmod 700 "$APP_DIR/backups"
 
-python3 - "$BOOTSTRAP_FILE" "$ENV_FILE" "${CONSULARES_DIR:-/home/ubuntu/consulares}" <<'PY'
+python3 - "$BOOTSTRAP_FILE" "$ENV_FILE" "${CONSULARES_DIR:-/home/ubuntu/consulares}" "${TEINVITO_DIR:-/home/ubuntu/teinvito}" <<'PY'
 import json
 import secrets
 import base64
@@ -64,6 +64,8 @@ from pathlib import Path
 bootstrap_path, output_path = map(Path, sys.argv[1:3])
 # Carpeta de consulares (solo lectura): de ahí se copian las claves de envío. Nunca se escribe en ella.
 consulares_dir = Path(sys.argv[3]) if len(sys.argv) > 3 else Path("/home/ubuntu/consulares")
+# Carpeta de teinvito (solo lectura): de ahí se copian las variables de Google Wallet del emisor institucional.
+teinvito_dir = Path(sys.argv[4]) if len(sys.argv) > 4 else Path("/home/ubuntu/teinvito")
 
 def dotenv(path: Path) -> dict[str, str]:
     result: dict[str, str] = {}
@@ -142,9 +144,16 @@ values["EVOLUTION_API_KEY"] = copiada("EVOLUTION_API_KEY", fuente.get("EVOLUTION
 values["BREVO_API_KEY"] = copiada("BREVO_API_KEY", fuente.get("BREVO_API_KEY", ""))
 values["MAIL_FROM_ADDRESS"] = copiada("MAIL_FROM_ADDRESS", fuente.get("MAIL_FROM_ADDRESS", ""))
 
+# Google Wallet (credencial para Android): tres variables de teinvito, sin imprimirlas. Sin ellas la función queda oculta.
+wallet = legible(teinvito_dir / ".env.production")
+for clave_wallet in ("GOOGLE_WALLET_ISSUER_ID", "GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL", "GOOGLE_WALLET_PRIVATE_KEY"):
+    values[clave_wallet] = copiada(clave_wallet, wallet.get(clave_wallet, ""))
+wallet_listo = all(values[k] for k in ("GOOGLE_WALLET_ISSUER_ID", "GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL", "GOOGLE_WALLET_PRIVATE_KEY"))
+
 output_path.write_text("\n".join(f"{key}={quoted(value)}" for key, value in values.items()) + "\n")
 output_path.chmod(0o600)
 print(f"Claves de envío: WhatsApp {'sí' if values['EVOLUTION_API_KEY'] else 'no'}, correo {'sí' if values['BREVO_API_KEY'] and values['MAIL_FROM_ADDRESS'] else 'no'}")
+print(f"Google Wallet: {'sí' if wallet_listo else 'no'}")
 PY
 
 rm -f "$BOOTSTRAP_FILE"
