@@ -29,6 +29,10 @@ export function etiquetaJunta(serie: Serie, numero: number): string {
   return `${serie}${numero}`;
 }
 
+export function rotuloCredencial(rotulo: string | null, junta: string): string {
+  return rotulo?.trim() || junta;
+}
+
 export function zonaDe(serie: Serie, numero: number): ZonaColor | null {
   return TRAMOS.find((t) => t.serie === serie && numero >= t.desde && numero <= t.hasta)?.zona ?? null;
 }

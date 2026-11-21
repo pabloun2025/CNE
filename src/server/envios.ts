@@ -42,12 +42,12 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
   const sel = await seleccionarParaCredencial({ alcance: "ids", ids: [mjrvId] });
   const reserva = await withTx(async (client) => {
     // Serializa el alta de intentos de una ficha. El índice protege la cola y permite conservar los enviados.
-    const f = (await client.query<{ correo: string | null; telefono_e164: string | null; es_prueba: boolean; rotulo_credencial: string | null }>(
-      "SELECT correo, telefono_e164, es_prueba, rotulo_credencial FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [mjrvId])).rows[0];
+    const f = (await client.query<{ correo: string | null; telefono_e164: string | null; es_prueba: boolean }>(
+      "SELECT correo, telefono_e164, es_prueba FROM mjrv WHERE id = $1 AND activo AND incorporado_en IS NULL FOR UPDATE", [mjrvId])).rows[0];
     if (!f) return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
     const destino = canal === "whatsapp" ? f.telefono_e164 : f.correo;
     if (!destino || (canal === "correo" && !CORREO.test(destino))) return { ok: false as const, mensaje: `La ficha no tiene ${canal === "whatsapp" ? "teléfono" : "correo"} válido.` };
-    if (!sel.datos.length || !f.rotulo_credencial?.trim()) return { ok: false as const, mensaje: "Falta el rótulo de la credencial de esta persona (pendiente)." };
+    if (!sel.datos.length) return { ok: false as const, mensaje: "La ficha cambió. Actualice la lista y vuelva a intentarlo." };
 
     const real = canalReal && !f.es_prueba;
     const nueva = (await client.query<{ id: number }>(
@@ -98,7 +98,7 @@ export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: Prove
   const ids = seleccion.alcance === "todas" ? null : (await seleccionarParaCredencial(seleccion)).ids;
   const real = !proveedor && await canalEnReal(canal);
   const pendientes = await query<{ id: number }>(
-    `SELECT m.id FROM mjrv m WHERE m.activo AND m.${col} IS NOT NULL AND btrim(m.${col}) <> ''
+    `SELECT m.id FROM mjrv m WHERE m.activo AND m.incorporado_en IS NULL AND m.${col} IS NOT NULL AND btrim(m.${col}) <> ''
         AND ($2::bigint[] IS NULL OR m.id = ANY($2::bigint[]))
         AND NOT EXISTS (SELECT 1 FROM envios_credencial e WHERE e.mjrv_id = m.id AND e.canal = $1
           AND e.simulado = (NOT $3::boolean OR m.es_prueba)
@@ -110,7 +110,7 @@ export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: Prove
     const x = await enviarCredencial(sesion, p.id, canal, proveedor, reenviar);
     if (x.ok && x.enCola) r.enCola++;
     else if (x.ok) r.enviadas++;
-    else if (/rótulo|correo válido|teléfono válido|Ya hay|no existe/.test(x.mensaje)) r.omitidas++;
+    else if (/correo válido|teléfono válido|Ya hay|no existe/.test(x.mensaje)) r.omitidas++;
     else r.fallidas++;
   }
   return r;

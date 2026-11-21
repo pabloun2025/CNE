@@ -20,7 +20,6 @@ export default async function ImprimirPlanchas() {
         <li>En el visor de PDF, imprima en papel A4 a tamaño real (100 %).</li>
         <li>Pruebe el QR de una hoja y recorte por las guías punteadas.</li>
       </ol>
-      {seleccion.sinRotulo > 0 && <p className="hint">Faltan los rótulos de {seleccion.sinRotulo} fichas.</p>}
       <ImprimirCredenciales personas={seleccion.personas} />
     </main>
   );

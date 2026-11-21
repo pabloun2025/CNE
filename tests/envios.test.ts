@@ -48,11 +48,10 @@ describe("envío simulado de credenciales", () => {
     expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
   });
 
-  it("solo con teléfono/correo válido y con rótulo", async () => {
+  it("requiere un teléfono o correo válido", async () => {
     expect(await enviarCredencial(admin, ids["0000000002"], "whatsapp")).toMatchObject({ ok: false, mensaje: expect.stringMatching(/teléfono/) });
     expect(await enviarCredencial(admin, ids["0000000004"], "correo")).toMatchObject({ ok: false, mensaje: expect.stringMatching(/correo/) });
-    expect(await enviarCredencial(admin, ids["0000000003"], "whatsapp")).toMatchObject({ ok: false, mensaje: expect.stringMatching(/rótulo/) });
-    expect(await consultarDueno("SELECT 1 FROM cne.envios_credencial WHERE mjrv_id IN ($1,$2,$3)", [ids["0000000002"], ids["0000000003"], ids["0000000004"]])).toHaveLength(0);
+    expect(await consultarDueno("SELECT 1 FROM cne.envios_credencial WHERE mjrv_id IN ($1,$2)", [ids["0000000002"], ids["0000000004"]])).toHaveLength(0);
   });
 
   it("un fallo del proveedor queda registrado, no afirma entrega y se puede reintentar", async () => {
@@ -62,19 +61,20 @@ describe("envío simulado de credenciales", () => {
     expect(await enviarCredencial(admin, ids["0000000002"], "correo")).toMatchObject({ ok: true });
   });
 
-  it("el proveedor recibe el PDF de la credencial", async () => {
+  it("el proveedor recibe el PDF y el rótulo de la junta si la ficha no trae uno", async () => {
     let recibido: MensajeCredencial | null = null;
     const espia: ProveedorEnvio = { canal: "whatsapp", enviar: async (m) => { recibido = m; return { idExterno: "X", simulado: true }; } };
-    await ficha("0000000005", { tel: "+34600000005" });
+    await ficha("0000000005", { tel: "+34600000005", rotulo: null });
     await enviarCredencial(admin, ids["0000000005"], "whatsapp", espia);
     const m = recibido as MensajeCredencial | null;
     expect(m?.pdf.length).toBeGreaterThan(1000);
+    expect(m?.rotulo).toBe("H1");
     expect(Buffer.from(m!.pdf.subarray(0, 5)).toString()).toBe("%PDF-");
   });
 
   it("el lote solo toca a quienes faltan y la superadmin no envía", async () => {
     const r = await enviarLote(admin, "whatsapp");
-    expect(r).toMatchObject({ enviadas: 0, omitidas: 1 }); // 0000000003 sin rótulo; el resto ya tenía envío
+    expect(r).toMatchObject({ enviadas: 1, omitidas: 0 }); // 0000000003 usa la junta; el resto ya tenía envío
     await expect(enviarCredencial({ ...admin, tipo: "superadmin" }, ids["0000000001"], "correo")).rejects.toThrow();
   });
 

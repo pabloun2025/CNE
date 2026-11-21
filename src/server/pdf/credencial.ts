@@ -1,10 +1,15 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import {
+  PDFDocument, StandardFonts, TextRenderingMode, degrees, popGraphicsState, pushGraphicsState, rgb,
+  setLineWidth, setStrokingColor, setTextRenderingMode, type PDFFont, type PDFImage, type PDFPage,
+} from "pdf-lib";
 import QRCode from "qrcode";
+import sharp from "sharp";
 import { CR80, MM, planchaA4, type MedidasCredencial } from "../../domain/credencial-layout";
+import { ZONA_HEX, ZONA_NOMBRE, type Serie, type ZonaColor } from "../../domain/juntas";
 
-export type DatosCredencial = { cedula: string; apellidos: string; nombres: string; cargo: string; rotulo: string; serie: "H" | "M"; prueba: boolean };
+export type DatosCredencial = { cedula: string; apellidos: string; nombres: string; cargo: string; rotulo: string; serie: Serie; zona: ZonaColor; prueba: boolean };
 
 // El nombre «MODELO DE CREDENCIALES DE MJRV.pdf» no está en el repositorio.
 // Claude cargó este archivo. Sus tres imágenes son las de la copia de trabajo del 19-11-2026.
@@ -12,10 +17,10 @@ export type DatosCredencial = { cedula: string; apellidos: string; nombres: stri
 export const RUTA_MODELO_CREDENCIAL = path.join("insumos", "originales", "MODELO_DE_CREDENCIALES_DE_MJRV.pdf");
 
 // WinAnsi: Latin-1 más guiones, comillas, viñeta, euro y puntos suspensivos.
-const latin = (t: string) => t.replace(/[^\u0020-\u00ff\u2013\u2014\u2018\u2019\u201c\u201d\u2022\u20ac\u2026]/g, "?");
-const ROJO = rgb(0xe0 / 255, 0, 0);
+const latin = (t: string) => t.replace(/[\u007f-\u009f]/g, " ").replace(/[^\u0020-\u00ff\u2013\u2014\u2018\u2019\u201c\u201d\u2022\u20ac\u2026]/g, "?");
 const negro = rgb(0, 0, 0);
 const blanco = rgb(1, 1, 1);
+const ZONAS_CLARAS = new Set<ZonaColor>(["amarillo", "celeste", "rosado"]);
 
 // En el PDF van en este orden: logotipo, credencial de hombres, credencial de mujeres.
 function imagenesDelModelo(): [Uint8Array, Uint8Array, Uint8Array] {
@@ -34,28 +39,27 @@ function imagenesDelModelo(): [Uint8Array, Uint8Array, Uint8Array] {
   return out as [Uint8Array, Uint8Array, Uint8Array];
 }
 
-function ajustar(texto: string, fuente: PDFFont, ancho: number, max: number, min: number, lineas: number, escala: number): { size: number; lineas: string[] } {
-  for (let size = max; size >= min; size -= 0.25 * escala) {
-    const ls = partir(texto, fuente, size, ancho);
-    if (ls.length <= lineas && ls.every((l) => fuente.widthOfTextAtSize(l, size) <= ancho)) return { size, lineas: ls };
-  }
-  const ls = partir(texto, fuente, min, ancho).slice(0, lineas);
-  const mayor = Math.max(ancho, ...ls.map((l) => fuente.widthOfTextAtSize(l, min)));
-  return { size: min * ancho / mayor, lineas: ls };
-}
-function partir(texto: string, fuente: PDFFont, size: number, ancho: number): string[] {
-  const out: string[] = [];
-  let actual = "";
-  for (const palabra of texto.split(/\s+/).filter(Boolean)) {
-    const siguiente = actual ? `${actual} ${palabra}` : palabra;
-    if (actual && fuente.widthOfTextAtSize(siguiente, size) > ancho) { out.push(actual); actual = palabra; } else actual = siguiente;
-  }
-  if (actual) out.push(actual);
-  return out.length ? out : [""];
-}
-
 type Caja = { x: number; y: number; w: number; h: number };
-type Arte = { bold: PDFFont; logo: PDFImage; cuerpo: PDFImage };
+type Arte = { bold: PDFFont; logo: PDFImage; cuerpo: PDFImage; silueta: PDFImage; tinta: ReturnType<typeof rgb> };
+
+// Coordenadas de las figuras en píxeles dentro de los JPEG del modelo.
+const RECORTES_SILUETA = {
+  H: { left: 408, top: 209, width: 104, height: 195 },
+  M: { left: 353, top: 203, width: 109, height: 217 },
+} as const;
+
+async function tintarSilueta(modelo: Uint8Array, serie: Serie, color: Buffer): Promise<Buffer> {
+  const recorte = RECORTES_SILUETA[serie];
+  const pixeles = await sharp(modelo).extract(recorte).raw().toBuffer();
+  for (let i = 0; i < pixeles.length; i += 3) {
+    const gris = (pixeles[i] + pixeles[i + 1] + pixeles[i + 2]) / 3;
+    // Conserva el fondo claro y gradúa el color en los bordes de la figura.
+    if (gris >= 244) continue;
+    const intensidad = Math.min(1, (255 - gris) / (255 - 42));
+    for (let canal = 0; canal < 3; canal++) pixeles[i + canal] = Math.round(255 - (255 - color[canal]) * intensidad);
+  }
+  return sharp(pixeles, { raw: { width: recorte.width, height: recorte.height, channels: 3 } }).png().toBuffer();
+}
 
 // Fracciones del cuerpo del modelo (y desde arriba). Tapan el texto de muestra y dejan la figura y los bordes.
 const TAPAS = {
@@ -67,16 +71,14 @@ function cajaDe(img: Caja, fr: readonly [number, number, number, number]): Caja 
   return { x: img.x + fr[0] * img.w, y: img.y + img.h - (fr[1] + fr[3]) * img.h, w: fr[2] * img.w, h: fr[3] * img.h };
 }
 
-function escribir(page: PDFPage, caja: Caja, texto: string, font: PDFFont, max: number, min: number, color: ReturnType<typeof rgb>, escala: number) {
-  const a = ajustar(latin(texto), font, caja.w - 3 * escala, max * escala, min * escala, 1, escala);
-  const paso = a.size * 1.05;
-  const alto = a.lineas.length * paso;
-  const base = caja.y + (caja.h + alto) / 2 - a.size * 0.8;
-  a.lineas.forEach((l, i) => {
-    const w = font.widthOfTextAtSize(l, a.size);
-    const x = caja.x + (caja.w - w) / 2;
-    page.drawText(l, { x, y: base - i * paso, size: a.size, font, color });
-  });
+function escribir(page: PDFPage, caja: Caja, texto: string, font: PDFFont, max: number, color: ReturnType<typeof rgb>, escala: number) {
+  const linea = latin(texto);
+  const ancho = font.widthOfTextAtSize(linea, max * escala);
+  const espacio = caja.w - 3 * escala;
+  const size = max * escala * (ancho > espacio ? espacio / ancho : 1);
+  const x = caja.x + (caja.w - font.widthOfTextAtSize(linea, size)) / 2;
+  const y = caja.y + caja.h / 2 - size * 0.275;
+  page.drawText(linea, { x, y, size, font, color });
 }
 
 // Marco del modelo: logotipo encima del cuerpo, en la proporción de la hoja de muestra.
@@ -110,6 +112,13 @@ async function dibujar(pdf: PDFDocument, arte: Arte, d: DatosCredencial, medidas
   const cw = cuerpo.width * esc, ch = cuerpo.height * esc;
   const img: Caja = { x: marcoX + (slotW - cw) / 2, y: slotTop - slotH + (slotH - ch) / 2, w: cw, h: ch };
   page.drawImage(cuerpo, { x: img.x, y: img.y, width: img.w, height: img.h });
+  const recorte = RECORTES_SILUETA[d.serie];
+  page.drawImage(arte.silueta, {
+    x: img.x + recorte.left * esc,
+    y: img.y + img.h - (recorte.top + recorte.height) * esc,
+    width: recorte.width * esc,
+    height: recorte.height * esc,
+  });
 
   const tapas = TAPAS[d.serie];
   const rotulo = cajaDe(img, tapas.rotulo);
@@ -122,9 +131,17 @@ async function dibujar(pdf: PDFDocument, arte: Arte, d: DatosCredencial, medidas
   const qrX = img.x + img.w - lado - 1.2 * escala;
   const qrY = campos[2].y;
   const anchoTexto = qrX - campos[0].x - 2 * escala;
-  escribir(page, rotulo, d.rotulo.toUpperCase(), arte.bold, 32, 8, d.serie === "M" ? ROJO : negro, escala);
-  escribir(page, cargo, d.cargo.toUpperCase(), arte.bold, 11, 5, negro, escala);
-  campos.forEach((caja, i) => escribir(page, { ...caja, w: anchoTexto }, [d.apellidos, d.nombres, d.cedula][i].toUpperCase(), arte.bold, 7, 3.5, negro, escala));
+  const contorno = ZONAS_CLARAS.has(d.zona);
+  if (contorno) {
+    const { red, green, blue } = arte.tinta;
+    page.pushOperators(pushGraphicsState(), setStrokingColor(rgb(red * 0.3, green * 0.3, blue * 0.3)),
+      setLineWidth(0.9 * escala), setTextRenderingMode(TextRenderingMode.FillAndOutline));
+  }
+  escribir(page, { ...rotulo, y: rotulo.y + 6 * escala, h: rotulo.h - 6 * escala }, d.rotulo, arte.bold, 32, arte.tinta, escala);
+  if (contorno) page.pushOperators(popGraphicsState());
+  escribir(page, { ...rotulo, y: rotulo.y + 0.6 * escala, h: 8 * escala }, `Zona: ${ZONA_NOMBRE[d.zona]}`, arte.bold, 7.5, negro, escala);
+  escribir(page, cargo, d.cargo, arte.bold, 11, negro, escala);
+  campos.forEach((caja, i) => escribir(page, { ...caja, w: anchoTexto }, [d.apellidos, d.nombres, d.cedula][i].toUpperCase(), arte.bold, 7, negro, escala));
 
   if (d.prueba) {
     const size = 26 * escala;
@@ -145,10 +162,16 @@ async function documentoDeCredenciales(datos: DatosCredencial[], medidas: Medida
   const pdf = await PDFDocument.create();
   const [logo, hombre, mujer] = imagenes ??= imagenesDelModelo();
   const cabecera = { bold: await pdf.embedFont(StandardFonts.HelveticaBold), logo: await pdf.embedJpg(logo) };
-  const cuerpos: Partial<Record<DatosCredencial["serie"], PDFImage>> = {};
+  const cuerpos: Partial<Record<Serie, PDFImage>> = {};
+  const siluetas: Partial<Record<`${Serie}-${ZonaColor}`, PDFImage>> = {};
   for (const d of datos) {
-    const cuerpo = cuerpos[d.serie] ??= await pdf.embedJpg(d.serie === "H" ? hombre : mujer);
-    await dibujar(pdf, { ...cabecera, cuerpo }, d, medidas);
+    const modelo = d.serie === "H" ? hombre : mujer;
+    const cuerpo = cuerpos[d.serie] ??= await pdf.embedJpg(modelo);
+    const color = Buffer.from(ZONA_HEX[d.zona].slice(1), "hex");
+    const clave = `${d.serie}-${d.zona}` as const;
+    const silueta = siluetas[clave] ??= await pdf.embedPng(await tintarSilueta(modelo, d.serie, color));
+    const tinta = rgb(color[0] / 255, color[1] / 255, color[2] / 255);
+    await dibujar(pdf, { ...cabecera, cuerpo, silueta, tinta }, d, medidas);
   }
   return pdf;
 }

@@ -1,40 +1,21 @@
 // Controles de los ingresos de Madrid: un valor por dato, con las opciones que el sistema ya tiene.
 import { parsePhoneNumberFromString } from "libphonenumber-js/max";
-import { rolDeCargo, type Rol } from "./importacion/mjrv";
-import { etiquetaJunta, TRAMOS, ZONA_NOMBRE, type Serie } from "./juntas";
-
-export const CARGOS_FICHA: { valor: Rol; etiqueta: string }[] = [
-  { valor: "presidente", etiqueta: "Presidente" },
-  { valor: "secretario", etiqueta: "Secretario" },
-  { valor: "vocal", etiqueta: "Vocal" },
-  { valor: "suplente", etiqueta: "Suplente" },
-  { valor: "otro", etiqueta: "Otro" },
-];
+import { CARGOS_FICHA } from "./cargos-credencial";
+import { TRAMOS, type Serie } from "./juntas";
 
 export const PREFIJO_MOVIL = "+34";
 export const CEDULA_MIN = 5;
 export const CEDULA_MAX = 20;
 
-export function opcionesJuntas(): { valor: string; etiqueta: string }[] {
-  const out: { valor: string; etiqueta: string }[] = [];
-  for (const t of TRAMOS) {
-    for (let n = t.desde; n <= t.hasta; n++) {
-      const valor = etiquetaJunta(t.serie as Serie, n);
-      out.push({ valor, etiqueta: `${valor} · ${ZONA_NOMBRE[t.zona]}` });
-    }
-  }
-  return out;
+export function opcionesJuntas(serie: Serie): number[] {
+  return TRAMOS.filter((t) => t.serie === serie)
+    .flatMap(({ desde, hasta }) => Array.from({ length: hasta - desde + 1 }, (_, i) => desde + i));
 }
 
-// El desplegable manda la clave. También se acepta la etiqueta («Presidente») que ya guardan las fichas.
-export function resolverCargo(cargo: string): { rol: Rol; etiqueta: string } | null {
+export function resolverCargo(cargo: string) {
   const c = cargo.trim().toLowerCase();
-  const directo = CARGOS_FICHA.find((x) => x.valor === c || x.etiqueta.toLowerCase() === c);
-  if (directo) return { rol: directo.valor, etiqueta: directo.etiqueta };
-  const rol = rolDeCargo(cargo);
-  if (rol === "otro") return null;
-  const hallado = CARGOS_FICHA.find((x) => x.valor === rol);
-  return hallado ? { rol: hallado.valor, etiqueta: hallado.etiqueta } : null;
+  const opcion = CARGOS_FICHA.find((x) => x.valor === c || x.etiqueta.toLowerCase() === c);
+  return opcion ? { rol: opcion.valor, etiqueta: opcion.etiqueta } : null;
 }
 
 export function validarCedula(bruto: string): { ok: true; cedula: string } | { ok: false; mensaje: string } {

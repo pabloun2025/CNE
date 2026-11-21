@@ -1,22 +1,23 @@
 "use client";
 
-import { useActionState } from "react";
-import { CARGOS_FICHA, CEDULA_MAX, CEDULA_MIN, opcionesJuntas, PREFIJO_MOVIL } from "@/domain/ingreso";
+import { useActionState, useState } from "react";
+import { CARGOS_FICHA, etiquetaCargoCredencial } from "@/domain/cargos-credencial";
+import { CEDULA_MAX, CEDULA_MIN, opcionesJuntas, PREFIJO_MOVIL } from "@/domain/ingreso";
+import { leerJunta, zonaDe, ZONA_NOMBRE, type Serie } from "@/domain/juntas";
 import { crearMjrvAccion, editarMjrvAccion, type EstadoMjrv } from "@/server/mjrv-actions";
 import type { DatosMjrv } from "@/server/mjrv";
 
 const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
-const JUNTAS = opcionesJuntas();
-
-function cargoInicial(cargo?: string): string {
-  const c = (cargo ?? "").trim().toLowerCase();
-  return CARGOS_FICHA.find((x) => x.valor === c || x.etiqueta.toLowerCase() === c)?.valor ?? "";
-}
 
 export function FormMjrv({ id, inicial }: { id?: number; inicial?: DatosMjrv }) {
   const [estado, enviar, pendiente] = useActionState<EstadoMjrv, FormData>(id ? editarMjrvAccion : crearMjrvAccion, null);
   const v = inicial;
-  const junta = v?.junta?.trim().toUpperCase() ?? "";
+  const junta = leerJunta(v?.junta ?? "");
+  const [serie, fijarSerie] = useState<Serie | "">(junta?.serie ?? "");
+  const [numero, fijarNumero] = useState(junta ? String(junta.numero) : "");
+  const zona = serie ? zonaDe(serie, Number(numero)) : null;
+  const cargoActual = v ? etiquetaCargoCredencial(v.cargo) : undefined;
+  const cargoDelCatalogo = CARGOS_FICHA.some((c) => c.etiqueta === cargoActual);
   return (
     <form action={enviar} className="grid max-w-xl gap-3">
       {id && <input type="hidden" name="id" value={id} />}
@@ -26,18 +27,27 @@ export function FormMjrv({ id, inicial }: { id?: number; inicial?: DatosMjrv }) 
       <label className="text-sm font-medium">Apellidos<input name="apellidos" defaultValue={v?.apellidos} required className={campo} /></label>
       <label className="text-sm font-medium">Nombres<input name="nombres" defaultValue={v?.nombres} required className={campo} /></label>
       <label className="text-sm font-medium">Cargo
-        <select name="cargo" defaultValue={cargoInicial(v?.cargo)} required className={campo}>
-          <option value="">Elija el cargo</option>
-          {CARGOS_FICHA.map((c) => <option key={c.valor} value={c.valor}>{c.etiqueta}</option>)}
+        <select key={v?.cargo} name="cargo" defaultValue="" required={!v} className={campo}>
+          {!cargoDelCatalogo && <option value="">{v ? cargoActual || "Conservar cargo actual" : "Elija el cargo"}</option>}
+          {CARGOS_FICHA.map((c) => <option key={c.valor} value={c.etiqueta === cargoActual ? "" : c.valor}>{c.etiqueta}</option>)}
         </select>
       </label>
-      <label className="text-sm font-medium">Junta
-        <select name="junta" defaultValue={JUNTAS.some((j) => j.valor === junta) ? junta : ""} required className={campo}>
-          <option value="">Elija la junta</option>
-          {JUNTAS.map((j) => <option key={j.valor} value={j.valor}>{j.etiqueta}</option>)}
-        </select>
-      </label>
-      <label className="text-sm font-medium">Rótulo imprimible de la credencial (opcional)<input name="rotulo" defaultValue={v?.rotulo} className={campo} /></label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-sm font-medium">Serie de la junta
+          <select name="serie" value={serie} onChange={(e) => { fijarSerie(e.target.value as Serie | ""); fijarNumero(""); }} required className={campo}>
+            <option value="">Elija H o M</option>
+            <option value="H">H</option>
+            <option value="M">M</option>
+          </select>
+        </label>
+        <label className="text-sm font-medium">Número de la junta
+          <select name="numero" value={numero} onChange={(e) => fijarNumero(e.target.value)} disabled={!serie} required className={campo}>
+            <option value="">Elija el número</option>
+            {serie && opcionesJuntas(serie).map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+      </div>
+      {zona && <p role="status" className="text-sm font-medium">Zona {ZONA_NOMBRE[zona]}</p>}
       <label className="text-sm font-medium">Correo (opcional)<input name="correo" type="email" defaultValue={v?.correo} className={campo} /></label>
       <label className="text-sm font-medium">Móvil (opcional)
         <input name="telefono" defaultValue={v?.telefono || PREFIJO_MOVIL} inputMode="tel" autoComplete="tel" className={campo} />

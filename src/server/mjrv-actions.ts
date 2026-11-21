@@ -9,7 +9,10 @@ import { borrarMjrv, borrarMjrvSeleccion, cambiarBaja, crearMjrv, editarMjrv, ty
 export type EstadoMjrv = { error?: string; aviso?: string; borrar?: ResultadoBorrar } | null;
 
 const texto = (f: FormData, k: string) => String(f.get(k) ?? "");
-const datos = (f: FormData): DatosMjrv => ({ cedula: texto(f, "cedula"), apellidos: texto(f, "apellidos"), nombres: texto(f, "nombres"), cargo: texto(f, "cargo"), junta: texto(f, "junta"), correo: texto(f, "correo"), telefono: texto(f, "telefono"), rotulo: texto(f, "rotulo") });
+const datos = (f: FormData): DatosMjrv => ({
+  cedula: texto(f, "cedula"), apellidos: texto(f, "apellidos"), nombres: texto(f, "nombres"), cargo: texto(f, "cargo"),
+  junta: `${texto(f, "serie")} ${texto(f, "numero")}`, correo: texto(f, "correo"), telefono: texto(f, "telefono"),
+});
 
 export async function crearMjrvAccion(_: EstadoMjrv, f: FormData): Promise<EstadoMjrv> {
   const sesion = await requireAdmin();

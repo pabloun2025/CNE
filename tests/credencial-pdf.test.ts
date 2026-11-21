@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
 import jsQR from "jsqr";
-import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
+import { PDFArray, PDFDocument, PDFRawStream, type PDFPage } from "pdf-lib";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
@@ -13,7 +13,7 @@ import { RUTA_MODELO_CREDENCIAL, credencialesIndividuales, hojasA4, type DatosCr
 
 const ficha = (i: number, o: Partial<DatosCredencial> = {}): DatosCredencial => ({
   cedula: String(i).padStart(10, "0"), apellidos: `APELLIDO PRUEBA ${String(i).padStart(3, "0")}`, nombres: "NOMBRE PRUEBA", cargo: "PRESIDENTE",
-  rotulo: i % 2 ? "H01" : "M01", serie: i % 2 ? "H" : "M", prueba: true, ...o,
+  rotulo: i % 2 ? "H01" : "M01", serie: i % 2 ? "H" : "M", zona: i % 2 ? "amarillo" : "azul", prueba: true, ...o,
 });
 const pts = (mm: number) => (mm * 72) / 25.4;
 
@@ -46,9 +46,7 @@ describe("PDF de credenciales", () => {
   it("aprovecha 14 posiciones por plancha con credenciales de 55 × 70 mm", async () => {
     const pdf = await PDFDocument.load(await hojasA4(Array.from({ length: 15 }, (_, i) => ficha(i + 1)), { ancho: 55, alto: 70 }));
     expect(pdf.getPageCount()).toBe(2);
-    const contenido = pdf.getPage(0).node.Contents();
-    const flujo = contenido instanceof PDFArray ? contenido.lookup(0, PDFRawStream) : contenido instanceof PDFRawStream ? contenido : undefined;
-    expect(inflateSync(flujo!.getContents()).toString("ascii").match(/\bd\n/g)).toHaveLength(14);
+    expect(operadoresPagina(pdf.getPage(0)).match(/\bd\n/g)).toHaveLength(14);
   });
 
   it("nombres largos y caracteres fuera de WinAnsi no rompen la generación", async () => {
@@ -56,12 +54,40 @@ describe("PDF de credenciales", () => {
     expect(bytes.length).toBeGreaterThan(1000);
   });
 
+  it.each([
+    ["amarillo", "Amarillo", [242, 194, 0]],
+    ["azul", "Azul", [31, 95, 168]],
+    ["rojo", "Rojo", [198, 40, 40]],
+    ["celeste", "Celeste", [79, 195, 247]],
+    ["verde", "Verde", [46, 125, 50]],
+    ["rosado", "Rosado", [244, 143, 177]],
+  ] as const)("imprime el nombre y el rótulo del color de la zona %s", async (zona, nombre, color) => {
+    const bytes = await credencialesIndividuales([ficha(1, { zona })]);
+    const plano = await textoPlano(bytes);
+    expect(plano).toContain(`Zona: ${nombre}`);
+    expect(plano).toContain(`${color.map((canal) => canal / 255).join(" ")} rg`);
+  });
+
+  it("imprime el cargo 2do. VOCAL SUPLENTE completo y con sus minúsculas", async () => {
+    const bytes = await credencialesIndividuales([ficha(2, { cargo: "2do. VOCAL SUPLENTE" })]);
+    expect(await textoPlano(bytes)).toContain("2do. VOCAL SUPLENTE");
+  });
+
+  it("imprime el rótulo con las mayúsculas y los espacios del Excel", async () => {
+    const bytes = await credencialesIndividuales([ficha(2, { rotulo: "jRv  07" })]);
+    expect(await textoPlano(bytes)).toContain("jRv  07");
+  });
+
+  it("un carácter de control invisible en el rótulo no impide imprimir el lote", async () => {
+    const bytes = await credencialesIndividuales([ficha(1, { rotulo: "H\u008501" }), ficha(2)]);
+    const texto = await textoPlano(bytes);
+    expect(texto).toContain("H 01");
+    expect(texto).toContain("M01");
+  });
+
   it("la última hoja solo tiene guías de corte para las credenciales que contiene", async () => {
     const pdf = await PDFDocument.load(await hojasA4(Array.from({ length: 12 }, (_, i) => ficha(i + 1))));
-    const contenido = pdf.getPage(1).node.Contents();
-    const flujo = contenido instanceof PDFArray ? contenido.lookup(0, PDFRawStream) : contenido instanceof PDFRawStream ? contenido : undefined;
-    expect(flujo).toBeDefined();
-    expect(inflateSync(flujo!.getContents()).toString("ascii").match(/\bd\n/g)).toHaveLength(1);
+    expect(operadoresPagina(pdf.getPage(1)).match(/\bd\n/g)).toHaveLength(1);
   });
 
   it("sale del modelo y el QR impreso es la cédula", async () => {
@@ -78,7 +104,7 @@ describe("PDF de credenciales", () => {
     expect(bytes.includes(imagenes[0])).toBe(true);
     expect(bytes.includes(imagenes[1])).toBe(true);
     expect(bytes.includes(imagenes[2])).toBe(true);
-    const plano = textoPlano(bytes);
+    const plano = await textoPlano(bytes);
     expect(plano).toContain("H01");
     expect(plano).toContain("M01");
     expect(plano).toContain("APELLIDO PRUEBA 001");
@@ -94,10 +120,20 @@ describe("PDF de credenciales", () => {
     if (!poppler) return;
     const dir = mkdtempSync(path.join(tmpdir(), "cred-"));
     writeFileSync(path.join(dir, "a.pdf"), bytes);
-    execFileSync("pdftoppm", ["-r", "200", "-png", "-f", "1", "-l", "1", path.join(dir, "a.pdf"), path.join(dir, "a")]);
-    const { data, info } = await sharp(path.join(dir, "a-1.png")).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    const leido = jsQR(new Uint8ClampedArray(data), info.width, info.height);
-    expect(leido?.data).toBe("0000000001");
+    execFileSync("pdftoppm", ["-r", "200", "-png", path.join(dir, "a.pdf"), path.join(dir, "a")]);
+    for (const [pagina, color] of [[1, [242, 194, 0]], [2, [31, 95, 168]]] as const) {
+      const { data, info } = await sharp(path.join(dir, `a-${pagina}.png`)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      expect(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data).toBe(ficha(pagina).cedula);
+      // La silueta queda a la derecha del rótulo y por encima del QR.
+      let pixelesDeZona = 0;
+      for (let y = Math.round(0.44 * info.height); y < 0.73 * info.height; y++) {
+        for (let x = Math.round(0.71 * info.width); x < 0.95 * info.width; x++) {
+          const indice = (y * info.width + x) * 4;
+          if (color.every((canal, i) => data[indice + i] === canal)) pixelesDeZona++;
+        }
+      }
+      expect(pixelesDeZona).toBeGreaterThan(500);
+    }
   });
 });
 
@@ -110,16 +146,15 @@ it("la imagen de producción incluye el modelo de la credencial", () => {
   expect(ignore).toContain("!insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf");
 });
 
-function textoPlano(buf: Buffer): string {
-  const trozos: Buffer[] = [];
-  let i = 0;
-  while (i < buf.length) {
-    const s = buf.indexOf("stream", i);
-    if (s < 0) break;
-    const a = buf[s + 6] === 0x0a ? s + 7 : s + 8;
-    const fin = buf.indexOf("endstream", a);
-    try { trozos.push(inflateSync(buf.subarray(a, fin))); } catch { /* flujo ya plano */ }
-    i = fin + 9;
-  }
-  return Buffer.concat(trozos).toString("latin1").replace(/<([0-9A-Fa-f\s]+)>/g, (_, h: string) => Buffer.from(h.replace(/\s/g, ""), "hex").toString("latin1"));
+function operadoresPagina(pagina: PDFPage): string {
+  const contenido = pagina.node.Contents();
+  const flujos = contenido instanceof PDFArray
+    ? contenido.asArray().map((_, i) => contenido.lookup(i, PDFRawStream))
+    : contenido instanceof PDFRawStream ? [contenido] : [];
+  return flujos.map((flujo) => inflateSync(flujo.getContents()).toString("latin1")).join("\n");
+}
+
+async function textoPlano(bytes: Uint8Array): Promise<string> {
+  const pdf = await PDFDocument.load(bytes);
+  return pdf.getPages().map(operadoresPagina).join("\n").replace(/<([0-9A-Fa-f\s]+)>/g, (_, h: string) => Buffer.from(h.replace(/\s/g, ""), "hex").toString("latin1"));
 }

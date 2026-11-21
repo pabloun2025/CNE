@@ -29,6 +29,6 @@ export const estadoEntregasCredenciales = () => query<SeguimientoFicha>(
        SELECT e.estado, e.brevo_estado, e.brevo_evento_en, e.enviado_en, e.creado_en FROM envios_credencial e
        WHERE e.mjrv_id = m.id AND e.canal = 'correo' AND NOT e.simulado ORDER BY e.id DESC LIMIT 1
      ) c ON true
-     WHERE m.activo AND NOT m.es_prueba
+     WHERE m.activo AND NOT m.es_prueba AND m.incorporado_en IS NULL
      ORDER BY j.serie, j.numero, m.apellidos, m.nombres, m.id`,
 );

@@ -103,7 +103,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
   let r: ResultadoProveedor;
   try {
     const sel = await seleccionarParaCredencial({ alcance: "ids", ids: [fila.mjrv_id] });
-    if (sel.datos.length === 0) r = { ok: false, permanente: true, error: "La ficha está de baja o le falta el rótulo de la credencial." };
+    if (sel.datos.length === 0) r = { ok: false, permanente: true, error: "La ficha ya no tiene una credencial disponible." };
     else {
       const d = sel.datos[0];
       const m = await mensajeCredencial(d, canal, sel.personas[0]);

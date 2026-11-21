@@ -2,6 +2,7 @@ import type { RolAdmin } from "../domain/roles";
 import { estadoMando } from "./mando";
 import { query } from "./db";
 import { leerModo } from "./config";
+import { resumenCredenciales } from "./credenciales";
 
 export type ResumenAdmin = {
   generado_en: string; modoPrueba: boolean;
@@ -13,7 +14,7 @@ export type ResumenAdmin = {
 export async function resumenAdmin(): Promise<ResumenAdmin> {
   const [mando, cred, docs, pagos, modo] = await Promise.all([
     estadoMando(),
-    query<{ preparadas: number; pendientes: number }>("SELECT count(*) FILTER (WHERE credencial_generada_en IS NOT NULL)::int AS preparadas, count(*) FILTER (WHERE credencial_generada_en IS NULL)::int AS pendientes FROM mjrv WHERE activo"),
+    resumenCredenciales(),
     query<{ completos: number; incompletos: number }>(
       `SELECT count(*) FILTER (WHERE d.n = 2)::int AS completos, count(*) FILTER (WHERE d.n < 2)::int AS incompletos
          FROM mjrv m CROSS JOIN LATERAL (SELECT count(DISTINCT lado)::int AS n FROM documentos_mjrv WHERE mjrv_id = m.id) d WHERE m.activo`),
@@ -24,7 +25,7 @@ export async function resumenAdmin(): Promise<ResumenAdmin> {
   const i = mando.indicadores;
   return {
     generado_en: new Date().toISOString(), modoPrueba: modo === "prueba",
-    apertura: { preparadas: cred[0].preparadas, pendientes: cred[0].pendientes, ingresados: i.ingresados, total: i.total, completas: i.completas, incompletas: i.incompletas, sinNadie: i.sinNadie },
+    apertura: { preparadas: cred.preparadas, pendientes: cred.pendientes, ingresados: i.ingresados, total: i.total, completas: i.completas, incompletas: i.incompletas, sinNadie: i.sinNadie },
     pagos: { documentosCompletos: docs[0].completos, documentosIncompletos: docs[0].incompletos, pagados: pagos[0].n, pagosSinImporteEur: pagos[0].sin_importe, totalEur: pagos[0].total },
   };
 }

@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closePools } from "@/server/db";
 import { marcarGeneradas, resumenCredenciales, seleccionarParaCredencial } from "@/server/credenciales";
+import { estadoEntregasCredenciales } from "@/server/envios-estado";
+import { resumenAdmin } from "@/server/resumen-admin";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 describe("selección de credenciales", () => {
@@ -13,13 +15,19 @@ describe("selección de credenciales", () => {
         [serie, num, String(i).padStart(10, "0"), rotulo, activo],
       );
     }
+    await consultarDueno(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, incorporado_en)
+      SELECT '0000000005', 'APELLIDO PRUEBA', 'INCORPORADO', 'VOCAL', 'vocal', id, now() FROM cne.juntas_madrid WHERE serie='H' AND numero=1`);
   });
   afterAll(closePools);
 
-  it("excluye sin rótulo y de baja, y los cuenta para avisar", async () => {
+  it("conserva el rótulo importado, usa la junta si falta y excluye las bajas y las incorporaciones de votantes", async () => {
     const r = await seleccionarParaCredencial({ alcance: "todas" });
-    expect(r).toMatchObject({ total: 3, sinRotulo: 1 });
-    expect(r.datos.map((d) => d.cedula)).toEqual(["0000000001", "0000000003"]);
+    expect(r.total).toBe(3);
+    expect(r.datos.map(({ cedula, rotulo, zona, cargo }) => ({ cedula, rotulo, zona, cargo }))).toEqual([
+      { cedula: "0000000001", rotulo: "H01", zona: "amarillo", cargo: "2do. VOCAL PRINCIPAL" },
+      { cedula: "0000000002", rotulo: "H1", zona: "amarillo", cargo: "2do. VOCAL PRINCIPAL" },
+      { cedula: "0000000003", rotulo: "M09", zona: "celeste", cargo: "2do. VOCAL PRINCIPAL" },
+    ]);
     expect(r.datos.every((d) => d.prueba)).toBe(true); // modo prueba
   });
 
@@ -29,10 +37,16 @@ describe("selección de credenciales", () => {
     expect((await seleccionarParaCredencial({ alcance: "junta", valor: "H99" })).total).toBe(0);
   });
 
+  it("el seguimiento y el panel solo muestran como pendientes las fichas que pueden tener credencial", async () => {
+    const elegibles = await seleccionarParaCredencial({ alcance: "todas" });
+    expect.soft((await estadoEntregasCredenciales()).map(({ id }) => id)).toEqual(elegibles.ids);
+    expect((await resumenAdmin()).apertura).toMatchObject({ preparadas: 0, pendientes: 3 });
+  });
+
   it("marca las generadas y «sin generar» las deja fuera", async () => {
     const r = await seleccionarParaCredencial({ alcance: "todas" });
     await marcarGeneradas(r.ids);
-    expect((await seleccionarParaCredencial({ alcance: "sin_generar" })).total).toBe(1);
-    expect(await resumenCredenciales()).toEqual({ activos: 3, preparadas: 2, pendientes: 1, sinRotulo: 1 });
+    expect((await seleccionarParaCredencial({ alcance: "sin_generar" })).total).toBe(0);
+    expect(await resumenCredenciales()).toEqual({ activos: 3, preparadas: 3, pendientes: 0 });
   });
 });

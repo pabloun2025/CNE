@@ -11,7 +11,7 @@ import { revocarMjrv } from "@/server/revocar-credencial";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
-const datos = (o: Partial<DatosMjrv> = {}): DatosMjrv => ({ cedula: "0000000010", apellidos: "APELLIDO PRUEBA 010", nombres: "NOMBRE PRUEBA", cargo: "presidente", junta: "H20", correo: "a@b.c", telefono: "+34612345678", rotulo: "", ...o });
+const datos = (o: Partial<DatosMjrv> = {}): DatosMjrv => ({ cedula: "0000000010", apellidos: "APELLIDO PRUEBA 010", nombres: "NOMBRE PRUEBA", cargo: "presidente", junta: "H20", correo: "a@b.c", telefono: "+34612345678", ...o });
 const foto = () => sharp(randomBytes(900 * 600 * 3), { raw: { width: 900, height: 600, channels: 3 } }).jpeg({ quality: 70 }).toBuffer();
 
 describe("borrar fichas", () => {
@@ -28,7 +28,7 @@ describe("borrar fichas", () => {
     const creada = await crearMjrv(sesion, datos());
     expect(creada.ok).toBe(true);
     if (!creada.ok) return;
-    expect(await obtenerFicha(creada.id)).toMatchObject({ rol: "presidente", cargo_original: "Presidente", origen: "H20", telefono_e164: "+34612345678", correo: "a@b.c" });
+    expect(await obtenerFicha(creada.id)).toMatchObject({ rol: "presidente", cargo_original: "PRESIDENTE/A", origen: "H20", telefono_e164: "+34612345678", correo: "a@b.c" });
     expect((await editarMjrv(sesion, creada.id, datos({ cargo: "secretario", correo: "b@c.d" }))).ok).toBe(true);
     expect(await obtenerFicha(creada.id)).toMatchObject({ rol: "secretario", correo: "b@c.d" });
     expect(await borrarMjrv(sesion, creada.id, false)).toMatchObject({ ok: false });

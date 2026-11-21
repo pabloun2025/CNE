@@ -84,7 +84,7 @@ describe("reiniciar operativo completo en una base ficticia", () => {
     puerta = { enlaceId: p.id, operadorId: operador.id };
     await consultarDueno("UPDATE cne.parametros_pago SET importe_usd=70, importe_eur=58.82, pagador_nombre='FIRMANTE FICTICIO', pagador_cargo='CARGO FICTICIO', lugar='Madrid'");
     await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto=true, correo_remitente='ensayo@ejemplo.invalid', credencial_ancho_mm=56, whatsapp_numero='34900000000'");
-    expect(await crearMjrv(cuentaAdmin, { cedula: "0000000003", apellidos: "ALTA", nombres: "FICTICIA", cargo: "vocal", junta: "H3", correo: "", telefono: "", rotulo: "H3" })).toMatchObject({ ok: true });
+    expect(await crearMjrv(cuentaAdmin, { cedula: "0000000003", apellidos: "ALTA", nombres: "FICTICIA", cargo: "vocal", junta: "H3", correo: "", telefono: "" })).toMatchObject({ ok: true });
     await consultarDueno(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, es_prueba)
       SELECT '0000000004','DEMO','FICTICIA','VOCAL','vocal',id,true FROM cne.juntas_madrid WHERE serie='H' AND numero=4`);
     for (const [modo, cedula] of [["prueba", "0000000001"], ["eleccion", "0000000002"]] as const) {

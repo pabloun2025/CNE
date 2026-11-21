@@ -5,7 +5,7 @@ import { cambiarBaja, crearMjrv, editarMjrv, listarMjrv, obtenerFicha, type Dato
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
-const datos = (o: Partial<DatosMjrv> = {}): DatosMjrv => ({ cedula: "0000000001", apellidos: "APELLIDO PRUEBA 001", nombres: "NOMBRE PRUEBA", cargo: "Presidente", junta: "H12", correo: "", telefono: "", rotulo: "", ...o });
+const datos = (o: Partial<DatosMjrv> = {}): DatosMjrv => ({ cedula: "0000000001", apellidos: "APELLIDO PRUEBA 001", nombres: "NOMBRE PRUEBA", cargo: "presidente", junta: "H12", correo: "", telefono: "", ...o });
 
 describe("fichas de MJRV", () => {
   beforeAll(async () => {
@@ -18,23 +18,32 @@ describe("fichas de MJRV", () => {
     const r = await crearMjrv(sesion, datos());
     expect(r.ok).toBe(true);
     const f = await obtenerFicha((r as { id: number }).id);
-    expect(f).toMatchObject({ rol: "presidente", origen: "H12", vigente: "H12", activo: true, es_prueba: false, rotulo_credencial: null });
+    expect(f).toMatchObject({ rol: "presidente", cargo_original: "PRESIDENTE/A", origen: "H12", vigente: "H12", activo: true, es_prueba: false, rotulo_credencial: null });
     expect(await crearMjrv(sesion, datos({ junta: "H13" }))).toEqual({ ok: false, mensaje: "Ya existe una ficha con esa cédula." });
   });
 
   it("rechaza junta inexistente, cédula inválida y datos vacíos", async () => {
     expect((await crearMjrv(sesion, datos({ cedula: "0000000002", junta: "H42" }))).ok).toBe(false);
+    expect((await crearMjrv(sesion, datos({ cedula: "0000000002", junta: "M55" }))).ok).toBe(false);
     expect((await crearMjrv(sesion, datos({ cedula: "ab" }))).ok).toBe(false);
     expect((await crearMjrv(sesion, datos({ cedula: "0000000002", nombres: "" }))).ok).toBe(false);
     expect((await crearMjrv(sesion, datos({ cedula: "0000000002", telefono: "123" }))).ok).toBe(false);
   });
 
-  it("editar mantiene la cédula única y cambia el rótulo", async () => {
+  it("un alta manual solo admite un cargo del catálogo", async () => {
+    expect(await crearMjrv(sesion, datos({ cedula: "0000000002", cargo: "otro" })))
+      .toEqual({ ok: false, mensaje: "Elija el cargo." });
+    expect(await crearMjrv(sesion, datos({ cedula: "0000000002", cargo: "" })))
+      .toEqual({ ok: false, mensaje: "Elija el cargo." });
+  });
+
+  it("editar mantiene la cédula única y conserva un rótulo importado", async () => {
     const b = await crearMjrv(sesion, datos({ cedula: "0000000002", cargo: "Vocal", junta: "M5" }));
     const id = (b as { id: number }).id;
+    await consultarDueno("UPDATE cne.mjrv SET rotulo_credencial = 'F05' WHERE id = $1", [id]);
     expect(await editarMjrv(sesion, id, datos({ cedula: "0000000001" }))).toMatchObject({ ok: false });
-    expect((await editarMjrv(sesion, id, datos({ cedula: "0000000002", cargo: "Suplente", junta: "M5", rotulo: "M05" }))).ok).toBe(true);
-    expect(await obtenerFicha(id)).toMatchObject({ rol: "suplente", rotulo_credencial: "M05" });
+    expect((await editarMjrv(sesion, id, datos({ cedula: "0000000002", cargo: "Suplente", junta: "M54" }))).ok).toBe(true);
+    expect(await obtenerFicha(id)).toMatchObject({ rol: "suplente", cargo_original: "2do. VOCAL SUPLENTE", origen: "M54", rotulo_credencial: "F05" });
   });
 
   it("filtros por junta, rol, estado y búsqueda", async () => {
@@ -53,6 +62,19 @@ describe("fichas de MJRV", () => {
     expect((await listarMjrv({ estado: "baja" })).map((m) => m.cedula)).toEqual(["0000000001"]);
     await cambiarBaja(sesion, id, false, "");
     expect((await obtenerFicha(id))?.activo).toBe(true);
+  });
+
+  it.each([
+    { cedula: "0000000101", rol: "vocal", cargo: "Vocal 2" },
+    { cedula: "0000000102", rol: "otro", cargo: "Delegado" },
+  ])("editar otros datos conserva el cargo importado ($rol)", async ({ cedula, rol, cargo }) => {
+    const [{ id }] = await consultarDueno<{ id: number }>(
+      `INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+       SELECT $1, 'APELLIDO PRUEBA', 'NOMBRE PRUEBA', $2, $3, id FROM cne.juntas_madrid WHERE serie = 'H' AND numero = 12 RETURNING id`,
+      [cedula, cargo, rol],
+    );
+    expect(await editarMjrv(sesion, id, datos({ cedula, cargo: "", correo: "alta@prueba.cne" }))).toEqual({ ok: true, id });
+    expect(await obtenerFicha(id)).toMatchObject({ rol, cargo_original: cargo, correo: "alta@prueba.cne", rotulo_credencial: null });
   });
 
   it("devuelve todas las fichas del filtro para seleccionarlas de una vez", async () => {

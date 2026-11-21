@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { etiquetaCargoCredencial } from "@/domain/cargos-credencial";
 import type { FilaLista } from "@/server/mjrv";
 import { borrarMjrvSeleccionAccion } from "@/server/mjrv-actions";
 import { DistribuirCredenciales, IdsCredenciales } from "./envios-credenciales";
@@ -19,7 +20,7 @@ export function ListaMjrvSeleccion({ filas }: { filas: FilaLista[] }) {
   }, null);
   const elegidas = filas.filter((m) => seleccion.has(m.id));
   const ids = elegidas.map((m) => m.id);
-  const credenciales = elegidas.filter((m) => m.activo && m.rotulo_credencial?.trim()).map((m) => m.id);
+  const credenciales = elegidas.filter((m) => m.activo && !m.incorporada).map((m) => m.id);
   const cantidad = ids.length;
   const todas = filas.length > 0 && cantidad === filas.length;
   const excluidas = cantidad - credenciales.length;
@@ -46,7 +47,7 @@ export function ListaMjrvSeleccion({ filas }: { filas: FilaLista[] }) {
             Seleccionar todas las coincidencias
           </label>
           <p role="status">{cantidad} de {filas.length} fichas seleccionadas</p>
-          {excluidas > 0 && <p className="hint">Credenciales disponibles para {credenciales.length} de las fichas seleccionadas. Revise las fichas de baja o sin rótulo.</p>}
+          {excluidas > 0 && <p className="hint">Credenciales disponibles para {credenciales.length} de las fichas seleccionadas.</p>}
           <DistribuirCredenciales ids={credenciales} bloqueado={borrando || confirmar} />
           <div className="flex flex-wrap gap-3 border-t pt-3">
             <button type="button" className="quiet" disabled={!cantidad || borrando} onClick={() => { seleccionar(new Set()); confirmarBorrado(false); }}>Quitar selección</button>
@@ -83,7 +84,7 @@ export function ListaMjrvSeleccion({ filas }: { filas: FilaLista[] }) {
                 const nombre = `${m.apellidos}, ${m.nombres}`;
                 const junta = m.vigente === m.origen ? m.origen : `${m.origen} → ${m.vigente}`;
                 const estado = !m.activo ? "De baja" : m.ingresado ? "Ingresó" : "Sin ingresar";
-                const sinRotulo = m.activo && !m.rotulo_credencial?.trim();
+                const cargo = etiquetaCargoCredencial(m.cargo_original);
                 return (
                   <tr key={m.id} className="border-b">
                     <td className="p-2">
@@ -102,12 +103,10 @@ export function ListaMjrvSeleccion({ filas }: { filas: FilaLista[] }) {
                     <td className="p-2">
                       <Link className="underline" href={`/admin/mjrv/${m.id}`}>{nombre}</Link>
                       <div className="text-slate-600">{m.cedula}{m.es_prueba ? " · PRUEBA" : ""}</div>
-                      <div className="text-slate-600 sm:hidden">{junta} · {m.rol} · {estado}{sinRotulo && " · Sin rótulo"}</div>
+                      <div className="text-slate-600 sm:hidden">{junta} · {cargo} · {estado}</div>
                     </td>
-                    <td className="hidden p-2 sm:table-cell">{m.rol}</td>
-                    <td className="hidden p-2 sm:table-cell">
-                      {estado}{sinRotulo && <span className="block hint">Sin rótulo</span>}
-                    </td>
+                    <td className="hidden p-2 sm:table-cell">{cargo}</td>
+                    <td className="hidden p-2 sm:table-cell">{estado}</td>
                     <td className="p-2"><Link className="underline" href={`/admin/mjrv/${m.id}`}>Editar</Link></td>
                   </tr>
                 );

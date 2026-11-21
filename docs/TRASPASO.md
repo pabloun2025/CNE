@@ -2,7 +2,7 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 21-11-2026.** Consulte la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para el reinicio y la impresión y la [sección 13](#13-circuito-de-los-tres-puestos-de-madrid) para el circuito de los tres puestos.
+**Último estado, 21-11-2026.** Consulte la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales, la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio, y la [sección 13](#13-circuito-de-los-tres-puestos-de-madrid) para los tres puestos.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -241,3 +241,9 @@ Pantallas tocadas:
 - **Impresión.** Revisión y el archivo de recibos muestran la vista previa y permiten imprimir, abrir o descargar el PDF. El navegador intenta abrir su cuadro de impresión al quedar lista la vista. El botón manual reutiliza el mismo documento. Caja confirma el pago después de la firma física y de la entrega del efectivo. Se abrió el cuadro de impresión en Chrome, Edge y Firefox de escritorio para Linux, con el FO-04 apaisado en una página. Queda pendiente la prueba con la impresora física del puesto en Windows o macOS.
 - **Comprobaciones locales.** Pasaron 1.110 pruebas, TypeScript y la compilación. ESLint registró cero errores y una advertencia previa en Unslop. PostgreSQL aislado permitió importar Excel ficticios, registrar actividad en ambos modos, simular un fallo de auditoría y verificar la concurrencia, la configuración preservada y la nueva emisión desde el ordinal uno. Se probó también con un propietario sujeto a RLS. Superadministración se comprobó a 375 y 1440 px. En Finanzas, contra la compilación de producción local, la emisión y la reimpresión generaron una sola acta y cero pagos.
 - **Oracle.** Producción confirmó `3b399fd` con la base sana. El formulario público permaneció abierto. La comprobación posterior confirmó una ficha real activa antes y después del despliegue, la línea CNE vinculada y TeInvito, Evolution y Recordatorio en servicio. Los borrados y pagos ficticios se probaron exclusivamente en la base aislada. [CI](https://github.com/pabloun2025/CNE/actions/runs/44907006468) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44907184190) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44907572677) · [Inspección de Oracle](https://github.com/pabloun2025/CNE/actions/runs/44907575646)
+
+## 19. Credenciales por zona y alta manual
+
+- En MJRV → Nueva ficha se elige el cargo oficial, la serie H o M y un número correspondiente a esa serie. El recinto determina la zona. El alta no pide rótulo. La edición de una ficha importada conserva su rótulo y conserva el cargo original cuando se guardan otros cambios.
+- Los PDF individuales, los ZIP y las planchas A4 muestran el nombre de la zona debajo del rótulo grande y aplican el color de la zona al rótulo y a la silueta. El QR conserva la cédula y las planchas conservan las guías de corte. Si falta el rótulo, se usa la junta también al enviar y al abrir Google Wallet. Las fichas incorporadas desde votantes no generan credenciales.
+- Pasaron 1.124 pruebas, TypeScript y la compilación. ESLint registró cero errores y la advertencia previa de Unslop. Se verificó el alta a 375 px y se leyeron los seis QR de una plancha A4 renderizada con fichas ficticias. Las pruebas de envío y Wallet usaron proveedores simulados.

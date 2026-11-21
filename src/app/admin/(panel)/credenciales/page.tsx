@@ -23,7 +23,6 @@ export default async function Credenciales() {
       </div>
       {r.activos === 0 && <p>Cargue el Excel de MJRV para empezar.</p>}
       <p className="cifra">{r.activos} fichas activas · {r.preparadas} preparadas · {r.pendientes} pendientes.</p>
-      {r.sinRotulo > 0 && <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 font-medium">Complete el rótulo de {r.sinRotulo} fichas para preparar sus credenciales.</p>}
       <section aria-label="Estado del envío por WhatsApp y correo" className="stack">
         {cfg.whatsappReal || cfg.correoReal ? (
           <p role="note">WhatsApp: {cfg.whatsappReal ? "real" : "simulado"} · Correo: {cfg.correoReal ? "real" : "simulado"}. WhatsApp deja de 20 a 45 segundos entre mensajes. Las fichas de demostración siempre se simulan.</p>

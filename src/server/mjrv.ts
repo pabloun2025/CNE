@@ -12,7 +12,7 @@ import { PERSONAS_CARGO } from "./mando";
 export type FiltrosMjrv = { junta?: string; rol?: string; estado?: string; q?: string };
 export type FilaLista = {
   id: number; cedula: string; apellidos: string; nombres: string; rol: Rol; cargo_original: string; activo: boolean; es_prueba: boolean;
-  origen: string; vigente: string; ingresado: boolean; rotulo_credencial: string | null;
+  origen: string; vigente: string; ingresado: boolean; incorporada: boolean; rotulo_credencial: string | null;
 };
 
 const ROLES = ["presidente", "secretario", "vocal", "suplente", "otro"];
@@ -36,7 +36,7 @@ export async function listarMjrv(f: FiltrosMjrv): Promise<FilaLista[]> {
   }
   return query<FilaLista>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.rol, m.cargo_original, m.activo, m.es_prueba, m.rotulo_credencial,
-            jo.serie || jo.numero AS origen, jv.serie || jv.numero AS vigente,
+            jo.serie || jo.numero AS origen, jv.serie || jv.numero AS vigente, m.incorporado_en IS NOT NULL AS incorporada,
             EXISTS (SELECT 1 FROM lecturas_puerta l WHERE l.mjrv_id = m.id AND l.resultado = 'valido') AS ingresado
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id JOIN juntas_madrid jv ON jv.id = ${SQL_VIGENTE}
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
@@ -74,23 +74,24 @@ export async function obtenerFicha(id: number): Promise<Ficha | null> {
   return { ...f[0], anverso: docs.some((d) => d.lado === "anverso"), reverso: docs.some((d) => d.lado === "reverso"), actas: actas[0].n, pago: cobro ?? null, movimientos };
 }
 
-export type DatosMjrv = { cedula: string; apellidos: string; nombres: string; cargo: string; junta: string; correo: string; telefono: string; rotulo: string };
+export type DatosMjrv = { cedula: string; apellidos: string; nombres: string; cargo: string; junta: string; correo: string; telefono: string };
 type Resultado = { ok: true; id: number } | { ok: false; mensaje: string };
 
-function validar(d: DatosMjrv): { ok: true; cedula: string; apellidos: string; nombres: string; cargo: string; rol: Rol; serie: string; numero: number; correo: string | null; telefono: string | null; rotulo: string | null } | { ok: false; mensaje: string } {
+function validar(d: DatosMjrv, permiteConservarCargo = false) {
   const cedula = validarCedulaTexto(d.cedula);
   if (!cedula.ok) return cedula;
   const apellidos = d.apellidos.trim(), nombres = d.nombres.trim();
-  if (!apellidos || !nombres) return { ok: false, mensaje: "Escriba apellidos y nombres." };
+  if (!apellidos || !nombres) return { ok: false as const, mensaje: "Escriba apellidos y nombres." };
   const cargo = resolverCargo(d.cargo);
-  if (!cargo) return { ok: false, mensaje: "Elija el cargo." };
+  // En edición, el valor vacío conserva el cargo guardado, incluso si procede de una importación.
+  if (!cargo && !(permiteConservarCargo && d.cargo === "")) return { ok: false as const, mensaje: "Elija el cargo." };
   const j = leerJunta(d.junta);
-  if (!j) return { ok: false, mensaje: "La junta no existe: use H1–H41 o M1–M54." };
+  if (!j) return { ok: false as const, mensaje: "La junta no existe: use H1–H41 o M1–M54." };
   const correo = validarCorreo(d.correo);
   if (!correo.ok) return correo;
   const telefono = validarMovil(d.telefono);
   if (!telefono.ok) return telefono;
-  return { ok: true, cedula: cedula.cedula, apellidos, nombres, cargo: cargo.etiqueta, rol: cargo.rol, serie: j.serie, numero: j.numero, correo: correo.correo, telefono: telefono.telefono, rotulo: d.rotulo.trim() || null };
+  return { ok: true as const, cedula: cedula.cedula, apellidos, nombres, cargo, ...j, correo: correo.correo, telefono: telefono.telefono };
 }
 
 const esDuplicado = (e: unknown) => (e as { code?: string }).code === "23505";
@@ -101,9 +102,9 @@ export async function crearMjrv(sesion: Sesion, d: DatosMjrv): Promise<Resultado
   try {
     return await withTx(async (client) => {
       const r = await client.query<{ id: number }>(
-        `INSERT INTO mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, rotulo_credencial, correo, telefono_e164, fuente_archivo, es_prueba)
-         VALUES ($1,$2,$3,$4,$5,(SELECT id FROM juntas_madrid WHERE serie = $6 AND numero = $7),$8,$9,$10,'Alta manual',false) RETURNING id`,
-        [v.cedula, v.apellidos, v.nombres, v.cargo, v.rol, v.serie, v.numero, v.rotulo, v.correo, v.telefono],
+        `INSERT INTO mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, correo, telefono_e164, fuente_archivo, es_prueba)
+         VALUES ($1,$2,$3,$4,$5,(SELECT id FROM juntas_madrid WHERE serie = $6 AND numero = $7),$8,$9,'Alta manual',false) RETURNING id`,
+        [v.cedula, v.apellidos, v.nombres, v.cargo?.etiqueta, v.cargo?.rol, v.serie, v.numero, v.correo, v.telefono],
       );
       await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "mjrv_creado", entidad: "mjrv", entidadId: r.rows[0].id }, client);
       return { ok: true as const, id: r.rows[0].id };
@@ -115,14 +116,15 @@ export async function crearMjrv(sesion: Sesion, d: DatosMjrv): Promise<Resultado
 }
 
 export async function editarMjrv(sesion: Sesion, id: number, d: DatosMjrv): Promise<Resultado> {
-  const v = validar(d);
+  const v = validar(d, true);
   if (!v.ok) return v;
   try {
     return await withTx(async (client) => {
       const r = await client.query(
-        `UPDATE mjrv SET cedula=$2, apellidos=$3, nombres=$4, cargo_original=$5, rol=$6, junta_origen_id=(SELECT id FROM juntas_madrid WHERE serie=$7 AND numero=$8),
-                rotulo_credencial=$9, correo=$10, telefono_e164=$11, actualizado_en=now() WHERE id=$1 RETURNING id`,
-        [id, v.cedula, v.apellidos, v.nombres, v.cargo, v.rol, v.serie, v.numero, v.rotulo, v.correo, v.telefono],
+        `UPDATE mjrv SET cedula=$2, apellidos=$3, nombres=$4, cargo_original=coalesce($5,cargo_original), rol=coalesce($6,rol),
+                junta_origen_id=(SELECT id FROM juntas_madrid WHERE serie=$7 AND numero=$8),
+                correo=$9, telefono_e164=$10, actualizado_en=now() WHERE id=$1 RETURNING id`,
+        [id, v.cedula, v.apellidos, v.nombres, v.cargo?.etiqueta ?? null, v.cargo?.rol ?? null, v.serie, v.numero, v.correo, v.telefono],
       );
       if (!r.rows[0]) return { ok: false as const, mensaje: "La ficha no existe." };
       await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "mjrv_editado", entidad: "mjrv", entidadId: id }, client);

@@ -131,6 +131,16 @@ describe("Google Wallet · ruta pública y mensajes de fichas", () => {
     expect(r.headers.get("location")).toMatch(/^https:\/\/pay\.google\.com\/gp\/v\/save\//);
     expect(r.headers.get("location")).not.toContain("0000000101");
     expect(JSON.stringify(cargaUtil(r.headers.get("location")!))).not.toContain("genericClasses");
+    await consultarDueno("UPDATE cne.mjrv SET rotulo_credencial = NULL WHERE id = $1", [id]);
+    const sinRotulo = await pedir(tokenWallet(id, clave));
+    expect(sinRotulo.status).toBe(302);
+    expect(cargaUtil(sinRotulo.headers.get("location")!).payload.genericObjects[0]).toMatchObject({
+      subheader: { defaultValue: { value: "H1" } },
+      textModulesData: expect.arrayContaining([{ id: "cargo", header: "Cargo", body: "2do. VOCAL PRINCIPAL" }]),
+    });
+    await consultarDueno("UPDATE cne.mjrv SET incorporado_en = now() WHERE id = $1", [id]);
+    expect((await pedir(tokenWallet(id, clave))).status).toBe(404);
+    await consultarDueno("UPDATE cne.mjrv SET incorporado_en = NULL WHERE id = $1", [id]);
     expect((await pedir(tokenWallet(idPrueba, clave))).status).toBe(404);
     expect((await pedir(`${id}.${"a".repeat(32)}`)).status).toBe(404);
     await consultarDueno("UPDATE cne.mjrv SET activo = false WHERE id = $1", [id]);
@@ -142,7 +152,7 @@ describe("Google Wallet · ruta pública y mensajes de fichas", () => {
   });
   it("el mensaje de una ficha real lleva el enlace y el de una ficha de prueba no", async () => {
     Object.assign(process.env, ENTORNO, { HOST_MADRID: "madrid.ejemplo.invalid" });
-    const d = { cedula: "0000000101", apellidos: "A", nombres: "N", cargo: "VOCAL", rotulo: "H01", serie: "H" as const, prueba: false };
+    const d = { cedula: "0000000101", apellidos: "A", nombres: "N", cargo: "VOCAL", rotulo: "H01", serie: "H" as const, zona: "amarillo" as const, prueba: false };
     const persona = { id, junta: "H1", zona: "amarillo" as const };
     const real = await mensajeCredencial(d, "whatsapp", persona);
     expect(real.texto).toContain(`https://madrid.ejemplo.invalid/w/${id}.`);

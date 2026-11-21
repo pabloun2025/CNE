@@ -13,10 +13,10 @@ async function descargar(seleccion: Seleccion, individual: boolean, seleccionExa
     return new Response("La selección cambió. Actualice la lista y vuelva a elegir las fichas.", { status: 409 });
   }
   if (sel.datos.length === 0) {
-    return new Response(sel.sinRotulo ? `Falta el rótulo de credencial de ${sel.sinRotulo} personas.` : "No hay credenciales con ese criterio.", { status: 422 });
+    return new Response("No hay credenciales con ese criterio.", { status: 422 });
   }
   const medidas = await medidasCredencial();
-  const headers = { "x-excluidas-sin-rotulo": String(sel.sinRotulo), "cache-control": "private, no-store" };
+  const headers = { "cache-control": "private, no-store" };
   if (individual && sel.ids.length > 1) {
     const contenido = crearZip(sel.datos.map((ficha, indice) => ({
       nombre: nombrePdfCredencial(sel.personas[indice].junta, ficha.cedula),
