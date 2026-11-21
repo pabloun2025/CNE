@@ -280,7 +280,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO.** Aceptar un movimiento deja la junta en verde y le añade la marca de movimiento. El verde de «3 presentes» y la marca de movimiento conviven: la marca dice que hubo traslado.
 
-**DECIDIDO (criterio actualizado).** El tablero prioriza la lectura operativa de problemas, no la reproducción del plano físico. Debe poder ordenar, agrupar o filtrar juntas por faltantes, juntas próximas a completarse, juntas con tres miembros disponibles y juntas con suplentes transferibles. Se conservan el color de zona y la serie H/M de cada ficha, pero el orden visual puede diferir del plano. El orden físico solo se usa como referencia para la distancia y las sugerencias de movimiento. Los números visibles de las fichas proceden de las series separadas de hombres y mujeres, no de una numeración única de 1–95.
+**DECIDIDO (21-11-2026).** El Centro de mando empieza por Amarillo · Hombres. Agrupa las juntas por los viales y filas del plano y las presenta en orden numérico dentro de cada zona. En pantalla completa se ven las 95 juntas y los indicadores en una sola vista. Los filtros de presencia y disponibilidad permiten resaltar las juntas de interés en la vista habitual. Los números visibles proceden de las series H/M de las credenciales.
 
 **DECIDIDO.** Numeración de las fichas.
 
@@ -301,7 +301,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 - Vial este, de norte a sur: amarillo, azul, rojo, celeste. Cada color en dos filas.
 - Vial norte, de este a oeste: verde y después rosado, separados por una entrada.
 
-**NOTA DE FUENTE.** El orden de los iconos dentro de cada fila no se puede deducir del plano; no se asignan extremos físicos. Como se decidió priorizar una organización por problemas, no es requisito reproducirlos en su posición exacta.
+**NOTA DE FUENTE.** El orden de los iconos dentro de cada fila no se puede deducir del plano. El mapa del Centro de mando presenta las filas en secuencia numérica y agrupa los dos viales de manera esquemática.
 
 **Leído en el plano, no reconfirmado junta por junta.** Los rótulos de fila usan la serie 1–95 del plano. Sirven para saber qué bloque está junto a cuál. La equivalencia con la ficha es la de la tabla de arriba (hombres 1–41 coinciden con el plano; mujeres 1–54 del plano son las juntas 42–95). No imprimas el número del plano en la ficha.
 

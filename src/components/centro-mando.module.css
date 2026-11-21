@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   margin: 0;
-  width: 100%;
+  width: 100vw;
   height: 100dvh;
   max-width: none;
   max-height: none;
@@ -10,15 +10,13 @@
 }
 
 .tablero {
-  --separacion: clamp(2px, .4vw, 6px);
-  --ancho-tarjeta: clamp(26px, 8vw, 30px);
-  --alto-tarjeta: clamp(26px, 5.5dvh, 56px);
+  --separacion: clamp(2px, .4vw, 5px);
   box-sizing: border-box;
   display: grid;
   align-content: start;
-  gap: 4px;
+  gap: clamp(4px, 1dvh, 10px);
   min-height: 100%;
-  padding: clamp(6px, 1.6vw, 18px);
+  padding: clamp(4px, 1vw, 14px);
   background: var(--paper);
   color: var(--ink);
   font-size: clamp(11px, 1.15vw, 17px);
@@ -89,30 +87,64 @@
 }
 
 .zonas {
+  --alto-tarjeta: clamp(17px, 3.45dvh, 28px);
+  --texto-tarjeta: clamp(8px, 1.55dvh, 13px);
   display: grid;
-  gap: clamp(4px, 1dvh, 12px) clamp(8px, 1vw, 16px);
+  align-items: start;
+  gap: 5px clamp(8px, 1vw, 16px);
 }
 
-.tablero .zona h3 {
-  font: 700 1em/1.2 var(--sans);
+.vial {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+}
+
+.zonas .vial h3 {
+  font: 700 clamp(11px, 1.6dvh, 16px)/1.1 var(--sans);
+}
+
+.zona {
+  gap: 2px;
+}
+
+.zona h4 {
+  font-weight: 700;
+  font-size: clamp(10px, 1.55dvh, 13px);
+  line-height: 1.1;
+}
+
+.entrada {
+  border-top: 1px dashed var(--input);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.1;
 }
 
 .fila {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--ancho-tarjeta), 1fr));
-  gap: var(--separacion);
+  gap: clamp(2px, .35vw, 5px);
 }
 
 .tarjeta {
   display: grid;
   grid-template-rows: 1fr 1fr;
   align-items: center;
-  min-height: var(--alto-tarjeta);
-  border-radius: 4px;
+  height: var(--alto-tarjeta);
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border-radius: 3px;
+  font-size: var(--texto-tarjeta);
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-.tablero .tarjeta:focus-visible {
+.zonas .tarjeta:focus-visible {
   z-index: 1;
   outline-offset: 0;
 }
@@ -149,29 +181,62 @@
   background: rgb(15 27 45 / 35%);
 }
 
-@media (min-width: 600px) {
+@media (min-width: 540px) {
   .zonas {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   }
-}
-
-@media (min-width: 900px) {
-  .tablero {
-    --ancho-tarjeta: 48px;
-    --alto-tarjeta: clamp(36px, 8dvh, 80px);
-    gap: 12px;
+  .tablero .zonas {
+    --alto-tarjeta: clamp(18px, 6dvh, 62px);
+    --texto-tarjeta: clamp(9px, 1.8dvh, 16px);
   }
 }
 
 @media (max-height: 500px) {
   .tablero {
     --separacion: 2px;
-    --ancho-tarjeta: 26px;
-    --alto-tarjeta: 26px;
+    font-size: 11px;
     padding: 4px 8px;
   }
 
   .salir {
     min-height: 26px;
+  }
+}
+
+@media (max-width: 360px) {
+  .tablero .zonas {
+    --alto-tarjeta: clamp(15px, 3dvh, 25px);
+  }
+}
+
+@media (min-width: 540px) and (max-height: 500px) {
+  .tablero .zonas {
+    --alto-tarjeta: clamp(15px, 4.6dvh, 24px);
+    --texto-tarjeta: clamp(8px, 2.3dvh, 12px);
+  }
+
+  .tablero .indicadores > div {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    padding: 2px;
+  }
+
+  .tablero .indicadores dd {
+    font-size: 1em;
+    white-space: nowrap;
+  }
+
+  .tablero .vial {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .tablero .zona {
+    gap: 1px;
+  }
+
+  .tablero .cuentas {
+    border: 0;
   }
 }

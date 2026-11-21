@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { filtrarJuntas, gruposInfograma, type Filtro, type JuntaMando, type Indicadores } from "@/domain/mando";
+import { filtrarJuntas, gruposMapaMadrid, type Filtro, type JuntaMando, type Indicadores } from "@/domain/mando";
 import { ZONA_HEX, type ZonaColor } from "@/domain/juntas";
 import type { Modo } from "@/server/config";
 import { horaCorta, useSondeo } from "./sondeo";
@@ -30,6 +30,40 @@ function CifrasMando({ indicadores: i, className }: { indicadores: Indicadores; 
         <div key={t}><dt>{t}</dt><dd>{v}</dd></div>
       ))}
     </dl>
+  );
+}
+
+function MapaJuntas({ grupos, visibles, abrir }: {
+  grupos: ReturnType<typeof gruposMapaMadrid>;
+  visibles?: Set<number>;
+  abrir: (id: number) => void;
+}) {
+  return (
+    <div className={estilos.zonas} role="region" aria-label="Mapa de juntas de Madrid">
+      {(["este", "norte"] as const).map((vial) => (
+        <section key={vial} className={estilos.vial} aria-label={`Vial ${vial}`}>
+          <h3>Vial {vial}</h3>
+          {grupos.filter((g) => g.vial === vial).map((g) => (
+            <div key={g.zona} className={estilos.zona}>
+              {g.zona === "rosado" && <p className={estilos.entrada}>Entrada</p>}
+              <h4>{g.titulo}</h4>
+              {g.filas.map((fila, i) => (
+                <div key={i} className={estilos.fila} style={{ gridTemplateColumns: `repeat(${Math.max(...g.filas.map((f) => f.length))}, minmax(0, 1fr))` }}>
+                  {fila.map((j) => (
+                    <button key={j.id} type="button" className={estilos.tarjeta} aria-label={etiquetaFicha(j)}
+                      style={{ background: ZONA_HEX[j.zona], color: TEXTO_ZONA[j.zona], visibility: visibles && !visibles.has(j.id) ? "hidden" : undefined }}
+                      onClick={(e) => { e.currentTarget.focus(); abrir(j.id); }}>
+                      <span className={estilos.serie}>{j.serie}{j.numero}{j.movimiento && <span aria-hidden="true" title="Hubo traslado" className={estilos.marca}>⇄</span>}</span>
+                      <span className={estilos.cuentas} style={{ background: ARO[j.estado], color: CIFRA[j.estado] }}>{j.presentes}/{j.faltan}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -74,43 +108,25 @@ export function CentroMando() {
 
   if (!datos) return <p>{falla ? "No se pudo cargar el centro de mando. Reintentando…" : "Cargando…"}</p>;
   const lista = filtrarJuntas(datos.juntas, filtro);
-  const grupos = gruposInfograma(lista);
-  const gruposCompletos = filtro === "todas" ? grupos : gruposInfograma(datos.juntas);
+  const grupos = gruposMapaMadrid(datos.juntas);
   const actualizacion = falla ? `Sin actualizar desde ${ultima ? horaCorta(ultima) : "—"}` : `Actualizado ${ultima ? horaCorta(ultima) : ""}`;
   const estadoActualizacion = falla ? "font-bold text-red-700" : "text-slate-600";
   return (
     <div className="space-y-3">
       <CifrasMando indicadores={datos.indicadores} className="indicadores" />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className={`text-xs ${estadoActualizacion}`}>{actualizacion}</p>
+        <p className={`text-xs ${estadoActualizacion}`}>Hay / faltan · {actualizacion}</p>
         <button ref={botonPantalla} type="button" className="quiet" onClick={activarPantalla}>Pantalla completa</button>
       </div>
-
-      <TarjetaPropuesta onCambio={refrescar} />
-      <button onClick={() => setIncorporando(true)} className="border-2 border-stone-900 px-4 py-3">Incorporar votante</button>
 
       <div className="flex flex-wrap items-center gap-2">
         {FILTROS.map((f) => <button key={f.id} onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id} className={`border-2 px-3 py-2 text-sm ${filtro === f.id ? "border-stone-900 bg-stone-900 text-white" : "border-stone-900 bg-white"}`}>{f.texto}</button>)}
       </div>
 
       {lista.length === 0 && <p>No hay juntas con este filtro.</p>}
-      {grupos.map((g) => (
-        <section key={g.zona}>
-          <h2 className="mb-1 mt-2">{g.titulo} ({g.fichas.length})</h2>
-          <div className="fila-fichas">
-            {g.fichas.map((j) => (
-              <button key={j.id} onClick={() => setAbierta(j.id)} className="ficha" aria-label={etiquetaFicha(j)} style={{ background: ZONA_HEX[j.zona], color: TEXTO_ZONA[j.zona], boxShadow: `0 0 0 2px #fff, 0 0 0 5px ${ARO[j.estado]}` }}>
-                <span className="ficha-serie">{j.serie}{j.numero}</span>
-                {j.movimiento && <span className="ficha-marca" title="Hubo traslado" aria-hidden="true">⇄</span>}
-                <span className="ficha-cuentas">
-                  <span className="ficha-cifra" style={{ background: ARO[j.estado], color: CIFRA[j.estado] }}><b>{j.presentes}</b><small>hay</small></span>
-                  <span className="ficha-cifra" style={{ background: ARO[j.estado], color: CIFRA[j.estado] }}><b>{j.faltan}</b><small>faltan</small></span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
+      <MapaJuntas grupos={grupos} visibles={filtro === "todas" ? undefined : new Set(lista.map((j) => j.id))} abrir={setAbierta} />
+      <TarjetaPropuesta onCambio={refrescar} />
+      <button onClick={() => setIncorporando(true)} className="border-2 border-stone-900 px-4 py-3">Incorporar votante</button>
       {incorporando && <FormIncorporar juntas={datos.juntas} onCerrar={() => setIncorporando(false)} onCambio={refrescar} />}
       {abierta !== null && <FichaJunta juntaId={abierta} onCerrar={() => setAbierta(null)} onCambio={refrescar} />}
       <div ref={tablero}>
@@ -130,21 +146,7 @@ export function CentroMando() {
                 <p className={estadoActualizacion}>{actualizacion}</p>
               </div>
             </div>
-            <div className={estilos.zonas}>
-              {gruposCompletos.map((g) => (
-                <section key={g.zona} className={estilos.zona}>
-                  <h3>{g.titulo} ({g.fichas.length})</h3>
-                  <div className={estilos.fila}>
-                    {g.fichas.map((j) => (
-                      <button key={j.id} type="button" className={estilos.tarjeta} aria-label={etiquetaFicha(j)} style={{ background: ZONA_HEX[j.zona], color: TEXTO_ZONA[j.zona] }} onClick={(e) => { e.currentTarget.focus(); setAbiertaPantalla(j.id); }}>
-                        <span className={estilos.serie}>{j.serie}{j.numero}{j.movimiento && <span aria-hidden="true" className={estilos.marca}>⇄</span>}</span>
-                        <span className={estilos.cuentas} style={{ background: ARO[j.estado], color: CIFRA[j.estado] }}>{j.presentes}/{j.faltan}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+            <MapaJuntas grupos={grupos} abrir={setAbiertaPantalla} />
             {abiertaPantalla !== null && <FichaJunta juntaId={abiertaPantalla} onCerrar={() => setAbiertaPantalla(null)} onCambio={refrescar} compacta />}
           </div>
         </dialog>
