@@ -284,3 +284,4 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 ## 24. Cédula o pasaporte en el correo
 
 - El correo pide llevar «su cédula o pasaporte». Las instrucciones de correo y WhatsApp indican qué fotos corresponden a cada documento. El acceso al formulario sigue usando el número de cédula. Pasaron las 20 pruebas de envíos, TypeScript y ESLint en los archivos modificados.
+- Oracle publicó `98550d8` y Madrid respondió con la versión esperada. Brevo aceptó la muestra corregida solicitada por Pablo, con una credencial ficticia. [CI](https://github.com/pabloun2025/CNE/actions/runs/44937072801) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44937072690) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/44937433111)
