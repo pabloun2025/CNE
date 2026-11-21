@@ -59,6 +59,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
+  "GET /w/[token]": "publica", // enlace firmado por ficha; solo fichas reales activas (Google Wallet)
   "POST /api/webhooks/brevo": [], // autentica el token de Brevo, no una sesión de CNE
   "POST /api/d/foto": "publica", // pública pero cerrada por el interruptor del admin
   "POST /api/d/buscar": "publica",
