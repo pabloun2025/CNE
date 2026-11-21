@@ -2,11 +2,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import sharp from "sharp";
 import { randomBytes } from "node:crypto";
-import { CFB } from "xlsx";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
 import { guardarDocumento } from "@/server/documentos";
 import { confirmarPago, fichaPago, generarActa, generarRecibosContingencia, type ActorPago } from "@/server/finanzas";
+import { validarCedula } from "@/server/mjrv";
 import { fijarModoRecibo, guardarFirma } from "@/server/impresion-actas";
 import { buscarRecibos, descargarRecibo, descargarSeleccionRecibos } from "@/server/recibos";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
@@ -50,27 +54,37 @@ describe("archivo de recibos de Madrid", () => {
     const acta = await generarActa(actor, persona, true);
     expect(acta).toMatchObject({ ok: true, borrador: false });
     if (!acta.ok || acta.actaId === null) throw new Error("Falta el acta");
-    expect(await contieneTexto(acta.pdf, "USD 127.25")).toBe(true);
-    expect(await contieneTexto(acta.pdf, "EUR 55.00")).toBe(true);
+    expect(await contieneTexto(acta.pdf, "USD 70,00")).toBe(true);
+    expect(await contieneTexto(acta.pdf, "EUR 58,82")).toBe(true);
     await consultarDueno("UPDATE cne.parametros_pago SET importe_usd = 200, importe_eur = 90");
     const otraActa = await generarActa(actor, persona, true);
     expect(otraActa).toMatchObject({ ok: true, actaId: acta.actaId, numero: acta.numero });
     if (!otraActa.ok) throw new Error("Falta la reimpresión");
-    expect(await contieneTexto(otraActa.pdf, "USD 127.25")).toBe(true);
-    expect(await contieneTexto(otraActa.pdf, "EUR 55.00")).toBe(true);
+    expect(await contieneTexto(otraActa.pdf, "USD 70,00")).toBe(true);
+    expect(await contieneTexto(otraActa.pdf, "EUR 58,82")).toBe(true);
+    expect(await validarCedula({ portal: "finanzas", tipo: "usuario", id: actor.usuarioId!, nombre: actor.operadorNombre }, persona)).toMatchObject({ ok: true });
     expect(await confirmarPago(actor, { mjrvId: persona, actaId: acta.actaId, verificado: true }))
-      .toMatchObject({ ok: true, importeUsd: "127.25", importeEur: "55.00" });
+      .toMatchObject({ ok: true, importeUsd: "70.00", importeEur: "58.82" });
+    const copiaConFotos = (await descargarRecibo("acta", acta.actaId, undefined, true))!;
+    const soloRecibo = (await descargarRecibo("acta", acta.actaId))!;
+    expect(copiaConFotos.numero).toBe(soloRecibo.numero);
+    expect(copiaConFotos.pdf.length).toBeGreaterThan(soloRecibo.pdf.length);
+    const seleccion = await descargarSeleccionRecibos(sesion, { modo: "prueba", incluirCedula: true, referencias: [{ tipo: "acta", id: acta.actaId }] });
+    if (!seleccion.ok || seleccion.tipo !== "application/pdf") throw new Error("Falta el comprobante con fotos");
+    expect(seleccion.contenido.length).toBeGreaterThan(soloRecibo.pdf.length);
     await consultarDueno("DELETE FROM cne.documentos_mjrv WHERE mjrv_id = $1", [persona]);
-    expect((await fichaPago("0000000041"))?.importeEur).toBe("55.00");
+    expect(await descargarRecibo("acta", acta.actaId, undefined, true)).toEqual(soloRecibo);
+    expect((await fichaPago("0000000041"))?.importeEur).toBe("58.82");
     for (const q of [acta.numero, "0000000041", "NOMBRE PRUEBA"]) {
       expect((await buscarRecibos(q, 1)).filas).toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: acta.actaId, tipo: "acta", importe: "55.00", pagado: true, reconstruido: false }),
+        expect.objectContaining({ id: acta.actaId, tipo: "acta", importe: "58.82", pagado: true, reconstruido: false }),
       ]));
     }
     const recibo = await descargarRecibo("acta", acta.actaId);
     expect(recibo?.numero).toBe(acta.numero);
     expect((await PDFDocument.load(recibo!.pdf)).getPageCount()).toBe(1);
-    expect(await contieneTexto(recibo!.pdf, "USD 127.25")).toBe(true);
+    expect(await contieneTexto(recibo!.pdf, "USD 70,00")).toBe(true);
+    expect(recibo!.pdf.length).toBeLessThan(acta.pdf.length);
     expect(await consultarDueno("SELECT id FROM cne.actas_pago")).toHaveLength(1);
     expect(await consultarDueno("SELECT id FROM cne.pagos_confirmados")).toHaveLength(1);
     await consultarDueno("UPDATE cne.configuracion SET modo = 'eleccion'");
@@ -84,7 +98,7 @@ describe("archivo de recibos de Madrid", () => {
     expect((await buscarRecibos(acta.numero, 1)).filas).toMatchObject([{ reconstruido: true }]);
     const reconstruido = (await descargarRecibo("acta", acta.actaId))!;
     expect((await PDFDocument.load(reconstruido.pdf)).getPageCount()).toBe(1);
-    expect(await contieneTexto(reconstruido.pdf, "USD 127.25")).toBe(true);
+    expect(await contieneTexto(reconstruido.pdf, "USD 70,00")).toBe(true);
   });
 
   it("muestra una firma nueva una sola vez y mantiene descargables los PDF firmados anteriores", async () => {
@@ -125,7 +139,7 @@ describe("archivo de recibos de Madrid", () => {
     expect(await confirmarPago(actor, { mjrvId: ids[0], actaId: acta.id, verificado: true })).toMatchObject({ ok: false });
   });
 
-  it("completa un recibo legado sin importe usando el importe configurado y el número que ya tenía", async () => {
+  it("archiva el borrador legado con sus cifras ausentes y emite un único recibo definitivo", async () => {
     const [fila] = await consultarDueno<{ id: number }>(
       "INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id) SELECT '0000000045','LEGADO','NOMBRE PRUEBA','VOCAL','vocal',id FROM cne.juntas_madrid WHERE serie='H' AND numero=1 RETURNING id");
     const [legado] = await consultarDueno<{ id: number }>(
@@ -141,19 +155,20 @@ describe("archivo de recibos de Madrid", () => {
     for (const lado of ["anverso", "reverso"] as const) {
       expect(await guardarDocumento({ mjrvId: fila.id, lado, imagen: await foto(), origen: "estacion" })).toMatchObject({ ok: true });
     }
-    const reimpresion = await generarActa(actor, fila.id, true);
-    expect(reimpresion).toMatchObject({ ok: true, actaId: legado.id, borrador: true });
-    if (!reimpresion.ok) throw new Error("Falta la reimpresión histórica");
-    expect(await contieneTexto(reimpresion.pdf, "EUR 90.00")).toBe(false);
-    expect(await contieneTexto(reimpresion.pdf, "USD 200.00")).toBe(false);
-    expect(await consultarDueno("SELECT importe_eur, importe_usd FROM cne.actas_pago WHERE id = $1", [legado.id]))
-      .toEqual([{ importe_eur: null, importe_usd: null }]);
-    expect(await generarRecibosContingencia(actor, [fila.id])).toMatchObject({
-      ok: true, numeros: [`PRUEBA-${String(legado.id).padStart(6, "0")}`],
-    });
-    expect(await consultarDueno("SELECT id, importe_eur::text AS importe, importe_usd::text AS usd FROM cne.actas_pago WHERE mjrv_id = $1", [fila.id]))
-      .toEqual([{ id: legado.id, importe: "90.00", usd: null }]);
-    expect(await contieneTexto((await descargarRecibo("acta", legado.id))!.pdf, "USD 200.00")).toBe(false);
+    const nuevo = await generarActa(actor, fila.id, true);
+    expect(nuevo).toMatchObject({ ok: true, borrador: false, numero: expect.stringMatching(/^PRUEBA-2026-\d{3}$/) });
+    if (!nuevo.ok) throw new Error("Falta el recibo definitivo");
+    expect(nuevo.actaId).not.toBe(legado.id);
+    expect(await contieneTexto(nuevo.pdf, "EUR 58,82")).toBe(true);
+    expect(await generarRecibosContingencia(actor, [fila.id])).toMatchObject({ ok: true, numeros: [nuevo.numero] });
+    expect(await consultarDueno("SELECT id, importe_eur, importe_usd, recibo_principal FROM cne.actas_pago WHERE mjrv_id = $1 ORDER BY id", [fila.id]))
+      .toEqual([
+        { id: legado.id, importe_eur: null, importe_usd: null, recibo_principal: false },
+        { id: nuevo.actaId, importe_eur: "58.82", importe_usd: "70.00", recibo_principal: true },
+      ]);
+    const historico = (await descargarRecibo("acta", legado.id))!;
+    expect(historico.numero).toBe(copia.numero);
+    expect(await contieneTexto(historico.pdf, "USD 200.00")).toBe(false);
   });
 
   it("descarga todos los recibos que coinciden más allá de la primera página y audita cada archivo", async () => {
@@ -169,10 +184,17 @@ describe("archivo de recibos de Madrid", () => {
     const resultado = await descargarSeleccionRecibos(sesion, { modo: "prueba", q: "lote filtrado", total: 31 });
     expect(resultado).toMatchObject({ ok: true, tipo: "application/zip" });
     if (!resultado.ok) throw new Error("Falta el ZIP");
-    const zip = CFB.read(Buffer.from(await new Response(resultado.contenido).arrayBuffer()), { type: "buffer" });
-    const archivos = (zip.FileIndex as { name: string; content: Uint8Array }[]).filter(({ name }) => name.endsWith(".pdf"));
-    expect(archivos.map(({ name }) => name).sort()).toEqual(ids.map(({ id }) => `recibo-PRUEBA-${String(id).padStart(6, "0")}.pdf`).sort());
-    expect(await contieneTexto(archivos[0].content, "EUR 43.12")).toBe(true);
+    const carpeta = mkdtempSync(join(tmpdir(), "cne-recibos-zip-"));
+    try {
+      const ruta = join(carpeta, "recibos.zip");
+      writeFileSync(ruta, Buffer.from(await new Response(resultado.contenido).arrayBuffer()));
+      execFileSync("unzip", ["-tq", ruta]);
+      const nombres = execFileSync("unzip", ["-Z1", ruta], { encoding: "utf8" }).trim().split("\n");
+      expect(nombres.sort()).toEqual(ids.map(({ id }) => `recibo-PRUEBA-${String(id).padStart(6, "0")}.pdf`).sort());
+      expect(await contieneTexto(execFileSync("unzip", ["-p", ruta, nombres[0]]), "EUR 43.12")).toBe(true);
+    } finally {
+      rmSync(carpeta, { recursive: true, force: true });
+    }
     const auditoria = await consultarDueno<{ id: number }>(`SELECT entidad_id::bigint AS id FROM cne.auditoria
        WHERE accion = 'recibo_descargado' AND entidad = 'actas_pago' AND actor_id = $1 AND entidad_id::bigint >= $2 ORDER BY id`,
     [sesion.usuarioId, Math.min(...ids.map(({ id }) => id))]);

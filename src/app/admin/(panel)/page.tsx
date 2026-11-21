@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { PASOS_MADRID, TODOS_LOS_ROLES } from "@/domain/roles";
+import { CONSUL_Y_FINANCIERO, PASOS_MADRID } from "@/domain/roles";
 import { InicioAdmin } from "@/components/inicio-admin";
 import { requireAdmin } from "@/server/guard";
 
 export default async function AdminInicio() {
-  const sesion = await requireAdmin({ roles: TODOS_LOS_ROLES });
+  const sesion = await requireAdmin({ roles: CONSUL_Y_FINANCIERO });
   const pasos = PASOS_MADRID.filter((p) => p.roles.includes(sesion.rol));
   return (
     <main className="stack-lg">

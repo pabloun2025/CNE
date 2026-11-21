@@ -1,153 +1,147 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { aGrises, DetectorCaptura, diferenciaMedia, varianzaLaplaciano } from "@/domain/captura-auto";
 
-const ID1 = 85.6 / 54; // proporción de la tarjeta de identidad
+const ID1 = 85.6 / 54;
 const MAX_PX = 1600;
 
-// Cámara trasera con recuadro de proporción ID-1, «Tomar foto», vista previa «Usar / Repetir», recorte al recuadro
-// y reducción a ≤ 1.600 px en canvas. Si no hay cámara se ofrece elegir/hacer la foto con el selector del móvil.
-// Captura automática (M23): cuando la imagen del recuadro está quieta y nítida ~1 s, toma la foto sola. El botón manual siempre está visible.
-export function CapturaCedula({ rotulo, onUsar }: { rotulo: string; onUsar: (imagen: Blob) => void | Promise<void> }) {
+function aBlob(origen: CanvasImageSource, x: number, y: number, ancho: number, alto: number): Promise<Blob | null> {
+  const escala = Math.min(1, MAX_PX / Math.max(ancho, alto));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(ancho * escala));
+  canvas.height = Math.max(1, Math.round(alto * escala));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return Promise.resolve(null);
+  ctx.drawImage(origen, x, y, ancho, alto, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+}
+
+export function CapturaCedula({ rotulo, onUsar }: {
+  rotulo: string;
+  onUsar: (imagen: Blob) => boolean | void | Promise<boolean | void>;
+}) {
   const video = useRef<HTMLVideoElement>(null);
-  const [lista, setLista] = useState(false);
   const [sinCamara, setSinCamara] = useState(false);
-  const [dim, setDim] = useState({ w: 4, h: 3 });
+  const [dim, setDim] = useState({ w: 0, h: 0 });
   const [previa, setPrevia] = useState<{ blob: Blob; url: string } | null>(null);
-  const [enviando, setEnviando] = useState(false);
-  const [auto, setAuto] = useState(true);
-  const [progreso, setProgreso] = useState(0);
-  const detector = useRef(new DetectorCaptura());
-  const anterior = useRef<Uint8ClampedArray | null>(null);
-  const enfriarHasta = useRef(0);
-  const alTomar = useRef<() => void>(() => undefined);
+  const [ocupada, setOcupada] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    let flujo: MediaStream | null = null;
+    let flujo: MediaStream | undefined;
     let vivo = true;
-    if (!navigator.mediaDevices?.getUserMedia) { queueMicrotask(() => setSinCamara(true)); return; }
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 } } }).then((m) => {
-      if (!vivo) { m.getTracks().forEach((t) => t.stop()); return; }
-      flujo = m;
-      const v = video.current;
-      if (!v) return;
-      v.srcObject = m;
-      v.onloadedmetadata = () => { setDim({ w: v.videoWidth, h: v.videoHeight }); setLista(true); };
-      void v.play();
-    }).catch(() => setSinCamara(true));
-    return () => { vivo = false; flujo?.getTracks().forEach((t) => t.stop()); };
+    const v = video.current;
+    const fallo = () => { if (vivo) setSinCamara(true); };
+
+    async function abrir() {
+      try {
+        flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 } } });
+        if (!vivo || !v) { flujo.getTracks().forEach((t) => t.stop()); return; }
+        flujo.getVideoTracks().forEach((t) => t.addEventListener("ended", fallo));
+        v.srcObject = flujo;
+        await v.play();
+      } catch { fallo(); }
+    }
+
+    void abrir();
+    return () => {
+      vivo = false;
+      flujo?.getTracks().forEach((t) => {
+        t.removeEventListener("ended", fallo);
+        t.stop();
+      });
+      if (v) v.srcObject = null;
+    };
   }, []);
 
-  // Recuadro en coordenadas del vídeo: 92 % del ancho, con proporción ID-1, sin pasarse del alto.
-  const recuadro = () => {
-    let w = dim.w * 0.92, h = w / ID1;
-    if (h > dim.h * 0.92) { h = dim.h * 0.92; w = h * ID1; }
-    return { x: (dim.w - w) / 2, y: (dim.h - h) / 2, w, h };
-  };
-
-  const aBlob = (origen: CanvasImageSource, sx: number, sy: number, sw: number, sh: number) =>
-    new Promise<Blob | null>((resolve) => {
-      const escala = Math.min(1, MAX_PX / Math.max(sw, sh));
-      const c = document.createElement("canvas");
-      c.width = Math.round(sw * escala); c.height = Math.round(sh * escala);
-      c.getContext("2d")!.drawImage(origen, sx, sy, sw, sh, 0, 0, c.width, c.height);
-      c.toBlob(resolve, "image/jpeg", 0.85);
-    });
-
-  // Muestreo cada 150 ms de una miniatura del recuadro: nitidez (laplaciano) y movimiento frente al fotograma anterior.
   useEffect(() => {
-    if (!lista || previa || !auto) return;
-    const mini = document.createElement("canvas");
-    const id = window.setInterval(() => {
-      const v = video.current;
-      if (!v || v.readyState < 2) return;
-      let w = dim.w * 0.92, h = w / ID1;
-      if (h > dim.h * 0.92) { h = dim.h * 0.92; w = h * ID1; }
-      mini.width = 320; mini.height = Math.round(320 / ID1);
-      const ctx = mini.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
-      ctx.drawImage(v, (dim.w - w) / 2, (dim.h - h) / 2, w, h, 0, 0, mini.width, mini.height);
-      const g = aGrises(ctx.getImageData(0, 0, mini.width, mini.height).data);
-      const movimiento = anterior.current?.length === g.length ? diferenciaMedia(anterior.current, g) : 255;
-      anterior.current = g;
-      const ahora = performance.now();
-      if (ahora < enfriarHasta.current) return;
-      const e = detector.current.evaluar({ t: ahora, nitidez: varianzaLaplaciano(g, mini.width, mini.height), movimiento });
-      setProgreso(e.progreso);
-      if (e.dispara) { detector.current.reiniciar(); setProgreso(0); alTomar.current(); }
-    }, 150);
-    return () => window.clearInterval(id);
-  }, [lista, previa, auto, dim]);
+    const url = previa?.url;
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [previa]);
 
-  const mostrar = (blob: Blob | null) => { if (blob) setPrevia({ blob, url: URL.createObjectURL(blob) }); };
-  const tomar = async () => {
+  useEffect(() => {
     const v = video.current;
-    if (!v) return;
-    const r = recuadro();
-    mostrar(await aBlob(v, r.x, r.y, r.w, r.h));
+    if (!previa && v?.srcObject && v.paused) {
+      void v.play().catch(() => { if (video.current === v) setSinCamara(true); });
+    }
+  }, [previa]);
+
+  const lista = dim.w > 0 && dim.h > 0;
+  const ancho = Math.min(dim.w, dim.h * ID1) * 0.92;
+  const alto = ancho / ID1;
+  const x = (dim.w - ancho) / 2;
+  const y = (dim.h - alto) / 2;
+
+  const preparar = async (foto: () => Promise<Blob | null>) => {
+    setOcupada(true);
+    setError("");
+    try {
+      const blob = await foto();
+      if (!blob) throw new Error();
+      setPrevia({ blob, url: URL.createObjectURL(blob) });
+    } catch { setError("No se pudo preparar la foto. Inténtelo de nuevo."); }
+    finally { setOcupada(false); }
   };
-  useEffect(() => { alTomar.current = () => { void tomar(); }; });
-  const deArchivo = async (f: File | undefined) => {
-    if (!f) return;
-    const bmp = await createImageBitmap(f);
-    mostrar(await aBlob(bmp, 0, 0, bmp.width, bmp.height));
+
+  const tomar = () => {
+    const v = video.current;
+    if (v && lista && v.readyState >= 2) void preparar(() => aBlob(v, x, y, ancho, alto));
   };
-  const repetir = () => {
-    if (previa) URL.revokeObjectURL(previa.url);
-    setPrevia(null);
-    // Pausa para recolocar el documento antes de otra captura automática.
-    detector.current.reiniciar(); anterior.current = null; enfriarHasta.current = performance.now() + 2000; setProgreso(0);
-  };
+
   const usar = async () => {
     if (!previa) return;
-    setEnviando(true);
-    try { await onUsar(previa.blob); repetir(); } finally { setEnviando(false); }
+    setOcupada(true);
+    setError("");
+    try {
+      if ((await onUsar(previa.blob)) !== false) setPrevia(null);
+    } catch { setError("No se pudo guardar la foto. Inténtelo de nuevo."); }
+    finally { setOcupada(false); }
   };
 
-  const marco = (relacion: number) => ({ width: `min(100%, calc((100dvh - 14rem) * ${relacion}))`, maxHeight: "calc(100dvh - 14rem)" });
-  if (previa) {
-    return (
-      <div className="flex flex-col gap-2">
-        <p className="shrink-0 font-semibold">{rotulo}: ¿se lee bien?</p>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={previa.url} alt={`Vista previa del ${rotulo}`} className="mx-auto min-h-0 w-full rounded border object-contain" style={marco(ID1)} />
-        <div className="flex shrink-0 gap-3">
-          <button disabled={enviando} onClick={usar} className="flex-1 bg-green-800 px-4 py-4 text-lg text-white disabled:opacity-60">Usar esta foto</button>
-          <button disabled={enviando} onClick={repetir} className="flex-1 border-2 border-stone-900 px-4 py-4 text-lg">Repetir</button>
-        </div>
-      </div>
-    );
-  }
-  const r = recuadro();
-  const relacion = dim.h > 0 ? dim.w / dim.h : 4 / 3;
+  const relacion = lista ? dim.w / dim.h : 4 / 3;
+  const marco = (r: number) => ({ width: `min(100%, calc((100dvh - 14rem) * ${r}))`, maxHeight: "calc(100dvh - 14rem)" });
   return (
     <div className="flex flex-col gap-2">
       <p className="shrink-0 font-semibold">{rotulo}</p>
-      {!sinCamara && (
-        <div className="relative mx-auto w-full overflow-hidden rounded bg-black" style={{ aspectRatio: `${dim.w} / ${dim.h}`, ...marco(relacion) }}>
-          <video ref={video} playsInline muted className="h-full w-full object-cover" />
-          {lista && <div aria-hidden className="absolute border-4 border-white shadow-[0_0_0_999px_rgba(0,0,0,0.45)]" style={{ left: `${(r.x / dim.w) * 100}%`, top: `${(r.y / dim.h) * 100}%`, width: `${(r.w / dim.w) * 100}%`, height: `${(r.h / dim.h) * 100}%` }} />}
-        </div>
-      )}
-      {sinCamara && <p role="status" className="text-sm">No se pudo abrir la cámara. Use el botón de abajo para hacer o elegir la foto.</p>}
-      {!sinCamara && <button onClick={tomar} disabled={!lista} className="w-full shrink-0 bg-stone-900 px-4 py-4 text-lg text-white disabled:opacity-60">Tomar foto</button>}
-      {!sinCamara && lista && (
-        <div className="space-y-1">
-          <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); setProgreso(0); detector.current.reiniciar(); }} className="h-5 w-5" />Captura automática</label>
-          {auto && (
-            <div role="status" aria-live="polite" className="text-sm">
-              <div className="h-2 w-full overflow-hidden rounded bg-slate-200"><div className="h-full bg-green-600" style={{ width: `${Math.round(progreso * 100)}%` }} /></div>
-              {progreso > 0 ? "Mantenga el documento quieto…" : "Se toma sola cuando el documento esté quieto y nítido. También puede pulsar «Tomar foto»."}
+      {/* El vídeo sigue montado al previsualizar y al pasar a la otra cara. */}
+      <div hidden={!!previa}>
+        <div className="flex flex-col gap-2">
+          {!sinCamara && (
+            <div className="relative mx-auto w-full overflow-hidden rounded bg-black" style={{ aspectRatio: relacion, ...marco(relacion) }}>
+              <video ref={video} playsInline muted className="h-full w-full object-cover"
+                onLoadedData={(e) => setDim({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })} />
+              {lista && <div aria-hidden className="absolute border-4 border-white shadow-[0_0_0_999px_rgba(0,0,0,0.45)]" style={{ left: `${x / dim.w * 100}%`, top: `${y / dim.h * 100}%`, width: `${ancho / dim.w * 100}%`, height: `${alto / dim.h * 100}%` }} />}
             </div>
           )}
+          {sinCamara
+            ? <p role="status" className="text-sm">Use el selector del teléfono para hacer o elegir la foto.</p>
+            : <button type="button" onClick={tomar} disabled={!lista || ocupada} className="w-full bg-stone-900 px-4 py-4 text-lg text-white disabled:opacity-60">Tomar foto</button>}
+          <label className="block w-full cursor-pointer border-2 border-stone-900 px-4 py-3 text-center">
+            {sinCamara ? "Hacer o elegir foto" : "Elegir una foto del teléfono"}
+            <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={ocupada}
+              onChange={(e) => {
+                const archivo = e.currentTarget.files?.[0];
+                e.currentTarget.value = "";
+                if (archivo) void preparar(async () => {
+                  const mapa = await createImageBitmap(archivo);
+                  try { return await aBlob(mapa, 0, 0, mapa.width, mapa.height); }
+                  finally { mapa.close(); }
+                });
+              }} />
+          </label>
         </div>
+      </div>
+      {previa && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={previa.url} alt={`Vista previa del ${rotulo}`} className="mx-auto min-h-0 rounded border object-contain" style={marco(ID1)} />
+          <div className="flex gap-3">
+            <button type="button" disabled={ocupada} onClick={() => void usar()} className="flex-1 bg-green-800 px-4 py-4 text-lg text-white disabled:opacity-60">Usar esta foto</button>
+            <button type="button" disabled={ocupada} onClick={() => setPrevia(null)} className="flex-1 border-2 border-stone-900 px-4 py-4 text-lg">Repetir</button>
+          </div>
+        </>
       )}
-      <label className="block w-full shrink-0 cursor-pointer border-2 border-stone-900 px-4 py-3 text-center">
-        {sinCamara ? "Hacer o elegir foto" : "O elegir una foto del teléfono"}
-        <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => deArchivo(e.target.files?.[0])} />
-      </label>
-      <p className="text-sm text-slate-600">Coloque el documento dentro del recuadro, sin reflejos y con buena luz.</p>
+      {error && <p role="alert" className="text-red-700">{error}</p>}
     </div>
   );
 }

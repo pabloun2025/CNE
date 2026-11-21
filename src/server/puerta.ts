@@ -1,6 +1,5 @@
 import type { PoolClient } from "pg";
 import { query, withTx } from "./db";
-import type { SesionEstacion } from "./estaciones";
 import { ZONA_NOMBRE, type ZonaColor } from "../domain/juntas";
 import { buscarNombreCamara, buscarPorNombre, cedulaManualValida, cedulasDeCamara, normalizarCodigo, normalizarNombre, type PersonaLista } from "../domain/puerta-nombre";
 import { claveAcceso, credencialRevocada, mjrvRevocado } from "./revocar-credencial";
@@ -14,6 +13,8 @@ export type Lectura =
   | { resultado: "revocado" };
 
 export type Coincidencia = { resultado: "pendiente"; mjrvId: number; cedula: string; nombre: string; junta: string };
+
+type PuestoPuerta = { enlaceId: number; operadorId: number | null };
 
 type FichaPuerta = { id: number; activo: boolean; apellidos: string; nombres: string; cedula: string };
 
@@ -31,14 +32,14 @@ async function juntaVigente(client: PoolClient, id: number) {
   return j ? { junta: `${j.serie}${j.numero}`, zona: ZONA_NOMBRE[j.zona_color] ?? "—" } : { junta: "—", zona: "—" };
 }
 
-async function anotarResultado(client: PoolClient, s: SesionEstacion, codigo: string, dispositivo: string | null, mjrvId: number | null, resultado: "revocado" | "desconocido" | "duplicado") {
+async function anotarResultado(client: PoolClient, s: PuestoPuerta, codigo: string, dispositivo: string | null, mjrvId: number | null, resultado: "revocado" | "desconocido" | "duplicado") {
   await client.query(
     "INSERT INTO lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, dispositivo) VALUES ($1, $2, $3, $4, $5, $6)",
     [codigo, mjrvId, resultado, s.operadorId, s.enlaceId, dispositivoDe(dispositivo)],
   );
 }
 
-async function registrarFicha(client: PoolClient, s: SesionEstacion, ficha: FichaPuerta, codigo: string, dispositivo: string | null): Promise<Lectura> {
+async function registrarFicha(client: PoolClient, s: PuestoPuerta, ficha: FichaPuerta, codigo: string, dispositivo: string | null): Promise<Lectura> {
   // La baja y la revocación de la ficha se ordenan con respecto al ingreso.
   const m = (await client.query<FichaPuerta>(`SELECT ${CAMPOS_FICHA} FROM mjrv WHERE id = $1 FOR UPDATE`, [ficha.id])).rows[0];
   if (!m || m.cedula !== ficha.cedula || m.nombres !== ficha.nombres || m.apellidos !== ficha.apellidos) return { resultado: "desconocido" };
@@ -62,7 +63,7 @@ async function registrarFicha(client: PoolClient, s: SesionEstacion, ficha: Fich
   return { resultado: "duplicado", desde: previa.creado_en, mjrvId: m.id, nombre: nombreDe(m), junta: j.junta };
 }
 
-export async function registrarLectura(s: SesionEstacion, codigoBruto: string, dispositivo: string | null, origen: "codigo" | "cedula" = "codigo"): Promise<Lectura> {
+export async function registrarLectura(s: PuestoPuerta, codigoBruto: string, dispositivo: string | null, origen: "codigo" | "cedula" = "codigo"): Promise<Lectura> {
   const compacto = normalizarCodigo(codigoBruto).slice(0, 40);
   const clave = claveAcceso(codigoBruto).slice(0, 200);
   if (origen === "cedula" && !cedulaManualValida(codigoBruto.trim())) return { resultado: "desconocido" };
@@ -101,7 +102,7 @@ export async function registrarLectura(s: SesionEstacion, codigoBruto: string, d
   });
 }
 
-export async function comprobarCredencial(s: SesionEstacion, codigoBruto: string, dispositivo: string | null, confirmarId?: number): Promise<Lectura | Coincidencia> {
+export async function comprobarCredencial(s: PuestoPuerta, codigoBruto: string, dispositivo: string | null, confirmarId?: number): Promise<Lectura | Coincidencia> {
   const texto = codigoBruto.slice(0, 500);
   const cedulas = cedulasDeCamara(texto);
   const textoConNombre = /[A-Z]/.test(normalizarNombre(texto));
@@ -147,9 +148,9 @@ export async function contadoresPuerta(enlaceId: number): Promise<{ total: numbe
 
 export type ResultadoPase = { ok: true } | { ok: false; status: 404 | 409; mensaje: string };
 
-// «Dejar pasar» un reingreso (09 §3.3): queda registrado con operador y puesto, pero no cuenta como segundo ingreso
+// «Dejar pasar» un reingreso (09 §3.3): queda registrado con el puesto y no cuenta como segundo ingreso
 // (lecturas_un_ingreso y los contadores solo miran «valido»). Solo se puede si la persona ya ingresó una vez.
-export async function dejarPasar(s: SesionEstacion, mjrvId: number): Promise<ResultadoPase> {
+export async function dejarPasar(s: PuestoPuerta, mjrvId: number): Promise<ResultadoPase> {
   return withTx(async (client) => {
     await fijarModo(client);
     const m = (await client.query<{ cedula: string; activo: boolean }>("SELECT cedula, activo FROM mjrv WHERE id = $1 FOR UPDATE", [mjrvId])).rows[0];

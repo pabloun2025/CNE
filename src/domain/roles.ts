@@ -1,7 +1,7 @@
 // Roles de la administración de Madrid (C2). La superadmin no usa rol: tiene su propio portal.
 export type RolAdmin = "consul" | "coordinador" | "financiero";
 export const ROLES_ADMIN: RolAdmin[] = ["consul", "coordinador", "financiero"];
-export const ETIQUETA_ROL: Record<RolAdmin, string> = { consul: "Cónsul (todo)", coordinador: "Coordinador (centro de mando)", financiero: "Financiero (finanzas e informes)" };
+export const ETIQUETA_ROL: Record<RolAdmin, string> = { consul: "Cónsul", coordinador: "Coordinador (centro de mando)", financiero: "Financiero (finanzas e informes)" };
 
 export const esRolAdmin = (v: unknown): v is RolAdmin => typeof v === "string" && (ROLES_ADMIN as string[]).includes(v);
 
@@ -16,17 +16,15 @@ export const INICIO_DE_ROL: Record<RolAdmin, string> = { consul: "/admin", coord
 
 // Orden del funcionario: credencial antes del día; el día, puerta, foto, pago y constitución.
 export const ENLACES_ADMIN: { href: string; texto: string; roles: RolAdmin[] }[] = [
-  { href: "/admin", texto: "Inicio", roles: TODOS_LOS_ROLES },
+  { href: "/admin", texto: "Inicio", roles: CONSUL_Y_FINANCIERO },
   { href: "/admin/mjrv", texto: "MJRV", roles: SOLO_CONSUL },
   { href: "/admin/credenciales", texto: "Credenciales", roles: SOLO_CONSUL },
   { href: "/admin/revocar", texto: "Revocar acceso", roles: SOLO_CONSUL },
-  { href: "/admin/operadores", texto: "Operadores y enlaces", roles: SOLO_CONSUL },
+  { href: "/admin/operadores", texto: "Enlaces de estación", roles: SOLO_CONSUL },
   { href: "/admin/documentos", texto: "Documentos (QR)", roles: SOLO_CONSUL },
   { href: "/admin/finanzas", texto: "Finanzas", roles: CONSUL_Y_FINANCIERO },
-  { href: "/admin/finanzas/pagar", texto: "Módulo de pago", roles: CONSUL_Y_FINANCIERO },
-  { href: "/admin/finanzas/escanear", texto: "Escanear QR", roles: CONSUL_Y_FINANCIERO },
-  { href: "/admin/finanzas/imprimir", texto: "Impresión de actas", roles: CONSUL_Y_FINANCIERO },
-  { href: "/admin/configuracion", texto: "Configuración", roles: CONSUL_Y_FINANCIERO },
+  { href: "/admin/finanzas/pagar", texto: "Revisar e imprimir", roles: CONSUL_Y_FINANCIERO },
+  { href: "/admin/finanzas/caja", texto: "Caja", roles: CONSUL_Y_FINANCIERO },
   { href: "/admin/mando", texto: "Centro de mando", roles: CONSUL_Y_COORDINADOR },
   { href: "/admin/informes", texto: "Informes", roles: CONSUL_Y_FINANCIERO },
 ];

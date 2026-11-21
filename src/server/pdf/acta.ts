@@ -5,15 +5,19 @@ import { eurosEnLetras } from "../../domain/pago";
 import { A4, MM } from "../../domain/credencial-layout";
 
 export type DatosActa = {
-  numero: string; // MAD-000123 · PRUEBA-000123
+  numero: string;
+  ordinalRecibo?: number | null;
   impresionN: number; // 1 = original; >1 = REIMPRESIÓN n
   prueba: boolean;
   borrador: boolean; // sin parámetros completos: sin cifras
   emitidaEn: Date;
-  persona: { apellidos: string; nombres: string; cedula: string; cargo: string; juntaVigente: string };
-  importe: { usd: string | null; eur: string | null };
+  persona: {
+    apellidos: string; nombres: string; cedula: string; cargo: string; juntaVigente: string;
+    zona?: string | null; telefono?: string | null; correo?: string | null;
+  };
+  importe: { usd: string | null; eur: string | null; cambio?: string | null };
   pagador: { nombre: string; cargo: string } | null;
-  anexo?: { anverso: Buffer; reverso: Buffer };
+  anexo?: { anverso?: Buffer; reverso?: Buffer };
   reconstruido?: boolean;
   contingencia?: boolean;
   firmaReceptor?: Buffer;
@@ -35,6 +39,8 @@ const papel = rgb(0xf7 / 255, 0xf9 / 255, 0xfb / 255);
 const latin = (t: string) => t.replace(/[^\u0020-\u00ff\u2013\u2014\u2018\u2019\u201c\u201d\u2022\u20ac\u2026]/g, "?");
 const fechaMadrid = (d: Date) => new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(d);
 const logoBytes = Uint8Array.from(readFileSync(join(process.cwd(), "src/server/pdf/logo-cne.jpg")));
+// Logotipo del formulario oficial FO-04, extraído de la plantilla Word en blanco.
+const logoOficialBytes = Uint8Array.from(readFileSync(join(process.cwd(), "src/server/pdf/logo-recibo-cne.png")));
 
 function partir(texto: string, f: PDFFont, size: number, ancho: number): string[] {
   const out: string[] = [];
@@ -55,8 +61,113 @@ function marcaDeAgua(page: PDFPage, f: PDFFont, prueba: boolean) {
   page.drawText(latin(t), { x: page.getWidth() / 2 - (w / 2) * Math.SQRT1_2, y: page.getHeight() / 2 - (w / 2) * Math.SQRT1_2, size, font: f, color: rgb(0.85, 0, 0), opacity: 0.18, rotate: degrees(45) });
 }
 
-// Recibo de dos páginas según el modelo entregado (Modelo_recibo_pago_MJRV_2026). Imprimir no registra el pago.
 export async function actaPago(d: DatosActa): Promise<Uint8Array> {
+  return d.ordinalRecibo == null ? actaHistorica(d) : actaOficial(d);
+}
+
+async function actaOficial(d: DatosActa): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const normal = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logo = await pdf.embedPng(logoOficialBytes);
+  const page = pdf.addPage([A4.alto * MM, A4.ancho * MM]);
+  const negro = rgb(0, 0, 0);
+  const blanco = rgb(1, 1, 1);
+  const azulOficial = rgb(34 / 255, 61 / 255, 93 / 255);
+  const izquierda = 42;
+  const derecha = page.getWidth() - izquierda;
+  const ancho = derecha - izquierda;
+  const centro = izquierda + ancho / 2;
+  const mitad = ancho / 2;
+
+  const texto = (valor: string, x: number, y: number, disponible: number, opciones: {
+    size?: number; font?: PDFFont; color?: typeof negro; alineacion?: "centro" | "derecha";
+  } = {}) => {
+    const { font = normal, color = negro, alineacion } = opciones;
+    const limpio = latin(valor);
+    if (!limpio) return;
+    const base = opciones.size ?? 9;
+    const anchoTexto = font.widthOfTextAtSize(limpio, base);
+    const size = anchoTexto > disponible ? base * (disponible / anchoTexto) : base;
+    const espacio = disponible - font.widthOfTextAtSize(limpio, size);
+    const margen = alineacion === "centro" ? espacio / 2 : alineacion === "derecha" ? espacio : 0;
+    page.drawText(limpio, { x: x + margen, y, size, font, color });
+  };
+  const trazo = (x: number, y: number, x2: number, y2: number, punteado = false) => {
+    page.drawLine({ start: { x, y }, end: { x: x2, y: y2 }, thickness: 0.6, color: negro,
+      ...(punteado ? { dashArray: [1, 2] } : {}) });
+  };
+  const campo = (x: number, y: number, etiqueta: string, valor?: string | null) => {
+    const inicioValor = x + bold.widthOfTextAtSize(etiqueta, 8) + 7;
+    texto(etiqueta, x, y, mitad - 14, { font: bold, size: 8 });
+    texto(valor ?? "", inicioValor, y, mitad - (inicioValor - x) - 14);
+    trazo(inicioValor, y - 2.5, x + mitad - 14, y - 2.5, true);
+  };
+
+  page.drawImage(logo, { x: izquierda, y: 511, width: 89, height: 89 * logo.height / logo.width });
+  texto("COORDINACIÓN NACIONAL TÉCNICA DE PROCESOS ELECTORALES", centro, 549, mitad, { font: bold, alineacion: "derecha" });
+  texto("DIRECCIÓN DE PROCESOS EN EL EXTERIOR", centro, 536, mitad, { font: bold, alineacion: "derecha" });
+  texto("RECIBO DE PAGO - MJRV", izquierda, 509, ancho, { font: bold, size: 15, alineacion: "centro" });
+  texto("PROCESO: ELECCIONES SECCIONALES Y CPCCS 2027", izquierda, 488, ancho, { font: bold, size: 11, alineacion: "centro" });
+
+  const numero = d.impresionN > 1 ? `${d.numero} · REIMPRESIÓN ${d.impresionN}` : d.numero;
+  const avisos = [d.borrador && "BORRADOR", d.reconstruido && "COPIA RECONSTRUIDA", d.contingencia && "EMISIÓN DE CONTINGENCIA"].filter(Boolean).join(" · ");
+  texto(avisos, izquierda, 467, mitad, { font: bold, size: 8 });
+  texto(`NRO. ${numero}   |   EMISIÓN: ${fechaMadrid(d.emitidaEn)}`, centro, 467, mitad, { font: bold, alineacion: "derecha" });
+
+  page.drawRectangle({ x: izquierda, y: 344, width: ancho, height: 22, color: azulOficial });
+  page.drawRectangle({ x: izquierda, y: 204, width: ancho, height: 252, borderWidth: 0.6, borderColor: negro });
+  for (const y of [435, 414, 366, 344, 322, 282]) trazo(izquierda, y, derecha, y);
+  trazo(izquierda, 302, centro, 302);
+  trazo(centro, 204, centro, 366);
+  trazo(centro, 414, centro, 456);
+
+  campo(izquierda + 8, 443, "CIRCUNSCRIPCIÓN:");
+  campo(centro + 8, 443, "PAÍS:", "España");
+  campo(izquierda + 8, 422, "OFICINA CONSULAR:", "Consulado General del Ecuador en Madrid");
+  campo(centro + 8, 422, "ZONA:", d.persona.zona);
+
+  const nombre = `${d.persona.nombres} ${d.persona.apellidos}`.trim();
+  const usd = d.importe.usd?.replace(".", ",") ?? "________";
+  const eur = d.importe.eur?.replace(".", ",") ?? "________";
+  const cambio = d.importe.cambio?.replace(".", ",") ?? "________";
+  texto(`Yo, ${nombre}, con cédula o pasaporte Nro. ${d.persona.cedula}, declaro haber recibido USD ${usd},`, izquierda + 8, 399, ancho - 16);
+  texto(`por haber participado en la Junta Receptora del Voto Nro. ${d.persona.juntaVigente} con el nombramiento de ${d.persona.cargo}.`, izquierda + 8, 386, ancho - 16);
+  texto(`Importe entregado: EUR ${eur}    ·    Tipo de cambio (USD por EUR): ${cambio}`, izquierda + 8, 373, ancho - 16, { font: bold });
+
+  texto("RECIBÍ CONFORME", izquierda, 351, mitad, { font: bold, color: blanco, size: 10, alineacion: "centro" });
+  texto("ENTREGUÉ CONFORME", centro, 351, mitad, { font: bold, color: blanco, size: 10, alineacion: "centro" });
+  campo(izquierda + 8, 330, "DIRECCIÓN DOMICILIARIA:");
+  campo(izquierda + 8, 309, "NÚMERO DE TELÉFONO:", d.persona.telefono);
+  campo(izquierda + 8, 289, "CORREO ELECTRÓNICO:", d.persona.correo);
+  campo(centro + 8, 330, "NOMBRE Y APELLIDO:", d.pagador?.nombre);
+  campo(centro + 8, 299, "CARGO:", d.pagador?.cargo);
+  texto("FIRMA DEL CIUDADANO:", izquierda, 270, mitad, { font: bold, size: 8, alineacion: "centro" });
+  texto("FIRMA Y SELLO DEL CÓNSUL O RESPONSABLE CONSULAR:", centro, 270, mitad, { font: bold, size: 8, alineacion: "centro" });
+  trazo(izquierda + 8, 218, centro - 8, 218, true);
+  trazo(centro + 8, 218, derecha - 8, 218, true);
+
+  for (const [titulo, x, archivo] of [
+    ["ANVERSO DE LA CÉDULA", izquierda, d.anexo?.anverso],
+    ["REVERSO DE LA CÉDULA", centro + 6, d.anexo?.reverso],
+  ] as const) {
+    const anchoMarco = mitad - 6;
+    texto(titulo, x, 188, anchoMarco, { font: bold, alineacion: "centro" });
+    page.drawRectangle({ x, y: 40, width: anchoMarco, height: 139, borderWidth: 0.6, borderColor: negro });
+    if (archivo) {
+      const img = await pdf.embedJpg(archivo);
+      const dimensiones = img.scaleToFit(anchoMarco - 10, 129);
+      page.drawImage(img, { x: x + (anchoMarco - dimensiones.width) / 2, y: 40 + (139 - dimensiones.height) / 2, ...dimensiones });
+    }
+  }
+
+  texto("Código: FO-04(PE-PX-SU-02); Versión: 2", izquierda, 23, ancho, { size: 8 });
+  marcaDeAgua(page, bold, d.prueba);
+  return pdf.save();
+}
+
+// Conserva el formato de las actas emitidas antes del recibo oficial.
+async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const normal = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -215,9 +326,10 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
     centrado(f[2], x, y - (f[1] ? 40 : 28), normal, 9);
   });
 
-  pie(p1, "El recibo se firma tras la entrega física del efectivo. Su impresión no equivale a pago confirmado en el sistema. El registro electrónico del desembolso se realiza después de la entrega.", d.anexo ? "Pág. 1 / 2" : d.reconstruido ? "Copia reconstruida" : "Pág. 1 / 1");
+  const { anverso, reverso } = d.anexo ?? {};
+  pie(p1, "El recibo se firma tras la entrega física del efectivo. Su impresión no equivale a pago confirmado en el sistema. El registro electrónico del desembolso se realiza después de la entrega.", anverso && reverso ? "Pág. 1 / 2" : d.reconstruido ? "Copia reconstruida" : "Pág. 1 / 1");
   marcaDeAgua(p1, bold, d.prueba);
-  if (!d.anexo) return pdf.save();
+  if (!anverso || !reverso) return pdf.save();
 
   const p2 = pdf.addPage([W, H]);
   let y2 = encabezado(p2, ["CONSULADO GENERAL DEL", "ECUADOR EN MADRID", "Anexo de identidad · Jornada 2026"]);
@@ -231,7 +343,7 @@ export async function actaPago(d: DatosActa): Promise<Uint8Array> {
   y2 -= 6 * MM;
 
   const altoImg = 58 * MM;
-  for (const [rotulo, buf] of [["ANVERSO · CÉDULA DE IDENTIDAD", d.anexo.anverso], ["REVERSO · CÉDULA DE IDENTIDAD", d.anexo.reverso]] as const) {
+  for (const [rotulo, buf] of [["ANVERSO · CÉDULA DE IDENTIDAD", anverso], ["REVERSO · CÉDULA DE IDENTIDAD", reverso]] as const) {
     const altoPanel = 8 * MM + altoImg;
     p2.drawRectangle({ x: ML, y: y2 - altoPanel, width: ancho, height: altoPanel, borderColor: linea, borderWidth: 0.8 });
     p2.drawRectangle({ x: ML, y: y2 - 8 * MM, width: ancho, height: 8 * MM, color: fondo });

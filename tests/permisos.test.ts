@@ -23,20 +23,19 @@ const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "superadm
 type Regla = Tipo[] | "publica";
 const SOLO_ADMIN: Regla = ["admin"];
 const SOLO_SUPER: Regla = ["superadmin"];
-const VINCULACION_WHATSAPP: Regla = ["admin", "superadmin"];
 const MANDO: Regla = ["admin", "admin_coord", "e_mando"];
 const FINANZAS: Regla = ["admin", "admin_fin"];
-const TODOS_ADMIN: Regla = ["admin", "admin_coord", "admin_fin"];
 
 // ─── Rutas API: «METODO /url» ───
 const RUTAS: Record<string, Regla> = {
   "GET /admin/informes/descargar": FINANZAS,
-  "GET /admin/documentos/cartel": SOLO_ADMIN,
+  "GET /admin/documentos/cartel": ["admin", "superadmin"],
   "GET /admin/credenciales/pdf": SOLO_ADMIN,
   "POST /admin/credenciales/pdf": SOLO_ADMIN,
   "GET /api/admin/documentos/[id]/[lado]": SOLO_ADMIN,
-  "GET /api/admin/resumen": TODOS_ADMIN,
+  "GET /api/admin/resumen": FINANZAS,
   "GET /api/admin/finanzas/resumen": FINANZAS,
+  "GET /api/admin/finanzas/escaneados": FINANZAS,
   "GET /api/admin/finanzas/recibos/[tipo]/[id]": FINANZAS,
   "POST /api/admin/finanzas/recibos/descargar": FINANZAS,
   "POST /api/admin/finanzas/recibos/emitir": FINANZAS,
@@ -47,13 +46,6 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/admin/finanzas/validar-cedula": FINANZAS,
   "POST /api/admin/finanzas/acta/[mjrvId]": FINANZAS,
   "POST /api/admin/finanzas/foto": FINANZAS,
-  "GET /api/admin/finanzas/modo": FINANZAS,
-  "POST /api/admin/finanzas/modo": FINANZAS,
-  "POST /api/admin/finanzas/escanear": FINANZAS,
-  "GET /api/admin/finanzas/pendientes": FINANZAS,
-  "POST /api/admin/finanzas/imprimir": FINANZAS,
-  "POST /api/admin/finanzas/firma": FINANZAS,
-  "GET /api/admin/finanzas/lote": FINANZAS,
   "GET /api/mando/junta": MANDO,
   "GET /api/mando/propuesta": MANDO,
   "GET /api/mando/estado": MANDO,
@@ -61,16 +53,11 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/e/puerta": ["e_puerta"],
   "POST /api/e/puerta/pase": ["e_puerta"],
   "POST /api/e/puerta/texto": ["e_puerta"],
-  "POST /api/e/documentacion/foto": ["e_documentacion", "e_finanzas"],
-  "POST /api/e/documentacion/buscar": ["e_documentacion", "e_finanzas"],
-  "POST /api/e/finanzas/acta/[mjrvId]": ["e_finanzas"],
-  "POST /api/e/finanzas/ficha": ["e_finanzas"],
-  "POST /api/e/finanzas/confirmar": ["e_finanzas"],
-  "POST /api/e/finanzas/nombres": ["e_finanzas"],
-  "POST /api/e/finanzas/validar-cedula": ["e_finanzas"],
+  "POST /api/e/documentacion/foto": ["e_documentacion"],
+  "POST /api/e/documentacion/buscar": ["e_documentacion"],
+  "POST /api/e/finanzas/escanear": ["e_finanzas"],
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
-  "GET /api/admin/whatsapp/estado": SOLO_ADMIN,
   "GET /api/salud": "publica",
   "POST /api/d/foto": "publica", // pública pero cerrada por el interruptor del admin
   "POST /api/d/buscar": "publica",
@@ -81,15 +68,15 @@ const ACCIONES: Record<string, Regla> = {
   "acceso-actions#accederAdmin": "publica", "acceso-actions#accederSuperadmin": "publica",
   "acceso-actions#cambiarContrasenaAdmin": "publica", "acceso-actions#cambiarContrasenaSuperadmin": "publica", // validan su propia cookie y la contraseña actual
   "acceso-actions#salirAdmin": "publica", "acceso-actions#salirSuperadmin": "publica",
-  "estacion-actions#entrarPuertaAccion": "publica", "estacion-actions#entrarEstacionAccion": "publica", "estacion-actions#cambiarOperadorAccion": "publica", // acceso por PIN
-  "documentos-actions#fijarFormularioAccion": SOLO_ADMIN,
-  "estacion-actions#crearOperadorAccion": SOLO_ADMIN, "estacion-actions#restablecerPinAccion": SOLO_ADMIN, "estacion-actions#activarOperadorAccion": SOLO_ADMIN,
-  "estacion-actions#crearEnlaceAccion": SOLO_ADMIN, "estacion-actions#revocarEnlaceAccion": SOLO_ADMIN,
+  "estacion-actions#entrarEstacionAccion": "publica", "estacion-actions#cambiarOperadorAccion": "publica", // acceso a Mando por PIN
+  "documentos-actions#fijarFormularioAccion": SOLO_SUPER,
+  "estacion-actions#crearOperadorAccion": SOLO_SUPER, "estacion-actions#restablecerPinAccion": SOLO_SUPER, "estacion-actions#activarOperadorAccion": SOLO_SUPER,
+  "estacion-actions#crearEnlaceAccion": SOLO_SUPER, "estacion-actions#revocarEnlaceAccion": SOLO_SUPER,
   "importar-actions#revisarImportacion": SOLO_ADMIN, "importar-actions#aplicarImportacionAccion": SOLO_ADMIN,
   "mjrv-actions#crearMjrvAccion": SOLO_ADMIN, "mjrv-actions#editarMjrvAccion": SOLO_ADMIN, "mjrv-actions#bajaMjrvAccion": SOLO_ADMIN, "mjrv-actions#borrarMjrvAccion": SOLO_ADMIN,
   "revocar-actions#revocarCredencialAccion": SOLO_ADMIN, "revocar-actions#revocarFueraAccion": SOLO_ADMIN,
-  "pago-actions#guardarParametrosAccion": FINANZAS,
-  "credencial-config-actions#guardarMedidasCredencialAccion": SOLO_ADMIN,
+  "pago-actions#guardarParametrosAccion": SOLO_SUPER,
+  "credencial-config-actions#guardarMedidasCredencialAccion": SOLO_SUPER,
   "finanzas-nombres-actions#corregirNombresAccion": FINANZAS, "finanzas-nombres-actions#validarCedulaAccion": FINANZAS,
   "envios-actions#enviarCredencialAccion": SOLO_ADMIN, "envios-actions#enviarLoteAccion": SOLO_ADMIN,
   "movimiento-actions#aceptarAccion": MANDO, "movimiento-actions#pasarAccion": MANDO, "movimiento-actions#noViableAccion": MANDO,
@@ -100,7 +87,7 @@ const ACCIONES: Record<string, Regla> = {
   "superadmin-actions#respaldarAccion": SOLO_SUPER, "superadmin-actions#prepararEleccionAccion": SOLO_SUPER,
   "superadmin-actions#interruptorEnvioAccion": SOLO_SUPER, "superadmin-actions#reanudarEnviosAccion": SOLO_SUPER, "superadmin-actions#guardarRemitenteAccion": SOLO_SUPER,
   "superadmin-actions#borrarFotosAccion": SOLO_SUPER,
-  "superadmin-actions#crearLineaAccion": VINCULACION_WHATSAPP, "superadmin-actions#desvincularLineaAccion": VINCULACION_WHATSAPP,
+  "superadmin-actions#crearLineaAccion": SOLO_SUPER, "superadmin-actions#desvincularLineaAccion": SOLO_SUPER,
 };
 
 function archivos(dir: string, nombre: (f: string) => boolean, acc: string[] = []): string[] {
@@ -123,6 +110,7 @@ const accionesDescubiertas = archivos(path.join(SRC, "server"), (n) => n.endsWit
 });
 
 const sesionesHechas: Partial<Record<Tipo, Record<string, string>>> = {};
+const enlacesDirectos: Partial<Record<Tipo, string>> = {};
 function ponerSesion(tipo: Tipo) {
   jar.clear();
   Object.entries(sesionesHechas[tipo] ?? {}).forEach(([k, v]) => jar.set(k, v));
@@ -149,8 +137,13 @@ describe("matriz de permisos", () => {
     const admin = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul" as const, debeCambiar: false };
     for (const f of ["puerta", "documentacion", "finanzas", "mando"] as const) {
       const e = await crearEnlace(admin, f, `${f} prueba`);
+      if (!e.ok) throw new Error("estación");
+      if (f !== "mando") {
+        enlacesDirectos[`e_${f}`] = e.token;
+        continue;
+      }
       const o = await crearOperador(admin, `Operador ${f}`, "Prueba", [f], "1234");
-      if (!e.ok || !o.ok) throw new Error("estación");
+      if (!o.ok) throw new Error("operador");
       const s = await identificarEstacion(e.token, o.id, "1234", "prueba");
       if (!s.ok) throw new Error("PIN");
       sesionesHechas[`e_${f}` as Tipo] = { cne_estacion: s.sesionToken };
@@ -168,15 +161,23 @@ describe("matriz de permisos", () => {
     expect(accionesDescubiertas.map((a) => a.clave).sort()).toEqual(Object.keys(ACCIONES).sort());
   });
 
+  it("envía al coordinador directamente a Mando desde /admin", async () => {
+    ponerSesion("admin_coord");
+    const { default: AdminInicio } = await import("@/app/admin/(panel)/page");
+    await expect(AdminInicio()).rejects.toThrow("REDIRECT:/admin/mando");
+  });
+
   describe("rutas API", () => {
     const PARAMS = { id: "1", tipo: "acta", lado: "anverso", mjrvId: "1", archivo: "cne-prep-20260101T000000Z.dump" };
-    async function llamar(r: (typeof rutasDescubiertas)[number]): Promise<number> {
+    async function llamar(r: (typeof rutasDescubiertas)[number], token?: string): Promise<number> {
       const modulo = await import(/* @vite-ignore */ r.archivo);
       const url = `http://localhost${urlDe(r.archivo)}`;
       let init: RequestInit = { method: r.metodo };
       if (r.metodo === "POST") init = { method: "POST", ...(r.archivo.includes("foto") ? { body: new FormData() } : { body: "{}", headers: { "content-type": "application/json" } }) };
+      const headers = new Headers(init.headers);
+      if (token) headers.set("authorization", `Bearer ${token}`);
       try {
-        return (await modulo[r.metodo](new Request(url, init), { params: Promise.resolve(PARAMS) })).status;
+        return (await modulo[r.metodo](new Request(url, { ...init, headers }), { params: Promise.resolve(PARAMS) })).status;
       } catch {
         return 500; // pasó la guarda y falló después por el cuerpo vacío: no es un rechazo de permisos
       }
@@ -188,7 +189,7 @@ describe("matriz de permisos", () => {
         const permitido = regla === "publica" || regla.includes(tipo);
         it(`${r.clave} · ${tipo} → ${permitido ? "permitido" : "denegado"}`, async () => {
           ponerSesion(tipo);
-          const status = await llamar(r);
+          const status = await llamar(r, enlacesDirectos[tipo]);
           if (permitido) expect([401, 403]).not.toContain(status);
           else expect([401, 403]).toContain(status);
         });
@@ -253,9 +254,8 @@ describe("matriz de permisos", () => {
     });
     // Roles que puede usar cada página de /admin (sin entrada aquí, la prueba falla) y a dónde redirige a los demás.
     const ROLES_PAGINA: Record<string, string[]> = {
-      "": ["consul", "coordinador", "financiero"],
-      "configuracion/envios": ["consul"],
-      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/escanear": ["consul", "financiero"], "finanzas/imprimir": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], configuracion: ["consul", "financiero"], informes: ["consul", "financiero"],
+      "": ["consul", "financiero"],
+      mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/caja": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], informes: ["consul", "financiero"],
       credenciales: ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };

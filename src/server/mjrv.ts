@@ -4,13 +4,14 @@ import { leerJunta } from "../domain/juntas";
 import type { Rol } from "../domain/importacion/mjrv";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
+import type { Modo } from "./config";
 import { query, withTx } from "./db";
 import { PERSONAS_CARGO } from "./mando";
 
 export type FiltrosMjrv = { junta?: string; rol?: string; estado?: string; q?: string };
 export type FilaLista = {
   id: number; cedula: string; apellidos: string; nombres: string; rol: Rol; cargo_original: string; activo: boolean; es_prueba: boolean;
-  origen: string; vigente: string; ingresado: boolean;
+  origen: string; vigente: string; ingresado: boolean; rotulo_credencial: string | null;
 };
 
 const ROLES = ["presidente", "secretario", "vocal", "suplente", "otro"];
@@ -32,12 +33,12 @@ export async function listarMjrv(f: FiltrosMjrv): Promise<FilaLista[]> {
     where.push(`(m.apellidos ILIKE $${p.length} OR m.nombres ILIKE $${p.length} OR m.cedula ILIKE $${p.length})`);
   }
   return query<FilaLista>(
-    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.rol, m.cargo_original, m.activo, m.es_prueba,
+    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.rol, m.cargo_original, m.activo, m.es_prueba, m.rotulo_credencial,
             jo.serie || jo.numero AS origen, jv.serie || jv.numero AS vigente,
             EXISTS (SELECT 1 FROM lecturas_puerta l WHERE l.mjrv_id = m.id AND l.resultado = 'valido') AS ingresado
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id JOIN juntas_madrid jv ON jv.id = ${SQL_VIGENTE}
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
-      ORDER BY jo.serie, jo.numero, m.apellidos LIMIT 500`,
+      ORDER BY jo.serie, jo.numero, m.apellidos, m.id`,
     p,
   );
 }
@@ -150,14 +151,21 @@ export async function corregirNombres(actor: ActorFicha, id: number, apellidosBr
   });
 }
 
-// La cédula queda validada cuando el financiero comprobó las dos fotos. Sin fotos no hay nada que validar.
-export async function validarCedula(actor: ActorFicha, id: number): Promise<Resultado> {
-  const lados = (await query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [id])).map((x) => x.lado);
-  if (!lados.includes("anverso") || !lados.includes("reverso")) return { ok: false, mensaje: "Faltan fotos de la cédula. No se puede validar." };
+// La validación corresponde a las fotos vigentes de ese modo.
+export async function validarCedula(actor: ActorFicha, id: number, modoEsperado?: Modo): Promise<Resultado> {
   return withTx(async (client) => {
-    const r = await client.query("UPDATE mjrv SET cedula_validada_en = coalesce(cedula_validada_en, now()), actualizado_en = now() WHERE id = $1 RETURNING id", [id]);
-    if (!r.rows[0]) return { ok: false as const, mensaje: "La ficha no existe." };
-    await registrarAuditoria({ portal: actor.portal, actorTipo: actor.tipo, actorId: actor.id, actorNombre: actor.nombre, accion: "cedula_validada", entidad: "mjrv", entidadId: id }, client);
+    const [{ modo }] = (await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE")).rows;
+    if (modoEsperado && modo !== modoEsperado) return { ok: false as const, mensaje: "El modo cambió. Vuelva a abrir la ficha antes de validar." };
+    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [id])).rows[0]) {
+      return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
+    }
+    const lados = (await client.query<{ lado: string }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1 FOR SHARE", [id])).rows.map((x) => x.lado);
+    if (!lados.includes("anverso") || !lados.includes("reverso")) return { ok: false as const, mensaje: "Faltan fotos de la cédula. No se puede validar." };
+    await client.query(
+      `INSERT INTO cedulas_validadas (mjrv_id, validada_en) VALUES ($1, clock_timestamp())
+       ON CONFLICT (mjrv_id, es_prueba) DO UPDATE SET validada_en = EXCLUDED.validada_en`, [id]);
+    await client.query("UPDATE mjrv SET cedula_validada_en = coalesce(cedula_validada_en, clock_timestamp()), actualizado_en = clock_timestamp() WHERE id = $1", [id]);
+    await registrarAuditoria({ portal: actor.portal, actorTipo: actor.tipo, actorId: actor.id, actorNombre: actor.nombre, accion: "cedula_validada", entidad: "mjrv", entidadId: id, datos: { modo } }, client);
     return { ok: true as const, id };
   });
 }
@@ -187,7 +195,7 @@ async function juntaConstituidaCon(client: Cliente, id: number): Promise<{ etiqu
 
 const TABLAS_DE_LA_FICHA = ["fichas_abiertas_finanzas", "pendientes_impresion", "firmas_recibo", "envios_credencial", "excepciones_disponibilidad", "decisiones_movimiento", "documentos_mjrv", "actas_pago", "asignaciones_cargo", "lecturas_puerta"];
 
-// El pago confirmado y la junta constituida no se tocan. Lo demás de esta ficha sí, para no dejar filas huérfanas.
+// El pago confirmado, el recibo emitido y la junta constituida se conservan.
 export async function borrarMjrv(sesion: Sesion, id: number, confirmar: boolean): Promise<ResultadoBorrar> {
   if (!Number.isInteger(id) || id <= 0) return { ok: false, mensaje: "La ficha no existe." };
   if (!confirmar) return { ok: false, mensaje: "Confirme el borrado. No se borró nada." };
@@ -195,10 +203,12 @@ export async function borrarMjrv(sesion: Sesion, id: number, confirmar: boolean)
     return await withTx(async (client) => {
       if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 FOR UPDATE", [id])).rows[0]) return { ok: false as const, mensaje: "La ficha no existe." };
       const pago = (await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [id])).rows[0];
+      const recibo = (await client.query("SELECT 1 FROM actas_pago WHERE mjrv_id = $1 AND ordinal_recibo IS NOT NULL", [id])).rows[0];
       const junta = await juntaConstituidaCon(client, id);
-      if (pago || junta) {
+      if (pago || recibo || junta) {
         const partes = [
-          pago ? "Ya se pagó. No se borra la ficha. Puede editarla o revocar la credencial." : "",
+          pago ? "Ya se pagó. No se borra la ficha. Puede editarla o revocar la credencial."
+            : recibo ? "La ficha tiene un recibo emitido. Puede darla de baja para conservar el historial." : "",
           junta ? `La junta ${junta.etiqueta} quedó constituida con esta persona. No se borra. Puede editar la ficha${junta.asignacion ? " o anular la asignación del cargo" : ""}.` : "",
         ].filter(Boolean);
         return { ok: false as const, mensaje: partes.join(" "), revocar: !!pago, anularJuntaId: junta?.asignacion ? junta.juntaId : undefined };

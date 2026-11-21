@@ -40,6 +40,7 @@ describe("panel financiero", () => {
     for (const id of ids.slice(0, 2)) {
       await guardarDocumento({ mjrvId: id, lado: "anverso", imagen: await foto(), origen: "estacion" });
       await guardarDocumento({ mjrvId: id, lado: "reverso", imagen: await foto(), origen: "estacion" });
+      await validarCedula({ portal: "finanzas", tipo: "operador", id: s.operadorId, nombre: s.operadorNombre }, id);
     }
   });
   afterAll(closePools);
@@ -55,16 +56,16 @@ describe("panel financiero", () => {
     const [acta] = await consultarDueno<{ id: number }>("SELECT id FROM cne.actas_pago WHERE mjrv_id = $1", [ids[0]]);
     await confirmarPago(s, { mjrvId: ids[0], actaId: acta.id, verificado: true });
     r = await resumenFinanzas();
-    expect(r).toMatchObject({ pagados: 1, pendientes: 2, totalEur: "55.00", documentacionIncompleta: 1 });
+    expect(r).toMatchObject({ pagados: 1, pendientes: 2, totalEur: "58.82", documentacionIncompleta: 1 });
     const pagada = r.filas.find((f) => f.estado === "pagada")!;
-    expect(pagada).toMatchObject({ eur: "55.00", operador: "Fin Prueba", simulado: true, junta: "H1" });
+    expect(pagada).toMatchObject({ eur: "58.82", operador: "Fin Prueba", simulado: true, junta: "H1" });
   });
 
   it("el total suma solo confirmaciones", async () => {
     const [acta] = await consultarDueno<{ id: number }>("SELECT id FROM cne.actas_pago WHERE mjrv_id = $1", [ids[1]]);
     await confirmarPago(s, { mjrvId: ids[1], actaId: acta.id, verificado: true });
-    expect((await resumenFinanzas()).totalEur).toBe("110.00");
-    expect((await resumenAdmin()).pagos.totalEur).toBe("110.00");
+    expect((await resumenFinanzas()).totalEur).toBe("117.64");
+    expect((await resumenAdmin()).pagos.totalEur).toBe("117.64");
     expect((await resumenFinanzas()).filas.map((f) => f.estado)).toEqual(["documentacion_incompleta", "pagada", "pagada"]);
   });
 
@@ -82,7 +83,7 @@ describe("panel financiero", () => {
     expect(datosFilas.map((f) => f[0]).sort()).toEqual(["0000000001", "0000000002", "0000000003"]); // cédula como texto
     expect(datosFilas.every((f) => typeof f[0] === "string" && String(f[0]).startsWith("0000"))).toBe(true);
     expect(datosFilas.filter((f) => String(f[3]) === "Pagada")).toHaveLength(2);
-    expect(filas.find((f) => String(f[0]).startsWith("TOTAL ENTREGADO EUR"))?.[1]).toBe(110);
+    expect(filas.find((f) => String(f[0]).startsWith("TOTAL ENTREGADO EUR"))?.[1]).toBe(117.64);
     expect(filas.some((f) => String(f[0]).includes("PRUEBA"))).toBe(true); // marca de informe de prueba
   });
 
@@ -100,8 +101,8 @@ describe("panel financiero", () => {
       const hoja = XLSX.read(new Uint8Array(await excel.arrayBuffer())).Sheets.Informe;
       const filas = XLSX.utils.sheet_to_json<(string | number)[]>(hoja, { header: 1, blankrows: false });
       expect(filas).toContainEqual(["Junta", "EUR"]);
-      expect(filas).toContainEqual(["H1", 55]);
-      expect(filas).toContainEqual(["TOTAL ENTREGADO EUR (solo pagos confirmados)", 110]);
+      expect(filas).toContainEqual(["H1", 58.82]);
+      expect(filas).toContainEqual(["TOTAL ENTREGADO EUR (solo pagos confirmados)", 117.64]);
       expect(filas.flat()).not.toContain("Cédula");
 
       const pdf = await descargar("formato=pdf&seleccion=1&columnas=junta");
@@ -130,36 +131,35 @@ describe("panel financiero", () => {
     await consultarDueno("UPDATE cne.pagos_confirmados SET importe_eur = NULL WHERE mjrv_id = $1", [ids[0]]);
     try {
       const r = await resumenFinanzas();
-      expect(r).toMatchObject({ totalEur: "55.00", pagosSinImporteEur: 1, pagados: 2 });
-      expect((await resumenAdmin()).pagos).toMatchObject({ totalEur: "55.00", pagosSinImporteEur: 1 });
+      expect(r).toMatchObject({ totalEur: "58.82", pagosSinImporteEur: 1, pagados: 2 });
+      expect((await resumenAdmin()).pagos).toMatchObject({ totalEur: "58.82", pagosSinImporteEur: 1 });
       const datos = { generadoEn: r.generado_en, modoPrueba: r.modoPrueba, totalEur: r.totalEur, filas: r.filas };
       const hoja = XLSX.read(informeCierreExcel(datos), { type: "buffer" }).Sheets["Informe"];
       expect(XLSX.utils.sheet_to_json(hoja, { header: 1 })).toContainEqual(["Pagos confirmados sin importe EUR", 1]);
     } finally {
-      await consultarDueno("UPDATE cne.pagos_confirmados SET importe_eur = 55 WHERE mjrv_id = $1", [ids[0]]);
+      await consultarDueno("UPDATE cne.pagos_confirmados SET importe_eur = 58.82 WHERE mjrv_id = $1", [ids[0]]);
     }
   });
 
   it("el financiero corrige el nombre y ve quién no tiene la cédula validada", async () => {
     const actor = { tipo: "usuario" as const, id: 1, nombre: "Fin", portal: "admin" as const };
-    expect((await resumenFinanzas()).sinCedulaValidada).toBe(3);
+    expect((await resumenFinanzas()).sinCedulaValidada).toBe(1);
     expect((await validarCedula(actor, ids[2])).ok).toBe(false);
     expect((await validarCedula(actor, ids[0])).ok).toBe(true);
     expect((await corregirNombres(actor, ids[2], "APELLIDO CORREGIDO", "NOMBRE CORREGIDO")).ok).toBe(true);
     expect((await corregirNombres(actor, ids[2], "A", "NOMBRE CORREGIDO")).ok).toBe(false);
     const r = await resumenFinanzas();
-    expect(r.sinCedulaValidada).toBe(2);
+    expect(r.sinCedulaValidada).toBe(1);
     expect(r.filas.find((f) => f.id === ids[0])).toMatchObject({ cedulaValidada: true, fotosCompletas: true });
     expect(r.filas.find((f) => f.id === ids[2])).toMatchObject({ apellidos: "APELLIDO CORREGIDO", nombres: "NOMBRE CORREGIDO", cedula: "0000000003", cedulaValidada: false, fotosCompletas: false });
   });
 
   it("el informe conserva la fecha de validación de la ficha al borrar las fotos", async () => {
-    const fecha = "2026-11-29T07:15:00.000Z";
-    await consultarDueno("UPDATE cne.mjrv SET cedula_validada_en = $2 WHERE id = $1", [ids[0], fecha]);
+    const antes = (await resumenFinanzas()).filas.find((f) => f.id === ids[0]);
+    expect(antes?.validacionEn).toBeTruthy();
     await consultarDueno("DELETE FROM cne.documentos_mjrv WHERE mjrv_id = $1", [ids[0]]);
     const ficha = (await resumenFinanzas()).filas.find((f) => f.id === ids[0]);
-    expect(ficha).toMatchObject({ cedulaValidada: true, fotosCompletas: false });
-    expect(Date.parse(ficha?.validacionEn ?? "")).toBe(Date.parse(fecha));
+    expect(ficha).toMatchObject({ cedulaValidada: true, fotosCompletas: false, validacionEn: antes?.validacionEn });
   });
 
   it("el corte usa los registros de ingreso y pago del modo actual", async () => {
@@ -183,7 +183,7 @@ describe("panel financiero", () => {
     const prueba = await resumenFinanzas();
     expect(prueba.modoPrueba).toBe(true);
     const fichaPrueba = prueba.filas.find((f) => f.id === fichaId);
-    expect(fichaPrueba).toMatchObject({ junta: "H25", zona: "azul", cargo: "VOCAL", operadorIngreso: "Puerta Prueba", operador: "Fin Prueba", eur: "55.00" });
+    expect(fichaPrueba).toMatchObject({ junta: "H25", zona: "azul", cargo: "VOCAL", operadorIngreso: "Puerta Prueba", operador: "Fin Prueba", eur: "58.82" });
     expect(new Date(fichaPrueba?.ingresoEn ?? "").toISOString()).toBe("2026-11-29T07:05:00.000Z");
     expect(fichaPrueba?.validacionEn).toBeTruthy();
     await consultarDueno("UPDATE cne.configuracion SET modo = 'eleccion'");
@@ -194,5 +194,33 @@ describe("panel financiero", () => {
     } finally {
       await consultarDueno("UPDATE cne.configuracion SET modo = 'prueba'");
     }
+  });
+
+  it("un reemplazo de la foto requiere una nueva validación", async () => {
+    const fichaId = ids[1];
+    const actor = { tipo: "usuario" as const, id: 1, nombre: "Fin", portal: "admin" as const };
+    expect(await validarCedula(actor, fichaId)).toMatchObject({ ok: true });
+    expect(await guardarDocumento({ mjrvId: fichaId, lado: "anverso", imagen: await foto(), origen: "estacion" })).toMatchObject({ ok: true });
+    const ficha = (await resumenFinanzas()).filas.find((f) => f.id === fichaId);
+    expect(ficha).toMatchObject({ cedulaValidada: false, fotosCompletas: true, validacionEn: null });
+    expect(await validarCedula(actor, fichaId)).toMatchObject({ ok: true });
+    expect((await resumenFinanzas()).filas.find((f) => f.id === fichaId)).toMatchObject({ cedulaValidada: true, fotosCompletas: true });
+  });
+
+  it("una validación de prueba no cubre las fotos del modo elección", async () => {
+    const fichaId = ids[1];
+    const actor = { tipo: "usuario" as const, id: 1, nombre: "Fin", portal: "admin" as const };
+    expect(await validarCedula(actor, fichaId)).toMatchObject({ ok: true });
+    await consultarDueno("UPDATE cne.configuracion SET modo = 'eleccion'");
+    try {
+      for (const lado of ["anverso", "reverso"] as const) {
+        expect(await guardarDocumento({ mjrvId: fichaId, lado, imagen: await foto(), origen: "estacion" })).toMatchObject({ ok: true });
+      }
+      const ficha = (await resumenFinanzas()).filas.find((f) => f.id === fichaId);
+      expect(ficha).toMatchObject({ cedulaValidada: false, fotosCompletas: true, validacionEn: null });
+    } finally {
+      await consultarDueno("UPDATE cne.configuracion SET modo = 'prueba'");
+    }
+    expect((await resumenFinanzas()).filas.find((f) => f.id === fichaId)).toMatchObject({ cedulaValidada: true });
   });
 });

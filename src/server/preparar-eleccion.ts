@@ -19,7 +19,7 @@ function exigirSuperadmin(sesion: Sesion): void {
 const DE_PRUEBA: Record<string, string> = {
   pagos_confirmados: "es_prueba", actas_pago: "es_prueba", documentos_mjrv: "es_prueba", decisiones_movimiento: "es_prueba",
   excepciones_disponibilidad: "es_prueba", lecturas_puerta: "es_prueba", fichas_abiertas_finanzas: "es_prueba", asignaciones_cargo: "es_prueba",
-  pendientes_impresion: "es_prueba", firmas_recibo: "es_prueba",
+  escaneos_finanzas: "es_prueba", cedulas_validadas: "es_prueba", pendientes_impresion: "es_prueba", firmas_recibo: "es_prueba",
   envios_credencial: "mjrv_id IN (SELECT id FROM cne.mjrv WHERE es_prueba)",
   mjrv: "es_prueba",
 };
@@ -82,6 +82,7 @@ export async function prepararEleccion(sesion: Sesion, confirmacion: string, res
         if (copiadas !== c.n) throw new Error(`La copia de ${c.tabla} no coincide (${copiadas} de ${c.n}).`);
       }
       for (const c of antes) await client.query(`DELETE FROM cne.${c.tabla} WHERE ${DE_PRUEBA[c.tabla]}`);
+      await client.query("UPDATE cne.secuencia_recibos SET ultimo_ordinal = 0 WHERE es_prueba");
       const despues = await contar(client);
       if (despues.some((d) => d.n !== 0)) throw new Error("Quedaron registros de prueba después de borrar.");
       await client.query("UPDATE cne.configuracion SET modo = 'eleccion', actualizado_en = now(), actualizado_por = $1 WHERE id = 1", [sesion.usuarioId]);

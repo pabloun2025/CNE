@@ -11,8 +11,10 @@ export async function POST(request: Request) {
   }
 
   const form = await request.formData().catch(() => null);
+  const modo = form?.get("modo");
+  if (modo != null && modo !== "prueba" && modo !== "eleccion") return new Response("Modo no válido.", { status: 400 });
   const ids = (form?.getAll("id") ?? []).map((id) => typeof id === "string" && /^\d+$/.test(id) ? Number(id) : NaN);
-  const resultado = await generarRecibosContingencia(cuenta.actor, ids);
+  const resultado = await generarRecibosContingencia(cuenta.actor, ids, modo ?? undefined);
   if (!resultado.ok) return new Response(resultado.mensaje, { status: resultado.status });
   const nombre = resultado.numeros.length === 1 ? `recibo-${resultado.numeros[0]}` : "recibos-contingencia";
 

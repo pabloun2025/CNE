@@ -1,5 +1,6 @@
-import { SOLO_CONSUL } from "@/domain/roles";
 import Link from "next/link";
+import { ListaMjrvSeleccion } from "@/components/lista-mjrv-seleccion";
+import { SOLO_CONSUL } from "@/domain/roles";
 import { requireAdmin } from "@/server/guard";
 import { listarMjrv } from "@/server/mjrv";
 
@@ -17,37 +18,21 @@ export default async function ListaMjrv({ searchParams }: { searchParams: Promis
         <Link href="/admin/mjrv/importar" className="rounded border border-slate-500 px-4 py-2 font-semibold">Importar Excel</Link>
       </div>
       <form className="mb-4 flex flex-wrap gap-2">
-        <input name="q" defaultValue={f.q} placeholder="Apellidos o cédula" className={campo} />
-        <input name="junta" defaultValue={f.junta} placeholder="Junta (H12)" className={`${campo} w-28`} />
-        <select name="rol" defaultValue={f.rol ?? ""} className={campo}>
+        <input name="q" type="search" aria-label="Apellidos o cédula" defaultValue={f.q} placeholder="Apellidos o cédula" className={`${campo} min-w-0 max-w-full`} />
+        <input name="junta" aria-label="Junta" defaultValue={f.junta} placeholder="Junta (H12)" className={`${campo} w-28`} />
+        <select name="rol" aria-label="Cargo" defaultValue={f.rol ?? ""} className={campo}>
           <option value="">Todos los cargos</option>
           {["presidente", "secretario", "vocal", "suplente", "otro"].map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
-        <select name="estado" defaultValue={f.estado ?? ""} className={campo}>
+        <select name="estado" aria-label="Estado" defaultValue={f.estado ?? ""} className={campo}>
           <option value="">Activos</option><option value="ingresado">Ingresados</option><option value="no_ingresado">Sin ingresar</option><option value="baja">De baja</option><option value="todos">Todos</option>
         </select>
         <button className="rounded bg-slate-800 px-4 py-2 font-semibold text-white">Filtrar</button>
       </form>
       {filas.length === 0 ? (
-        <p>No hay fichas. Cargue el Excel de MJRV para empezar.</p>
+        <p>{f.q || f.junta || f.rol || f.estado ? "No hay fichas que coincidan con los filtros." : "No hay fichas activas. Puede crear una ficha o importar el Excel de MJRV."}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <p className="mb-1 text-sm">{filas.length}{filas.length === 500 ? "+" : ""} fichas</p>
-          <table className="w-full text-left text-sm">
-            <thead><tr className="border-b"><th className="p-2">Junta</th><th className="p-2">Persona</th><th className="p-2">Cargo</th><th className="p-2">Estado</th><th className="p-2">Acciones</th></tr></thead>
-            <tbody>
-              {filas.map((m) => (
-                <tr key={m.id} className="border-b">
-                  <td className="p-2 font-semibold">{m.origen}{m.vigente !== m.origen ? ` → ${m.vigente}` : ""}</td>
-                  <td className="p-2"><Link className="underline" href={`/admin/mjrv/${m.id}`}>{m.apellidos}, {m.nombres}</Link><div className="text-slate-600">{m.cedula}{m.es_prueba ? " · PRUEBA" : ""}</div></td>
-                  <td className="p-2">{m.rol}</td>
-                  <td className="p-2">{!m.activo ? "De baja" : m.ingresado ? "Ingresó" : "Sin ingresar"}</td>
-                  <td className="p-2"><Link className="underline" href={`/admin/mjrv/${m.id}`}>Editar</Link> · <Link className="underline" href={`/admin/mjrv/${m.id}#borrar`}>Borrar</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ListaMjrvSeleccion key={JSON.stringify([f.junta, f.rol, f.estado, f.q])} filas={filas} />
       )}
     </main>
   );

@@ -18,11 +18,12 @@ describe("roles de administración", () => {
   it("menú: cada rol ve solo sus enlaces", () => {
     const de = (rol: "consul" | "coordinador" | "financiero") => ENLACES_ADMIN.filter((e) => e.roles.includes(rol)).map((e) => e.href);
     expect(de("consul")).toHaveLength(ENLACES_ADMIN.length);
-    expect(de("coordinador")).toEqual(["/admin", "/admin/mando"]);
-    expect(de("financiero")).toEqual(["/admin", "/admin/finanzas", "/admin/finanzas/pagar", "/admin/finanzas/escanear", "/admin/finanzas/imprimir", "/admin/configuracion", "/admin/informes"]);
+    expect(de("coordinador")).toEqual(["/admin/mando"]);
+    expect(de("financiero")).toEqual(["/admin", "/admin/finanzas", "/admin/finanzas/pagar", "/admin/finanzas/caja", "/admin/informes"]);
+    expect(de("consul")).not.toContain("/admin/configuracion");
   });
 
-  it("el inicio del coordinador no lleva pagos y el del financiero no lleva juntas", () => {
+  it("el resumen filtra pagos para coordinación y juntas para finanzas", () => {
     expect(resumenParaRol(resumen, "coordinador")).toMatchObject({ pagos: null, apertura: { total: 3 } });
     expect(resumenParaRol(resumen, "financiero")).toMatchObject({ apertura: null, pagos: { totalEur: "0" } });
     expect(resumenParaRol(resumen, "consul")).toMatchObject({ apertura: { total: 3 }, pagos: { totalEur: "0" } });

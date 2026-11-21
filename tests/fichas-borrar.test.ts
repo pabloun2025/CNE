@@ -6,7 +6,7 @@ import { closePools } from "@/server/db";
 import { guardarDocumento } from "@/server/documentos";
 import type { ActorPago } from "@/server/finanzas";
 import { confirmarPago, fichaPago, generarActa } from "@/server/finanzas";
-import { borrarMjrv, crearMjrv, editarMjrv, obtenerFicha, type DatosMjrv } from "@/server/mjrv";
+import { borrarMjrv, crearMjrv, editarMjrv, obtenerFicha, validarCedula, type DatosMjrv } from "@/server/mjrv";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const sesion: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
@@ -56,6 +56,8 @@ describe("borrar fichas", () => {
     const acta = await generarActa(actor, creada.id, true);
     expect(acta.ok).toBe(true);
     if (!acta.ok) return;
+    expect(await borrarMjrv(sesion, creada.id, true)).toMatchObject({ ok: false, mensaje: expect.stringContaining("recibo emitido") });
+    expect(await validarCedula({ portal: "finanzas", tipo: "usuario", id: usuarioId, nombre: actor.operadorNombre }, creada.id)).toMatchObject({ ok: true });
     const [fila] = await consultarDueno<{ id: number }>("SELECT id FROM cne.actas_pago WHERE mjrv_id = $1", [creada.id]);
     expect(await confirmarPago(actor, { mjrvId: creada.id, actaId: fila.id, verificado: true })).toMatchObject({ ok: true });
     expect((await fichaPago("0000000012", actor))?.pago?.operador).toBe("Admin");

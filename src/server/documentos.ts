@@ -38,7 +38,7 @@ export async function buscarPorCedula(cedulaBruta: string): Promise<BusquedaComp
 export type ResultadoFoto = { ok: true; estado: EstadoDocs } | { ok: false; status: 400 | 404 | 409; mensaje: string };
 
 // Re-codifica con sharp (aplica la orientación y quita EXIF), cifra y guarda. Repetir una foto la sustituye.
-export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: Buffer; origen: "publico" | "estacion"; operadorId?: number }): Promise<ResultadoFoto> {
+export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: Buffer; origen: "publico" | "estacion"; operadorId?: number; enlaceId?: number }): Promise<ResultadoFoto> {
   if (d.imagen.length < MIN_BYTES) return { ok: false, status: 400, mensaje: "La imagen es demasiado pequeña o está vacía. Vuelva a fotografiar el documento." };
   if (d.imagen.length > MAX_BYTES) return { ok: false, status: 400, mensaje: "La imagen pesa más de 2 MB. Vuelva a tomarla." };
   let procesada: Buffer, ancho: number, alto: number;
@@ -51,17 +51,19 @@ export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: 
   if (procesada.length < MIN_BYTES) return { ok: false, status: 400, mensaje: "La imagen no tiene detalle suficiente. Vuelva a tomarla con mejor luz." };
   const hash = sha256Bytes(procesada);
   return withTx(async (client) => {
-    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo", [d.mjrvId])).rows[0]) return { ok: false as const, status: 404 as const, mensaje: "No se encontró la ficha." };
+    await client.query("SELECT id FROM configuracion WHERE id = 1 FOR SHARE");
+    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [d.mjrvId])).rows[0]) return { ok: false as const, status: 404 as const, mensaje: "No se encontró la ficha." };
     // El reverso no puede ser la misma foto que el anverso (ni al revés).
     const otro = (await client.query<{ sha256: Buffer }>("SELECT sha256 FROM documentos_mjrv WHERE mjrv_id = $1 AND lado <> $2", [d.mjrvId, d.lado])).rows[0];
     if (otro && Buffer.compare(otro.sha256, hash) === 0) return { ok: false as const, status: 409 as const, mensaje: "Esta foto es igual a la del otro lado del documento. Fotografíe el lado que falta." };
     const { ciphertext, nonce } = encryptBuffer(procesada);
     await client.query(
-      `INSERT INTO documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, bytes, ancho, alto, sha256, origen, operador_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      `INSERT INTO documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, bytes, ancho, alto, sha256, origen, operador_id, enlace_id, creado_en)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,clock_timestamp())
        ON CONFLICT (mjrv_id, lado, es_prueba) DO UPDATE SET imagen_cifrada = EXCLUDED.imagen_cifrada, nonce = EXCLUDED.nonce, bytes = EXCLUDED.bytes,
-         ancho = EXCLUDED.ancho, alto = EXCLUDED.alto, sha256 = EXCLUDED.sha256, origen = EXCLUDED.origen, operador_id = EXCLUDED.operador_id, creado_en = now()`,
-      [d.mjrvId, d.lado, ciphertext, nonce, procesada.length, ancho, alto, hash, d.origen, d.operadorId ?? null]);
+         ancho = EXCLUDED.ancho, alto = EXCLUDED.alto, sha256 = EXCLUDED.sha256, origen = EXCLUDED.origen, operador_id = EXCLUDED.operador_id,
+         enlace_id = EXCLUDED.enlace_id, creado_en = EXCLUDED.creado_en`,
+      [d.mjrvId, d.lado, ciphertext, nonce, procesada.length, ancho, alto, hash, d.origen, d.operadorId ?? null, d.enlaceId ?? null]);
     const lados = (await client.query<{ lado: Lado }>("SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1", [d.mjrvId])).rows.map((r) => r.lado);
     return { ok: true as const, estado: { anverso: lados.includes("anverso"), reverso: lados.includes("reverso"), completos: lados.length === 2 } };
   });
@@ -99,8 +101,12 @@ export function ipDeSolicitud(headers: Headers): string | null {
   return headers.get("cf-connecting-ip") || headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
 }
 
-export async function fijarFormulario(abierto: boolean, usuarioId: number): Promise<void> {
-  await query("UPDATE configuracion SET documentos_publico_abierto = $1, actualizado_en = now(), actualizado_por = $2 WHERE id = 1", [abierto, usuarioId]);
+export async function fijarFormulario(sesion: Sesion, abierto: boolean): Promise<void> {
+  if (sesion.tipo !== "superadmin") throw new Error("Solo Superadministración puede configurar el formulario público.");
+  await withTx(async (client) => {
+    await client.query("UPDATE configuracion SET documentos_publico_abierto = $1, actualizado_en = now(), actualizado_por = $2 WHERE id = 1", [abierto, sesion.usuarioId]);
+    await registrarAuditoria({ portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: abierto ? "formulario_documentos_abierto" : "formulario_documentos_cerrado" }, client);
+  });
 }
 
 // ───────────── Borrado de todas las fotos (superadmin, 10d) ─────────────

@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ENLACES_ADMIN, ETIQUETA_ROL, type RolAdmin } from "@/domain/roles";
+import { ENLACES_ADMIN, ETIQUETA_ROL, INICIO_DE_ROL, type RolAdmin } from "@/domain/roles";
 import { salirAdmin } from "@/server/acceso-actions";
 import { MarcaEstado, Tricolor } from "./marca";
 
 // Las hijas de Finanzas se eligen en pestañas, no como otra sección del menú.
-const EN_PESTANA = new Set(["/admin/finanzas/pagar", "/admin/finanzas/escanear", "/admin/finanzas/imprimir"]);
+const EN_PESTANA = new Set(["/admin/finanzas/pagar", "/admin/finanzas/caja"]);
 
 const GRUPOS: { id: string; etiqueta: string; hrefs: string[] }[] = [
   { id: "preparacion", etiqueta: "Preparación", hrefs: ["/admin/mjrv", "/admin/credenciales", "/admin/revocar", "/admin/operadores"] },
   { id: "jornada", etiqueta: "Jornada", hrefs: ["/admin/documentos", "/admin/finanzas", "/admin/mando"] },
-  { id: "cierre", etiqueta: "Cierre", hrefs: ["/admin/informes", "/admin/configuracion"] },
+  { id: "cierre", etiqueta: "Cierre", hrefs: ["/admin/informes"] },
 ];
 
 const ICONO: Record<string, ReactNode> = {
@@ -26,7 +26,6 @@ const ICONO: Record<string, ReactNode> = {
   "/admin/finanzas": <Icono d="M4 7h16v10H4zM4 11h16M8 15h3" />,
   "/admin/mando": <Icono d="M4 5h7v7H4zM13 5h7v4h-7zM13 12h7v7h-7zM4 15h7v4H4z" />,
   "/admin/informes": <Icono d="M5 19V9M12 19V5M19 19v-7" />,
-  "/admin/configuracion": <Icono d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />,
 };
 
 function Icono({ d }: { d: string }) {
@@ -98,7 +97,7 @@ export function CascaronAdmin({ nombre, rol, children }: { nombre: string; rol: 
       <header className="mbar">
         <Tricolor />
         <div className="mbar-row">
-          <Link className="mbar-brand" href="/admin" aria-label="CNE 2026. Ir al inicio">
+          <Link className="mbar-brand" href={inicio?.href ?? INICIO_DE_ROL[rol]} aria-label="CNE 2026. Ir al inicio">
             <MarcaEstado size={30} />
             <span className="mbar-name"><small>CNE 2026</small><span>Madrid</span></span>
           </Link>

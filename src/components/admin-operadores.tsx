@@ -17,9 +17,6 @@ export function FormOperador() {
     <form action={enviar} className="grid max-w-sm gap-3">
       <label className="text-sm font-medium">Nombre<input name="nombre" required className={campo} /></label>
       <label className="text-sm font-medium">Apellido<input name="apellido" required className={campo} /></label>
-      <fieldset className="text-sm font-medium"><legend>Funciones</legend>
-        {FUNCIONES.map((f) => <label key={f} className="mr-4 inline-flex items-center gap-1 py-1"><input type="checkbox" name="funciones" value={f} /> {FUNCION_NOMBRE[f]}</label>)}
-      </fieldset>
       <label className="text-sm font-medium">PIN de 4 dígitos<input name="pin" inputMode="numeric" pattern="\d{4}" maxLength={4} required autoComplete="off" className={campo} /></label>
       <label className="text-sm font-medium">Repita el PIN<input name="pin2" inputMode="numeric" pattern="\d{4}" maxLength={4} required autoComplete="off" className={campo} /></label>
       <button disabled={p} className={boton}>Crear operador</button>
@@ -57,7 +54,7 @@ export function FormEnlace() {
 
 export function AccionesEnlaceEstacion({ url, etiqueta, funcion }: { url: string; etiqueta: string; funcion: Funcion }) {
   const [copia, setCopia] = useState<"copiado" | "manual" | null>(null);
-  const mensaje = `CNE Madrid · ${FUNCION_NOMBRE[funcion]} · ${etiqueta}\n${url}\nAcceda con su PIN asignado.`;
+  const mensaje = `CNE Madrid · ${FUNCION_NOMBRE[funcion]} · ${etiqueta}\n${url}${funcion === "mando" ? "\nAcceda con su PIN asignado." : ""}`;
 
   async function copiar() {
     try {

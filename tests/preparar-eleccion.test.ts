@@ -31,6 +31,7 @@ async function sembrarActividad() {
   // Un registro real (modo elección imaginario): no debe tocarse.
   await consultarDueno("INSERT INTO cne.lecturas_puerta (codigo_leido, mjrv_id, resultado, operador_id, enlace_id, es_prueba) SELECT '9999999999', m.id, 'valido', (SELECT id FROM cne.operadores_madrid LIMIT 1), (SELECT id FROM cne.enlaces_estacion LIMIT 1), false FROM cne.mjrv m WHERE m.cedula = '9999999999'");
   await consultarDueno("INSERT INTO cne.envios_credencial (mjrv_id, canal, destino) SELECT id, 'correo', 'real@ejemplo.invalid' FROM cne.mjrv WHERE cedula = '9999999999'");
+  await consultarDueno("UPDATE cne.secuencia_recibos SET ultimo_ordinal = CASE WHEN es_prueba THEN 20 ELSE 17 END");
 }
 
 describe("Borrar datos de prueba y preparar para elección", () => {
@@ -77,6 +78,9 @@ describe("Borrar datos de prueba y preparar para elección", () => {
     expect(await n("cne.lecturas_puerta WHERE es_prueba")).toBe(0);
     expect(await n("cne.actas_pago")).toBe(0);
     expect(await n("cne.pagos_confirmados")).toBe(0);
+    expect(await consultarDueno("SELECT es_prueba, ultimo_ordinal FROM cne.secuencia_recibos ORDER BY es_prueba")).toEqual([
+      { es_prueba: false, ultimo_ordinal: 17 }, { es_prueba: true, ultimo_ordinal: 0 },
+    ]);
     expect(await n("cne.asignaciones_cargo")).toBe(1); // la real
     expect(await n("cne.asignaciones_cargo WHERE es_prueba")).toBe(0);
     expect(await n("cne.fichas_abiertas_finanzas")).toBe(1);

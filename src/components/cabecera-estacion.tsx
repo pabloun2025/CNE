@@ -5,8 +5,8 @@ import { cambiarOperadorAccion } from "@/server/estacion-actions";
 
 import { MarcaEstado, Tricolor } from "./marca";
 
-// Función · operador · conexión · «Cambiar operador». Sin menú hacia otras funciones (§13.10).
-export function CabeceraEstacion({ token, funcion, etiqueta, operador }: { token: string; funcion: string; etiqueta: string; operador: string }) {
+// Mando muestra el operador y permite cambiarlo.
+export function CabeceraEstacion({ token, funcion, etiqueta, operador }: { token: string; funcion: string; etiqueta: string; operador?: string }) {
   const [enLinea, setEnLinea] = useState(true);
   useEffect(() => {
     const a = () => setEnLinea(navigator.onLine);
@@ -23,11 +23,11 @@ export function CabeceraEstacion({ token, funcion, etiqueta, operador }: { token
           <MarcaEstado size={30} />
           <span className="mbar-name"><small>{funcion}</small><span>{etiqueta}</span></span>
         </span>
-        <span>{operador}</span>
+        {operador && <span>{operador}</span>}
         <span className={enLinea ? "status-line online" : "status-line offline"}>{enLinea ? "● Conectado" : "● Sin conexión"}</span>
-        <form action={cambiarOperadorAccion.bind(null, token)}>
+        {operador && <form action={cambiarOperadorAccion.bind(null, token)}>
           <button className="quiet" type="submit">Cambiar operador</button>
-        </form>
+        </form>}
       </div>
     </header>
   );

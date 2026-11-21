@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSuperadmin, sesionApi } from "./guard";
+import { requireSuperadmin } from "./guard";
 import { activarAdmin, cambiarModo, cambiarRolAdmin, crearAdmin, restablecerAdmin } from "./superadmin";
 import type { Modo } from "./config";
 import { cargarDemo, quitarDemo } from "./demo";
@@ -95,25 +95,18 @@ export async function prepararEleccionAccion(_: EstadoSuper, f: FormData): Promi
 }
 
 // Línea de WhatsApp de CNE (instancia fija «cne-madrid»).
-const sesionVinculacion = async () => await sesionApi("admin") ?? await requireSuperadmin();
-
-function actualizarLineaWhatsApp(): void {
-  revalidatePath("/admin/configuracion/envios");
-  revalidatePath("/superadmin/envios");
-}
-
 export async function crearLineaAccion(): Promise<EstadoSuper> {
-  const sesion = await sesionVinculacion();
+  const sesion = await requireSuperadmin();
   const l = await crearLinea(sesion);
-  actualizarLineaWhatsApp();
+  revalidatePath("/superadmin/envios");
   if (l.error) return { error: l.error };
   return l.estado === "vinculada" ? { aviso: `La línea ya está vinculada${l.numero ? ` con ${l.numero}` : ""}.`, vinculada: true } : { aviso: "Escanee el código con el WhatsApp del teléfono de CNE.", qr: l.qr ?? undefined };
 }
 
 export async function desvincularLineaAccion(): Promise<EstadoSuper> {
-  const sesion = await sesionVinculacion();
+  const sesion = await requireSuperadmin();
   const r = await desvincularLinea(sesion);
-  actualizarLineaWhatsApp();
+  revalidatePath("/superadmin/envios");
   return r.ok ? { aviso: "Línea desvinculada. El envío real por WhatsApp quedó apagado." } : { error: r.mensaje };
 }
 

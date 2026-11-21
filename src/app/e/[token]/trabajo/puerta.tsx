@@ -26,7 +26,7 @@ function Aviso({ p, origen }: { p: Pantalla; origen: Origen }) {
   return (<><p className="text-4xl font-extrabold leading-tight">No se pudo comprobar</p><p className="text-2xl">Repita la lectura.</p></>);
 }
 
-export function Puerta() {
+export function Puerta({ token }: { token: string }) {
   const [pantalla, setPantalla] = useState<{ lectura: Pantalla; origen: Origen } | null>(null);
   const [encima, setEncima] = useState(false);
   const [cont, setCont] = useState<Contadores | null>(null);
@@ -46,14 +46,14 @@ export function Puerta() {
       dispositivo.current = localStorage.getItem("cne-dispositivo") || crypto.randomUUID();
       localStorage.setItem("cne-dispositivo", dispositivo.current);
     } catch { /* sin almacenamiento */ }
-    fetch("/api/e/puerta").then((r) => (r.ok ? r.json() : null)).then((d) => d && setCont(d)).catch(() => undefined);
+    fetch("/api/e/puerta", { headers: { authorization: `Bearer ${token}` } }).then((r) => (r.ok ? r.json() : null)).then((d) => d && setCont(d)).catch(() => undefined);
     const desbloquear = () => unlockAudio();
     window.addEventListener("pointerdown", desbloquear, { once: true });
     return () => {
       window.removeEventListener("pointerdown", desbloquear);
       window.clearTimeout(cierre.current);
     };
-  }, []);
+  }, [token]);
 
   useEffect(() => { if (modoManual) entrada.current?.focus(); }, [modoManual]);
   useEffect(() => { if (pendiente) tituloConfirmacion.current?.focus(); }, [pendiente]);
@@ -73,7 +73,7 @@ export function Puerta() {
     setProcesando(true);
     try {
       const r = await fetch("/api/e/puerta", {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({ codigo, dispositivo: dispositivo.current, origen: origen === "qr" || origen === "nombre" ? "codigo" : origen, confirmarId }),
       });
       if (!r.ok) throw new Error("http");
@@ -101,7 +101,7 @@ export function Puerta() {
       setProcesando(false);
       enCurso.current = false;
     }
-  }, [mostrar]);
+  }, [mostrar, token]);
 
   function abrirManual(modo: ModoManual) {
     setManual("");
@@ -117,7 +117,7 @@ export function Puerta() {
   return (
     <div className="mx-auto max-w-xl space-y-3">
       <p className="cifra text-center text-2xl font-bold" aria-live="polite">Ingresos: {cont?.total ?? "—"} <span className="block text-base font-semibold">Este puesto: {cont?.esteEnlace ?? "—"}</span></p>
-      <LectorQr encuadre leerCredencial pausado={!!modoManual || !!pendiente || procesando} onCodigo={(c, origen) => { if (!modoManual && !pendiente) void enviar(c, origen); }}>
+      <LectorQr encuadre tokenPuerta={token} pausado={!!modoManual || !!pendiente || procesando} onCodigo={(c, origen) => { if (!modoManual && !pendiente) void enviar(c, origen); }}>
         {encima && aviso && <div aria-hidden="true" className={`absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 overflow-y-auto p-3 text-center ${color}`}>{aviso}</div>}
       </LectorQr>
       {pantalla && <div role="alert" className={`p-4 text-center ${color}`}>{aviso}</div>}

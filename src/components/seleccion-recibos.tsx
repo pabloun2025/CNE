@@ -4,12 +4,13 @@ import { useState } from "react";
 
 type Ficha = { id: number; nombre: string; cedula: string; junta: string };
 
-export function SeleccionRecibos({ fichas }: { fichas: Ficha[] }) {
+export function SeleccionRecibos({ fichas, modo }: { fichas: Ficha[]; modo: "prueba" | "eleccion" }) {
   const [elegidas, cambiar] = useState<number[]>([]);
   const todas = elegidas.length === fichas.length;
 
   return (
     <form method="post" action="/api/admin/finanzas/recibos/emitir" target="_blank" className="card stack">
+      <input type="hidden" name="modo" value={modo} />
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="secondary px-3 py-2" onClick={() => cambiar(todas ? [] : fichas.map((f) => f.id))}>
           {todas ? "Quitar selección" : "Seleccionar todas las visibles"}

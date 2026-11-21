@@ -1,23 +1,29 @@
 import { CabeceraEstacion } from "@/components/cabecera-estacion";
-import { FUNCION_NOMBRE, FUNCIONES } from "@/domain/estaciones";
+import { FUNCION_NOMBRE } from "@/domain/estaciones";
+import { enlacePorToken } from "@/server/estaciones";
 import { requireEstacion } from "@/server/guard";
+import { redirect } from "next/navigation";
 import { Documentacion } from "./documentacion";
 import { Finanzas } from "./finanzas";
 import { Mando } from "./mando";
 import { Puerta } from "./puerta";
 
+export const dynamic = "force-dynamic";
+
 // La pantalla la decide la función del enlace; no hay forma de elegir otra desde aquí.
 export default async function Trabajo({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const s = await requireEstacion(token, FUNCIONES);
+  const enlace = await enlacePorToken(token);
+  if (!enlace) redirect(`/e/${token}`);
+  const operador = enlace.funcion === "mando" ? (await requireEstacion(token, enlace.id)).operadorNombre : undefined;
   return (
     <div className="funcionario">
-      <CabeceraEstacion token={token} funcion={FUNCION_NOMBRE[s.funcion]} etiqueta={s.etiqueta} operador={s.operadorNombre} />
+      <CabeceraEstacion token={token} funcion={FUNCION_NOMBRE[enlace.funcion]} etiqueta={enlace.etiqueta} operador={operador} />
       <main className="mx-auto max-w-7xl p-3">
-        {s.funcion === "puerta" && <Puerta />}
-        {s.funcion === "mando" && <Mando />}
-        {s.funcion === "documentacion" && <Documentacion />}
-        {s.funcion === "finanzas" && <Finanzas />}
+        {enlace.funcion === "puerta" && <Puerta token={token} />}
+        {enlace.funcion === "mando" && <Mando />}
+        {enlace.funcion === "documentacion" && <Documentacion token={token} />}
+        {enlace.funcion === "finanzas" && <Finanzas token={token} />}
       </main>
     </div>
   );

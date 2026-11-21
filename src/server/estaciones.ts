@@ -7,7 +7,7 @@ import { query } from "./db";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
 
 const HORAS_SESION = 16;
-const auditoriaAdmin = (s: Sesion) => ({ portal: "admin", actorTipo: "usuario" as const, actorId: s.usuarioId, actorNombre: s.nombre });
+const auditoriaAdmin = (s: Sesion) => ({ portal: s.tipo === "superadmin" ? "superadmin" : "admin", actorTipo: "usuario" as const, actorId: s.usuarioId, actorNombre: s.nombre });
 
 // ───────────── Administración de operadores y enlaces ─────────────
 export type Operador = { id: number; nombre: string; apellido: string; funciones: Funcion[]; activo: boolean; bloqueado: boolean };
@@ -90,7 +90,7 @@ export async function revocarEnlace(sesion: Sesion, id: number): Promise<void> {
   await registrarAuditoria({ ...auditoriaAdmin(sesion), accion: "enlace_revocado", entidad: "enlaces_estacion", entidadId: id });
 }
 
-// ───────────── Acceso de la estación (nombre + PIN) ─────────────
+// ───────────── Acceso de las estaciones ─────────────
 export type EnlaceActivo = { id: number; funcion: Funcion; etiqueta: string };
 
 export async function enlacePorToken(token: string): Promise<EnlaceActivo | null> {
@@ -99,28 +99,16 @@ export async function enlacePorToken(token: string): Promise<EnlaceActivo | null
   return f[0] ?? null;
 }
 
-export async function operadoresDelEnlace(enlace: EnlaceActivo): Promise<{ id: number; nombre: string; apellido: string }[]> {
-  return query<{ id: number; nombre: string; apellido: string }>("SELECT id, nombre, apellido FROM operadores_madrid WHERE activo AND $1 = ANY(funciones) ORDER BY lower(apellido), lower(nombre)", [enlace.funcion]);
+export async function accesoDirectoEstacion(request: Request, funcion: Exclude<Funcion, "mando">) {
+  const token = /^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1];
+  const enlace = token ? await enlacePorToken(token) : null;
+  if (!enlace) return { ok: false as const, status: 401 };
+  if (enlace.funcion !== funcion) return { ok: false as const, status: 403 };
+  return { ok: true as const, enlace };
 }
 
-// La puerta no elige de una lista: escribe nombre, apellido y PIN, y se contrastan con los operadores cargados.
-export async function identificarPuerta(token: string, nombreBruto: string, apellidoBruto: string, pin: string, dispositivo: string | null): Promise<ResultadoEstacion> {
-  const enlace = await enlacePorToken(token);
-  if (!enlace || enlace.funcion !== "puerta") return { ok: false, codigo: "enlace_inactivo", mensaje: "Este enlace ya no está activo. Pida uno nuevo a la administración." };
-  const clave = `enlace:${enlace.id}`;
-  const fallosEnlace = (await query<{ n: number }>("SELECT count(*)::int AS n FROM intentos_acceso WHERE clave = $1 AND NOT exito AND creado_en > now() - make_interval(mins => $2)", [clave, MINUTOS_BLOQUEO]))[0].n;
-  if (fallosEnlace >= MAX_FALLOS_ENLACE) return { ok: false, codigo: "bloqueado", mensaje: `Demasiados intentos en este enlace. Espere ${MINUTOS_BLOQUEO} minutos.` };
-  const nombre = limpio(nombreBruto);
-  const apellido = limpio(apellidoBruto);
-  if (nombre.length < 2 || apellido.length < 2) return { ok: false, codigo: "pin", mensaje: "Escriba su nombre y su apellido." };
-  const ops = await query<{ id: number }>(
-    "SELECT id FROM operadores_madrid WHERE activo AND 'puerta' = ANY(funciones) AND lower(nombre) = lower($1) AND lower(apellido) = lower($2)",
-    [nombre, apellido]);
-  if (ops.length !== 1) {
-    await query("INSERT INTO intentos_acceso (clave, exito) VALUES ($1, false)", [clave]);
-    return { ok: false, codigo: "pin", mensaje: "No se pudo identificar. Revise el nombre, el apellido y el PIN." };
-  }
-  return identificarEstacion(token, ops[0].id, pin, dispositivo);
+export async function operadoresDelEnlace(enlace: EnlaceActivo): Promise<{ id: number; nombre: string; apellido: string }[]> {
+  return query<{ id: number; nombre: string; apellido: string }>("SELECT id, nombre, apellido FROM operadores_madrid WHERE activo AND $1 = ANY(funciones) ORDER BY lower(apellido), lower(nombre)", [enlace.funcion]);
 }
 
 export type ResultadoEstacion = { ok: true; sesionToken: string } | { ok: false; codigo: "enlace_inactivo" | "bloqueado" | "pin"; mensaje: string };
@@ -128,6 +116,7 @@ export type ResultadoEstacion = { ok: true; sesionToken: string } | { ok: false;
 export async function identificarEstacion(token: string, operadorId: number, pin: string, dispositivo: string | null): Promise<ResultadoEstacion> {
   const enlace = await enlacePorToken(token);
   if (!enlace) return { ok: false, codigo: "enlace_inactivo", mensaje: "Este enlace ya no está activo. Pida uno nuevo a la administración." };
+  if (enlace.funcion !== "mando") return { ok: false, codigo: "enlace_inactivo", mensaje: "Abra el enlace para acceder a la estación." };
   const clave = `enlace:${enlace.id}`;
   const fallosEnlace = (await query<{ n: number }>("SELECT count(*)::int AS n FROM intentos_acceso WHERE clave = $1 AND NOT exito AND creado_en > now() - make_interval(mins => $2)", [clave, MINUTOS_BLOQUEO]))[0].n;
   if (fallosEnlace >= MAX_FALLOS_ENLACE) return { ok: false, codigo: "bloqueado", mensaje: `Demasiados intentos en este enlace. Espere ${MINUTOS_BLOQUEO} minutos.` };
@@ -165,7 +154,7 @@ export async function leerSesionEstacion(token: string | undefined): Promise<Ses
     `SELECT s.id AS sesion_id, e.id AS enlace_id, e.funcion, e.etiqueta, o.id AS operador_id, btrim(o.nombre || ' ' || o.apellido) AS nombre
        FROM sesiones_estacion s JOIN enlaces_estacion e ON e.id = s.enlace_id JOIN operadores_madrid o ON o.id = s.operador_id
       WHERE s.token_hash = $1 AND s.revocada_en IS NULL AND s.expira_en > now()
-        AND e.activo AND e.revocado_en IS NULL AND o.activo AND e.funcion = ANY(o.funciones)`, [sha256Bytes(token)]);
+        AND e.funcion = 'mando' AND e.activo AND e.revocado_en IS NULL AND o.activo AND e.funcion = ANY(o.funciones)`, [sha256Bytes(token)]);
   const r = f[0];
   return r ? { sesionId: r.sesion_id, enlaceId: r.enlace_id, funcion: r.funcion, etiqueta: r.etiqueta, operadorId: r.operador_id, operadorNombre: r.nombre } : null;
 }

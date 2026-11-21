@@ -12,15 +12,8 @@ describe("línea de WhatsApp de CNE (cliente simulado)", () => {
   beforeEach(() => EvolutionSimulado.reiniciar());
   afterAll(closePools);
 
-  it("permite vincular a un cónsul y registra el acceso de administración", async () => {
-    const consul = sesion("madrid_admin");
-    expect(await crearLinea(consul)).toMatchObject({ estado: "esperando_qr", qr: expect.stringMatching(/^data:image\/png;base64,/) });
-    expect(await consultarDueno("SELECT portal FROM cne.auditoria WHERE accion = 'linea_whatsapp_creada'")).toEqual([{ portal: "admin" }]);
-    await consultarDueno("DELETE FROM cne.auditoria WHERE accion = 'linea_whatsapp_creada'");
-  });
-
-  it("impide consultar, vincular y desvincular a coordinadores y financieros", async () => {
-    for (const rol of ["coordinador", "financiero"] as const) {
+  it("reserva la consulta, vinculación y desvinculación a superadministración", async () => {
+    for (const rol of ["consul", "coordinador", "financiero"] as const) {
       const operador = { ...sesion("madrid_admin"), rol };
       await expect(estadoLinea(operador)).rejects.toThrow();
       await expect(crearLinea(operador)).rejects.toThrow();
@@ -42,8 +35,10 @@ describe("línea de WhatsApp de CNE (cliente simulado)", () => {
     expect(await desvincularLinea(sesion())).toEqual({ ok: true });
     expect(await estadoLinea(sesion())).toMatchObject({ estado: "desconectada", numero: null });
     expect(await consultarDueno("SELECT whatsapp_real, whatsapp_numero FROM cne.configuracion")).toEqual([{ whatsapp_real: false, whatsapp_numero: null }]);
-    const acc = await consultarDueno<{ accion: string }>("SELECT accion FROM cne.auditoria WHERE accion LIKE 'linea_whatsapp%' ORDER BY id");
-    expect(acc.map((a) => a.accion)).toEqual(["linea_whatsapp_creada", "linea_whatsapp_desvinculada"]);
+    expect(await consultarDueno("SELECT accion, portal FROM cne.auditoria WHERE accion LIKE 'linea_whatsapp%' ORDER BY id")).toEqual([
+      { accion: "linea_whatsapp_creada", portal: "superadmin" },
+      { accion: "linea_whatsapp_desvinculada", portal: "superadmin" },
+    ]);
   });
 
   it("crear dos veces no duplica la instancia", async () => {

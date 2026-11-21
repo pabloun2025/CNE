@@ -53,4 +53,13 @@ describe("fichas de MJRV", () => {
     await cambiarBaja(sesion, id, false, "");
     expect((await obtenerFicha(id))?.activo).toBe(true);
   });
+
+  it("devuelve todas las fichas del filtro para seleccionarlas de una vez", async () => {
+    await consultarDueno(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, rotulo_credencial, es_prueba)
+      SELECT lpad((1000 + i)::text, 10, '0'), 'APELLIDO PRUEBA MASIVA ' || lpad(i::text, 3, '0'), 'NOMBRE PRUEBA', 'Vocal', 'vocal', j.id, 'H12', true
+      FROM generate_series(1, 501) AS i CROSS JOIN cne.juntas_madrid j WHERE j.serie = 'H' AND j.numero = 12`);
+    const fichas = await listarMjrv({ q: "APELLIDO PRUEBA MASIVA", junta: "H12", rol: "vocal" });
+    expect(fichas).toHaveLength(501);
+    expect(fichas.at(-1)).toMatchObject({ cedula: "0000001501", rotulo_credencial: "H12" });
+  });
 });

@@ -22,6 +22,7 @@ export function RecibosEmitidos({ filas, total, modo, q }: { filas: ReciboFila[]
         </>
       ) : elegidas.map((id) => <input key={id} type="hidden" name="recibo" value={id} />)}
       <div className="card stack">
+        <label className="flex items-center gap-3"><input type="checkbox" name="anexo" value="1" /> Incluir las fotos disponibles de la cédula en los recibos nuevos</label>
         <label className="flex items-center gap-3">
           <input type="checkbox" checked={todas} onChange={(e) => {
             setTodas(e.target.checked);
@@ -62,7 +63,7 @@ export function RecibosEmitidos({ filas, total, modo, q }: { filas: ReciboFila[]
                 </span>
               </label>
               <a className="button-like secondary" target="_blank" rel="noopener" aria-label={`Reimprimir recibo ${r.numero}`}
-                href={`/api/admin/finanzas/recibos/${r.tipo}/${r.id}?vista=1`}>Reimprimir</a>
+                href={`/api/admin/finanzas/recibos/${r.tipo}/${r.id}?vista=1&anexo=1`}>Reimprimir</a>
             </li>
           );
         })}

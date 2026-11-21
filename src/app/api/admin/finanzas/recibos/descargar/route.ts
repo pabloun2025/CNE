@@ -12,13 +12,14 @@ export async function POST(request: Request) {
   const modo = form?.get("modo");
   const error = () => new Response("Seleccione recibos válidos para descargar.", { status: 400 });
   if (!form || (modo !== "prueba" && modo !== "eleccion")) return error();
+  const incluirCedula = form.get("anexo") === "1";
 
   let seleccion: SeleccionRecibosEmitidos;
   if (form.get("alcance") === "todos") {
     const total = Number(form.get("total"));
     const q = form.get("q");
     if (!Number.isSafeInteger(total) || total < 1 || typeof q !== "string") return error();
-    seleccion = { modo, q, total };
+    seleccion = { modo, q, total, incluirCedula };
   } else {
     const referencias = [];
     for (const valor of new Set(form.getAll("recibo"))) {
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
       referencias.push({ tipo, id });
     }
     if (!referencias.length) return error();
-    seleccion = { modo, referencias };
+    seleccion = { modo, referencias, incluirCedula };
   }
 
   const resultado = await descargarSeleccionRecibos(cuenta.sesion, seleccion);

@@ -46,10 +46,10 @@ export async function ipCliente(): Promise<string | null> {
 
 export const COOKIE_ESTACION = "cne_estacion";
 
-// Estación (puerta, documentación, finanzas, mando): cookie → sesión → enlace y operador activos → función permitida.
-export async function requireEstacion(token: string, funciones: Funcion[]): Promise<SesionEstacion> {
-  const r = await validarEstacion((await cookies()).get(COOKIE_ESTACION)?.value, funciones);
-  if (!r.ok) redirect(`/e/${token}`);
+// Mando requiere una sesión del enlace que abrió ese operador.
+export async function requireEstacion(token: string, enlaceId: number): Promise<SesionEstacion> {
+  const r = await validarEstacion((await cookies()).get(COOKIE_ESTACION)?.value, ["mando"]);
+  if (!r.ok || r.sesion.enlaceId !== enlaceId) redirect(`/e/${token}`);
   return r.sesion;
 }
 

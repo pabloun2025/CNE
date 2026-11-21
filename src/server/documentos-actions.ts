@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { fijarFormulario } from "./documentos";
-import { requireAdmin } from "./guard";
-import { registrarAuditoria } from "./auditoria";
+import { requireSuperadmin } from "./guard";
 
 export async function fijarFormularioAccion(f: FormData): Promise<void> {
-  const sesion = await requireAdmin();
+  const sesion = await requireSuperadmin();
   const abierto = f.get("abierto") === "1";
-  await fijarFormulario(abierto, sesion.usuarioId);
-  await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: abierto ? "formulario_documentos_abierto" : "formulario_documentos_cerrado" });
+  await fijarFormulario(sesion, abierto);
+  revalidatePath("/superadmin/configuracion");
   revalidatePath("/admin/documentos");
+  revalidatePath("/admin/credenciales");
 }

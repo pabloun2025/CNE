@@ -22,6 +22,10 @@ export function faltanParametros(p: ParametrosPago): string[] {
   return (Object.keys(ETIQUETAS) as (keyof typeof ETIQUETAS)[]).filter((k) => vacio(p[k])).map((k) => ETIQUETAS[k]);
 }
 
+export function faltanDatosRecibo(p: ParametrosPago): string[] {
+  return vacio(p.pagador_nombre) ? [ETIQUETAS.pagador_nombre] : [];
+}
+
 // La base admite hasta diez dígitos enteros y dos decimales.
 function aCentimos(texto: string | null): bigint | null {
   const m = /^(\d{1,10})(?:[.,](\d{1,2}))?$/.exec(texto?.trim() ?? "");

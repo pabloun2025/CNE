@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
-import { activarOperador, crearEnlace, crearOperador, enlacePorToken, identificarEstacion, identificarPuerta, listarEnlaces, restablecerPin, revocarEnlace, validarEstacion } from "@/server/estaciones";
+import { activarOperador, crearEnlace, crearOperador, enlacePorToken, identificarEstacion, listarEnlaces, restablecerPin, revocarEnlace, validarEstacion } from "@/server/estaciones";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const admin: Sesion = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul", debeCambiar: false };
@@ -41,15 +41,13 @@ describe("estaciones: operadores, PIN y enlaces", () => {
     expect(await enlacePorToken("inventado-inventado-inventado")).toBeNull();
   });
 
-  it("la puerta identifica con nombre, apellido y PIN, sin lista", async () => {
-    const { token } = await nuevo("puerta", "Elena", ["puerta"], "2468");
-    expect(await identificarPuerta(token, " elena ", "prueba", "2468", "tablet")).toMatchObject({ ok: true });
-    expect(await identificarPuerta(token, "Elena", "Otro", "2468", null)).toMatchObject({ ok: false, codigo: "pin" });
-    expect(await identificarPuerta(token, "Elena", "Prueba", "0000", null)).toMatchObject({ ok: false, mensaje: expect.stringContaining("PIN incorrecto") });
+  it("la puerta abre por enlace en lugar de emitir una sesión de operador", async () => {
+    const { token, operadorId } = await nuevo("puerta", "Elena", ["puerta"], "2468");
+    expect(await identificarEstacion(token, operadorId, "2468", "tablet")).toMatchObject({ ok: false, codigo: "enlace_inactivo" });
   });
 
   it("PIN correcto abre sesión; PIN erróneo avisa de los intentos que quedan y bloquea al 5.º", async () => {
-    const { token, operadorId } = await nuevo("puerta", "Ana Puerta", ["puerta"], "4321");
+    const { token, operadorId } = await nuevo("mando", "Ana Mando", ["mando"], "4321");
     const mal = await identificarEstacion(token, operadorId, "0000", "tablet");
     expect(mal).toMatchObject({ ok: false, mensaje: "PIN incorrecto. Le quedan 4 intentos." });
     for (let i = 0; i < 3; i++) await identificarEstacion(token, operadorId, "0000", null);
@@ -69,31 +67,31 @@ describe("estaciones: operadores, PIN y enlaces", () => {
   });
 
   it("revocar el enlace invalida sus sesiones al instante y muestra «ya no está activo»", async () => {
-    const { token, enlaceId, operadorId } = await nuevo("puerta", "Carla Puerta", ["puerta"]);
+    const { token, enlaceId, operadorId } = await nuevo("mando", "Carla Mando", ["mando"]);
     const r = await identificarEstacion(token, operadorId, "1234", null);
     if (!r.ok) throw new Error();
-    expect((await validarEstacion(r.sesionToken, ["puerta"])).ok).toBe(true);
+    expect((await validarEstacion(r.sesionToken, ["mando"])).ok).toBe(true);
     await revocarEnlace(admin, enlaceId);
-    expect(await validarEstacion(r.sesionToken, ["puerta"])).toEqual({ ok: false, status: 401 });
+    expect(await validarEstacion(r.sesionToken, ["mando"])).toEqual({ ok: false, status: 401 });
     expect(await identificarEstacion(token, operadorId, "1234", null)).toMatchObject({ ok: false, codigo: "enlace_inactivo", mensaje: "Este enlace ya no está activo. Pida uno nuevo a la administración." });
   });
 
   it("desactivar al operador invalida su sesión", async () => {
-    const { token, operadorId } = await nuevo("puerta", "Dani Puerta", ["puerta"]);
+    const { token, operadorId } = await nuevo("mando", "Dani Mando", ["mando"]);
     const r = await identificarEstacion(token, operadorId, "1234", null);
     if (!r.ok) throw new Error();
     await activarOperador(admin, operadorId, false);
-    expect((await validarEstacion(r.sesionToken, ["puerta"])).ok).toBe(false);
+    expect((await validarEstacion(r.sesionToken, ["mando"])).ok).toBe(false);
   });
 
-  it("un enlace de puerta no sirve para finanzas: 403; un operador sin la función no entra por ese enlace", async () => {
-    const { token, operadorId } = await nuevo("puerta", "Eva Doble", ["puerta"]);
+  it("la sesión de Mando queda restringida a Mando y requiere un operador con esa función", async () => {
+    const { token, operadorId } = await nuevo("mando", "Eva Doble", ["mando"]);
     const r = await identificarEstacion(token, operadorId, "1234", null);
     if (!r.ok) throw new Error();
     expect(await validarEstacion(r.sesionToken, ["finanzas"])).toEqual({ ok: false, status: 403 });
     expect(await validarEstacion(undefined, ["puerta"])).toEqual({ ok: false, status: 401 });
-    const fin = await crearEnlace(admin, "finanzas", "Finanzas 1");
-    if (!fin.ok) throw new Error();
-    expect(await identificarEstacion(fin.token, operadorId, "1234", null)).toMatchObject({ ok: false, codigo: "pin" });
+    const o = await crearOperador(admin, "Elías", "Prueba", ["puerta"], "1234");
+    if (!o.ok) throw new Error();
+    expect(await identificarEstacion(token, o.id, "1234", null)).toMatchObject({ ok: false, codigo: "pin" });
   });
 });

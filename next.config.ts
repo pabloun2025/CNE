@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async redirects() {
+    return [
+      { source: "/admin/finanzas/escanear", destination: "/admin/finanzas/pagar", permanent: false },
+      { source: "/admin/finanzas/imprimir", destination: "/admin/finanzas/pagar", permanent: false },
+      { source: "/admin/configuracion", destination: "/superadmin/configuracion", permanent: false },
+      { source: "/admin/configuracion/envios", destination: "/superadmin/envios", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

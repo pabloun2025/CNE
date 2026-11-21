@@ -19,8 +19,13 @@ export function PanelFinanciero() {
   const [nombres, setNombres] = useState("");
   const [aviso, setAviso] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [seleccion, setSeleccion] = useState<{ modoPrueba: boolean; ids: number[] } | null>(null);
   if (!datos) return <p>{falla ? "No se pudo cargar el panel. Reintentando…" : "Cargando…"}</p>;
   const filas = datos.filas.filter((f) => (!filtro || f.estado === filtro) && (!soloSinValidar || !f.cedulaValidada) && (!q.trim() || `${f.nombre} ${f.cedula}`.toLowerCase().includes(q.trim().toLowerCase())));
+  const elegibles = filas.filter((f) => f.estado !== "pagada");
+  const ids = seleccion?.modoPrueba === datos.modoPrueba ? seleccion.ids : [];
+  const elegidas = elegibles.filter((f) => ids.includes(f.id));
+  const elegir = (nuevos: number[]) => setSeleccion({ modoPrueba: datos.modoPrueba, ids: nuevos });
   const guardarNombre = async (id: number) => {
     setOcupado(true);
     const f = new FormData();
@@ -58,12 +63,24 @@ export function PanelFinanciero() {
         <label className="flex items-center gap-2 px-2 py-2 text-sm font-medium"><input type="checkbox" checked={soloSinValidar} onChange={(e) => setSoloSinValidar(e.target.checked)} /> Solo sin cédula validada</label>
       </div>
       {aviso && <p role="status" className="font-semibold">{aviso}</p>}
+      {!!elegibles.length && (
+        <form method="post" action="/api/admin/finanzas/recibos/emitir" target="_blank" className="flex flex-wrap items-center gap-3">
+          <input type="hidden" name="modo" value={datos.modoPrueba ? "prueba" : "eleccion"} />
+          {elegidas.map((f) => <input key={f.id} type="hidden" name="id" value={f.id} />)}
+          <label className="flex items-center gap-2"><input type="checkbox" checked={elegidas.length === elegibles.length}
+            onChange={(e) => elegir(e.target.checked ? elegibles.map((f) => f.id) : [])} /> Seleccionar todos los pendientes del filtro</label>
+          <p role="status">{elegidas.length} seleccionadas</p>
+          <button className="secondary" disabled={!elegidas.length || falla}>Imprimir en contingencia</button>
+        </form>
+      )}
       {filas.length === 0 ? <p className="empty">No hay personas con ese criterio.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b"><th className="p-2">Persona</th><th className="p-2">Junta</th><th className="p-2">Estado</th><th className="p-2">EUR</th><th className="p-2">Hora y operador</th></tr></thead>
-            <tbody>{filas.slice(0, 700).map((f) => (
+            <thead><tr className="border-b"><th scope="col"><span className="sr-only">Selección</span></th><th className="p-2">Persona</th><th className="p-2">Junta</th><th className="p-2">Estado</th><th className="p-2">EUR</th><th className="p-2">Hora y operador</th></tr></thead>
+            <tbody>{filas.map((f) => (
               <tr key={f.id} className="border-b">
+                <td className="p-2">{f.estado !== "pagada" && <input type="checkbox" aria-label={`Seleccionar a ${f.nombre}`} checked={ids.includes(f.id)}
+                  onChange={(e) => elegir(e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))} />}</td>
                 <td className="p-2"><PersonaFila f={f} editando={editando === f.id} apellidos={apellidos} nombres={nombres} ocupado={ocupado} onApellidos={setApellidos} onNombres={setNombres} onEditar={() => { setEditando(f.id); setApellidos(f.apellidos); setNombres(f.nombres); setAviso(""); }} onCancelar={() => setEditando(null)} onGuardar={() => void guardarNombre(f.id)} onValidar={() => void validar(f.id)} /></td>
                 <td className="p-2">{f.junta}</td>
                 <td className="p-2">{ESTADO[f.estado]}{f.simulado ? " (simulado)" : ""}</td>

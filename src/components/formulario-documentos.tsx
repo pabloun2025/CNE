@@ -33,9 +33,10 @@ export function FormularioDocumentos() {
     try {
       const r = await fetch("/api/d/foto", { method: "POST", body: f });
       const d = await r.json();
-      if (!r.ok) { setMensaje(d.error ?? "No se pudo guardar la foto."); return; }
+      if (!r.ok) { setMensaje(d.error ?? "No se pudo guardar la foto."); return false; }
       setPaso(lado === "anverso" ? "reverso" : "fin");
-    } catch { setMensaje("No hay conexión. Intente de nuevo."); }
+      return true;
+    } catch { setMensaje("No hay conexión. Intente de nuevo."); return false; }
   };
 
   return (

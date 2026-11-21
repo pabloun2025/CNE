@@ -2,33 +2,22 @@ import Link from "next/link";
 import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
 import { PestanasFinanzas } from "@/components/pestanas-finanzas";
 import { PanelFinanciero } from "@/components/panel-financiero";
-import { faltanParametros, montosParaActa } from "@/domain/pago";
 import { requireAdmin } from "@/server/guard";
-import { leerParametros } from "@/server/pago";
 
 export default async function Finanzas() {
   await requireAdmin({ roles: CONSUL_Y_FINANCIERO });
-  const p = await leerParametros();
-  const faltan = faltanParametros(p);
-  const imp = montosParaActa(p);
   return (
     <main className="stack-lg">
       <h1>Finanzas</h1>
       <PestanasFinanzas />
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Panel financiero</h2>
+      <ol className="home-cards">
+        <li className="home-card"><h2>Escanear</h2><p>Use en el móvil el enlace de Escaneo de Finanzas que le entregue el cónsul.</p></li>
+        <li className="home-card"><h2><Link href="/admin/finanzas/pagar">Revisar e imprimir</Link></h2><p>Valide la cédula, imprima el recibo y entréguelo a Caja.</p></li>
+        <li className="home-card"><h2><Link href="/admin/finanzas/caja">Caja</Link></h2><p>Recoja la firma en papel, entregue el efectivo y confirme el pago.</p></li>
+      </ol>
+      <section className="stack">
+        <h2>Estado de los pagos</h2>
         <PanelFinanciero />
-      </section>
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Parámetros de pago</h2>
-        {faltan.length > 0 ? (
-          <p role="alert" className="border-2 border-stone-900 bg-stone-100 p-2 font-medium">Faltan en configuración: {faltan.join(", ")}. Mientras tanto no se pueden confirmar pagos y las actas salen como borrador. <Link href="/admin/configuracion" className="underline">Ir a configuración</Link></p>
-        ) : (
-          <p className="cifra border-2 border-stone-900 p-2 font-medium">
-            Importe configurado {imp.estado === "ok" ? `${imp.eur} EUR` : "pendiente"}.
-            {imp.estado === "ok" && (imp.usd ? ` Referencia de ${imp.usd} USD.` : " Referencia en USD pendiente.")} <Link href="/admin/configuracion" className="underline">Cambiar en configuración</Link>
-          </p>
-        )}
       </section>
     </main>
   );

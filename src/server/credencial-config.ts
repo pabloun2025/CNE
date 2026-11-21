@@ -11,12 +11,12 @@ export async function medidasCredencial(): Promise<MedidasCredencial> {
 }
 
 export async function guardarMedidasCredencial(sesion: Sesion, medidas: MedidasCredencial): Promise<void> {
-  if (sesion.tipo !== "madrid_admin" || sesion.rol !== "consul") throw new Error("Solo el cónsul puede configurar las credenciales.");
+  if (sesion.tipo !== "superadmin") throw new Error("Solo Superadministración puede configurar las credenciales.");
   await withTx(async (client) => {
     await client.query(
       "UPDATE configuracion SET credencial_ancho_mm = $1, credencial_alto_mm = $2, actualizado_en = now(), actualizado_por = $3 WHERE id = 1",
       [medidas.ancho, medidas.alto, sesion.usuarioId],
     );
-    await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "medidas_credencial_guardadas", entidad: "configuracion", entidadId: 1, datos: medidas }, client);
+    await registrarAuditoria({ portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "medidas_credencial_guardadas", entidad: "configuracion", entidadId: 1, datos: medidas }, client);
   });
 }

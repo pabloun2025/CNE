@@ -55,7 +55,7 @@ export async function imprimirPendiente(actor: ActorPago, id: number): Promise<{
 // La firma se guarda en el PDF. No confirma que el dinero se entregó.
 export async function guardarFirma(actor: ActorPago, mjrvId: number, png: Buffer): Promise<{ ok: true } | { ok: false; mensaje: string }> {
   if (png.length < 80 || png.length > 500_000) return { ok: false, mensaje: "La firma no es válida." };
-  const acta = await generarActa(actor, mjrvId, true, { firma: png, completarImporte: true });
+  const acta = await generarActa(actor, mjrvId, true, { firma: png });
   if (!acta.ok) return { ok: false, mensaje: acta.mensaje };
   return { ok: true };
 }
