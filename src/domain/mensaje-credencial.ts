@@ -4,7 +4,7 @@ type DatosMensaje = { nombres: string; rotulo: string; host?: string | null };
 type DatosCorreo = DatosMensaje & { junta: string; zona: ZonaColor };
 
 const RECINTO = "Caja Mágica";
-const DIRECCION = "Calle Camino de Perales 23, 28041 Madrid";
+const DIRECCION = "Camino de Perales 23, 28041 Madrid";
 const MAPA = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${RECINTO}, ${DIRECCION}`)}`;
 
 function enlaceDocumentos(host?: string | null): string | null {
