@@ -2,7 +2,7 @@
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 20-11-2026.** Consulte la [sección 12](#12-operación-y-entrega-del-20-11-2026) para el diagnóstico de WhatsApp y la entrega vigente.
+**Último estado, 21-11-2026.** Consulte la [sección 13](#13-circuito-de-los-tres-puestos-de-madrid) para el circuito desplegado, la numeración y los enlaces.
 
 ## 1. Qué es y qué alcance tiene hoy
 
@@ -21,7 +21,7 @@ Documento para que otra IA (o persona) continúe el trabajo sin perder contexto.
 
 ## 3. Estado: qué está construido y publicado
 
-Producción: **https://madrid.consulado.app**. La versión verificada antes de la entrega del circuito de tres puestos es `776a7f9`.
+Producción: **https://madrid.consulado.app**. La versión verificada del circuito de tres puestos es `4e73cb9`. [Estado público](https://madrid.consulado.app/api/salud)
 
 | Bloque | Estado |
 |---|---|
@@ -84,16 +84,11 @@ No hay usuarios ni contraseñas de fábrica para esas cuentas. La puerta no es u
 
 ### De Pablo (insumos y decisiones)
 1. **Excel nominativo de MJRV** — lo más urgente. Con 150 WhatsApp/día, el envío de credenciales debe empezar **a más tardar el 24-11**. Revisar el archivo antes de cargarlo (columnas, rótulo, cargos, duplicados); no inventar datos.
-2. **Importe en EUR** por persona y **referencia en USD** (lo configura `consul` o `financiero` en Finanzas después de publicar la entrega del 20-11).
-3. **Activación del correo real.** El nombre institucional del remitente y la dirección verificada ya están configurados en Oracle.
-4. **Verificar el acceso a superadministración** para habilitar envíos reales después de las comprobaciones operativas.
-5. **Vincular la línea de WhatsApp** de CNE (QR en `/superadmin/envios`) con un teléfono dedicado, y decidir cuándo encender el envío real.
-6. Decisión abierta **P-10**: ¿el traslado debe confirmarse cuando la persona llega físicamente? (hoy cuenta al aceptar).
-7. Confirmar el **orden de cercanía de zonas** (hoy: deducido del plano) y la **distribución del QR de documentos** (hoy: cartel + enlace en el mensaje).
-8. Plantilla oficial del acta, si la hay.
+2. Decisión abierta **P-10**: ¿el traslado debe confirmarse cuando la persona llega físicamente? (hoy cuenta al aceptar).
+3. Confirmar el **orden de cercanía de zonas** (hoy: deducido del plano) y la **distribución del QR de documentos** (hoy: cartel + enlace en el mensaje).
 
 ### Técnico (para la siguiente IA)
-1. **Ensayo con dispositivos reales** (lista `docs/diseno/08-comprobacion-primera-version.md`, secciones C, D, G, H): cámara y lector QR en móviles, captura automática (calibrar `src/domain/captura-auto.ts`), impresión de credenciales A4/CR80 y del acta, vinculación de WhatsApp y un envío real controlado a teléfonos de prueba de Pablo, «Preparar elección» en modo prueba.
+1. **Ensayo con dispositivos reales:** cámara y lector QR en el móvil del puesto, impresión a tamaño real de credenciales y recibo A4, y entrega de un mensaje controlado si se autoriza la prueba. Las verificaciones de esta entrega emplearon datos ficticios y cámara emulada.
 2. **Vulnerabilidad alta** que reporta `npm audit` en una dependencia: revisar y corregir antes del 29-11 sin romper la compilación.
 3. **Respaldo de «Preparar elección»** queda en `/tmp` del contenedor (se pierde al reiniciar); la copia válida es la que se descarga. Valorar montarlo en `/home/ubuntu/cne/backups`.
 4. Copias externas: las diarias quedan solo en la VM; valorar copia cifrada fuera (R2 ya se usa en teinvito).
@@ -200,3 +195,5 @@ Pantallas tocadas:
 - **Superadministración.** Gestiona cuentas, enlaces, firmante, medidas de credenciales, formulario de documentos y envíos. El cónsul puede distribuir enlaces existentes. Coordinación abre solo Mando.
 - **Comprobaciones.** Pasaron 1.033 pruebas, TypeScript y la compilación. Chromium a 375 px comprobó el escaneo, la impresión A4, los ordinales 190 y 191, Caja con dos cuentas y la transición de la cámara al reverso. La migración sobre el esquema desplegado conservó los recibos históricos y la serie nueva empezó en cero.
 - **Canales reales.** Oracle confirmó que WhatsApp ya está vinculado y activo y que Brevo ya está verificado y activo. La comprobación consultó los proveedores y el estado de los interruptores. [Verificación de canales](https://github.com/pabloun2025/CNE/actions/runs/44840955032)
+- **Producción `4e73cb9`.** El despliegue pasó CI y aplicó las tres migraciones. El servicio publicó la versión esperada con base sana. El firmante estaba configurado y ambos canales siguieron activos después de migrar. El sitio compartido de Recordatorio respondió. [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/44841286550) · [Comprobación pública](https://github.com/pabloun2025/CNE/actions/runs/44841704468) · [Comprobación de Oracle](https://github.com/pabloun2025/CNE/actions/runs/44841710769)
+- **Puestos.** Se confirmaron los enlaces existentes de Puerta y Escaneo de Finanzas. Se creó y verificó el enlace de Documentación. El cónsul puede compartir los tres desde Operadores y enlaces. Las dos pantallas de escritorio están en Revisar e imprimir y Caja. [Verificación de Documentación](https://github.com/pabloun2025/CNE/actions/runs/44841835248)
