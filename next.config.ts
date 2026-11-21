@@ -14,7 +14,7 @@ const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "off" },
   {
     key: "Content-Security-Policy",
-    value: `default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; ${scriptSrc}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
+    value: `default-src 'self'; img-src 'self' data: blob:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline'; ${scriptSrc}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
   },
 ];
 
