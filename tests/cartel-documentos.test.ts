@@ -38,11 +38,11 @@ describe("cartel para miembros de junta", () => {
     expect(texto).not.toContain("CARTEL DE PRUEBA");
   });
 
-  it("vincula el importe en euros con su tramo de recibos emitidos", async () => {
+  it("comunica a los MJRV una sola compensación de 58,82 €", async () => {
     const pdf = await PDFDocument.load(await cartelDocumentos(url));
     const texto = textoDelCartel(pdf);
-    expect(texto).toMatch(/58,82 €.*Primeros 190 recibos emitidos.*58,83 €.*Siguientes 95 recibos emitidos/);
-    expect(texto).not.toMatch(/USD|tipo de cambio/i);
+    expect(texto.match(/\d+,\d{2} €/g)).toEqual(["58,82 €"]);
+    expect(texto).not.toMatch(/orden de emisión|recibos emitidos|USD|tipo de cambio/i);
   });
 
   it("imprime la misma dirección que abre el código QR", async () => {

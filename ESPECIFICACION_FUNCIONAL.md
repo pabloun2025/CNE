@@ -244,7 +244,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO (18-11-2026).** El QR de documentos se distribuye **por cartel y como enlace en el mensaje de la credencial**. Las **fotos de cédula se conservan hasta que la superadministración las borre** con un botón, con confirmación escrita y registro en la auditoría.
 
-**DECIDIDO (21-11-2026).** El formulario público está siempre disponible en `/d`. El número de cédula identifica la ficha y figura en el recibo. Con la cédula física se cargan el anverso y el reverso. En su ausencia se carga solo una foto de la página de datos y retrato del pasaporte. Documentación y Finanzas ofrecen la misma elección. El FO-04 lleva las fotos elegidas al pie de una sola hoja A4 horizontal. La guía A4 incluye el QR fijo, ambas opciones y los pasos para firmar en papel y cobrar en Caja. Indica 58,82 € para los primeros 190 recibos y 58,83 € para los 95 siguientes, por orden de emisión.
+**DECIDIDO (21-11-2026).** El formulario público está siempre disponible en `/d`. El número de cédula identifica la ficha y figura en el recibo. Con la cédula física se cargan el anverso y el reverso. En su ausencia se carga solo una foto de la página de datos y retrato del pasaporte. Documentación y Finanzas ofrecen la misma elección. El FO-04 lleva las fotos elegidas al pie de una sola hoja A4 horizontal. La guía A4 incluye el QR fijo, ambas opciones y los pasos para firmar en papel y cobrar en Caja. Comunica a los MJRV una compensación de 58,82 €. El reparto contable se aplica a los recibos y al registro de Caja según la sección 7.5.
 
 ### 7.5. Pago físico y control financiero
 

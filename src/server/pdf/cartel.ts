@@ -1,7 +1,6 @@
 import { PDFDocument, StandardFonts, grayscale } from "pdf-lib";
 import QRCode from "qrcode";
 import { A4, MM } from "../../domain/credencial-layout";
-import { CUPO_RECIBOS, RECIBOS_TRAMO_INICIAL, importeReciboEUR } from "../../domain/recibos";
 
 // El mismo cartel se puede descargar desde Documentos e imprimir en blanco y negro.
 export async function cartelDocumentos(url: string): Promise<Uint8Array> {
@@ -15,7 +14,6 @@ export async function cartelDocumentos(url: string): Promise<Uint8Array> {
   const borde = grayscale(0.65);
   const margen = 42;
   const ancho = page.getWidth() - 2 * margen;
-  const centro = page.getWidth() / 2;
   const texto = (contenido: string, x: number, y: number, size: number, font = normal) => {
     page.drawText(contenido, { x, y, size, font, lineHeight: 18, color: negro });
   };
@@ -67,12 +65,9 @@ export async function cartelDocumentos(url: string): Promise<Uint8Array> {
   texto("Firme el recibo en papel y reciba el efectivo en Caja.", 82, 132, 15);
 
   page.drawRectangle({ x: margen, y: 50, width: ancho, height: 69, borderColor: negro, borderWidth: 1.2 });
-  texto("Importe según el orden de emisión del recibo", 59, 102, 13, negrita);
-  page.drawLine({ start: { x: centro, y: 60 }, end: { x: centro, y: 96 }, thickness: 0.8, color: borde });
-  texto(`${importeReciboEUR(1).replace(".", ",")} €`, 59, 77, 23, negrita);
-  texto(`Primeros ${RECIBOS_TRAMO_INICIAL} recibos emitidos`, 59, 60, 13);
-  texto(`${importeReciboEUR(RECIBOS_TRAMO_INICIAL + 1).replace(".", ",")} €`, centro + 17, 77, 23, negrita);
-  texto(`Siguientes ${CUPO_RECIBOS - RECIBOS_TRAMO_INICIAL} recibos emitidos`, centro + 17, 60, 13);
+  const compensacion = "58,82 €";
+  texto("Compensación por la jornada", margen + 17, 78, 17, negrita);
+  texto(compensacion, margen + ancho - 17 - negrita.widthOfTextAtSize(compensacion, 26), 76, 26, negrita);
 
   texto("Si necesita ayuda, pregunte al personal.", margen, 27, 12);
   return pdf.save();
