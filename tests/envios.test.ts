@@ -125,7 +125,10 @@ describe("D08 · texto del mensaje de la credencial", () => {
       expect(cuerpo).toContain("Caja Mágica");
       expect(cuerpo).toContain("Camino de Perales 23");
       expect(cuerpo).toContain("nivel −2");
+      expect(cuerpo).toContain("08:00");
+      expect(cuerpo).toContain("a más tardar a las 08:00");
       expect(cuerpo).toContain("08:30");
+      expect(cuerpo).not.toContain("antes de las 08:30");
       expect(cuerpo).toContain("M9");
       expect(cuerpo).toContain("Celeste");
       expect(cuerpo).toContain("https://www.google.com/maps/dir/");
