@@ -2,10 +2,10 @@
 
 // Procedimiento manual ejecutado dentro de cne-app desde GitHub Actions.
 // Recibe la contraseña NUEVA solo por stdin, jamás como argumento o en logs.
-const { Client } = require("pg");
-const { hash, verify } = require("@node-rs/argon2");
-
 async function main() {
+  const [{ Client }, { hash, verify }, { createHash }] = await Promise.all([
+    import("pg"), import("@node-rs/argon2"), import("node:crypto")
+  ]);
   let password = "";
   for await (const fragment of process.stdin) password += fragment.toString("utf8");
   if (password.length < 12 || password.length > 200) {
@@ -54,7 +54,6 @@ async function main() {
       [r.rows[0].id]
     );
     // Eliminar bloqueos por intentos fallidos de ESTE usuario, no de los demás.
-    const { createHash } = require("node:crypto");
     const claveCorreo = "correo:" + createHash("sha256")
       .update(r.rows[0].correo).digest("hex");
     await cliente.query("DELETE FROM cne.intentos_acceso WHERE clave = $1", [claveCorreo]);
