@@ -61,6 +61,14 @@ jobs:
             "SELECT 'MJRV es_prueba=' || es_prueba || ' activo=' || activo || ': ' || count(*) FROM cne.mjrv GROUP BY es_prueba, activo ORDER BY 1" || true
           sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
             "SELECT 'Auditoría MJRV (últimas 10): ' || accion || ' (' || coalesce(actor_tipo,'') || ') ' || to_char(creado_en AT TIME ZONE 'Europe/Madrid','DD-MM HH24:MI') FROM cne.auditoria WHERE accion ILIKE '%mjrv%' OR accion ILIKE '%borr%' OR accion ILIKE '%import%' ORDER BY creado_en DESC LIMIT 10" || true
+          echo '=== COLAS DE CREDENCIALES (solo recuentos) ==='
+          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
+            "BEGIN READ ONLY; SELECT canal, linea_whatsapp, count(*) FILTER (WHERE intentos = 0) AS esperando, count(*) FILTER (WHERE intentos > 0) AS en_intento FROM cne.envios_credencial WHERE estado = 'en_cola' AND NOT simulado GROUP BY canal, linea_whatsapp ORDER BY 1, 2; COMMIT;" || true
+          echo '=== ALMACENAMIENTO DE MENSAJES EN EVOLUTION ==='
+          for c in $(sudo docker ps --format '{{.Names}}' | grep -i evolution); do
+            sudo docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$c" |
+              awk -F= '$1 ~ /^DATABASE_SAVE_DATA_(NEW_MESSAGE|HISTORIC|CHATS)$/ && $2 ~ /^(true|false)$/ { print $1 "=" $2 }'
+          done
           echo '=== VOLUMENES ==='; sudo docker system df
           echo '=== PUERTOS ==='; sudo ss -lntp | sed -E 's/users:\(.*\)//'
           echo '=== NOMBRES DE VARIABLES (sin valores) ==='
