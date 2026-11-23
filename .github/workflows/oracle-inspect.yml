@@ -50,10 +50,17 @@ jobs:
                         ? new Date(f.disconnectionAt).toISOString() : "sin fecha";
                       const detalle = typeof f.disconnectionObject === "string" ? f.disconnectionObject : "";
                       const motivo = /connection[ _-]?replaced|conflict.{0,60}replaced/i.test(detalle) ? "sesión sustituida"
-                        : /logged[ _-]?out|device[ _-]?removed/i.test(detalle) ? "sesión cerrada"
+                         : /device[ _-]?removed/i.test(detalle) ? "dispositivo retirado"
+                        : /logged[ _-]?out/i.test(detalle) ? "cierre de sesión"
                         : /forbidden|banned|blocked/i.test(detalle) ? "rechazada"
                         : /stream[ _-]?error/i.test(detalle) ? "error de sesión" : "sin detalle clasificable";
-                      console.log("Desconexión registrada", linea, codigo, fecha, motivo);
+                      const senales = [
+                        /"tag"\s*:\s*"conflict"/i.test(detalle) ? "conflict" : "",
+                        /"tag"\s*:\s*"failure"/i.test(detalle) ? "failure" : "",
+                        /connection failure/i.test(detalle) ? "connection failure" : "",
+                        /"reason"\s*:\s*"?(401|403|440|515|428|408|500|411)\b/.exec(detalle)?.[1] || "",
+                      ].filter(Boolean);
+                      console.log("Desconexión registrada", linea, codigo, fecha, motivo, senales.join(", ") || "sin datos adicionales");
                     }
                   }
                   return respuesta;
