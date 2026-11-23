@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PDFDocument } from "pdf-lib";
+import { decodePDFRawStream, PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/admin/(panel)/credenciales/pdf/route";
 import { MM } from "@/domain/credencial-layout";
@@ -20,7 +20,7 @@ const descargar = (formato: string, ids: string[]) => POST(new Request("http://l
 beforeEach(() => {
   sesionApi.mockReset().mockResolvedValue({ rol: "consul" });
   query.mockReset().mockImplementation(async (sql: string, params: unknown[][]) => {
-    if (sql.includes("FROM mjrv m")) return [persona(1), persona(2)].filter((p) => params[0].includes(p.id));
+    if (sql.includes("FROM mjrv m")) return [persona(1), persona(2), { ...persona(3), serie: "M", numero: 7, rotulo_credencial: "M07", zona_color: "rojo" }].filter((p) => params[0].includes(p.id));
     if (sql.includes("SELECT modo")) return [{ modo: "prueba" }];
     if (sql.includes("credencial_ancho_mm")) return [{ ancho: "72.25", alto: "63" }];
     return [];
@@ -61,16 +61,22 @@ describe("descarga de la selección de credenciales", () => {
   });
 
   it("abre las planchas A4 en el visor como acción de impresión", async () => {
-    const resp = await descargar("a4", ["1", "2"]);
+    const resp = await descargar("a4", ["1", "3"]);
     expect(resp.headers.get("content-disposition")).toBe('inline; filename="credenciales-a4.pdf"');
     const pdf = await PDFDocument.load(await resp.arrayBuffer());
     expect(pdf.getPageCount()).toBe(1);
     expect(pdf.getPage(0).getWidth()).toBeCloseTo(210 * MM);
     expect(pdf.getPage(0).getHeight()).toBeCloseTo(297 * MM);
+    const tarjetas = pdf.context.enumerateIndirectObjects().flatMap(([, o]) =>
+      o instanceof PDFRawStream && o.dict.get(PDFName.of("Subtype"))?.toString() === "/Form"
+        ? [Buffer.from(decodePDFRawStream(o).decode()).toString("ascii")] : []);
+    expect(tarjetas.join("\n")).toContain("<4D31> Tj");
+    expect(tarjetas.join("\n")).toContain("<4637> Tj");
+    expect(tarjetas.join("\n")).not.toMatch(/<(483031|4D3037)> Tj/);
   });
 
   it("detecta que la selección cambió y evita una plancha parcial", async () => {
-    expect((await descargar("a4", ["1", "3"])).status).toBe(409);
+    expect((await descargar("a4", ["1", "4"])).status).toBe(409);
     expect(query).not.toHaveBeenCalledWith(expect.stringContaining("UPDATE mjrv"), expect.anything());
   });
 

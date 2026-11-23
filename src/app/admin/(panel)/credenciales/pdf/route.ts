@@ -28,7 +28,13 @@ async function descargar(seleccion: Seleccion, individual: boolean, seleccionExa
     })));
     return new Response(contenido, { headers: { ...headers, "content-type": "application/zip", "content-disposition": "attachment; filename=\"credenciales.zip\"" } });
   }
-  const bytes = individual ? await credencialesIndividuales(sel.datos, medidas) : await hojasA4(sel.datos, medidas);
+  // En las planchas, la letra sale de la asignación del padrón. Un rótulo importado «M» es ambiguo.
+  const bytes = individual
+    ? await credencialesIndividuales(sel.datos, medidas)
+    : await hojasA4(sel.datos.map((ficha, i) => ({
+      ...ficha,
+      rotulo: `${ficha.serie === "M" ? "F" : "M"}${sel.personas[i].junta.slice(1)}`,
+    })), medidas);
   await marcarGeneradas(sel.ids);
   const nombre = individual ? nombrePdfCredencial(sel.personas[0].junta, sel.datos[0].cedula) : "credenciales-a4.pdf";
   return new Response(Buffer.from(bytes), { headers: { ...headers, "content-type": "application/pdf", "content-disposition": `${individual ? "attachment" : "inline"}; filename="${nombre}"` } });

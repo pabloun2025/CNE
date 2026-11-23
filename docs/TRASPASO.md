@@ -345,3 +345,10 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Los acuses de WhatsApp se cruzan por línea e identificador del proveedor. No alteran el estado de la cola. Un acuse de entrega o lectura se refleja en Seguimiento y el Excel. El historial anterior de los chats se consulta en los teléfonos porque Evolution no lo guarda en el servidor.
 - La inspección de Oracle del 23-11 mostró 156 envíos pendientes. Se mantuvo la versión de producción y se dejó la publicación pendiente para preservar la cola. Tampoco se activaron los webhooks de producción. [Inspección de solo lectura](https://github.com/pabloun2025/CNE/actions/runs/45168686158)
 - Pasaron 1.202 pruebas en base ficticia, TypeScript, ESLint con la advertencia previa de Unslop y la compilación de producción. Chromium a 375 px confirmó la descarga autenticada, la recepción de una respuesta ficticia y el acuse de una línea, con rechazo de un token de otra línea.
+
+## 33. Reimpresión A4 con las letras F y M
+
+- Credenciales → Imprimir planchas A4 muestra F para las juntas femeninas y M para las masculinas, a partir de la junta asignada. Conserva número, zona, tamaño, guías de corte y QR. El cambio se aplica a la salida en planchas A4.
+- Brevo aceptó una única muestra de corrección para Pablo con una credencial F1 ficticia. La prueba usó el remitente institucional anterior al resultar inactivo el remitente configurado en la consulta de Brevo. El ajuste de producción se conservó. [Envío de muestra](https://github.com/pabloun2025/CNE/actions/runs/45209550112)
+- Antes de preparar la publicación, Oracle mostró 64 envíos pendientes en la línea 1 y 34 en la línea 2. Ambas estaban desconectadas y en pausa, sin envíos en curso. [Inspección de solo lectura](https://github.com/pabloun2025/CNE/actions/runs/45209614677)
+- Pasaron las 23 pruebas específicas de credenciales. En Chromium se abrió una plancha con dos fichas ficticias. El PDF A4 mostró M1 en amarillo y F1 en rojo, con guías punteadas.
