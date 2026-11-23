@@ -15,19 +15,19 @@ export const TEXTO_ENTREGA: Record<EstadoEntrega, string> = {
 export const ESTADOS_INCIDENCIA: EstadoEntrega[] = ["fallo", "rebote_permanente", "rebote_temporal", "bloqueado", "invalido", "spam", "error"];
 
 type SeguimientoCanal = { estado: EstadoEntrega; fecha: string | null; destino: string | null; error: string | null };
-type SeguimientoFicha = { id: number; nombre: string; cedula: string; junta: string; whatsapp: SeguimientoCanal & { linea: LineaEnvioWhatsApp | null }; correo: SeguimientoCanal };
+type SeguimientoFicha = { id: number; nombre: string; cedula: string; junta: string; whatsapp: SeguimientoCanal & { linea: LineaEnvioWhatsApp | null; rectificacion: boolean }; correo: SeguimientoCanal };
 
 export const estadoEntregasCredenciales = () => query<SeguimientoFicha>(
   `SELECT m.id, concat(m.apellidos, ', ', m.nombres) AS nombre, m.cedula, concat(j.serie, j.numero) AS junta,
           jsonb_build_object('estado', coalesce(w.estado_entrega, w.estado, CASE WHEN nullif(btrim(m.telefono_e164), '') IS NULL THEN 'sin_contacto' ELSE 'sin_envio' END),
-                             'fecha', coalesce(w.evento_entrega_en, w.enviado_en, w.creado_en), 'linea', w.linea_whatsapp,
+                             'fecha', coalesce(w.evento_entrega_en, w.enviado_en, w.creado_en), 'linea', w.linea_whatsapp, 'rectificacion', coalesce(w.whatsapp_rectificacion, false),
                              'destino', coalesce(w.destino, m.telefono_e164), 'error', CASE WHEN w.estado_entrega = 'error' THEN 'WhatsApp informó un error de entrega.' ELSE w.error END) AS whatsapp,
           jsonb_build_object('estado', coalesce(c.brevo_estado, c.estado, CASE WHEN nullif(btrim(m.correo), '') IS NULL THEN 'sin_contacto' ELSE 'sin_envio' END),
                              'fecha', coalesce(c.brevo_evento_en, c.enviado_en, c.creado_en),
                              'destino', coalesce(c.destino, m.correo), 'error', c.error) AS correo
      FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
      LEFT JOIN LATERAL (
-       SELECT e.estado, e.enviado_en, e.creado_en, e.linea_whatsapp, e.destino, e.error,
+       SELECT e.estado, e.enviado_en, e.creado_en, e.linea_whatsapp, e.whatsapp_rectificacion, e.destino, e.error,
               wa.estado AS estado_entrega, wa.evento_en AS evento_entrega_en
          FROM envios_credencial e LEFT JOIN entregas_whatsapp wa ON wa.envio_id = e.id AND wa.id_externo = e.id_externo
        WHERE e.mjrv_id = m.id AND e.canal = 'whatsapp' AND NOT e.simulado ORDER BY e.id DESC LIMIT 1

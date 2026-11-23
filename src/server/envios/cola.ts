@@ -1,3 +1,4 @@
+import { juntaEnCredencial } from "../../domain/juntas";
 import type { PoolClient } from "pg";
 import { FALLOS_PARA_PAUSAR, pausaWhatsAppMs, type CanalEnvio, type LineaEnvioWhatsApp } from "../../domain/envios-ritmo";
 import { getAppPool, withTx } from "../db";
@@ -102,13 +103,13 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
   if (canal === "correo" && (!remitente.direccion || !remitente.nombre)) return pausar(client, clave, "Falta el remitente del correo.");
 
   // Reclamo atómico: una sola fila, marcada como intentada antes de enviar.
-  const fila = (await client.query<{ id: number; mjrv_id: number; destino: string }>(
+  const fila = (await client.query<{ id: number; mjrv_id: number; destino: string; whatsapp_rectificacion: boolean }>(
     `UPDATE envios_credencial SET intentos = 1 WHERE id = (
        SELECT e.id FROM envios_credencial e JOIN mjrv m ON m.id = e.mjrv_id
         WHERE e.canal = $1 AND e.estado = 'en_cola' AND NOT e.simulado AND e.intentos = 0 AND NOT m.es_prueba AND e.linea_whatsapp = $2
           AND EXISTS (SELECT 1 FROM configuracion WHERE id = 1 AND ${col.real} AND ${col.pausa} IS NULL)
         ORDER BY e.id FOR UPDATE OF e SKIP LOCKED LIMIT 1)
-     RETURNING id, mjrv_id, destino`, [canal, linea])).rows[0];
+     RETURNING id, mjrv_id, destino, whatsapp_rectificacion`, [canal, linea])).rows[0];
   if (!fila) return { accion: "omitido", motivo: "cola vacía" };
 
   let r: ResultadoProveedor;
@@ -116,19 +117,28 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
     const sel = await seleccionarParaCredencial({ alcance: "ids", ids: [fila.mjrv_id] });
     if (sel.datos.length === 0) r = { ok: false, permanente: true, error: "La ficha ya no tiene una credencial disponible." };
     else {
-      const d = sel.datos[0];
-      const m = await mensajeCredencial(d, canal, sel.personas[0]);
-      // El interruptor autoriza credenciales definitivas para fichas reales incluso durante el ensayo operativo.
-      const pdfBase64 = Buffer.from(await credencialesIndividuales([{ ...d, prueba: false }], await medidasCredencial())).toString("base64");
+      const persona = sel.personas[0];
       const actual = (await client.query<{ destino: string | null }>(
         "SELECT CASE WHEN $2 = 'whatsapp' THEN telefono_e164 ELSE correo END AS destino FROM mjrv WHERE id = $1 AND activo AND NOT es_prueba",
         [fila.mjrv_id, canal])).rows[0];
+      const ficha = sel.datos[0];
       if (actual?.destino !== fila.destino) {
         r = { ok: false, permanente: true, error: "El contacto o la ficha cambió después de ponerla en cola. Revise la ficha y vuelva a encolarla." };
-      } else if (canal === "whatsapp") {
-        r = await whatsapp.enviarDocumento({ numero: fila.destino, texto: m.texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
+      } else if (fila.whatsapp_rectificacion) {
+        const junta = juntaEnCredencial(ficha.serie, persona.junta.slice(1));
+        const serie = ficha.serie === "M" ? "Femenino" : "Masculino";
+        const texto = `Rectificación de su credencial MJRV. Su junta se identifica como ${junta} (${serie}). Su junta y zona asignadas siguen siendo las mismas. Disculpe la confusión.\nConsulado General del Ecuador en Madrid`;
+        r = await whatsapp.enviarTexto({ numero: fila.destino, texto });
       } else {
-        r = await clientes.correo.enviar({ envioId: fila.id, para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, responderA: configEnvios.correoReplyTo ?? undefined, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
+        // Los envíos reales autorizados usan el PDF definitivo incluso durante el ensayo.
+        const d = { ...ficha, prueba: false, rotulo: canal === "whatsapp" ? juntaEnCredencial(ficha.serie, persona.junta.slice(1)) : ficha.rotulo };
+        const m = await mensajeCredencial(canal === "whatsapp" ? d : ficha, canal, persona);
+        const pdfBase64 = Buffer.from(await credencialesIndividuales([d], await medidasCredencial())).toString("base64");
+        if (canal === "whatsapp") {
+          r = await whatsapp.enviarDocumento({ numero: fila.destino, texto: m.texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
+        } else {
+          r = await clientes.correo.enviar({ envioId: fila.id, para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, responderA: configEnvios.correoReplyTo ?? undefined, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
+        }
       }
     }
   } catch (e) {

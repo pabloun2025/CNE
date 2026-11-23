@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { estadoEntregasCredenciales, ESTADOS_INCIDENCIA, TEXTO_ENTREGA } from "./envios-estado";
 
 const hora = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "medium" });
-const columnas = ["Junta", "Nombre", "Cédula", "Canal", "Línea", "Destino", "Estado", "Fecha (Madrid)", "Motivo"];
+const columnas = ["Junta", "Nombre", "Cédula", "Canal", "Línea", "Destino", "Estado", "Fecha (Madrid)", "Motivo", "Mensaje"];
 
 export async function informeEnviosExcel(): Promise<Buffer> {
   const fichas = await estadoEntregasCredenciales();
@@ -18,6 +18,7 @@ export async function informeEnviosExcel(): Promise<Buffer> {
       grupos[grupo].push([
         ficha.junta, ficha.nombre, ficha.cedula, canal, linea ?? "", estado.destino ?? "",
         TEXTO_ENTREGA[estado.estado], estado.fecha ? hora.format(new Date(estado.fecha)) : "", estado.error ?? "",
+        canal === "WhatsApp" && whatsapp.rectificacion ? "Aviso de rectificación" : estado.fecha ? "Credencial" : "",
       ]);
     }
   }
@@ -41,7 +42,7 @@ export async function informeEnviosExcel(): Promise<Buffer> {
   XLSX.utils.book_append_sheet(libro, resumen, "Resumen");
   for (const [nombre, filas] of Object.entries(grupos)) {
     const hoja = XLSX.utils.aoa_to_sheet([columnas, ...filas]);
-    hoja["!cols"] = [9, 36, 16, 13, 8, 40, 30, 23, 65].map((wch) => ({ wch }));
+    hoja["!cols"] = [9, 36, 16, 13, 8, 40, 30, 23, 65, 25].map((wch) => ({ wch }));
     hoja["!autofilter"] = { ref: hoja["!ref"]! };
     XLSX.utils.book_append_sheet(libro, hoja, nombre);
   }

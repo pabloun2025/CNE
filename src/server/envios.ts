@@ -21,7 +21,7 @@ export async function mensajeCredencial(d: DatosCredencial, canal: Canal, { id, 
   // Fichas de prueba o modo prueba: nunca hay enlace de Google Wallet.
   const wallet = d.prueba ? null : enlaceWallet(id, process.env.HOST_MADRID);
   const datos = { nombres: d.nombres, rotulo: d.rotulo, host: process.env.HOST_MADRID, wallet };
-  const nombreArchivo = nombrePdfCredencial(junta, d.cedula);
+  const nombreArchivo = nombrePdfCredencial(canal === "whatsapp" && !d.prueba ? d.rotulo : junta, d.cedula);
   if (canal === "whatsapp") {
     return { asunto: "Su credencial de miembro de Junta Receptora del Voto", texto: textoCredencial(datos), nombreArchivo };
   }
@@ -115,6 +115,6 @@ export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: Prove
   return r;
 }
 
-export type EnvioFila = { id: number; canal: Canal; linea_whatsapp: LineaEnvioWhatsApp; destino: string; estado: EstadoEnvio; simulado: boolean; error: string | null; creado_en: string; enviado_en: string | null; brevo_estado: EstadoBrevo | null; brevo_evento_en: string | null };
+export type EnvioFila = { id: number; canal: Canal; linea_whatsapp: LineaEnvioWhatsApp; whatsapp_rectificacion: boolean; destino: string; estado: EstadoEnvio; simulado: boolean; error: string | null; creado_en: string; enviado_en: string | null; brevo_estado: EstadoBrevo | null; brevo_evento_en: string | null };
 export const enviosDe = (mjrvId: number) =>
-  query<EnvioFila>("SELECT id, canal, linea_whatsapp, destino, estado, simulado, error, creado_en::text, enviado_en::text, brevo_estado, brevo_evento_en::text FROM envios_credencial WHERE mjrv_id = $1 ORDER BY id DESC", [mjrvId]);
+  query<EnvioFila>("SELECT id, canal, linea_whatsapp, whatsapp_rectificacion, destino, estado, simulado, error, creado_en::text, enviado_en::text, brevo_estado, brevo_evento_en::text FROM envios_credencial WHERE mjrv_id = $1 ORDER BY id DESC", [mjrvId]);

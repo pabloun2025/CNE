@@ -1,3 +1,4 @@
+import { juntaEnCredencial } from "@/domain/juntas";
 import { medidasCredencial } from "@/server/credencial-config";
 import { leerIdsCredenciales, marcarGeneradas, nombrePdfCredencial, seleccionarParaCredencial, type Seleccion } from "@/server/credenciales";
 import { rechazoAdminApi, sesionApi } from "@/server/guard";
@@ -33,7 +34,7 @@ async function descargar(seleccion: Seleccion, individual: boolean, seleccionExa
     ? await credencialesIndividuales(sel.datos, medidas)
     : await hojasA4(sel.datos.map((ficha, i) => ({
       ...ficha,
-      rotulo: `${ficha.serie === "M" ? "F" : "M"}${sel.personas[i].junta.slice(1)}`,
+      rotulo: juntaEnCredencial(ficha.serie, sel.personas[i].junta.slice(1)),
     })), medidas);
   await marcarGeneradas(sel.ids);
   const nombre = individual ? nombrePdfCredencial(sel.personas[0].junta, sel.datos[0].cedula) : "credenciales-a4.pdf";

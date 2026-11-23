@@ -5,7 +5,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
 import { cambiarInterruptor, controlarColaWhatsApp, estadoCola, guardarRemitente, reanudarEnvios, type Clientes } from "@/server/envios-config";
-import { enviarCredencial, enviarLote } from "@/server/envios";
+import { enviarCredencial, enviarLote, enviosDe } from "@/server/envios";
+import { estadoEntregasCredenciales } from "@/server/envios-estado";
+import { prepararRectificacionWhatsApp } from "@/server/envios/rectificacion";
 import { procesarCola, recuperarInterrumpidas } from "@/server/envios/cola";
 import type { ClienteCorreo, Correo } from "@/server/envios/brevo";
 import type { ClienteEvolution, Documento } from "@/server/envios/evolution";
@@ -20,18 +22,19 @@ const base = new Date(); base.setUTCDate(base.getUTCDate() + 1); base.setUTCHour
 const en = (s: number) => new Date(base.getTime() + s * 1000);
 const sinAzar = () => 0; // pausa mínima: 20 s en WhatsApp, 2 s en correo
 
-type Falsos = { clientes: Clientes; wa: Documento[]; mail: Correo[]; abierta: { v: boolean }; fallar: { v: boolean } };
+type Falsos = { clientes: Clientes; wa: Documento[]; textos: string[]; mail: Correo[]; abierta: { v: boolean }; fallar: { v: boolean } };
 function falsos(): Falsos {
-  const wa: Documento[] = [], mail: Correo[] = [];
+  const wa: Documento[] = [], textos: string[] = [], mail: Correo[] = [];
   const abierta = { v: true }, fallar = { v: false };
   const resp = (id: string): ResultadoProveedor => (fallar.v ? { ok: false, permanente: false, error: "fallo de prueba" } : { ok: true, idExterno: id });
   const whatsapp: ClienteEvolution = {
     simulado: false, crearInstancia: async () => undefined, conectar: async () => ({ estado: "open", qr: null }),
     resumen: async () => ({ estado: abierta.v ? "open" : "close", numero: "+34000000000", existe: true }), cerrarSesion: async () => undefined,
+    enviarTexto: async (d) => { textos.push(d.texto); return resp(`TEXTO${textos.length}`); },
     enviarDocumento: async (d) => { wa.push(d); return resp(`WA${wa.length}`); },
   };
   const correo: ClienteCorreo = { simulado: false, verificarRemitente: async () => true, enviar: async (c) => { mail.push(c); return resp(`MAIL${mail.length}`); } };
-  return { clientes: { whatsapp, correo }, wa, mail, abierta, fallar };
+  return { clientes: { whatsapp, correo }, wa, textos, mail, abierta, fallar };
 }
 
 let n = 0;
@@ -48,7 +51,7 @@ const filas = (canal = "whatsapp") => consultarDueno<{ mjrv_id: number; estado: 
 async function limpiar() {
   await consultarDueno("DELETE FROM cne.envios_credencial");
   await consultarDueno("DELETE FROM cne.mjrv");
-  await consultarDueno("DELETE FROM cne.auditoria WHERE accion = 'envios_reanudados'");
+  await consultarDueno("DELETE FROM cne.auditoria WHERE accion IN ('envios_reanudados','rectificacion_whatsapp_2026')");
   await consultarDueno("UPDATE cne.configuracion SET whatsapp_real = false, whatsapp_real_2 = false, correo_real = false, whatsapp_proximo_en = NULL, whatsapp_proximo_en_2 = NULL, correo_proximo_en = NULL, whatsapp_pausa_motivo = NULL, whatsapp_pausa_motivo_2 = NULL, correo_pausa_motivo = NULL, correo_remitente = 'remitente@ejemplo.invalid', correo_remitente_nombre = 'Remitente Prueba', correo_reply_to = NULL");
 }
 const encender = (canal: string) => consultarDueno(`UPDATE cne.configuracion SET ${canal}_real = true`);
@@ -180,6 +183,37 @@ describe("cola de envío real", () => {
     expect(await procesarCola({ ahora: en(200), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "omitido", motivo: "cola vacía" } });
     expect(f.wa).toHaveLength(3);
     expect((await filas()).filter((x) => x.estado === "enviada_al_servicio" && !x.simulado)).toHaveLength(3);
+  });
+
+  it("prepara una rectificación de texto y conserva la cola original para el PDF corregido", async () => {
+    const anterior = await ficha(), pendiente = await ficha(), nuevo = await ficha(), dudoso = await ficha();
+    await consultarDueno("UPDATE cne.mjrv SET junta_origen_id = (SELECT id FROM cne.juntas_madrid WHERE serie='M' AND numero=1), rotulo_credencial = 'M01' WHERE id = $1", [anterior]);
+    await encender("whatsapp");
+    await enviarCredencial(admin, anterior, "whatsapp");
+    await enviarCredencial(admin, pendiente, "whatsapp");
+    await enviarCredencial(admin, dudoso, "whatsapp");
+    await consultarDueno("UPDATE cne.envios_credencial SET estado = 'enviada_al_servicio', intentos = 1 WHERE mjrv_id = $1", [anterior]);
+    await consultarDueno("UPDATE cne.envios_credencial SET estado = 'fallo', intentos = 1, error = $2 WHERE mjrv_id = $1", [dudoso, "Evolution API no respondió a tiempo. El mensaje pudo haber salido."]);
+    const idPendiente = await consultarDueno("SELECT id FROM cne.envios_credencial WHERE mjrv_id = $1", [pendiente]);
+    await expect(prepararRectificacionWhatsApp(true)).rejects.toThrow(/pausadas/);
+    await consultarDueno("UPDATE cne.configuracion SET whatsapp_pausa_motivo = 'Desconectada'");
+    expect(await prepararRectificacionWhatsApp(false)).toMatchObject({ avisos: 1, pdfExistentes: 1, pdfNuevos: 1, inciertos: 1 });
+    expect(await filas()).toHaveLength(3);
+    expect(await prepararRectificacionWhatsApp(true)).toMatchObject({ avisos: 1, pdfExistentes: 1, pdfNuevos: 1, inciertos: 1 });
+    expect(await prepararRectificacionWhatsApp(true)).toMatchObject({ aplicada: true, avisos: 1 });
+    expect(await consultarDueno("SELECT id FROM cne.envios_credencial WHERE mjrv_id = $1", [pendiente])).toEqual(idPendiente);
+    expect((await enviosDe(anterior))[0]).toMatchObject({ whatsapp_rectificacion: true });
+    expect((await estadoEntregasCredenciales()).find((p) => p.id === anterior)?.whatsapp).toMatchObject({ rectificacion: true, estado: "en_cola" });
+    expect((await filas()).filter((f) => f.estado === "en_cola").map((f) => f.mjrv_id)).toEqual([pendiente, anterior, nuevo]);
+    const f = falsos();
+    expect((await procesarCola({ ahora: base, clientes: f.clientes })).whatsapp.accion).toBe("pausado");
+    await controlarColaWhatsApp(admin, 1, "reanudar");
+    await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes });
+    await procesarCola({ ahora: en(20), azar: sinAzar, clientes: f.clientes });
+    expect(f.wa).toHaveLength(1);
+    expect(f.wa[0].texto).toContain("M1");
+    expect(f.wa[0].nombreArchivo).toMatch(/^M1-/);
+    expect(f.textos).toEqual([expect.stringContaining("F1 (Femenino)")]);
   });
 
   it("nunca envía fichas de prueba, aunque haya una fila en cola con simulado = false", async () => {

@@ -135,7 +135,7 @@ describe("Google Wallet · ruta pública y mensajes de fichas", () => {
     const sinRotulo = await pedir(tokenWallet(id, clave));
     expect(sinRotulo.status).toBe(302);
     expect(cargaUtil(sinRotulo.headers.get("location")!).payload.genericObjects[0]).toMatchObject({
-      subheader: { defaultValue: { value: "H1" } },
+      subheader: { defaultValue: { value: "M1" } },
       textModulesData: expect.arrayContaining([{ id: "cargo", header: "Cargo", body: "2do. VOCAL PRINCIPAL" }]),
     });
     await consultarDueno("UPDATE cne.mjrv SET incorporado_en = now() WHERE id = $1", [id]);

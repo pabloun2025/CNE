@@ -29,6 +29,11 @@ export function etiquetaJunta(serie: Serie, numero: number): string {
   return `${serie}${numero}`;
 }
 
+// La serie interna H/M identifica el padrón. La credencial usa Masculino/Femenino.
+export function juntaEnCredencial(serie: Serie, numero: number | string): string {
+  return `${serie === "M" ? "F" : "M"}${numero}`;
+}
+
 export function rotuloCredencial(rotulo: string | null, junta: string): string {
   return rotulo?.trim() || junta;
 }
