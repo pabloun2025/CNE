@@ -1,0 +1,78 @@
+name: Restablecer superadmin pabloun@gmail.com
+
+# Pone una contraseña temporal SOLO a la superadmin pabloun@gmail.com y obliga a cambiarla al entrar.
+# No toca la otra superadmin, otras cuentas ni datos electorales. La contraseña viaja por stdin y se oculta en el registro.
+on:
+  workflow_dispatch:
+    inputs:
+      contrasena_temporal:
+        description: 'Contraseña temporal (se pedirá cambiarla al entrar)'
+        required: true
+        type: string
+      confirmacion:
+        description: 'Escriba exactamente RESTABLECER PABLO'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cne-restablecer-superadmin-pablo
+  cancel-in-progress: false
+
+jobs:
+  restablecer:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validar y preparar conexión
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          CONFIRMACION: ${{ inputs.confirmacion }}
+          TEMPORAL: ${{ inputs.contrasena_temporal }}
+        run: |
+          set -euo pipefail
+          set +x
+          echo "::add-mask::$TEMPORAL"
+          [ "$CONFIRMACION" = "RESTABLECER PABLO" ] || { echo "Confirmación incorrecta: no se modificó nada."; exit 1; }
+          [ "${#TEMPORAL}" -ge 8 ] && [ "${#TEMPORAL}" -le 200 ] || { echo "La contraseña temporal debe tener entre 8 y 200 caracteres."; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
+          chmod 600 ~/.ssh/oracle
+
+      - name: Restablecer solo pabloun@gmail.com
+        env:
+          TEMPORAL: ${{ inputs.contrasena_temporal }}
+        run: |
+          set -euo pipefail
+          set +x
+          echo "::add-mask::$TEMPORAL"
+          printf '%s' "$TEMPORAL" | ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 \
+            'sudo docker exec -i -w /app cne-prod-cne-app-1 node -e "
+            (async () => {
+              const { Client } = await import(\"pg\");
+              const { hash } = await import(\"@node-rs/argon2\");
+              const { createHash } = await import(\"node:crypto\");
+              let clave = \"\"; for await (const f of process.stdin) clave += f.toString(\"utf8\");
+              const correo = \"pabloun@gmail.com\";
+              const c = new Client({ connectionString: process.env.DATABASE_OWNER_URL }); await c.connect();
+              try {
+                await c.query(\"BEGIN\");
+                const r = await c.query(\"SELECT id FROM cne.usuarios WHERE tipo = \x27superadmin\x27 AND correo = \$1 FOR UPDATE\", [correo]);
+                if (r.rowCount !== 1) throw new Error(\"No existe la superadmin \" + correo + \"; no se modificó nada.\");
+                const h = await hash(clave, { memoryCost: 19456, timeCost: 2, parallelism: 1, algorithm: 2 });
+                await c.query(\"UPDATE cne.usuarios SET password_hash = \$1, password_pendiente = false, debe_cambiar = true, activo = true, fallos = 0, bloqueado_hasta = NULL WHERE id = \$2\", [h, r.rows[0].id]);
+                await c.query(\"UPDATE cne.sesiones SET revocada_en = now() WHERE usuario_id = \$1 AND revocada_en IS NULL\", [r.rows[0].id]);
+                await c.query(\"DELETE FROM cne.intentos_acceso WHERE clave = \$1\", [\"correo:\" + createHash(\"sha256\").update(correo).digest(\"hex\")]);
+                await c.query(\"COMMIT\");
+                console.log(\"OK: contraseña temporal puesta a \" + correo + \"; deberá cambiarla al entrar. Otras cuentas intactas.\");
+              } catch (e) { await c.query(\"ROLLBACK\").catch(() => {}); console.error(\"ERROR:\", e.message); process.exitCode = 1; }
+              finally { await c.end(); }
+            })();
+            "'
+
+      - name: Borrar clave temporal
+        if: always()
+        run: rm -f ~/.ssh/oracle
