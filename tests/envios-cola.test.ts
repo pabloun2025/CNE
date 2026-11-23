@@ -4,7 +4,7 @@ import { inflateSync } from "node:zlib";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Sesion } from "@/server/auth";
 import { closePools } from "@/server/db";
-import { cambiarInterruptor, estadoCola, guardarRemitente, reanudarEnvios, type Clientes } from "@/server/envios-config";
+import { cambiarInterruptor, controlarColaWhatsApp, estadoCola, guardarRemitente, reanudarEnvios, type Clientes } from "@/server/envios-config";
 import { enviarCredencial, enviarLote } from "@/server/envios";
 import { procesarCola, recuperarInterrumpidas } from "@/server/envios/cola";
 import type { ClienteCorreo, Correo } from "@/server/envios/brevo";
@@ -102,6 +102,20 @@ describe("cola de envío real", () => {
       { mjrv_id: primera, estado: "en_cola", intentos: 0 },
       { mjrv_id: segunda, estado: "enviada_al_servicio" },
     ]);
+  });
+
+  it("el cónsul pausa y reanuda su línea sin liberar una pausa por fallo", async () => {
+    await encender("whatsapp");
+    await enviarCredencial(admin, await ficha(), "whatsapp");
+    expect(await controlarColaWhatsApp(admin, 1, "pausar")).toMatchObject({ ok: true });
+    const f = falsos();
+    expect((await procesarCola({ ahora: base, clientes: f.clientes })).whatsapp.accion).toBe("pausado");
+    expect(f.wa).toHaveLength(0);
+    expect(await controlarColaWhatsApp(admin, 1, "reanudar")).toMatchObject({ ok: true });
+    expect((await procesarCola({ ahora: base, clientes: f.clientes })).whatsapp.accion).toBe("enviado");
+    await consultarDueno("UPDATE cne.configuracion SET whatsapp_pausa_motivo = 'Fallo automático'");
+    expect(await controlarColaWhatsApp(admin, 1, "reanudar")).toMatchObject({ ok: false });
+    expect((await estadoCola()).whatsapp.pausa).toBe("Fallo automático");
   });
 
   it("un lote manual solo encola las fichas seleccionadas, incluso con identificadores repetidos", async () => {

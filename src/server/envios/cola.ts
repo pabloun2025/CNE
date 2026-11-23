@@ -70,7 +70,7 @@ const COL = {
 } as const;
 
 async function pausar(client: PoolClient, clave: keyof typeof COL, motivo: string): Promise<ResultadoCanal> {
-  await client.query(`UPDATE configuracion SET ${COL[clave].pausa} = $1 WHERE id = 1`, [motivo]);
+  await client.query(`UPDATE configuracion SET ${COL[clave].pausa} = $1 WHERE id = 1 AND ${COL[clave].pausa} IS NULL`, [motivo]);
   return { accion: "pausado", motivo };
 }
 
@@ -106,6 +106,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
     `UPDATE envios_credencial SET intentos = 1 WHERE id = (
        SELECT e.id FROM envios_credencial e JOIN mjrv m ON m.id = e.mjrv_id
         WHERE e.canal = $1 AND e.estado = 'en_cola' AND NOT e.simulado AND e.intentos = 0 AND NOT m.es_prueba AND e.linea_whatsapp = $2
+          AND EXISTS (SELECT 1 FROM configuracion WHERE id = 1 AND ${col.real} AND ${col.pausa} IS NULL)
         ORDER BY e.id FOR UPDATE OF e SKIP LOCKED LIMIT 1)
      RETURNING id, mjrv_id, destino`, [canal, linea])).rows[0];
   if (!fila) return { accion: "omitido", motivo: "cola vacía" };

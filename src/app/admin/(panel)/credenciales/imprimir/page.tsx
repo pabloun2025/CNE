@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PestanasCredenciales } from "@/components/pestanas-credenciales";
 import { ImprimirCredenciales } from "@/components/envios-credenciales";
 import { planchaA4 } from "@/domain/credencial-layout";
 import { SOLO_CONSUL } from "@/domain/roles";
@@ -12,8 +12,8 @@ export default async function ImprimirPlanchas() {
   const plancha = planchaA4(medidas);
   return (
     <main className="max-w-2xl stack-lg">
-      <Link href="/admin/credenciales" className="underline">Volver a descarga y envío</Link>
       <h1>Imprimir credenciales en A4</h1>
+      <PestanasCredenciales actual="/imprimir" />
       <p>Hasta {plancha.huecos.length} credenciales de {medidas.ancho.toLocaleString("es-ES")} × {medidas.alto.toLocaleString("es-ES")} mm por hoja A4.</p>
       <ol className="list-decimal space-y-1 pl-6">
         <li>Seleccione las credenciales y abra las planchas.</li>

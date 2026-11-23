@@ -3,6 +3,8 @@ export type CanalEnvio = "whatsapp" | "correo";
 export type LineaEnvioWhatsApp = 1 | 2;
 export type NumerosWhatsApp = readonly [string | null, string | null];
 
+export const PAUSA_MANUAL_WHATSAPP = "Pausado desde Credenciales.";
+
 export const FALLOS_PARA_PAUSAR = 5;
 
 // Milisegundos entre mensajes de WhatsApp. El azar devuelve un número en [0, 1).

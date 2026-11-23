@@ -329,3 +329,10 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - El campo «Dirección para recibir respuestas» de Correo · Brevo queda con `consuladoecmad@gmail.com`. Se puede editar sin cambiar el remitente verificado.
 - Pasaron 1.156 pruebas, TypeScript y la compilación. ESLint mostró la advertencia previa de Unslop. En Chromium a 375 px se marcó cada serie y se seleccionaron líneas distintas con dos fichas de prueba. Se comprobó que el servidor persistió las líneas elegidas y que el campo de correo muestra la dirección de respuesta. No hubo envíos de prueba reales.
 - Oracle publicó `e7f6dff`. Madrid respondió con esa versión y la base sana. Recordatorio también respondió. [CI](https://github.com/pabloun2025/CNE/actions/runs/45154112157) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/45154111461) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/45154941413)
+
+## 31. Panel operativo de WhatsApp
+
+- Credenciales → Envíos de WhatsApp reúne las dos líneas, sus recuentos de cola, aceptados y fallidos, el próximo intento y el seguimiento por persona. Los recuentos se actualizan cada 10 segundos mientras una cola activa tiene trabajo. La selección por serie, junta, zona o ficha queda junto a los números remitentes.
+- El cónsul puede pausar y reanudar una línea desde el panel. Un intento en curso puede terminar. La pausa conserva los mensajes pendientes y no cambia el interruptor de envío real. Superadministración conserva la vinculación, los interruptores y la gestión de las pausas por fallos.
+- Se comprobó en Chromium a 375 y 1366 px la navegación, la selección, la pausa, la reanudación y el envío con fichas ficticias. No hubo envíos de prueba reales.
+- Pasaron 1.166 pruebas, TypeScript y la compilación de producción. ESLint informó cero errores y la advertencia previa de Unslop.

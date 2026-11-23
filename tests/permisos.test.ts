@@ -82,7 +82,7 @@ const ACCIONES: Record<string, Regla> = {
   "pago-actions#guardarParametrosAccion": SOLO_SUPER,
   "credencial-config-actions#guardarMedidasCredencialAccion": SOLO_SUPER,
   "finanzas-nombres-actions#corregirNombresAccion": FINANZAS, "finanzas-nombres-actions#validarCedulaAccion": FINANZAS,
-  "envios-actions#enviarCredencialAccion": SOLO_ADMIN, "envios-actions#enviarLoteAccion": SOLO_ADMIN,
+  "envios-actions#controlarColaWhatsAppAccion": SOLO_ADMIN, "envios-actions#enviarCredencialAccion": SOLO_ADMIN, "envios-actions#enviarLoteAccion": SOLO_ADMIN,
   "movimiento-actions#aceptarAccion": MANDO, "movimiento-actions#pasarAccion": MANDO, "movimiento-actions#noViableAccion": MANDO,
   "movimiento-actions#incorporarVotanteAccion": MANDO, "movimiento-actions#asignarCargoAccion": MANDO, "movimiento-actions#quitarCargoAccion": MANDO,
   "movimiento-actions#moverManualAccion": MANDO, "movimiento-actions#excepcionAccion": MANDO, "movimiento-actions#rehabilitarAccion": MANDO,
@@ -249,7 +249,7 @@ describe("matriz de permisos", () => {
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "financiero"],
       mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/caja": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], informes: ["consul", "financiero"],
-      credenciales: ["consul"], "credenciales/envios": ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
+      credenciales: ["consul"], "credenciales/envios": ["consul"], "credenciales/whatsapp": ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
     const clavePagina = (f: string) => path.relative(path.join(SRC, "app/admin/(panel)"), path.dirname(f)).split(path.sep).join("/");

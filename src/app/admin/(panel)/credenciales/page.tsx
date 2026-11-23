@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PestanasCredenciales } from "@/components/pestanas-credenciales";
 import { SOLO_CONSUL } from "@/domain/roles";
 import { requireAdmin } from "@/server/guard";
 import { resumenCredenciales, seleccionarParaCredencial } from "@/server/credenciales";
@@ -12,13 +12,8 @@ export default async function Credenciales() {
   ]);
   return (
     <main className="max-w-2xl stack-lg">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1>Credenciales</h1>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/admin/credenciales/envios" className="button-like secondary">Seguimiento de envíos</Link>
-          <Link href="/admin/credenciales/imprimir" className="button-like secondary">Imprimir planchas A4</Link>
-        </div>
-      </div>
+      <h1>Credenciales</h1>
+      <PestanasCredenciales actual="" />
       {r.activos === 0 && <p>Cargue el Excel de MJRV para empezar.</p>}
       <p className="cifra">{r.activos} fichas activas · {r.preparadas} preparadas · {r.pendientes} pendientes.</p>
       <section aria-label="Estado del envío por WhatsApp y correo" className="stack">

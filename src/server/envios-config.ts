@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CanalEnvio, LineaEnvioWhatsApp } from "../domain/envios-ritmo";
+import { PAUSA_MANUAL_WHATSAPP, type CanalEnvio, type LineaEnvioWhatsApp } from "../domain/envios-ritmo";
 import { normalizarFrase } from "../domain/limpieza";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
@@ -108,6 +108,22 @@ export async function reanudarEnvios(sesion: Sesion, canal: CanalEnvio, linea: L
   await withTx(async (client) => {
     await client.query(`UPDATE configuracion SET ${col} = NULL, actualizado_en = now(), actualizado_por = $1 WHERE id = 1`, [sesion.usuarioId]);
     await registrarAuditoria({ portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "envios_reanudados", entidad: "configuracion", entidadId: 1, datos }, client);
+  });
+}
+
+export async function controlarColaWhatsApp(sesion: Sesion, linea: LineaEnvioWhatsApp, accion: "pausar" | "reanudar"): Promise<{ ok: true } | { ok: false; mensaje: string }> {
+  if (sesion.tipo !== "madrid_admin" || sesion.rol !== "consul") throw new Error("Solo el cónsul puede controlar la cola de WhatsApp.");
+  const columna = linea === 2 ? "whatsapp_pausa_motivo_2" : "whatsapp_pausa_motivo";
+  return withTx(async (client) => {
+    const r = await client.query(
+      `UPDATE configuracion SET ${columna} = $1, actualizado_en = now(), actualizado_por = $2
+         WHERE id = 1 AND ($3 AND ${columna} IS NULL OR NOT $3 AND ${columna} = $4)`,
+      [accion === "pausar" ? PAUSA_MANUAL_WHATSAPP : null, sesion.usuarioId, accion === "pausar", PAUSA_MANUAL_WHATSAPP],
+    );
+    if (!r.rowCount) return { ok: false, mensaje: "El estado de la línea cambió. Actualice el panel." };
+    await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre,
+      accion: accion === "pausar" ? "envios_pausados" : "envios_reanudados", entidad: "configuracion", entidadId: 1, datos: { canal: "whatsapp", linea } }, client);
+    return { ok: true };
   });
 }
 

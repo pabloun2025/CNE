@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "./guard";
 import { leerIdsCredenciales, seleccionarParaCredencial } from "./credenciales";
+import { controlarColaWhatsApp } from "./envios-config";
 import { enviarCredencial, enviarLote } from "./envios";
 import type { Canal } from "./envios/proveedor";
 
@@ -62,6 +63,18 @@ export async function enviarLoteAccion(_: EstadoEnvios, f: FormData): Promise<Es
     return `${etiquetas[canal]}${canal === "whatsapp" ? ` · Línea ${linea}` : ""} · En cola ${r.enCola} · Simuladas ${r.enviadas} · Omitidas ${r.omitidas} · Fallidas ${r.fallidas}.`;
   }));
   revalidatePath("/admin/credenciales");
+  if (medios.includes("whatsapp")) revalidatePath("/admin/credenciales/whatsapp");
   const alcance = ids.length === 1 ? "1 ficha seleccionada" : `${ids.length} fichas seleccionadas`;
   return { aviso: `${alcance}. ${respuestas.join(" ")}` };
+}
+
+
+export async function controlarColaWhatsAppAccion(_: EstadoEnvios, f: FormData): Promise<EstadoEnvios> {
+  const sesion = await requireAdmin();
+  const linea = lineaWhatsApp(f, ["whatsapp"]);
+  const accion = f.get("accion");
+  if (!linea || (accion !== "pausar" && accion !== "reanudar")) return { error: "Operación no válida." };
+  const r = await controlarColaWhatsApp(sesion, linea, accion);
+  revalidatePath("/admin/credenciales/whatsapp");
+  return r.ok ? { aviso: accion === "pausar" ? "Cola pausada." : "Cola reanudada." } : { error: r.mensaje };
 }

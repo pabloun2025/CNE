@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PestanasCredenciales } from "@/components/pestanas-credenciales";
 import { requireAdmin } from "@/server/guard";
 import { SOLO_CONSUL } from "@/domain/roles";
 import { enlaceWallet } from "@/server/wallet/google";
@@ -40,8 +41,8 @@ export default async function SeguimientoEnvios({ searchParams }: { searchParams
 
   return (
     <main className="stack-lg">
-      <Link href="/admin/credenciales" className="underline">Volver a credenciales</Link>
       <h1>Seguimiento de envíos</h1>
+      <PestanasCredenciales actual="/envios" />
       <p>Último envío real por canal para cada ficha activa. Brevo confirma la entrega del correo.</p>
       <form className="card flex flex-wrap items-end gap-3">
         <label>Nombre, cédula o junta<input name="q" type="search" defaultValue={q} className="block w-full" /></label>
