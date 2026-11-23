@@ -6,6 +6,7 @@ import { pedirJson, type FetchLike, type Raw, type ResultadoProveedor } from "./
 // Cliente reducido de la Evolution API v2.3.7 de consulares (copia adaptada de consulares/src/domain/evolution.ts y de
 // teinvito/src/server/whatsapp.ts). La clave global de esa API abre TAMBIÉN las instancias de consulares: por eso CNE
 // solo habla con sus dos instancias fijas y ningún método recibe un nombre de instancia.
+const EVENTOS_RECEPCION = ["MESSAGES_UPSERT", "MESSAGES_UPDATE"];
 export const INSTANCIA_CNE = "cne-madrid";
 
 export function instanciaWhatsApp(linea: LineaEnvioWhatsApp): string {
@@ -94,7 +95,7 @@ export class EvolutionHttp implements ClienteEvolution {
     return raw.json;
   }
 
-  // Sin webhook: CNE no recibe mensajes ni estados (nunca se afirma «entregada»).
+  // La vinculación no cambia la recepción configurada para ninguna línea.
   // 403/409 «already in use»: la instancia ya está; se sigue con el código. Un 400 de validación sí aborta.
   async crearInstancia(): Promise<void> {
     const raw = await this.pedir("POST", "/instance/create", {
@@ -156,6 +157,31 @@ export class EvolutionHttp implements ClienteEvolution {
     if (raw.kind === "network") throw new ErrorEvolution(`Evolution API no responde (${raw.error}).`);
     // 400 «not connected»: ya estaba desvinculada.
     if (raw.status >= 300 && raw.status !== 400) throw new ErrorEvolution(mensajeDeError(raw.json) ?? `Evolution API respondió ${raw.status}.`);
+  }
+
+  async activarRecepcion(url: string, headers: Record<string, string>): Promise<boolean> {
+    const encontrada = await this.pedir("GET", `/webhook/find/${this.instancia}`);
+    if (encontrada.kind !== "response" || encontrada.status !== 200) {
+      throw new ErrorEvolution("No se pudo consultar la recepción de esta línea en Evolution.");
+    }
+    const actual = encontrada.json as { url?: unknown; enabled?: boolean; events?: string[]; headers?: Record<string, string>; webhookBase64?: boolean; webhookByEvents?: boolean } | null;
+    if (actual !== null && typeof actual.url !== "string") {
+      throw new ErrorEvolution("Evolution devolvió una configuración de recepción inesperada.");
+    }
+    if (actual?.url && actual.url !== url) {
+      throw new ErrorEvolution("Esta línea tiene otro webhook configurado. Revíselo en Evolution antes de activar la bandeja.");
+    }
+    if (actual?.enabled && actual.url === url && actual.events?.length === EVENTOS_RECEPCION.length && EVENTOS_RECEPCION.every((e) => actual.events?.includes(e))
+      && !actual.webhookBase64 && !actual.webhookByEvents && Object.entries(headers).every(([k, v]) => actual.headers?.[k] === v)) {
+      return false;
+    }
+    const r = await this.pedir("POST", `/webhook/set/${this.instancia}`, {
+      webhook: { enabled: true, url, headers, byEvents: false, base64: false, events: EVENTOS_RECEPCION },
+    });
+    if (r.kind !== "response" || r.status < 200 || r.status >= 300) {
+      throw new ErrorEvolution("Evolution no confirmó la activación de la bandeja.");
+    }
+    return true;
   }
 
   // PDF en base64 con el texto como pie (teinvito: evolutionMediaRequest). Sin «delay»: el ritmo lo marca la cola.

@@ -29,7 +29,9 @@ const POR_MODO = [
 ] as const;
 
 const GLOBALES = [
+  ["entregas_whatsapp", "Confirmaciones de entrega de WhatsApp"],
   ["envios_credencial", "Historial y cola de envíos de credenciales"],
+  ["whatsapp_respuestas", "Respuestas de WhatsApp"],
   ["credenciales_revocadas", "Revocaciones de credenciales"],
   ["mjrv", "Fichas MJRV, incluidas las importadas del Excel"],
 ] as const;

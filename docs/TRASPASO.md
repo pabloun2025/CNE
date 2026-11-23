@@ -337,3 +337,11 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Se comprobó en Chromium a 375 y 1366 px la navegación, la selección, la pausa, la reanudación y el envío con fichas ficticias. No hubo envíos de prueba reales.
 - Pasaron 1.166 pruebas, TypeScript y la compilación de producción. ESLint informó cero errores y la advertencia previa de Unslop.
 - Oracle publicó `3d24070`. Madrid respondió con esa versión y la base sana. El panel dirige al acceso si no hay sesión. Recordatorio siguió respondiendo. [CI](https://github.com/pabloun2025/CNE/actions/runs/45162065372) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/45162066079) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/45162657042)
+
+## 32. Excel de entregas y bandeja de WhatsApp
+
+- Credenciales → Seguimiento de envíos descarga un Excel del último intento real por ficha y canal. Tiene hojas de resumen, entregados, rechazos y fallos, y sin confirmar. Incluye destino, línea de WhatsApp y motivo cuando se conoce.
+- Credenciales → Bandeja de WhatsApp muestra respuestas nuevas de texto de las dos líneas. Se guardan cifradas y se asocian a una ficha activa cuando el teléfono identifica a una sola persona. Superadministración puede activar la recepción en cada línea con un webhook propio, sin reemplazar el webhook de otro servicio.
+- Los acuses de WhatsApp se cruzan por línea e identificador del proveedor. No alteran el estado de la cola. Un acuse de entrega o lectura se refleja en Seguimiento y el Excel. El historial anterior de los chats se consulta en los teléfonos porque Evolution no lo guarda en el servidor.
+- La inspección de Oracle del 23-11 mostró 156 envíos pendientes. Se mantuvo la versión de producción y se dejó la publicación pendiente para preservar la cola. Tampoco se activaron los webhooks de producción. [Inspección de solo lectura](https://github.com/pabloun2025/CNE/actions/runs/45168686158)
+- Pasaron 1.202 pruebas en base ficticia, TypeScript, ESLint con la advertencia previa de Unslop y la compilación de producción. Chromium a 375 px confirmó la descarga autenticada, la recepción de una respuesta ficticia y el acuse de una línea, con rechazo de un token de otra línea.

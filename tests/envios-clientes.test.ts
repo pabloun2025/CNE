@@ -43,6 +43,26 @@ describe("cliente de Evolution API (instancia propia cne-madrid)", () => {
     expect(llamadas[5].body).toEqual({ number: "34600000000", mediatype: "document", mimetype: "application/pdf", caption: "Hola", media: "UERG", fileName: "c.pdf" });
   });
 
+  it("habilita la recepción de mensajes solo en la instancia elegida", async () => {
+    const { f, llamadas } = falso([{ status: 200 }, { status: 201 }]);
+    const c = new EvolutionHttp({ baseUrl: "http://evolution-api:8080", apiKey: CLAVE, fetch: f, linea: 2 });
+    await c.activarRecepcion("https://cne.ejemplo.invalid/api/webhooks/evolution", { "x-cne-whatsapp-token": "ficticio" });
+    expect(llamadas.map((l) => [l.method, l.url])).toEqual([
+      ["GET", "http://evolution-api:8080/webhook/find/cne-madrid-2"],
+      ["POST", "http://evolution-api:8080/webhook/set/cne-madrid-2"],
+    ]);
+    expect(llamadas[1].body).toEqual({ webhook: {
+      enabled: true, url: "https://cne.ejemplo.invalid/api/webhooks/evolution",
+      headers: { "x-cne-whatsapp-token": "ficticio" }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE"],
+    } });
+  });
+
+  it("deja intacto un webhook de otro servicio", async () => {
+    const { f, llamadas } = falso([{ status: 200, json: { url: "https://otro.ejemplo.invalid", enabled: true } }]);
+    await expect(evo(f).activarRecepcion("https://cne.ejemplo.invalid/api/webhooks/evolution", {})).rejects.toThrow(/otro webhook/);
+    expect(llamadas).toHaveLength(1);
+  });
+
   it("estado de una instancia que no existe → existe:false (404)", async () => {
     const { f } = falso([{ status: 404, json: { response: { message: ["no existe"] } } }]);
     expect(await evo(f).resumen()).toEqual({ estado: "unknown", numero: null, existe: false });

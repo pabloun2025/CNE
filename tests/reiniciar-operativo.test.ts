@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import type { Sesion } from "@/server/auth";
 import { marcarGeneradas, seleccionarParaCredencial } from "@/server/credenciales";
+import { encryptBuffer } from "@/server/crypto";
 import { closePools, getOwnerPool, withOwnerTx } from "@/server/db";
 import { guardarDocumento } from "@/server/documentos";
 import { procesarCola } from "@/server/envios/cola";
@@ -114,6 +115,13 @@ describe("reiniciar operativo completo en una base ficticia", () => {
     }
     await consultarDueno(`INSERT INTO cne.envios_credencial (mjrv_id, canal, destino, simulado, estado)
       SELECT id,'correo','ensayo@ejemplo.invalid',true,'enviada_al_servicio' FROM cne.mjrv`);
+    const { ciphertext, nonce } = encryptBuffer(Buffer.from("Respuesta ficticia"));
+    await consultarDueno(`INSERT INTO cne.whatsapp_respuestas (linea, id_externo, mjrv_id, recibido_en, texto_cifrado, texto_nonce)
+      SELECT 2,'mensaje-prueba',id,now(),$1,$2 FROM cne.mjrv WHERE cedula='0000000002'`, [ciphertext, nonce]);
+    await consultarDueno(`WITH salida AS (
+      UPDATE cne.envios_credencial e SET canal='whatsapp', destino='+34000000000', simulado=false, linea_whatsapp=2, id_externo='salida-prueba'
+      FROM cne.mjrv m WHERE e.mjrv_id=m.id AND m.cedula='0000000002' RETURNING e.id, e.id_externo
+    ) INSERT INTO cne.entregas_whatsapp (envio_id, id_externo, estado) SELECT id,id_externo,'entregado' FROM salida`);
     await consultarDueno(`INSERT INTO cne.credenciales_revocadas (mjrv_id, cedula, actor_nombre)
       SELECT id,cedula,'Operador ficticio' FROM cne.mjrv WHERE es_prueba`);
     await consultarDueno("UPDATE cne.configuracion SET whatsapp_real=true, whatsapp_real_2=true, correo_real=true, whatsapp_pausa_motivo='ensayo', whatsapp_pausa_motivo_2='ensayo', whatsapp_proximo_en=now(), whatsapp_proximo_en_2=now()");
@@ -125,7 +133,7 @@ describe("reiniciar operativo completo en una base ficticia", () => {
     expect(await reiniciarOperativo(superadmin, "borrar todo", await revision())).toMatchObject({ ok: false });
     const recuento = Object.fromEntries((await resumenReinicioTotal()).map((x) => [x.tabla, x.n]));
     expect(recuento).toEqual({
-      mjrv: 4, envios_credencial: 4, credenciales_revocadas: 1, pagos_confirmados: 2, firmas_recibo: 2,
+      mjrv: 4, envios_credencial: 4, entregas_whatsapp: 1, whatsapp_respuestas: 1, credenciales_revocadas: 1, pagos_confirmados: 2, firmas_recibo: 2,
       pendientes_impresion: 2, actas_pago: 2, documentos_mjrv: 4, cedulas_validadas: 2,
       fichas_abiertas_finanzas: 2, escaneos_finanzas: 2, asignaciones_cargo: 2,
       decisiones_movimiento: 2, excepciones_disponibilidad: 2, lecturas_puerta: 8,

@@ -3,7 +3,7 @@
 import { ETIQUETA_ROL, ROLES_ADMIN, type RolAdmin } from "@/domain/roles";
 import type { CanalEnvio, LineaEnvioWhatsApp } from "@/domain/envios-ritmo";
 import { useActionState } from "react";
-import { cambiarModoAccion, cargarDemoAccion, reiniciarOperativoAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, cambiarRolAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
+import { activarBandejaWhatsAppAccion, cambiarModoAccion, cargarDemoAccion, reiniciarOperativoAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, cambiarRolAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
 const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
 const boton = "rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60";
@@ -146,6 +146,17 @@ export function FormReanudar({ canal, linea }: { canal: CanalEnvio; linea?: Line
       <input type="hidden" name="canal" value={canal} />
       {linea && <input type="hidden" name="linea" value={linea} />}
       <button disabled={pendiente} className={boton}>Reanudar envíos</button>
+      <Resultado estado={estado} />
+    </form>
+  );
+}
+
+export function FormActivarBandejaWhatsApp({ linea }: { linea: LineaEnvioWhatsApp }) {
+  const [estado, activar, pendiente] = useActionState(activarBandejaWhatsAppAccion, null);
+  return (
+    <form action={activar} className="space-y-2">
+      <input type="hidden" name="linea" value={linea} />
+      <button type="submit" className="secondary" disabled={pendiente}>{pendiente ? "Comprobando…" : "Activar recepción de respuestas"}</button>
       <Resultado estado={estado} />
     </form>
   );

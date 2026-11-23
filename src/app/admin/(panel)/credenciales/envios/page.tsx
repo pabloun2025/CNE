@@ -3,7 +3,7 @@ import { PestanasCredenciales } from "@/components/pestanas-credenciales";
 import { requireAdmin } from "@/server/guard";
 import { SOLO_CONSUL } from "@/domain/roles";
 import { enlaceWallet } from "@/server/wallet/google";
-import { estadoEntregasCredenciales, TEXTO_ENTREGA, type EstadoEntrega } from "@/server/envios-estado";
+import { estadoEntregasCredenciales, ESTADOS_INCIDENCIA, TEXTO_ENTREGA, type EstadoEntrega } from "@/server/envios-estado";
 
 const FILTROS: { clave: string; texto: string; estados: EstadoEntrega[] }[] = [
   { clave: "pendientes", texto: "Sin enviar", estados: ["sin_envio", "sin_contacto"] },
@@ -11,7 +11,7 @@ const FILTROS: { clave: string; texto: string; estados: EstadoEntrega[] }[] = [
   { clave: "aceptados", texto: "Aceptados por el proveedor", estados: ["aceptado", "enviada_al_servicio"] },
   { clave: "entregados", texto: "Entregados", estados: ["entregado", "entregada"] },
   { clave: "diferidos", texto: "Entrega diferida", estados: ["diferido"] },
-  { clave: "fallidos", texto: "Fallidos y rebotes", estados: ["fallo", "rebote_permanente", "rebote_temporal", "bloqueado", "invalido", "spam", "error"] },
+  { clave: "fallidos", texto: "Fallidos y rebotes", estados: ESTADOS_INCIDENCIA },
 ];
 const hora = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" });
 
@@ -43,7 +43,10 @@ export default async function SeguimientoEnvios({ searchParams }: { searchParams
     <main className="stack-lg">
       <h1>Seguimiento de envíos</h1>
       <PestanasCredenciales actual="/envios" />
-      <p>Último envío real por canal para cada ficha activa. Brevo confirma la entrega del correo.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p>Último envío real por canal para cada ficha activa.</p>
+        <a href="/admin/credenciales/envios/descargar" className="button-like secondary">Descargar informe Excel</a>
+      </div>
       <form className="card flex flex-wrap items-end gap-3">
         <label>Nombre, cédula o junta<input name="q" type="search" defaultValue={q} className="block w-full" /></label>
         <label>Canal<select name="canal" defaultValue={canal} className="block">

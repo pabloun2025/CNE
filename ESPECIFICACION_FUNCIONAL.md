@@ -210,6 +210,8 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **ACTUALIZADO (23-11-2026).** CNE puede vincular dos números por QR en la misma Evolution API. En Credenciales el cónsul puede filtrar por serie H o M, marcar las fichas y elegir manualmente qué línea envía. La línea seleccionada queda registrada en cada envío y tiene su propio interruptor, cadencia y pausa. En Brevo se conserva el remitente verificado y se puede configurar una dirección separada para recibir respuestas.
 
+**ACTUALIZADO (23-11-2026).** Seguimiento ofrece un Excel con el último estado real por ficha y canal. Las entregas confirmadas por los webhooks de Brevo y WhatsApp se separan de los rechazos, fallos y estados sin confirmar. Una aceptación de Evolution queda sin confirmar. La bandeja de WhatsApp registra nuevas respuestas de texto asociadas a fichas activas. La recepción se activa por línea en Superadministración. Los mensajes anteriores se consultan en los teléfonos vinculados.
+
 ### 7.2. Control de ingreso
 
 **DECIDIDO.** En puerta el operador utiliza un **enlace limitado, revocable**, creado por la administración; se identifica por nombre y PIN, no entra en el panel administrativo. Escanea el QR de la credencial; el sistema identifica al MJRV por cédula, registra ingreso y actualiza de inmediato el centro de mando.

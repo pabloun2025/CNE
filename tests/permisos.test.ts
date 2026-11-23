@@ -28,6 +28,7 @@ const FINANZAS: Regla = ["admin", "admin_fin"];
 
 // ─── Rutas API: «METODO /url» ───
 const RUTAS: Record<string, Regla> = {
+  "GET /admin/credenciales/envios/descargar": SOLO_ADMIN,
   "GET /admin/informes/descargar": FINANZAS,
   "GET /admin/documentos/cartel": ["admin", "superadmin"],
   "GET /admin/credenciales/pdf": SOLO_ADMIN,
@@ -61,6 +62,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
   "GET /w/[token]": "publica", // enlace firmado por ficha; solo fichas reales activas (Google Wallet)
+  "POST /api/webhooks/evolution": [], // requiere la credencial de la línea de Evolution
   "POST /api/webhooks/brevo": [], // autentica el token de Brevo, no una sesión de CNE
   "POST /api/d/foto": "publica", // la ruta valida el archivo y limita peticiones por IP
   "POST /api/d/buscar": "publica",
@@ -90,6 +92,7 @@ const ACCIONES: Record<string, Regla> = {
   "superadmin-actions#cambiarModoAccion": SOLO_SUPER, "superadmin-actions#cargarDemoAccion": SOLO_SUPER, "superadmin-actions#quitarDemoAccion": SOLO_SUPER,
   "superadmin-actions#respaldarAccion": SOLO_SUPER, "superadmin-actions#prepararEleccionAccion": SOLO_SUPER,
   "superadmin-actions#reiniciarOperativoAccion": SOLO_SUPER,
+  "superadmin-actions#activarBandejaWhatsAppAccion": SOLO_SUPER,
   "superadmin-actions#interruptorEnvioAccion": SOLO_SUPER, "superadmin-actions#reanudarEnviosAccion": SOLO_SUPER, "superadmin-actions#guardarRemitenteAccion": SOLO_SUPER,
   "superadmin-actions#borrarFotosAccion": SOLO_SUPER,
   "superadmin-actions#crearLineaAccion": SOLO_SUPER, "superadmin-actions#desvincularLineaAccion": SOLO_SUPER,
@@ -249,7 +252,7 @@ describe("matriz de permisos", () => {
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "financiero"],
       mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/caja": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], informes: ["consul", "financiero"],
-      credenciales: ["consul"], "credenciales/envios": ["consul"], "credenciales/whatsapp": ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
+      credenciales: ["consul"], "credenciales/envios": ["consul"], "credenciales/whatsapp": ["consul"], "credenciales/whatsapp/bandeja": ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
     const clavePagina = (f: string) => path.relative(path.join(SRC, "app/admin/(panel)"), path.dirname(f)).split(path.sep).join("/");

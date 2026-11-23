@@ -1,4 +1,4 @@
-import { FormInterruptor, FormReanudar, FormRemitente } from "@/components/superadmin-formularios";
+import { FormActivarBandejaWhatsApp, FormInterruptor, FormReanudar, FormRemitente } from "@/components/superadmin-formularios";
 import { LineaWhatsAppPanel } from "@/components/linea-whatsapp";
 import { clientesPorDefecto, estadoCola, impedimentos, leerConfigEnvios, remitenteEfectivo } from "@/server/envios-config";
 import { requireSuperadmin } from "@/server/guard";
@@ -32,6 +32,7 @@ export default async function Envios() {
           {c.linea
             ? <LineaWhatsAppPanel inicial={c.linea} numeroLinea={c.numero} />
             : <FormRemitente direccion={rem.direccion} nombre={rem.nombre} responderA={cfg.correoReplyTo ?? ""} />}
+          {c.numero && c.linea?.estado === "vinculada" && !c.linea.simulada && <FormActivarBandejaWhatsApp linea={c.numero} />}
           {c.falta.length > 0 && <ul className="list-disc pl-5 text-sm text-amber-900">{c.falta.map((f) => <li key={f}>{f}</li>)}</ul>}
           {!c.linea && c.falta.length === 0 && <p role="status">Remitente verificado en Brevo.</p>}
           <h3 className="text-base font-semibold">Envío real {c.encendido ? "encendido" : "apagado"}</h3>

@@ -10,6 +10,9 @@ import { reiniciarOperativo } from "./reiniciar-operativo";
 import { borrarTodasLasFotos } from "./documentos";
 import { crearRespaldo } from "./respaldo";
 import { crearLinea, desvincularLinea, leerLineaWhatsApp } from "./whatsapp-linea";
+import { registrarAuditoria } from "./auditoria";
+import { clienteEvolution, ErrorEvolution, EvolutionHttp } from "./envios/evolution";
+import { CABECERA_WEBHOOK_WHATSAPP, credencialWebhookWhatsApp } from "./envios/whatsapp-webhook";
 import { cambiarInterruptor, guardarRemitente, reanudarEnvios } from "./envios-config";
 
 export type EstadoSuper = { error?: string; aviso?: string; password?: string; enlace?: string; detalle?: string[]; qr?: string; vinculada?: boolean } | null;
@@ -151,6 +154,29 @@ export async function reanudarEnviosAccion(_: EstadoSuper, f: FormData): Promise
   await reanudarEnvios(sesion, f.get("canal") === "correo" ? "correo" : "whatsapp", linea);
   revalidatePath("/superadmin/envios");
   return { aviso: "Envíos reanudados." };
+}
+
+export async function activarBandejaWhatsAppAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
+  const sesion = await requireSuperadmin();
+  const valor = f.get("linea");
+  if (valor !== "1" && valor !== "2") return { error: "Línea de WhatsApp no válida." };
+  const linea = valor === "1" ? 1 : 2;
+  const cliente = clienteEvolution({ linea });
+  if (!(cliente instanceof EvolutionHttp)) return { error: "Falta la conexión con Evolution." };
+  const dominio = process.env.HOST_MADRID?.trim();
+  if (!dominio || !/^[a-z0-9.-]+$/i.test(dominio)) return { error: "Falta configurar el dominio público de Madrid." };
+  try {
+    const cambiado = await cliente.activarRecepcion(`https://${dominio}/api/webhooks/evolution`, {
+      [CABECERA_WEBHOOK_WHATSAPP]: credencialWebhookWhatsApp(linea),
+    });
+    if (cambiado) await registrarAuditoria({
+      portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre,
+      accion: "whatsapp_recepcion_activada", entidad: "configuracion", entidadId: 1, datos: { linea },
+    });
+    return { aviso: `La línea ${linea} tiene activada la recepción de respuestas nuevas.` };
+  } catch (e) {
+    return { error: e instanceof ErrorEvolution ? e.message : "No se pudo comprobar la activación de la bandeja." };
+  }
 }
 
 export async function guardarRemitenteAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
