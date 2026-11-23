@@ -70,7 +70,8 @@ export function resultadoDeEnvio(raw: Raw): ResultadoProveedor {
     if (/"exists"\s*:\s*false/.test(JSON.stringify(raw.json ?? ""))) return { ok: false, permanente: true, error: "El número no tiene WhatsApp." };
     return { ok: false, permanente: true, error: "Evolution API rechazó el mensaje." };
   }
-  if (raw.status === 401 || raw.status === 403) return { ok: false, permanente: false, error: "Evolution API rechazó la credencial. El mensaje no salió." };
+  if (raw.status === 401 || raw.status === 403) return { ok: false, permanente: false, pausarCola: true, error: "Evolution API rechazó la credencial. El mensaje no salió." };
+  if (raw.status === 429) return { ok: false, permanente: false, pausarCola: true, error: "Evolution API indicó un límite de envíos." };
   if (raw.status === 404) return { ok: false, permanente: false, error: "La línea de WhatsApp de CNE no existe en Evolution API. El mensaje no salió." };
   return { ok: false, permanente: false, incierto: true, error: `Evolution API respondió ${raw.status}. El mensaje pudo haber salido.` };
 }

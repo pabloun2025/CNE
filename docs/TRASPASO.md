@@ -371,3 +371,8 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 
 - Se actualizaron en producción la cédula de una ficha y el nombre de otra, conservando sus identificadores internos. Dos direcciones coincidían con el padrón después de normalizar espacios junto al punto del dominio. La hoja indicaba «No tiene correo» para la quinta ficha. Se verificaron los cinco resultados contra la hoja.
 - Brevo confirmó la entrega de ambos PDF actualizados, enviados individualmente con la copia oculta solicitada. Los cinco turnos existentes de WhatsApp se conservaron y toman los datos vigentes al generar el PDF. Ambas líneas quedaron en pausa manual con 280 turnos y cero intentos. [Envíos y cotejo](https://github.com/pabloun2025/CNE/actions/runs/45242594583) · [Cola](https://github.com/pabloun2025/CNE/actions/runs/45242599818)
+
+## 36. Cadencia y pausa de WhatsApp
+
+- Cada línea espera de 90 a 150 segundos al azar entre intentos reales. El próximo intento se guarda en la base. Se mantiene la lista de destinatarios y cada turno conserva su línea. Con las dos líneas activas y sin interrupciones, los 280 turnos actuales tardarían aproximadamente 5 horas y 15 minutos.
+- Ante el primer HTTP 429, 401 o 403 de Evolution, CNE conserva el intento fallido en el historial y pausa la línea para revisión en Superadministración. Los demás turnos de esa línea quedan en espera. La cadencia disminuye el ritmo de envíos y el proveedor puede seguir aplicando restricciones.

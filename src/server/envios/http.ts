@@ -9,7 +9,7 @@ export type FetchLike = (input: string, init: { method: string; headers: Record<
 }>;
 
 // Resultado de un envío. «incierto»: el proveedor pudo haberlo enviado (tiempo agotado, 5xx).
-export type ResultadoProveedor = { ok: true; idExterno: string } | { ok: false; permanente: boolean; error: string; incierto?: boolean };
+export type ResultadoProveedor = { ok: true; idExterno: string } | { ok: false; permanente: boolean; error: string; incierto?: boolean; pausarCola?: true };
 
 const NO_ENVIADO = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH", "UND_ERR_CONNECT_TIMEOUT"]);
 

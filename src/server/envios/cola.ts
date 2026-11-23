@@ -156,6 +156,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
   }
 
   if (!r.ok) {
+    if (canal === "whatsapp" && r.pausarCola) return pausar(client, clave, r.error);
     // Pausa tras N fallos seguidos desde la última reanudación.
     const ultimos = (await client.query<{ estado: string }>(
       `SELECT CASE WHEN brevo_estado IS NOT NULL THEN 'enviada_al_servicio' ELSE estado END AS estado

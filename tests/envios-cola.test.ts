@@ -10,7 +10,7 @@ import { estadoEntregasCredenciales } from "@/server/envios-estado";
 import { prepararRectificacionWhatsApp } from "@/server/envios/rectificacion";
 import { procesarCola, recuperarInterrumpidas } from "@/server/envios/cola";
 import type { ClienteCorreo, Correo } from "@/server/envios/brevo";
-import type { ClienteEvolution, Documento } from "@/server/envios/evolution";
+import { resultadoDeEnvio, type ClienteEvolution, type Documento } from "@/server/envios/evolution";
 import type { ResultadoProveedor } from "@/server/envios/http";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
@@ -20,7 +20,7 @@ const superadmin: Sesion = { ...admin, tipo: "superadmin" };
 // Mañana a las 12:00 UTC: siempre dentro del horario de Madrid (13:00 o 14:00) y posterior al «ahora» real.
 const base = new Date(); base.setUTCDate(base.getUTCDate() + 1); base.setUTCHours(12, 0, 0, 0);
 const en = (s: number) => new Date(base.getTime() + s * 1000);
-const sinAzar = () => 0; // pausa mínima: 20 s en WhatsApp, 2 s en correo
+const sinAzar = () => 0; // pausa mínima de 90 s en WhatsApp
 
 type Falsos = { clientes: Clientes; wa: Documento[]; mail: Correo[]; abierta: { v: boolean }; fallar: { v: boolean } };
 function falsos(): Falsos {
@@ -159,7 +159,7 @@ describe("cola de envío real", () => {
     expect(f.wa).toHaveLength(0);
   });
 
-  it("encendido, el lote solo encola fichas reales (las de demostración salen simuladas) y la cola envía una cada 20–45 s", async () => {
+  it("encendido, el lote solo encola fichas reales (las de demostración salen simuladas) y la cola envía una cada 90–150 s", async () => {
     await encender("whatsapp");
     const a = await ficha(), b = await ficha(), c = await ficha();
     const demo = await ficha({ prueba: true });
@@ -173,13 +173,13 @@ describe("cola de envío real", () => {
     expect(f.wa[0].numero).toMatch(/^\+346000/);
     expect(Buffer.from(f.wa[0].pdfBase64, "base64").subarray(0, 5).toString()).toBe("%PDF-");
     // Dentro de la pausa no sale nada.
-    expect(await procesarCola({ ahora: en(10), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "omitido", motivo: expect.stringContaining("pausa") } });
+    expect(await procesarCola({ ahora: en(89), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "omitido", motivo: expect.stringContaining("pausa") } });
     expect(f.wa).toHaveLength(1);
-    // Pasada la pausa (20 s con azar 0) sale la segunda; con azar 0.999 la pausa llega a ~45 s.
-    expect(await procesarCola({ ahora: en(20), azar: () => 0.999, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "enviado" } });
-    expect(await procesarCola({ ahora: en(20 + 44), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "omitido" } });
-    expect(await procesarCola({ ahora: en(20 + 46), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "enviado" } });
-    expect(await procesarCola({ ahora: en(200), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "omitido", motivo: "cola vacía" } });
+    // Pasada la pausa (90 s con azar 0) sale la segunda; con azar 0.999 la pausa llega a ~150 s.
+    expect(await procesarCola({ ahora: en(90), azar: () => 0.999, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "enviado" } });
+    expect(await procesarCola({ ahora: en(90 + 149), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "omitido" } });
+    expect(await procesarCola({ ahora: en(90 + 150), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "enviado" } });
+    expect(await procesarCola({ ahora: en(400), azar: sinAzar, clientes: f.clientes, canales: ["whatsapp"] })).toMatchObject({ whatsapp: { accion: "omitido", motivo: "cola vacía" } });
     expect(f.wa).toHaveLength(3);
     expect((await filas()).filter((x) => x.estado === "enviada_al_servicio" && !x.simulado)).toHaveLength(3);
   });
@@ -208,7 +208,7 @@ describe("cola de envío real", () => {
     expect((await procesarCola({ ahora: base, clientes: f.clientes })).whatsapp.accion).toBe("pausado");
     await controlarColaWhatsApp(admin, 1, "reanudar");
     await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes });
-    await procesarCola({ ahora: en(20), azar: sinAzar, clientes: f.clientes });
+    await procesarCola({ ahora: en(90), azar: sinAzar, clientes: f.clientes });
     expect(f.wa).toHaveLength(2);
     expect(f.wa[0].texto).toContain("M1");
     expect(f.wa[0].texto).not.toContain("Rectificación");
@@ -267,20 +267,47 @@ describe("cola de envío real", () => {
     const f = falsos();
     f.fallar.v = true;
     let t = 0;
-    for (let i = 0; i < 4; i++) expect((await procesarCola({ ahora: en(t += 60), azar: sinAzar, clientes: f.clientes })).whatsapp.accion).toBe("fallo");
-    expect((await procesarCola({ ahora: en(t += 60), azar: sinAzar, clientes: f.clientes })).whatsapp.accion).toBe("fallo"); // el quinto
-    expect(await procesarCola({ ahora: en(t += 60), clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "pausado", motivo: expect.stringContaining("5 fallos") } });
+    for (let i = 0; i < 4; i++) expect((await procesarCola({ ahora: en(t += 90), azar: sinAzar, clientes: f.clientes })).whatsapp.accion).toBe("fallo");
+    expect((await procesarCola({ ahora: en(t += 90), azar: sinAzar, clientes: f.clientes })).whatsapp.accion).toBe("fallo"); // el quinto
+    expect(await procesarCola({ ahora: en(t += 90), clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "pausado", motivo: expect.stringContaining("5 fallos") } });
     expect(f.wa).toHaveLength(5);
     await expect(reanudarEnvios(admin, "whatsapp")).rejects.toThrow("superadministración");
     await reanudarEnvios(superadmin, "whatsapp");
     f.fallar.v = false;
-    expect(await procesarCola({ ahora: en(t += 60), azar: sinAzar, clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "enviado" } });
+    expect(await procesarCola({ ahora: en(t += 90), azar: sinAzar, clientes: f.clientes })).toMatchObject({ whatsapp: { accion: "enviado" } });
     // Un fallo aislado tras reanudar no vuelve a pausar (el contador empezó de cero).
     f.fallar.v = true;
-    expect((await procesarCola({ ahora: en(t += 60), azar: sinAzar, clientes: f.clientes })).whatsapp.accion).toBe("fallo");
-    expect((await procesarCola({ ahora: en(t += 60), azar: sinAzar, clientes: f.clientes })).whatsapp.accion).toBe("fallo");
+    expect((await procesarCola({ ahora: en(t += 90), azar: sinAzar, clientes: f.clientes })).whatsapp.accion).toBe("fallo");
+    expect((await procesarCola({ ahora: en(t += 90), azar: sinAzar, clientes: f.clientes })).whatsapp.accion).toBe("fallo");
     expect((await estadoCola(base)).whatsapp.pausa).toBeNull();
   });
+
+  it.each([{ estado: 429, linea: 1, canal: "whatsapp" }, { estado: 403, linea: 2, canal: "whatsapp2" }] as const)(
+    "pausa la línea $linea al primer HTTP $estado de Evolution y conserva el siguiente turno",
+    async ({ estado, linea, canal }) => {
+      if (linea === 1) await encender("whatsapp");
+      else await consultarDueno("UPDATE cne.configuracion SET whatsapp_real_2 = true");
+      const primero = await ficha(), siguiente = await ficha();
+      await enviarCredencial(admin, primero, "whatsapp", undefined, false, linea);
+      await enviarCredencial(admin, siguiente, "whatsapp", undefined, false, linea);
+      const f = falsos();
+      const proveedor: ClienteEvolution = {
+        ...f.clientes.whatsapp,
+        enviarDocumento: async (d) => {
+          f.wa.push(d);
+          return resultadoDeEnvio({ kind: "response", status: estado, json: null });
+        },
+      };
+      const clientes = { ...f.clientes, ...(linea === 1 ? { whatsapp: proveedor } : { whatsapp2: proveedor }) };
+      expect((await procesarCola({ ahora: base, clientes }))[canal]).toMatchObject({ accion: "pausado" });
+      expect((await procesarCola({ ahora: en(180), clientes }))[canal]).toMatchObject({ accion: "pausado" });
+      expect(f.wa).toHaveLength(1);
+      expect(await filas()).toEqual([
+        expect.objectContaining({ mjrv_id: primero, estado: "fallo", intentos: 1 }),
+        expect.objectContaining({ mjrv_id: siguiente, estado: "en_cola", intentos: 0 }),
+      ]);
+    },
+  );
 
   it("línea de WhatsApp sin vincular: pausa con motivo y no envía", async () => {
     await encender("whatsapp");
@@ -363,7 +390,7 @@ describe("cola de envío real", () => {
     ]);
     expect(resultados.map((r) => r.enCola).sort()).toEqual([0, 1]);
     expect((await filas()).map((fila) => fila.estado)).toEqual(["enviada_al_servicio", "en_cola"]);
-    expect((await procesarCola({ ahora: en(20), azar: sinAzar, clientes })).whatsapp.accion).toBe("enviado");
+    expect((await procesarCola({ ahora: en(90), azar: sinAzar, clientes })).whatsapp.accion).toBe("enviado");
     // La imagen anterior todavía depende del índice para detectar un envío existente.
     expect(await consultarDueno(
       "INSERT INTO cne.envios_credencial (mjrv_id, canal, destino, estado, simulado) VALUES ($1,'whatsapp','+34600000000','en_cola',false) ON CONFLICT DO NOTHING RETURNING id", [id],

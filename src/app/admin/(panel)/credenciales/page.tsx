@@ -1,4 +1,5 @@
 import { PestanasCredenciales } from "@/components/pestanas-credenciales";
+import { PAUSA_WHATSAPP_MIN_S, PAUSA_WHATSAPP_MAX_S } from "@/domain/envios-ritmo";
 import { SOLO_CONSUL } from "@/domain/roles";
 import { requireAdmin } from "@/server/guard";
 import { resumenCredenciales, seleccionarParaCredencial } from "@/server/credenciales";
@@ -18,7 +19,7 @@ export default async function Credenciales() {
       <p className="cifra">{r.activos} fichas activas · {r.preparadas} preparadas · {r.pendientes} pendientes.</p>
       <section aria-label="Estado del envío por WhatsApp y correo" className="stack">
         {cfg.whatsappReal || cfg.whatsappReal2 || cfg.correoReal ? (
-          <p role="note">WhatsApp 1: {cfg.whatsappReal ? "real" : "simulado"} · WhatsApp 2: {cfg.whatsappReal2 ? "real" : "simulado"} · Correo: {cfg.correoReal ? "real" : "simulado"}. WhatsApp deja de 20 a 45 segundos entre mensajes. Las fichas de demostración siempre se simulan.</p>
+          <p role="note">WhatsApp 1: {cfg.whatsappReal ? "real" : "simulado"} · WhatsApp 2: {cfg.whatsappReal2 ? "real" : "simulado"} · Correo: {cfg.correoReal ? "real" : "simulado"}. WhatsApp espera entre {PAUSA_WHATSAPP_MIN_S} y {PAUSA_WHATSAPP_MAX_S} segundos por línea. Las fichas de demostración siempre se simulan.</p>
         ) : (
           <p role="note">Ambos canales están en simulación. Solo la superadministración puede activar el envío real.</p>
         )}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { PAUSA_MANUAL_WHATSAPP, type LineaEnvioWhatsApp } from "@/domain/envios-ritmo";
+import { PAUSA_MANUAL_WHATSAPP, PAUSA_WHATSAPP_MIN_S, PAUSA_WHATSAPP_MAX_S, type LineaEnvioWhatsApp } from "@/domain/envios-ritmo";
 import type { PersonaCredencial } from "@/server/credenciales";
 import type { EstadoCanal } from "@/server/envios-config";
 import { controlarColaWhatsAppAccion, enviarLoteAccion } from "@/server/envios-actions";
@@ -74,7 +74,7 @@ export function PanelWhatsAppCredenciales({ personas, lineas }: { personas: Pers
           <button className="quiet" type="button" disabled={actualizando} onClick={() => actualizar(() => router.refresh())}>Actualizar estado</button>
         </div>
         <div className="grid gap-4 md:grid-cols-2">{lineas.map((linea) => <TarjetaLinea key={linea.id} linea={linea} />)}</div>
-        <p className="text-sm">WhatsApp espera de 20 a 45 segundos entre intentos en cada línea. Al pausar, un envío ya iniciado puede terminar.</p>
+        <p className="text-sm">WhatsApp espera al azar entre {PAUSA_WHATSAPP_MIN_S} y {PAUSA_WHATSAPP_MAX_S} segundos por línea. Si Evolution indica un límite o rechaza el acceso, la línea se pausa. Al pausar, un envío ya iniciado puede terminar.</p>
         <Link className="w-fit underline" href="/admin/credenciales/envios?canal=whatsapp">Ver seguimiento por persona</Link>
       </section>
       <section aria-labelledby="wa-enviar" className="stack">
