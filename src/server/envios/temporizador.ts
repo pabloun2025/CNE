@@ -11,8 +11,8 @@ export function arrancarCola(): void {
     let espera = ESPERA_SIN_TRABAJO_MS;
     try {
       const r = await procesarCola();
-      if (r.whatsapp.accion === "enviado" || r.correo.accion === "enviado") {
-        console.log(`[cola de envíos] enviados: whatsapp=${r.whatsapp.accion === "enviado" ? 1 : 0} correo=${r.correo.accion === "enviado" ? 1 : 0}`);
+      if (r.whatsapp.accion === "enviado" || r.whatsapp2?.accion === "enviado" || r.correo.accion === "enviado") {
+        console.log(`[cola de envíos] enviados: whatsapp=${r.whatsapp.accion === "enviado" ? 1 : 0} whatsapp2=${r.whatsapp2?.accion === "enviado" ? 1 : 0} correo=${r.correo.accion === "enviado" ? 1 : 0}`);
       }
       if (r.correo.accion === "enviado") espera = 0;
     } catch (e) {

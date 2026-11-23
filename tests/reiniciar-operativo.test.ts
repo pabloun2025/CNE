@@ -69,7 +69,7 @@ async function prepararRecibo(id: number, cedula: string, modo: "prueba" | "elec
 }
 
 const parametros = () => consultarDueno("SELECT * FROM cne.parametros_pago");
-const configuracion = () => consultarDueno("SELECT to_jsonb(c) - ARRAY['modo','whatsapp_real','correo_real','whatsapp_proximo_en','correo_proximo_en','whatsapp_pausa_motivo','correo_pausa_motivo','actualizado_en','actualizado_por'] AS ajustes FROM cne.configuracion c");
+const configuracion = () => consultarDueno("SELECT to_jsonb(c) - ARRAY['modo','whatsapp_real','whatsapp_real_2','correo_real','whatsapp_proximo_en','whatsapp_proximo_en_2','correo_proximo_en','whatsapp_pausa_motivo','whatsapp_pausa_motivo_2','correo_pausa_motivo','actualizado_en','actualizado_por'] AS ajustes FROM cne.configuracion c");
 const estructura = () => Promise.all(["usuarios", "operadores_madrid", "enlaces_estacion", "juntas_madrid"].map((tabla) =>
   consultarDueno(`SELECT to_jsonb(t) AS fila FROM cne.${tabla} t ORDER BY id`),
 ));
@@ -83,7 +83,7 @@ describe("reiniciar operativo completo en una base ficticia", () => {
     puesto = { sesionId: "x", operadorId: operador.id, operadorNombre: "Operador de ensayo", enlaceId: f.id, funcion: "finanzas", etiqueta: "Finanzas prueba" };
     puerta = { enlaceId: p.id, operadorId: operador.id };
     await consultarDueno("UPDATE cne.parametros_pago SET importe_usd=70, importe_eur=58.82, pagador_nombre='FIRMANTE FICTICIO', pagador_cargo='CARGO FICTICIO', lugar='Madrid'");
-    await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto=true, correo_remitente='ensayo@ejemplo.invalid', credencial_ancho_mm=56, whatsapp_numero='34900000000'");
+    await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto=true, correo_remitente='ensayo@ejemplo.invalid', credencial_ancho_mm=56, whatsapp_numero='34900000000', whatsapp_numero_2='34900000001'");
     expect(await crearMjrv(cuentaAdmin, { cedula: "0000000003", apellidos: "ALTA", nombres: "FICTICIA", cargo: "vocal", junta: "H3", correo: "", telefono: "" })).toMatchObject({ ok: true });
     await consultarDueno(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, es_prueba)
       SELECT '0000000004','DEMO','FICTICIA','VOCAL','vocal',id,true FROM cne.juntas_madrid WHERE serie='H' AND numero=4`);
@@ -116,7 +116,7 @@ describe("reiniciar operativo completo en una base ficticia", () => {
       SELECT id,'correo','ensayo@ejemplo.invalid',true,'enviada_al_servicio' FROM cne.mjrv`);
     await consultarDueno(`INSERT INTO cne.credenciales_revocadas (mjrv_id, cedula, actor_nombre)
       SELECT id,cedula,'Operador ficticio' FROM cne.mjrv WHERE es_prueba`);
-    await consultarDueno("UPDATE cne.configuracion SET whatsapp_real=true, correo_real=true, whatsapp_pausa_motivo='ensayo', whatsapp_proximo_en=now()");
+    await consultarDueno("UPDATE cne.configuracion SET whatsapp_real=true, whatsapp_real_2=true, correo_real=true, whatsapp_pausa_motivo='ensayo', whatsapp_pausa_motivo_2='ensayo', whatsapp_proximo_en=now(), whatsapp_proximo_en_2=now()");
   });
   afterAll(closePools);
 
@@ -199,8 +199,8 @@ describe("reiniciar operativo completo en una base ficticia", () => {
     try {
       expect(await reiniciar()).toMatchObject({ ok: false });
       expect(await resumenReinicioTotal()).toEqual(antes);
-      expect(await consultarDueno("SELECT modo, whatsapp_real, correo_real FROM cne.configuracion"))
-        .toEqual([{ modo: "prueba", whatsapp_real: true, correo_real: true }]);
+      expect(await consultarDueno("SELECT modo, whatsapp_real, whatsapp_real_2, correo_real FROM cne.configuracion"))
+        .toEqual([{ modo: "prueba", whatsapp_real: true, whatsapp_real_2: true, correo_real: true }]);
       expect(await serie()).toEqual([{ es_prueba: false, ultimo_ordinal: 1 }, { es_prueba: true, ultimo_ordinal: 1 }]);
       expect(await cantidad("respaldo_limpieza")).toBe(0);
     } finally {
@@ -238,8 +238,8 @@ describe("reiniciar operativo completo en una base ficticia", () => {
     expect(await cantidad("respaldo_limpieza")).toBe(0);
     expect(await cantidad("auditoria")).toBe(auditorias + 1);
     expect(await serie()).toEqual([{ es_prueba: false, ultimo_ordinal: 0 }, { es_prueba: true, ultimo_ordinal: 0 }]);
-    expect(await consultarDueno("SELECT modo, whatsapp_real, correo_real, whatsapp_pausa_motivo, whatsapp_proximo_en FROM cne.configuracion"))
-      .toEqual([{ modo: "eleccion", whatsapp_real: false, correo_real: false, whatsapp_pausa_motivo: null, whatsapp_proximo_en: null }]);
+    expect(await consultarDueno("SELECT modo, whatsapp_real, whatsapp_real_2, correo_real, whatsapp_pausa_motivo, whatsapp_proximo_en, whatsapp_pausa_motivo_2, whatsapp_proximo_en_2 FROM cne.configuracion"))
+      .toEqual([{ modo: "eleccion", whatsapp_real: false, whatsapp_real_2: false, correo_real: false, whatsapp_pausa_motivo: null, whatsapp_proximo_en: null, whatsapp_pausa_motivo_2: null, whatsapp_proximo_en_2: null }]);
     expect(await procesarCola()).toMatchObject({ whatsapp: { accion: "omitido" }, correo: { accion: "omitido" } });
   });
 

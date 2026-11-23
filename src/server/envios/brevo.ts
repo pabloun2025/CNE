@@ -3,7 +3,7 @@ import { etiquetaEnvioBrevo } from "./brevo-webhook";
 import { pedirJson, type FetchLike, type Raw, type ResultadoProveedor } from "./http";
 
 // Correo por Brevo (copia adaptada de consulares/src/domain/providers.ts: BrevoHttpSender). La cuenta es la de consulares.
-export type Correo = { envioId?: number; para: string; asunto: string; texto: string; html?: string; remitente: { nombre: string; direccion: string }; adjunto: { nombre: string; base64: string } };
+export type Correo = { envioId?: number; para: string; asunto: string; texto: string; html?: string; remitente: { nombre: string; direccion: string }; responderA?: string; adjunto: { nombre: string; base64: string } };
 
 export interface ClienteCorreo {
   readonly simulado: boolean;
@@ -61,6 +61,7 @@ export class BrevoHttp implements ClienteCorreo {
       timeoutMs: this.opciones.timeoutMs ?? 30000,
       body: {
         sender: { name: c.remitente.nombre.slice(0, 70), email: c.remitente.direccion },
+        ...(c.responderA ? { replyTo: { email: c.responderA } } : {}),
         to: [{ email: c.para }],
         subject: c.asunto,
         textContent: c.texto,

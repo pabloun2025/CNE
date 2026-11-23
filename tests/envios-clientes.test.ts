@@ -48,6 +48,22 @@ describe("cliente de Evolution API (instancia propia cne-madrid)", () => {
     expect(await evo(f).resumen()).toEqual({ estado: "unknown", numero: null, existe: false });
   });
 
+  it("la segunda línea solo usa cne-madrid-2 y el cliente rechaza otros identificadores", async () => {
+    const { f, llamadas } = falso([{ status: 201 }, { status: 200 },
+      { status: 200, json: { instance: { state: "open" } } },
+      { status: 200, json: [{ name: INSTANCIA_CNE, ownerJid: "34000000001@s.whatsapp.net" }, { name: "cne-madrid-2", ownerJid: "34000000002@s.whatsapp.net" }] },
+      { status: 200 }, { status: 201, json: { key: { id: "simulado" } } }]);
+    const c = new EvolutionHttp({ baseUrl: "http://evolution-api:8080", apiKey: CLAVE, fetch: f, linea: 2 });
+    await c.crearInstancia();
+    await c.conectar();
+    expect(await c.resumen()).toMatchObject({ numero: "+34000000002" });
+    await c.cerrarSesion();
+    await c.enviarDocumento({ numero: "+34000000003", texto: "Hola", nombreArchivo: "c.pdf", pdfBase64: "UERG" });
+    expect(llamadas[0].body).toMatchObject({ instanceName: "cne-madrid-2" });
+    expect(llamadas.slice(1).every((l) => l.url.endsWith("cne-madrid-2"))).toBe(true);
+    expect(() => new EvolutionHttp({ baseUrl: "http://evolution-api:8080", apiKey: CLAVE, fetch: f, linea: 3 as 2 })).toThrow();
+  });
+
   // Evolution 2.3.7: connectionState es 200 sin state si la instancia no está en memoria.
   it("connectionState 200 sin state y fetchInstances 404 → la instancia no existe", async () => {
     const { f, llamadas } = falso([
@@ -109,7 +125,18 @@ describe("cliente de Brevo", () => {
     expect(llamadas[0].url).toBe("https://api.brevo.com/v3/smtp/email");
     expect(llamadas[0].headers["api-key"]).toBe(CLAVE);
     expect(llamadas[0].body).toMatchObject({ sender: { name: "Nombre", email: "remitente@ejemplo.invalid" }, to: [{ email: "persona@ejemplo.invalid" }], subject: "Asunto", attachment: [{ name: "c.pdf", content: "UERG" }] });
+    expect(llamadas[0].body).not.toHaveProperty("replyTo");
     expect((llamadas[0].body as { htmlContent: string }).htmlContent).toContain("&lt;b&gt;");
+  });
+
+  it("envía la dirección de respuesta por separado del remitente", async () => {
+    const { f, llamadas } = falso([{ status: 201, json: { messageId: "<id@brevo>" } }]);
+    const mensaje = { ...correo, responderA: "respuestas@ejemplo.invalid" };
+    await new BrevoHttp({ apiKey: CLAVE, fetch: f }).enviar(mensaje);
+    expect(llamadas[0].body).toMatchObject({
+      sender: { name: "Nombre", email: "remitente@ejemplo.invalid" },
+      replyTo: { email: "respuestas@ejemplo.invalid" },
+    });
   });
   it("traduce errores de Brevo", () => {
     expect(resultadoBrevo({ kind: "response", status: 401, json: null })).toMatchObject({ ok: false, permanente: false });

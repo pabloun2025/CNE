@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { etiquetaCargoCredencial } from "@/domain/cargos-credencial";
+import type { NumerosWhatsApp } from "@/domain/envios-ritmo";
 import type { FilaLista } from "@/server/mjrv";
 import { borrarMjrvSeleccionAccion } from "@/server/mjrv-actions";
 import { DistribuirCredenciales, IdsCredenciales } from "./envios-credenciales";
 
-export function ListaMjrvSeleccion({ filas }: { filas: FilaLista[] }) {
+export function ListaMjrvSeleccion({ filas, numeros }: { filas: FilaLista[]; numeros: NumerosWhatsApp }) {
   const [seleccion, seleccionar] = useState(() => new Set<number>());
   const [confirmar, confirmarBorrado] = useState(false);
   const [borrado, borrar, borrando] = useActionState(async (_: Awaited<ReturnType<typeof borrarMjrvSeleccionAccion>> | null, datos: FormData) => {
@@ -48,7 +49,7 @@ export function ListaMjrvSeleccion({ filas }: { filas: FilaLista[] }) {
           </label>
           <p role="status">{cantidad} de {filas.length} fichas seleccionadas</p>
           {excluidas > 0 && <p className="hint">Credenciales disponibles para {credenciales.length} de las fichas seleccionadas.</p>}
-          <DistribuirCredenciales ids={credenciales} bloqueado={borrando || confirmar} />
+          <DistribuirCredenciales ids={credenciales} numeros={numeros} bloqueado={borrando || confirmar} />
           <div className="flex flex-wrap gap-3 border-t pt-3">
             <button type="button" className="quiet" disabled={!cantidad || borrando} onClick={() => { seleccionar(new Set()); confirmarBorrado(false); }}>Quitar selección</button>
             <button type="button" className="secondary text-red-800" disabled={!cantidad || confirmar} onClick={() => confirmarBorrado(true)}>Borrar selección</button>

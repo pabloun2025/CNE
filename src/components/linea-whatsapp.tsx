@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import type { LineaEnvioWhatsApp } from "@/domain/envios-ritmo";
 import type { LineaWhatsApp } from "@/server/whatsapp-linea";
 import { crearLineaAccion, desvincularLineaAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
@@ -9,8 +10,8 @@ const TEXTO: Record<LineaWhatsApp["estado"], string> = {
   sin_crear: "Sin vincular", esperando_qr: "Esperando que escanee el código", vinculada: "Vinculada", desconectada: "Desconectada",
 };
 
-// Línea de WhatsApp de CNE (instancia cne-madrid). El código QR se renueva cada 3 s mientras se espera la vinculación.
-export function LineaWhatsAppPanel({ inicial, rutaEstado }: { inicial: LineaWhatsApp; rutaEstado: string }) {
+// El código QR se renueva cada 3 s mientras se espera la vinculación.
+export function LineaWhatsAppPanel({ inicial, numeroLinea }: { inicial: LineaWhatsApp; numeroLinea: LineaEnvioWhatsApp }) {
   const router = useRouter();
   const [linea, setLinea] = useState<LineaWhatsApp>(inicial);
   const [resultado, setResultado] = useState<EstadoSuper>(null);
@@ -24,7 +25,7 @@ export function LineaWhatsAppPanel({ inicial, rutaEstado }: { inicial: LineaWhat
     const abortar = new AbortController();
     const consultar = async () => {
       try {
-        const r = await fetch(`${rutaEstado}?qr=1`, { cache: "no-store", signal: abortar.signal });
+        const r = await fetch(`/api/superadmin/whatsapp/estado?linea=${numeroLinea}&qr=1`, { cache: "no-store", signal: abortar.signal });
         if (r.ok) {
           const actual = await r.json() as LineaWhatsApp;
           if (vivo) {
@@ -37,10 +38,10 @@ export function LineaWhatsAppPanel({ inicial, rutaEstado }: { inicial: LineaWhat
     };
     id = window.setTimeout(consultar, 3000);
     return () => { vivo = false; abortar.abort(); window.clearTimeout(id); };
-  }, [esperando, pendiente, router, rutaEstado]);
+  }, [esperando, pendiente, router, numeroLinea]);
 
   const crear = () => iniciar(async () => {
-    const r = await crearLineaAccion();
+    const r = await crearLineaAccion(numeroLinea);
     setResultado(r);
     if (r?.error) return;
     if (r?.qr) setLinea((l) => ({ ...l, estado: "esperando_qr", qr: r.qr ?? null, error: undefined }));
@@ -48,9 +49,9 @@ export function LineaWhatsAppPanel({ inicial, rutaEstado }: { inicial: LineaWhat
     else if (r?.aviso) setLinea((l) => ({ ...l, estado: "esperando_qr", qr: null, error: undefined }));
   });
   const quitar = () => {
-    if (!window.confirm("¿Desvincular la línea de WhatsApp de CNE? El envío real por WhatsApp quedará apagado.")) return;
+    if (!window.confirm(`¿Desvincular la línea ${numeroLinea} de WhatsApp? Su envío real quedará apagado.`)) return;
     iniciar(async () => {
-      const r = await desvincularLineaAccion();
+      const r = await desvincularLineaAccion(numeroLinea);
       setResultado(r);
       if (r?.aviso) setLinea((l) => ({ ...l, estado: "desconectada", numero: null, qr: null }));
     });

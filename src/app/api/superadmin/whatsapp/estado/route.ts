@@ -1,5 +1,5 @@
 import { sesionApi } from "@/server/guard";
-import { estadoLinea } from "@/server/whatsapp-linea";
+import { estadoLinea, leerLineaWhatsApp } from "@/server/whatsapp-linea";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const sesion = await sesionApi("superadmin");
   if (!sesion) return Response.json({ error: "No autorizado" }, { status: 401 });
-  const conQr = new URL(request.url).searchParams.get("qr") === "1";
-  return Response.json(await estadoLinea(sesion, { conQr }), { headers: { "Cache-Control": "no-store" } });
+  const params = new URL(request.url).searchParams;
+  const linea = leerLineaWhatsApp(params.get("linea"));
+  if (linea === null) return Response.json({ error: "Línea de WhatsApp no válida." }, { status: 400 });
+  return Response.json(await estadoLinea(sesion, { linea, conQr: params.get("qr") === "1" }), { headers: { "Cache-Control": "no-store" } });
 }

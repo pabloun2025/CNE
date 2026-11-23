@@ -3,6 +3,7 @@ import { rotuloCredencial } from "@/domain/juntas";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotonesEnvio } from "@/components/envios-credenciales";
+import { leerConfigEnvios } from "@/server/envios-config";
 import { enviosDe } from "@/server/envios";
 import { TEXTO_ENTREGA } from "@/server/envios-estado";
 import { BorrarMjrv } from "@/components/borrar-mjrv";
@@ -18,7 +19,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
   const id = Number((await params).id);
   const m = Number.isInteger(id) ? await obtenerFicha(id) : null;
   if (!m) notFound();
-  const envios = await enviosDe(m.id);
+  const [envios, cfg] = await Promise.all([enviosDe(m.id), leerConfigEnvios()]);
   const tieneCredencial = m.activo && !m.incorporado_en;
   return (
     <main className="max-w-3xl space-y-6">
@@ -62,10 +63,10 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
         <h2 className="font-semibold">Envío de la credencial</h2>
         {tieneCredencial && <>
           <p role="note" className="text-sm font-medium text-amber-900">Los canales activos envían las fichas reales desde la cola. Los envíos simulados se indican en el historial.</p>
-          <BotonesEnvio id={m.id} tieneTelefono={!!m.telefono_e164} tieneCorreo={!!m.correo} />
+          <BotonesEnvio id={m.id} tieneTelefono={!!m.telefono_e164} tieneCorreo={!!m.correo} numeros={[cfg.whatsappNumero, cfg.whatsappNumero2]} />
         </>}
         {envios.length > 0 && (
-          <ul className="text-sm">{envios.map((x) => <li key={x.id}>{hora(x.creado_en)} · {x.canal === "whatsapp" ? "WhatsApp" : "Correo"} · {TEXTO_ENTREGA[x.brevo_estado ?? x.estado]}{x.brevo_evento_en && ` (${hora(x.brevo_evento_en)})`}{x.simulado ? " (simulado)" : ""}{x.error && !x.brevo_estado ? ` · ${x.error}` : ""}</li>)}</ul>
+          <ul className="text-sm">{envios.map((x) => <li key={x.id}>{hora(x.creado_en)} · {x.canal === "whatsapp" ? `WhatsApp · Línea ${x.linea_whatsapp}` : "Correo"} · {TEXTO_ENTREGA[x.brevo_estado ?? x.estado]}{x.brevo_evento_en && ` (${hora(x.brevo_evento_en)})`}{x.simulado ? " (simulado)" : ""}{x.error && !x.brevo_estado ? ` · ${x.error}` : ""}</li>)}</ul>
         )}
       </section>}
 

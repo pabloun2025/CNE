@@ -62,7 +62,7 @@ export default async function SeguimientoEnvios({ searchParams }: { searchParams
               <p className="text-sm">{p.junta} · {p.cedula}</p>
               {enlaces[p.id] && <label className="block text-sm">Enlace de Google Wallet (Android)<input readOnly value={enlaces[p.id]!} className="block w-full" /></label>}
             </div>
-            <div><h2 className="text-sm font-semibold">WhatsApp</h2><Estado {...p.whatsapp} /></div>
+            <div><h2 className="text-sm font-semibold">WhatsApp{p.whatsapp.linea && ` · Línea ${p.whatsapp.linea}`}</h2><Estado {...p.whatsapp} /></div>
             <div><h2 className="text-sm font-semibold">Correo</h2><Estado {...p.correo} /></div>
           </li>
         ))}

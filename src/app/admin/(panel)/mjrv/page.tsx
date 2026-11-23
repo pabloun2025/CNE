@@ -3,6 +3,7 @@ import { ListaMjrvSeleccion } from "@/components/lista-mjrv-seleccion";
 import { CARGOS_FICHA } from "@/domain/cargos-credencial";
 import { SOLO_CONSUL } from "@/domain/roles";
 import { requireAdmin } from "@/server/guard";
+import { leerConfigEnvios } from "@/server/envios-config";
 import { listarMjrv } from "@/server/mjrv";
 
 const campo = "rounded border border-slate-400 px-2 py-2 text-base";
@@ -10,7 +11,7 @@ const campo = "rounded border border-slate-400 px-2 py-2 text-base";
 export default async function ListaMjrv({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireAdmin({ roles: SOLO_CONSUL });
   const f = await searchParams;
-  const filas = await listarMjrv({ junta: f.junta, rol: f.rol, estado: f.estado || "todos", q: f.q });
+  const [filas, cfg] = await Promise.all([listarMjrv({ junta: f.junta, rol: f.rol, estado: f.estado || "todos", q: f.q }), leerConfigEnvios()]);
   return (
     <main>
       <header className="mb-4 space-y-3">
@@ -40,7 +41,7 @@ export default async function ListaMjrv({ searchParams }: { searchParams: Promis
         <button className="rounded bg-slate-800 px-4 py-2 font-semibold text-white">Filtrar</button>
       </form>
       {filas.length === 0 && <p>{f.q || f.junta || f.rol || f.estado ? "No hay fichas que coincidan con los filtros." : "No hay fichas cargadas. Puede crear una ficha o importar el Excel de MJRV."}</p>}
-      <ListaMjrvSeleccion key={JSON.stringify([f.junta, f.rol, f.estado, f.q])} filas={filas} />
+      <ListaMjrvSeleccion key={JSON.stringify([f.junta, f.rol, f.estado, f.q])} filas={filas} numeros={[cfg.whatsappNumero, cfg.whatsappNumero2]} />
     </main>
   );
 }

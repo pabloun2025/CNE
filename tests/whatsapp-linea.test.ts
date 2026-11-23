@@ -54,6 +54,23 @@ describe("línea de WhatsApp de CNE (cliente simulado)", () => {
     expect(creadas).toBe(1);
   });
 
+  it("vincula y desvincula la segunda línea sin cambiar la primera", async () => {
+    EvolutionSimulado.completarVinculo("+34000000001");
+    expect(await estadoLinea(sesion(), { linea: 2 })).toMatchObject({ estado: "sin_crear", instancia: "cne-madrid-2" });
+    const linea2 = await crearLinea(sesion(), undefined, 2);
+    expect(linea2.qr).toMatch(/^data:image\/png;base64,/);
+    EvolutionSimulado.completarVinculo("+34000000002", 2);
+    expect(await estadoLinea(sesion(), { linea: 2 })).toMatchObject({ estado: "vinculada", numero: "+34000000002" });
+    expect(await estadoLinea(sesion())).toMatchObject({ estado: "vinculada", numero: "+34000000001" });
+    await consultarDueno("UPDATE cne.configuracion SET whatsapp_real = true, whatsapp_real_2 = true");
+    expect(await desvincularLinea(sesion(), undefined, 2)).toEqual({ ok: true });
+    expect(await estadoLinea(sesion(), { linea: 2 })).toMatchObject({ estado: "desconectada", numero: null });
+    expect(await estadoLinea(sesion())).toMatchObject({ estado: "vinculada", numero: "+34000000001" });
+    expect(await consultarDueno("SELECT whatsapp_real, whatsapp_numero, whatsapp_real_2, whatsapp_numero_2 FROM cne.configuracion")).toEqual([
+      { whatsapp_real: true, whatsapp_numero: "+34000000001", whatsapp_real_2: false, whatsapp_numero_2: null },
+    ]);
+  });
+
   it("si Evolution no responde, el estado lo dice sin romper", async () => {
     const roto: ClienteEvolution = { ...new EvolutionSimulado(), simulado: false, resumen: async () => { throw new (await import("@/server/envios/evolution")).ErrorEvolution("Evolution API no responde (ECONNREFUSED)."); } } as unknown as ClienteEvolution;
     expect(await estadoLinea(sesion(), { cliente: roto })).toMatchObject({ estado: "desconectada", error: expect.stringContaining("no responde") });

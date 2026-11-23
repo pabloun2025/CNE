@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import { FALLOS_PARA_PAUSAR, pausaWhatsAppMs, type CanalEnvio } from "../../domain/envios-ritmo";
+import { FALLOS_PARA_PAUSAR, pausaWhatsAppMs, type CanalEnvio, type LineaEnvioWhatsApp } from "../../domain/envios-ritmo";
 import { getAppPool, withTx } from "../db";
 import { clientesPorDefecto, leerConfigEnvios, remitenteEfectivo, type Clientes } from "../envios-config";
 import { mensajeCredencial } from "../envios";
@@ -11,6 +11,7 @@ import type { ResultadoProveedor } from "./http";
 // Cola de envío real (09 §3.7). Procesa como mucho UN mensaje por canal y vuelta; la pausa al azar entre mensajes se guarda
 // en la base (`<canal>_proximo_en`), así sobrevive a reinicios. Las fichas de prueba nunca salen por aquí.
 export type ResultadoCanal = { accion: "enviado" | "fallo" | "omitido" | "pausado" | "candado"; motivo?: string };
+type ResultadosCola = Record<CanalEnvio, ResultadoCanal> & { whatsapp2?: ResultadoCanal };
 export type OpcionesCola = { ahora?: Date; azar?: () => number; clientes?: Clientes; canales?: CanalEnvio[] };
 
 export const CLAVE_CANDADO_COLA = 4343;
@@ -31,11 +32,11 @@ export async function recuperarInterrumpidas(): Promise<number> {
   });
 }
 
-export async function procesarCola(opciones: OpcionesCola = {}): Promise<Record<CanalEnvio, ResultadoCanal>> {
+export async function procesarCola(opciones: OpcionesCola = {}): Promise<ResultadosCola> {
   const reloj = () => opciones.ahora ?? new Date();
   const azar = opciones.azar ?? Math.random;
   const canales = opciones.canales ?? (["whatsapp", "correo"] as CanalEnvio[]);
-  const resultado: Record<CanalEnvio, ResultadoCanal> = { whatsapp: { accion: "omitido", motivo: "no tocaba" }, correo: { accion: "omitido", motivo: "no tocaba" } };
+  const resultado: ResultadosCola = { whatsapp: { accion: "omitido", motivo: "no tocaba" }, correo: { accion: "omitido", motivo: "no tocaba" } };
   const pool = await getAppPool();
   const client = await pool.connect();
   try {
@@ -47,7 +48,12 @@ export async function procesarCola(opciones: OpcionesCola = {}): Promise<Record<
     }
     try {
       const clientes = opciones.clientes ?? clientesPorDefecto();
-      for (const canal of canales) resultado[canal] = await procesarCanal(client, canal, reloj, azar, clientes);
+      for (const canal of canales) {
+        resultado[canal] = await procesarCanal(client, canal, reloj, azar, clientes, 1);
+        if (canal === "whatsapp" && clientes.whatsapp2) {
+          resultado.whatsapp2 = await procesarCanal(client, canal, reloj, azar, clientes, 2);
+        }
+      }
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [CLAVE_CANDADO_COLA]);
     }
@@ -58,17 +64,20 @@ export async function procesarCola(opciones: OpcionesCola = {}): Promise<Record<
 }
 
 const COL = {
+  whatsapp2: { real: "whatsapp_real_2", proximo: "whatsapp_proximo_en_2", pausa: "whatsapp_pausa_motivo_2" },
   whatsapp: { real: "whatsapp_real", proximo: "whatsapp_proximo_en", pausa: "whatsapp_pausa_motivo" },
   correo: { real: "correo_real", proximo: "correo_proximo_en", pausa: "correo_pausa_motivo" },
 } as const;
 
-async function pausar(client: PoolClient, canal: CanalEnvio, motivo: string): Promise<ResultadoCanal> {
-  await client.query(`UPDATE configuracion SET ${COL[canal].pausa} = $1 WHERE id = 1`, [motivo]);
+async function pausar(client: PoolClient, clave: keyof typeof COL, motivo: string): Promise<ResultadoCanal> {
+  await client.query(`UPDATE configuracion SET ${COL[clave].pausa} = $1 WHERE id = 1`, [motivo]);
   return { accion: "pausado", motivo };
 }
 
-async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () => Date, azar: () => number, clientes: Clientes): Promise<ResultadoCanal> {
-  const col = COL[canal];
+async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () => Date, azar: () => number, clientes: Clientes, linea: LineaEnvioWhatsApp): Promise<ResultadoCanal> {
+  const clave = canal === "whatsapp" && linea === 2 ? "whatsapp2" : canal;
+  const col = COL[clave];
+  const whatsapp = linea === 2 ? clientes.whatsapp2! : clientes.whatsapp;
   const cfg = (await client.query<{ real: boolean; proximo: Date | null; pausa: string | null }>(`SELECT ${col.real} AS real, ${col.proximo} AS proximo, ${col.pausa} AS pausa FROM configuracion WHERE id = 1`)).rows[0];
   if (!cfg.real) return { accion: "omitido", motivo: "interruptor apagado" };
   if (cfg.pausa) return { accion: "pausado", motivo: cfg.pausa };
@@ -76,28 +85,29 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
   if (canal === "whatsapp" && cfg.proximo && ahora < cfg.proximo) return { accion: "omitido", motivo: "esperando la pausa entre envíos" };
 
   const hay = (await client.query(
-    `SELECT 1 FROM envios_credencial e JOIN mjrv m ON m.id = e.mjrv_id WHERE e.canal = $1 AND e.estado = 'en_cola' AND NOT e.simulado AND e.intentos = 0 AND NOT m.es_prueba LIMIT 1`, [canal])).rowCount;
+    `SELECT 1 FROM envios_credencial e JOIN mjrv m ON m.id = e.mjrv_id WHERE e.canal = $1 AND e.estado = 'en_cola' AND NOT e.simulado AND e.intentos = 0 AND NOT m.es_prueba AND e.linea_whatsapp = $2 LIMIT 1`, [canal, linea])).rowCount;
   if (!hay) return { accion: "omitido", motivo: "cola vacía" };
-  if (clientes[canal].simulado) return pausar(client, canal, canal === "whatsapp" ? "Falta la configuración de Evolution API." : "Falta la clave de Brevo.");
+  if ((canal === "whatsapp" ? whatsapp : clientes.correo).simulado) return pausar(client, clave, canal === "whatsapp" ? "Falta la configuración de Evolution API." : "Falta la clave de Brevo.");
 
   if (canal === "whatsapp") {
     try {
-      if ((await clientes.whatsapp.resumen()).estado !== "open") return pausar(client, canal, "La línea de WhatsApp no está vinculada.");
+      if ((await whatsapp.resumen()).estado !== "open") return pausar(client, clave, "La línea de WhatsApp no está vinculada.");
     } catch {
       await client.query(`UPDATE configuracion SET ${col.proximo} = $1 WHERE id = 1`, [new Date(ahora.getTime() + 30_000)]);
       return { accion: "omitido", motivo: "Evolution API no responde" };
     }
   }
-  const remitente = remitenteEfectivo(await leerConfigEnvios());
-  if (canal === "correo" && (!remitente.direccion || !remitente.nombre)) return pausar(client, canal, "Falta el remitente del correo.");
+  const configEnvios = await leerConfigEnvios();
+  const remitente = remitenteEfectivo(configEnvios);
+  if (canal === "correo" && (!remitente.direccion || !remitente.nombre)) return pausar(client, clave, "Falta el remitente del correo.");
 
   // Reclamo atómico: una sola fila, marcada como intentada antes de enviar.
   const fila = (await client.query<{ id: number; mjrv_id: number; destino: string }>(
     `UPDATE envios_credencial SET intentos = 1 WHERE id = (
        SELECT e.id FROM envios_credencial e JOIN mjrv m ON m.id = e.mjrv_id
-        WHERE e.canal = $1 AND e.estado = 'en_cola' AND NOT e.simulado AND e.intentos = 0 AND NOT m.es_prueba
+        WHERE e.canal = $1 AND e.estado = 'en_cola' AND NOT e.simulado AND e.intentos = 0 AND NOT m.es_prueba AND e.linea_whatsapp = $2
         ORDER BY e.id FOR UPDATE OF e SKIP LOCKED LIMIT 1)
-     RETURNING id, mjrv_id, destino`, [canal])).rows[0];
+     RETURNING id, mjrv_id, destino`, [canal, linea])).rows[0];
   if (!fila) return { accion: "omitido", motivo: "cola vacía" };
 
   let r: ResultadoProveedor;
@@ -115,9 +125,9 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
       if (actual?.destino !== fila.destino) {
         r = { ok: false, permanente: true, error: "El contacto o la ficha cambió después de ponerla en cola. Revise la ficha y vuelva a encolarla." };
       } else if (canal === "whatsapp") {
-        r = await clientes.whatsapp.enviarDocumento({ numero: fila.destino, texto: m.texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
+        r = await whatsapp.enviarDocumento({ numero: fila.destino, texto: m.texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
       } else {
-        r = await clientes.correo.enviar({ envioId: fila.id, para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
+        r = await clientes.correo.enviar({ envioId: fila.id, para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, responderA: configEnvios.correoReplyTo ?? undefined, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
       }
     }
   } catch (e) {
@@ -132,7 +142,7 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
     if (confirmado.rows[0]?.estado === "enviada_al_servicio") return { accion: "enviado" };
   }
   if (canal === "whatsapp") {
-    await client.query("UPDATE configuracion SET whatsapp_proximo_en = $1 WHERE id = 1", [new Date(reloj().getTime() + pausaWhatsAppMs(azar))]);
+    await client.query(`UPDATE configuracion SET ${col.proximo} = $1 WHERE id = 1`, [new Date(reloj().getTime() + pausaWhatsAppMs(azar))]);
   }
 
   if (!r.ok) {
@@ -140,10 +150,10 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
     const ultimos = (await client.query<{ estado: string }>(
       `SELECT CASE WHEN brevo_estado IS NOT NULL THEN 'enviada_al_servicio' ELSE estado END AS estado
          FROM envios_credencial
-        WHERE canal = $1 AND NOT simulado AND estado IN ('enviada_al_servicio','fallo')
-          AND enviado_en > coalesce((SELECT max(creado_en) FROM auditoria WHERE accion = 'envios_reanudados' AND datos->>'canal' = $1), '-infinity')
-        ORDER BY enviado_en DESC, id DESC LIMIT $2`, [canal, FALLOS_PARA_PAUSAR])).rows;
-    if (ultimos.length === FALLOS_PARA_PAUSAR && ultimos.every((u) => u.estado === "fallo")) await pausar(client, canal, `${FALLOS_PARA_PAUSAR} fallos seguidos. Revise la conexión y reanude.`);
+        WHERE canal = $1 AND linea_whatsapp = $3 AND NOT simulado AND estado IN ('enviada_al_servicio','fallo')
+          AND enviado_en > coalesce((SELECT max(creado_en) FROM auditoria WHERE accion = 'envios_reanudados' AND datos->>'canal' = $1 AND coalesce(datos->>'linea', '1') = $3::smallint::text), '-infinity')
+        ORDER BY enviado_en DESC, id DESC LIMIT $2`, [canal, FALLOS_PARA_PAUSAR, linea])).rows;
+    if (ultimos.length === FALLOS_PARA_PAUSAR && ultimos.every((u) => u.estado === "fallo")) await pausar(client, clave, `${FALLOS_PARA_PAUSAR} fallos seguidos. Revise la conexión y reanude.`);
     return { accion: "fallo", motivo: r.error };
   }
   return { accion: "enviado" };

@@ -208,6 +208,8 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **ACTUALIZADO (21-11-2026).** Ambos canales funcionan todo el día y sin cupo diario de CNE. WhatsApp programa una espera de 20–45 segundos entre intentos. El correo se procesa cuando la cola está disponible. En Credenciales → Seguimiento de envíos se ve el último estado por ficha y canal. El webhook de Brevo distingue el correo aceptado de la entrega, el aplazamiento y los fallos de entrega.
 
+**ACTUALIZADO (23-11-2026).** CNE puede vincular dos números por QR en la misma Evolution API. En Credenciales el cónsul puede filtrar por serie H o M, marcar las fichas y elegir manualmente qué línea envía. La línea seleccionada queda registrada en cada envío y tiene su propio interruptor, cadencia y pausa. En Brevo se conserva el remitente verificado y se puede configurar una dirección separada para recibir respuestas.
+
 ### 7.2. Control de ingreso
 
 **DECIDIDO.** En puerta el operador utiliza un **enlace limitado, revocable**, creado por la administración; se identifica por nombre y PIN, no entra en el panel administrativo. Escanea el QR de la credencial; el sistema identifica al MJRV por cédula, registra ingreso y actualiza de inmediato el centro de mando.

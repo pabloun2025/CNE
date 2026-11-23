@@ -123,9 +123,9 @@ export async function reiniciarOperativo(sesion: Sesion, confirmacion: string, r
       }
       await client.query(
         `UPDATE cne.configuracion
-            SET modo = 'eleccion', whatsapp_real = false, correo_real = false,
-                whatsapp_proximo_en = NULL, correo_proximo_en = NULL,
-                whatsapp_pausa_motivo = NULL, correo_pausa_motivo = NULL,
+            SET modo = 'eleccion', whatsapp_real = false, whatsapp_real_2 = false, correo_real = false,
+                whatsapp_proximo_en = NULL, whatsapp_proximo_en_2 = NULL, correo_proximo_en = NULL,
+                whatsapp_pausa_motivo = NULL, whatsapp_pausa_motivo_2 = NULL, correo_pausa_motivo = NULL,
                 actualizado_en = now(), actualizado_por = $1 WHERE id = 1`,
         [sesion.usuarioId],
       );

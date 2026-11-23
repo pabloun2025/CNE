@@ -49,7 +49,7 @@ async function limpiar() {
   await consultarDueno("DELETE FROM cne.envios_credencial");
   await consultarDueno("DELETE FROM cne.mjrv");
   await consultarDueno("DELETE FROM cne.auditoria WHERE accion = 'envios_reanudados'");
-  await consultarDueno("UPDATE cne.configuracion SET whatsapp_real = false, correo_real = false, whatsapp_proximo_en = NULL, correo_proximo_en = NULL, whatsapp_pausa_motivo = NULL, correo_pausa_motivo = NULL, correo_remitente = 'remitente@ejemplo.invalid', correo_remitente_nombre = 'Remitente Prueba'");
+  await consultarDueno("UPDATE cne.configuracion SET whatsapp_real = false, whatsapp_real_2 = false, correo_real = false, whatsapp_proximo_en = NULL, whatsapp_proximo_en_2 = NULL, correo_proximo_en = NULL, whatsapp_pausa_motivo = NULL, whatsapp_pausa_motivo_2 = NULL, correo_pausa_motivo = NULL, correo_remitente = 'remitente@ejemplo.invalid', correo_remitente_nombre = 'Remitente Prueba', correo_reply_to = NULL");
 }
 const encender = (canal: string) => consultarDueno(`UPDATE cne.configuracion SET ${canal}_real = true`);
 
@@ -79,6 +79,28 @@ describe("cola de envío real", () => {
     expect((await filas()).map(({ estado, simulado }) => ({ estado, simulado }))).toEqual([
       { estado: "enviada_al_servicio", simulado: true },
       { estado: "en_cola", simulado: false },
+    ]);
+  });
+
+  it("mantiene la línea elegida para todo el lote y permite enviar por la otra si se desconecta", async () => {
+    await encender("whatsapp");
+    await consultarDueno("UPDATE cne.configuracion SET whatsapp_real_2 = true");
+    const primera = await ficha({ tel: "+34600000081" });
+    const segunda = await ficha({ tel: "+34600000082" });
+    expect(await enviarLote(admin, "whatsapp", undefined, { alcance: "ids", ids: [primera] }, false, 1)).toMatchObject({ enCola: 1 });
+    expect(await enviarLote(admin, "whatsapp", undefined, { alcance: "ids", ids: [segunda] }, false, 2)).toMatchObject({ enCola: 1 });
+    expect(await enviarCredencial(admin, segunda, "whatsapp", undefined, true, 1)).toMatchObject({ ok: false });
+    const uno = falsos(), dos = falsos();
+    uno.abierta.v = false;
+    const clientes = { ...uno.clientes, whatsapp2: dos.clientes.whatsapp };
+    const r = await procesarCola({ ahora: base, clientes, azar: sinAzar });
+    expect(r.whatsapp.accion).toBe("pausado");
+    expect(r.whatsapp2?.accion).toBe("enviado");
+    expect(dos.wa.map((d) => d.numero)).toEqual(["+34600000082"]);
+    expect(uno.wa).toHaveLength(0);
+    expect(await filas()).toMatchObject([
+      { mjrv_id: primera, estado: "en_cola", intentos: 0 },
+      { mjrv_id: segunda, estado: "enviada_al_servicio" },
     ]);
   });
 
@@ -249,6 +271,7 @@ describe("cola de envío real", () => {
   });
 
   it("correo: diseño institucional, instrucción del QR móvil y PDF adjunto y sin espera entre turnos", async () => {
+    expect(await guardarRemitente(superadmin, "remitente@ejemplo.invalid", "Remitente Prueba", " Respuestas@Ejemplo.invalid ")).toEqual({ ok: true });
     await encender("correo");
     await ficha();
     const nombreArchivo = `H1-${9000000000 + n}.pdf`;
@@ -259,6 +282,7 @@ describe("cola de envío real", () => {
     expect(f.mail[0]).toMatchObject({
       asunto: "Su credencial electoral – 29 de noviembre de 2026",
       remitente: { nombre: "Remitente Prueba", direccion: "remitente@ejemplo.invalid" },
+      responderA: "respuestas@ejemplo.invalid",
       adjunto: { nombre: nombreArchivo },
       texto: expect.stringContaining("Muestre el código QR en papel o en su móvil."),
       html: expect.stringContaining("Consulado General del Ecuador en Madrid"),
@@ -342,5 +366,15 @@ describe("interruptores", () => {
   it("guardar remitente valida dirección y nombre", async () => {
     expect((await guardarRemitente(superadmin, "no-es-correo", "Nombre")).ok).toBe(false);
     expect((await guardarRemitente(superadmin, "a@b.invalid", "")).ok).toBe(false);
+  });
+
+  it("permite borrar la dirección de respuesta y rechaza direcciones inválidas", async () => {
+    const direccion = "remitente@ejemplo.invalid", nombre = "Remitente Prueba";
+    expect(await guardarRemitente(superadmin, direccion, nombre, "respuestas@ejemplo.invalid")).toEqual({ ok: true });
+    expect((await guardarRemitente(superadmin, direccion, nombre, "uno,dos@ejemplo.invalid")).ok).toBe(false);
+    expect(await guardarRemitente(superadmin, direccion, nombre, " ")).toEqual({ ok: true });
+    expect(await consultarDueno("SELECT correo_reply_to, correo_remitente FROM cne.configuracion WHERE id = 1")).toEqual([
+      { correo_reply_to: null, correo_remitente: direccion },
+    ]);
   });
 });

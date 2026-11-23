@@ -1,3 +1,4 @@
+import type { LineaEnvioWhatsApp } from "../domain/envios-ritmo";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import { query, withTx } from "./db";
@@ -34,9 +35,9 @@ export async function mensajeCredencial(d: DatosCredencial, canal: Canal, { id, 
 const CORREO = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const etiquetaCanal: Record<Canal, string> = { whatsapp: "WhatsApp", correo: "correo" };
 
-export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Canal, proveedor?: ProveedorEnvio, reenviar = false): Promise<ResultadoEnvio> {
+export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Canal, proveedor?: ProveedorEnvio, reenviar = false, linea: LineaEnvioWhatsApp = 1): Promise<ResultadoEnvio> {
   if (sesion.tipo !== "madrid_admin") throw new Error("Solo la administración Madrid envía credenciales.");
-  const canalReal = !proveedor && await canalEnReal(canal);
+  const canalReal = !proveedor && await canalEnReal(canal, linea);
   const sel = await seleccionarParaCredencial({ alcance: "ids", ids: [mjrvId] });
   const reserva = await withTx(async (client) => {
     // Serializa el alta de intentos de una ficha. El índice protege la cola y permite conservar los enviados.
@@ -53,15 +54,15 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
          SELECT 1 FROM envios_credencial WHERE mjrv_id = $1 AND canal = $2 AND simulado = $5
            AND (estado IN ('enviada_al_servicio','entregada') OR brevo_estado IS NOT NULL)
        )
-       INSERT INTO envios_credencial (mjrv_id, canal, destino, estado, simulado, creado_por, reenvio)
-       SELECT $1,$2,$3,'en_cola',$5,$4, EXISTS (SELECT 1 FROM anterior)
+       INSERT INTO envios_credencial (mjrv_id, canal, destino, estado, simulado, creado_por, reenvio, linea_whatsapp)
+       SELECT $1,$2,$3,'en_cola',$5,$4, EXISTS (SELECT 1 FROM anterior), $7
        WHERE ($6::boolean OR NOT EXISTS (SELECT 1 FROM anterior))
        ON CONFLICT DO NOTHING RETURNING id`,
-      [mjrvId, canal, destino, sesion.usuarioId, !real, reenviar],
+      [mjrvId, canal, destino, sesion.usuarioId, !real, reenviar, canal === "whatsapp" ? linea : 1],
     )).rows[0];
     if (!nueva) return { ok: false as const, mensaje: `Ya hay un envío por ${etiquetaCanal[canal]} para esta persona.` };
     if (real) {
-      await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "credencial_encolada", entidad: "mjrv", entidadId: mjrvId, datos: { canal, reenviar } }, client);
+      await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "credencial_encolada", entidad: "mjrv", entidadId: mjrvId, datos: { canal, reenviar, ...(canal === "whatsapp" ? { linea } : {}) } }, client);
     }
     return { ok: true as const, id: nueva.id, real, destino };
   });
@@ -80,7 +81,7 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
     const r = await prov.enviar({ ...m, destino, nombre: `${d.nombres} ${d.apellidos}`, rotulo: d.rotulo, pdf });
     // El estado es «enviada al servicio»: no se afirma que llegó (solo el proveedor real podría confirmarlo).
     await query("UPDATE envios_credencial SET estado = 'enviada_al_servicio', simulado = $2, id_externo = $3, enviado_en = now() WHERE id = $1", [id, r.simulado, r.idExterno]);
-    await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: r.simulado ? "credencial_envio_simulado" : "credencial_envio", entidad: "mjrv", entidadId: mjrvId, datos: { canal, reenviar } });
+    await registrarAuditoria({ portal: "admin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: r.simulado ? "credencial_envio_simulado" : "credencial_envio", entidad: "mjrv", entidadId: mjrvId, datos: { canal, reenviar, ...(canal === "whatsapp" ? { linea } : {}) } });
     return { ok: true, simulado: r.simulado };
   } catch (e) {
     await query("UPDATE envios_credencial SET estado = 'fallo', error = $2 WHERE id = $1", [id, (e as Error).message.slice(0, 300)]);
@@ -90,11 +91,11 @@ export async function enviarCredencial(sesion: Sesion, mjrvId: number, canal: Ca
 
 export type ResumenLote = { intentadas: number; enviadas: number; omitidas: number; fallidas: number; enCola: number };
 
-export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: ProveedorEnvio, seleccion: Seleccion = { alcance: "todas" }, reenviar = false): Promise<ResumenLote> {
+export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: ProveedorEnvio, seleccion: Seleccion = { alcance: "todas" }, reenviar = false, linea: LineaEnvioWhatsApp = 1): Promise<ResumenLote> {
   if (sesion.tipo !== "madrid_admin") throw new Error("Solo la administración Madrid envía credenciales.");
   const col = canal === "whatsapp" ? "telefono_e164" : "correo";
   const ids = seleccion.alcance === "todas" ? null : (await seleccionarParaCredencial(seleccion)).ids;
-  const real = !proveedor && await canalEnReal(canal);
+  const real = !proveedor && await canalEnReal(canal, linea);
   const pendientes = await query<{ id: number }>(
     `SELECT m.id FROM mjrv m WHERE m.activo AND m.incorporado_en IS NULL AND m.${col} IS NOT NULL AND btrim(m.${col}) <> ''
         AND ($2::bigint[] IS NULL OR m.id = ANY($2::bigint[]))
@@ -105,7 +106,7 @@ export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: Prove
   const omitidas = seleccion.alcance === "ids" ? new Set(seleccion.ids).size - pendientes.length : 0;
   const r: ResumenLote = { intentadas: pendientes.length, enviadas: 0, omitidas, fallidas: 0, enCola: 0 };
   for (const p of pendientes) {
-    const x = await enviarCredencial(sesion, p.id, canal, proveedor, reenviar);
+    const x = await enviarCredencial(sesion, p.id, canal, proveedor, reenviar, linea);
     if (x.ok && x.enCola) r.enCola++;
     else if (x.ok) r.enviadas++;
     else if (/correo válido|teléfono válido|Ya hay|no existe/.test(x.mensaje)) r.omitidas++;
@@ -114,6 +115,6 @@ export async function enviarLote(sesion: Sesion, canal: Canal, proveedor?: Prove
   return r;
 }
 
-export type EnvioFila = { id: number; canal: Canal; destino: string; estado: EstadoEnvio; simulado: boolean; error: string | null; creado_en: string; enviado_en: string | null; brevo_estado: EstadoBrevo | null; brevo_evento_en: string | null };
+export type EnvioFila = { id: number; canal: Canal; linea_whatsapp: LineaEnvioWhatsApp; destino: string; estado: EstadoEnvio; simulado: boolean; error: string | null; creado_en: string; enviado_en: string | null; brevo_estado: EstadoBrevo | null; brevo_evento_en: string | null };
 export const enviosDe = (mjrvId: number) =>
-  query<EnvioFila>("SELECT id, canal, destino, estado, simulado, error, creado_en::text, enviado_en::text, brevo_estado, brevo_evento_en::text FROM envios_credencial WHERE mjrv_id = $1 ORDER BY id DESC", [mjrvId]);
+  query<EnvioFila>("SELECT id, canal, linea_whatsapp, destino, estado, simulado, error, creado_en::text, enviado_en::text, brevo_estado, brevo_evento_en::text FROM envios_credencial WHERE mjrv_id = $1 ORDER BY id DESC", [mjrvId]);

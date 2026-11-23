@@ -1,3 +1,4 @@
+import type { LineaEnvioWhatsApp } from "../domain/envios-ritmo";
 import { query } from "./db";
 import type { EstadoEnvio } from "./envios";
 import type { EstadoBrevo } from "./envios/brevo-webhook";
@@ -12,17 +13,17 @@ export const TEXTO_ENTREGA: Record<EstadoEntrega, string> = {
 };
 
 type SeguimientoCanal = { estado: EstadoEntrega; fecha: string | null };
-type SeguimientoFicha = { id: number; nombre: string; cedula: string; junta: string; whatsapp: SeguimientoCanal; correo: SeguimientoCanal };
+type SeguimientoFicha = { id: number; nombre: string; cedula: string; junta: string; whatsapp: SeguimientoCanal & { linea: LineaEnvioWhatsApp | null }; correo: SeguimientoCanal };
 
 export const estadoEntregasCredenciales = () => query<SeguimientoFicha>(
   `SELECT m.id, concat(m.apellidos, ', ', m.nombres) AS nombre, m.cedula, concat(j.serie, j.numero) AS junta,
           jsonb_build_object('estado', coalesce(w.estado, CASE WHEN nullif(btrim(m.telefono_e164), '') IS NULL THEN 'sin_contacto' ELSE 'sin_envio' END),
-                             'fecha', coalesce(w.enviado_en, w.creado_en)) AS whatsapp,
+                             'fecha', coalesce(w.enviado_en, w.creado_en), 'linea', w.linea_whatsapp) AS whatsapp,
           jsonb_build_object('estado', coalesce(c.brevo_estado, c.estado, CASE WHEN nullif(btrim(m.correo), '') IS NULL THEN 'sin_contacto' ELSE 'sin_envio' END),
                              'fecha', coalesce(c.brevo_evento_en, c.enviado_en, c.creado_en)) AS correo
      FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
      LEFT JOIN LATERAL (
-       SELECT e.estado, e.enviado_en, e.creado_en FROM envios_credencial e
+       SELECT e.estado, e.enviado_en, e.creado_en, e.linea_whatsapp FROM envios_credencial e
        WHERE e.mjrv_id = m.id AND e.canal = 'whatsapp' AND NOT e.simulado ORDER BY e.id DESC LIMIT 1
      ) w ON true
      LEFT JOIN LATERAL (

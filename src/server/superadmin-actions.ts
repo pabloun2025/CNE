@@ -9,7 +9,7 @@ import { prepararEleccion } from "./preparar-eleccion";
 import { reiniciarOperativo } from "./reiniciar-operativo";
 import { borrarTodasLasFotos } from "./documentos";
 import { crearRespaldo } from "./respaldo";
-import { crearLinea, desvincularLinea } from "./whatsapp-linea";
+import { crearLinea, desvincularLinea, leerLineaWhatsApp } from "./whatsapp-linea";
 import { cambiarInterruptor, guardarRemitente, reanudarEnvios } from "./envios-config";
 
 export type EstadoSuper = { error?: string; aviso?: string; password?: string; enlace?: string; detalle?: string[]; qr?: string; vinculada?: boolean } | null;
@@ -112,45 +112,53 @@ export async function reiniciarOperativoAccion(_: EstadoSuper, f: FormData): Pro
   };
 }
 
-// Línea de WhatsApp de CNE (instancia fija «cne-madrid»).
-export async function crearLineaAccion(): Promise<EstadoSuper> {
+export async function crearLineaAccion(numeroLinea?: number): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
-  const l = await crearLinea(sesion);
+  const linea = leerLineaWhatsApp(numeroLinea);
+  if (linea === null) return { error: "Línea de WhatsApp no válida." };
+  const l = await crearLinea(sesion, undefined, linea);
   revalidatePath("/superadmin/envios");
   if (l.error) return { error: l.error };
   return l.estado === "vinculada" ? { aviso: `La línea ya está vinculada${l.numero ? ` con ${l.numero}` : ""}.`, vinculada: true } : { aviso: "Escanee el código con el WhatsApp del teléfono de CNE.", qr: l.qr ?? undefined };
 }
 
-export async function desvincularLineaAccion(): Promise<EstadoSuper> {
+export async function desvincularLineaAccion(numeroLinea?: number): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
-  const r = await desvincularLinea(sesion);
+  const linea = leerLineaWhatsApp(numeroLinea);
+  if (linea === null) return { error: "Línea de WhatsApp no válida." };
+  const r = await desvincularLinea(sesion, undefined, linea);
   revalidatePath("/superadmin/envios");
-  return r.ok ? { aviso: "Línea desvinculada. El envío real por WhatsApp quedó apagado." } : { error: r.mensaje };
+  return r.ok ? { aviso: "Línea desvinculada. El envío real de esta línea quedó apagado." } : { error: r.mensaje };
 }
 
 // Interruptores del envío real por canal. Encender exige escribir «ENVIO REAL»; todo queda en la auditoría.
 export async function interruptorEnvioAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
   const canal = f.get("canal") === "correo" ? "correo" : "whatsapp";
+  const linea = leerLineaWhatsApp(f.get("linea"));
+  if (linea === null) return { error: "Línea de WhatsApp no válida." };
   const encender = f.get("destino") === "encender";
-  const r = await cambiarInterruptor(sesion, canal, encender, String(f.get("confirmacion") ?? ""));
+  const r = await cambiarInterruptor(sesion, canal, encender, String(f.get("confirmacion") ?? ""), undefined, linea);
   revalidatePath("/superadmin/envios");
   if (!r.ok) return { error: r.mensaje };
-  return { aviso: encender ? "Envío real encendido. Los mensajes de fichas reales saldrán en cola, con pausas." : "Envío real apagado. Todo vuelve a ser simulado." };
+  return { aviso: encender ? "Envío real encendido. Los mensajes de fichas reales saldrán de la cola." : "Envío real apagado." };
 }
 
 export async function reanudarEnviosAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
-  await reanudarEnvios(sesion, f.get("canal") === "correo" ? "correo" : "whatsapp");
+  const linea = leerLineaWhatsApp(f.get("linea"));
+  if (linea === null) return { error: "Línea de WhatsApp no válida." };
+  await reanudarEnvios(sesion, f.get("canal") === "correo" ? "correo" : "whatsapp", linea);
   revalidatePath("/superadmin/envios");
   return { aviso: "Envíos reanudados." };
 }
 
 export async function guardarRemitenteAccion(_: EstadoSuper, f: FormData): Promise<EstadoSuper> {
   const sesion = await requireSuperadmin();
-  const r = await guardarRemitente(sesion, String(f.get("direccion") ?? ""), String(f.get("nombre") ?? ""));
+  const responderA = f.get("responderA");
+  const r = await guardarRemitente(sesion, String(f.get("direccion") ?? ""), String(f.get("nombre") ?? ""), responderA === null ? undefined : String(responderA));
   revalidatePath("/superadmin/envios");
-  return r.ok ? { aviso: "Remitente guardado." } : { error: r.mensaje };
+  return r.ok ? { aviso: "Configuración de correo guardada." } : { error: r.mensaje };
 }
 
 // Borra todas las fotos de cédula del modo actual. Exige la frase «BORRAR FOTOS»; queda en la auditoría con el recuento.

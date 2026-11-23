@@ -11,12 +11,13 @@ export function SelectorCredenciales({ personas, elegidas, cambiar }: {
   cambiar: (ids: Set<number>) => void;
 }) {
   const [busqueda, setBusqueda] = useState("");
+  const [serie, setSerie] = useState("");
   const [junta, setJunta] = useState("");
   const [zona, setZona] = useState("");
   const [pendientes, setPendientes] = useState(false);
   const consulta = normalizarFrase(busqueda);
-  const juntas = [...new Set(personas.map((p) => p.junta))];
-  const coincidencias = personas.filter((p) => (!junta || p.junta === junta) && (!zona || p.zona === zona)
+  const juntas = [...new Set(personas.filter((p) => !serie || p.junta.startsWith(serie)).map((p) => p.junta))];
+  const coincidencias = personas.filter((p) => (!serie || p.junta.startsWith(serie)) && (!junta || p.junta === junta) && (!zona || p.zona === zona)
     && (!pendientes || p.sinPreparar) && normalizarFrase(`${p.nombre} ${p.rotulo}`).includes(consulta));
   const fueraDelFiltro = elegidas.size - coincidencias.filter((p) => elegidas.has(p.id)).length;
   return (
@@ -25,7 +26,12 @@ export function SelectorCredenciales({ personas, elegidas, cambiar }: {
       <label>Buscar por nombre o rótulo
         <input className="w-full" type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label>Serie<select className="w-full" value={serie} onChange={(e) => { setSerie(e.target.value); setJunta(""); }}>
+          <option value="">Todas</option>
+          <option value="H">H · Hombres</option>
+          <option value="M">M · Mujeres</option>
+        </select></label>
         <label>Junta<select className="w-full" value={junta} onChange={(e) => setJunta(e.target.value)}>
           <option value="">Todas</option>
           {juntas.map((j) => <option key={j}>{j}</option>)}

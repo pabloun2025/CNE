@@ -1,6 +1,7 @@
 "use client";
 
 import { ETIQUETA_ROL, ROLES_ADMIN, type RolAdmin } from "@/domain/roles";
+import type { CanalEnvio, LineaEnvioWhatsApp } from "@/domain/envios-ritmo";
 import { useActionState } from "react";
 import { cambiarModoAccion, cargarDemoAccion, reiniciarOperativoAccion, borrarFotosAccion, interruptorEnvioAccion, reanudarEnviosAccion, guardarRemitenteAccion, quitarDemoAccion, cambiarRolAccion, crearAdminAccion, restablecerAdminAccion, type EstadoSuper } from "@/server/superadmin-actions";
 
@@ -124,11 +125,12 @@ export function FormReiniciarOperativo({ resumen, revision, conserva }: { resume
   );
 }
 
-export function FormInterruptor({ canal, encendido }: { canal: "whatsapp" | "correo"; encendido: boolean }) {
+export function FormInterruptor({ canal, encendido, linea }: { canal: CanalEnvio; encendido: boolean; linea?: LineaEnvioWhatsApp }) {
   const [estado, enviar, pendiente] = useActionState(interruptorEnvioAccion, null);
   return (
     <form action={enviar} className="space-y-3">
       <input type="hidden" name="canal" value={canal} />
+      {linea && <input type="hidden" name="linea" value={linea} />}
       <input type="hidden" name="destino" value={encendido ? "apagar" : "encender"} />
       {!encendido && <label className="block text-sm font-medium">Para encender escriba «ENVIO REAL»<input name="confirmacion" autoComplete="off" required className={campo} /></label>}
       <button disabled={pendiente} className={encendido ? "rounded border border-red-700 px-4 py-3 font-semibold text-red-700 disabled:opacity-60" : boton}>{encendido ? "Apagar el envío real" : "Encender el envío real"}</button>
@@ -137,24 +139,26 @@ export function FormInterruptor({ canal, encendido }: { canal: "whatsapp" | "cor
   );
 }
 
-export function FormReanudar({ canal }: { canal: "whatsapp" | "correo" }) {
+export function FormReanudar({ canal, linea }: { canal: CanalEnvio; linea?: LineaEnvioWhatsApp }) {
   const [estado, enviar, pendiente] = useActionState(reanudarEnviosAccion, null);
   return (
     <form action={enviar}>
       <input type="hidden" name="canal" value={canal} />
+      {linea && <input type="hidden" name="linea" value={linea} />}
       <button disabled={pendiente} className={boton}>Reanudar envíos</button>
       <Resultado estado={estado} />
     </form>
   );
 }
 
-export function FormRemitente({ direccion, nombre }: { direccion: string; nombre: string }) {
+export function FormRemitente({ direccion, nombre, responderA }: { direccion: string; nombre: string; responderA: string }) {
   const [estado, enviar, pendiente] = useActionState(guardarRemitenteAccion, null);
   return (
     <form action={enviar} className="max-w-sm space-y-3">
       <label className="block text-sm font-medium">Dirección del remitente<input name="direccion" type="email" defaultValue={direccion} required className={campo} /></label>
       <label className="block text-sm font-medium">Nombre del remitente<input name="nombre" defaultValue={nombre} required maxLength={70} className={campo} /></label>
-      <button disabled={pendiente} className={boton}>Guardar remitente</button>
+      <label className="block text-sm font-medium">Dirección para recibir respuestas (opcional)<input name="responderA" type="email" defaultValue={responderA} maxLength={200} className={campo} /></label>
+      <button disabled={pendiente} className={boton}>Guardar configuración de correo</button>
       <Resultado estado={estado} />
     </form>
   );

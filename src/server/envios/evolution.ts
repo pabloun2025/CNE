@@ -1,11 +1,18 @@
 import QRCode from "qrcode";
+import type { LineaEnvioWhatsApp } from "../../domain/envios-ritmo";
 import { loadEnv } from "../env";
 import { pedirJson, type FetchLike, type Raw, type ResultadoProveedor } from "./http";
 
 // Cliente reducido de la Evolution API v2.3.7 de consulares (copia adaptada de consulares/src/domain/evolution.ts y de
 // teinvito/src/server/whatsapp.ts). La clave global de esa API abre TAMBIÉN las instancias de consulares: por eso CNE
-// solo habla con su instancia fija y ningún método recibe otro nombre. Una prueba lo exige.
+// solo habla con sus dos instancias fijas y ningún método recibe un nombre de instancia.
 export const INSTANCIA_CNE = "cne-madrid";
+
+export function instanciaWhatsApp(linea: LineaEnvioWhatsApp): string {
+  if (linea === 1) return INSTANCIA_CNE;
+  if (linea === 2) return "cne-madrid-2";
+  throw new ErrorEvolution("Línea de WhatsApp no válida.");
+}
 
 export type EstadoConexion = "unknown" | "connecting" | "open" | "close" | "error";
 export type CodigoVinculo = { estado: EstadoConexion; qr: string | null };
@@ -70,8 +77,10 @@ export function resultadoDeEnvio(raw: Raw): ResultadoProveedor {
 export class EvolutionHttp implements ClienteEvolution {
   readonly simulado = false;
   private readonly base: string;
-  constructor(private readonly opciones: { baseUrl: string; apiKey: string; timeoutMs?: number; fetch?: FetchLike }) {
+  private readonly instancia: string;
+  constructor(private readonly opciones: { baseUrl: string; apiKey: string; timeoutMs?: number; fetch?: FetchLike; linea?: LineaEnvioWhatsApp }) {
     this.base = opciones.baseUrl.replace(/\/$/, "");
+    this.instancia = instanciaWhatsApp(opciones.linea ?? 1);
   }
 
   private pedir(method: string, ruta: string, body?: unknown, timeoutMs = this.opciones.timeoutMs ?? 15000): Promise<Raw> {
@@ -89,7 +98,7 @@ export class EvolutionHttp implements ClienteEvolution {
   // 403/409 «already in use»: la instancia ya está; se sigue con el código. Un 400 de validación sí aborta.
   async crearInstancia(): Promise<void> {
     const raw = await this.pedir("POST", "/instance/create", {
-      instanceName: INSTANCIA_CNE, integration: "WHATSAPP-BAILEYS", qrcode: false, groupsIgnore: true, alwaysOnline: false,
+      instanceName: this.instancia, integration: "WHATSAPP-BAILEYS", qrcode: false, groupsIgnore: true, alwaysOnline: false,
       readMessages: false, readStatus: false, syncFullHistory: false, rejectCall: false,
     });
     if (raw.kind === "network") throw new ErrorEvolution(`Evolution API no responde (${raw.error}).`);
@@ -100,7 +109,7 @@ export class EvolutionHttp implements ClienteEvolution {
   }
 
   async conectar(): Promise<CodigoVinculo> {
-    const json = (await this.esperarOk("GET", `/instance/connect/${INSTANCIA_CNE}`)) as Record<string, unknown> | null;
+    const json = (await this.esperarOk("GET", `/instance/connect/${this.instancia}`)) as Record<string, unknown> | null;
     // Evolution 2.3.7 responde 200 con { error: true } si la instancia no está cargada. No es un código en blanco.
     if (json?.error === true) {
       const msg = typeof json.message === "string" ? json.message.replace(/^BadRequestException:\s*/, "") : "";
@@ -117,12 +126,12 @@ export class EvolutionHttp implements ClienteEvolution {
   }
 
   async resumen(): Promise<ResumenInstancia> {
-    const raw = await this.pedir("GET", `/instance/connectionState/${INSTANCIA_CNE}`);
+    const raw = await this.pedir("GET", `/instance/connectionState/${this.instancia}`);
     if (raw.kind === "network") throw new ErrorEvolution(`Evolution API no responde (${raw.error}).`);
     if (raw.status === 404) return { estado: "unknown", numero: null, existe: false };
     if (raw.status < 200 || raw.status >= 300) throw new ErrorEvolution(mensajeDeError(raw.json) ?? `Evolution API respondió ${raw.status}.`);
     let estado = aEstado((raw.json as { instance?: { state?: unknown } } | null)?.instance?.state);
-    const lista = await this.pedir("GET", `/instance/fetchInstances?instanceName=${INSTANCIA_CNE}`);
+    const lista = await this.pedir("GET", `/instance/fetchInstances?instanceName=${this.instancia}`);
     if (lista.kind === "network") {
       if (estado === "unknown") throw new ErrorEvolution(`Evolution API no responde (${lista.error}).`);
       return { estado, numero: null, existe: true };
@@ -135,7 +144,7 @@ export class EvolutionHttp implements ClienteEvolution {
       return { estado, numero: null, existe: true };
     }
     const filas = Array.isArray(lista.json) ? lista.json as Array<Record<string, unknown>> : [];
-    const item = filas.find((i) => i?.name === INSTANCIA_CNE || i?.instanceName === INSTANCIA_CNE);
+    const item = filas.find((i) => i?.name === this.instancia || i?.instanceName === this.instancia);
     if (!item && estado === "unknown") return { estado: "unknown", numero: null, existe: false };
     if (estado === "unknown" && item) estado = aEstado(item.connectionStatus ?? item.state);
     const numero = numeroDeJid(item?.ownerJid) ?? (typeof item?.number === "string" && /^\d{8,15}$/.test(item.number) ? `+${item.number}` : null);
@@ -143,7 +152,7 @@ export class EvolutionHttp implements ClienteEvolution {
   }
 
   async cerrarSesion(): Promise<void> {
-    const raw = await this.pedir("DELETE", `/instance/logout/${INSTANCIA_CNE}`);
+    const raw = await this.pedir("DELETE", `/instance/logout/${this.instancia}`);
     if (raw.kind === "network") throw new ErrorEvolution(`Evolution API no responde (${raw.error}).`);
     // 400 «not connected»: ya estaba desvinculada.
     if (raw.status >= 300 && raw.status !== 400) throw new ErrorEvolution(mensajeDeError(raw.json) ?? `Evolution API respondió ${raw.status}.`);
@@ -151,7 +160,7 @@ export class EvolutionHttp implements ClienteEvolution {
 
   // PDF en base64 con el texto como pie (teinvito: evolutionMediaRequest). Sin «delay»: el ritmo lo marca la cola.
   async enviarDocumento(d: Documento): Promise<ResultadoProveedor> {
-    const raw = await this.pedir("POST", `/message/sendMedia/${INSTANCIA_CNE}`, {
+    const raw = await this.pedir("POST", `/message/sendMedia/${this.instancia}`, {
       number: d.numero.replace(/^\+/, ""), mediatype: "document", mimetype: "application/pdf", caption: d.texto, media: d.pdfBase64, fileName: d.nombreArchivo,
     }, 60000);
     return resultadoDeEnvio(raw);
@@ -161,36 +170,46 @@ export class EvolutionHttp implements ClienteEvolution {
 // Para local y pruebas: imita la vinculación y no envía nada. El estado es del proceso.
 export class EvolutionSimulado implements ClienteEvolution {
   readonly simulado = true;
-  private static estado: { existe: boolean; estado: EstadoConexion; numero: string | null } = { existe: false, estado: "unknown", numero: null };
-  static reiniciar(): void { EvolutionSimulado.estado = { existe: false, estado: "unknown", numero: null }; }
+  private static readonly estados = new Map<string, ResumenInstancia>();
+  private readonly instancia: string;
+
+  constructor(linea: LineaEnvioWhatsApp = 1) { this.instancia = instanciaWhatsApp(linea); }
+  static reiniciar(): void { EvolutionSimulado.estados.clear(); }
   // Equivale a escanear el código con el teléfono.
-  static completarVinculo(numero = "+34000000000"): void { EvolutionSimulado.estado = { existe: true, estado: "open", numero }; }
+  static completarVinculo(numero = "+34000000000", linea: LineaEnvioWhatsApp = 1): void {
+    EvolutionSimulado.estados.set(instanciaWhatsApp(linea), { existe: true, estado: "open", numero });
+  }
+
+  private get estado(): ResumenInstancia {
+    return EvolutionSimulado.estados.get(this.instancia) ?? { existe: false, estado: "unknown", numero: null };
+  }
+  private set estado(estado: ResumenInstancia) { EvolutionSimulado.estados.set(this.instancia, estado); }
 
   async crearInstancia(): Promise<void> {
-    if (!EvolutionSimulado.estado.existe) EvolutionSimulado.estado = { existe: true, estado: "close", numero: null };
+    if (!this.estado.existe) this.estado = { existe: true, estado: "close", numero: null };
   }
   async conectar(): Promise<CodigoVinculo> {
-    if (EvolutionSimulado.estado.estado === "open") return { estado: "open", qr: null };
-    EvolutionSimulado.estado = { ...EvolutionSimulado.estado, existe: true, estado: "connecting" };
-    return { estado: "connecting", qr: await QRCode.toDataURL(`SIMULACION ${INSTANCIA_CNE}: este código no vincula ninguna cuenta.`, { margin: 2, width: 264 }) };
+    if (this.estado.estado === "open") return { estado: "open", qr: null };
+    this.estado = { ...this.estado, existe: true, estado: "connecting" };
+    return { estado: "connecting", qr: await QRCode.toDataURL(`SIMULACION ${this.instancia}: este código no vincula ninguna cuenta.`, { margin: 2, width: 264 }) };
   }
-  async resumen(): Promise<ResumenInstancia> { return { ...EvolutionSimulado.estado }; }
+  async resumen(): Promise<ResumenInstancia> { return { ...this.estado }; }
   async cerrarSesion(): Promise<void> {
-    if (EvolutionSimulado.estado.existe) EvolutionSimulado.estado = { existe: true, estado: "close", numero: null };
+    if (this.estado.existe) this.estado = { existe: true, estado: "close", numero: null };
   }
   async enviarDocumento(): Promise<ResultadoProveedor> {
-    if (EvolutionSimulado.estado.estado !== "open") return { ok: false, permanente: false, error: "La línea simulada no está vinculada. El mensaje no salió." };
+    if (this.estado.estado !== "open") return { ok: false, permanente: false, error: "La línea simulada no está vinculada. El mensaje no salió." };
     return { ok: true, idExterno: `SIMULADO-wa-${Date.now().toString(36)}` };
   }
 }
 
 // EVOLUTION_API_URL vacía o «simulado», o sin clave → cliente simulado (como consulares). Nada sale de la aplicación.
-export function clienteEvolution(opciones: { fetch?: FetchLike } = {}): ClienteEvolution {
+export function clienteEvolution(opciones: { fetch?: FetchLike; linea?: LineaEnvioWhatsApp } = {}): ClienteEvolution {
   loadEnv();
   const url = (process.env.EVOLUTION_API_URL ?? "").trim();
   const clave = (process.env.EVOLUTION_API_KEY ?? "").trim();
-  if (!url || url === "simulado" || !clave) return new EvolutionSimulado();
-  return new EvolutionHttp({ baseUrl: url, apiKey: clave, fetch: opciones.fetch });
+  if (!url || url === "simulado" || !clave) return new EvolutionSimulado(opciones.linea);
+  return new EvolutionHttp({ baseUrl: url, apiKey: clave, fetch: opciones.fetch, linea: opciones.linea });
 }
 
 export const hayClaveWhatsApp = (): boolean => !clienteEvolution().simulado;
