@@ -26,7 +26,6 @@ export interface ClienteEvolution {
   conectar(): Promise<CodigoVinculo>;
   resumen(): Promise<ResumenInstancia>;
   cerrarSesion(): Promise<void>;
-  enviarTexto(d: Pick<Documento, "numero" | "texto">): Promise<ResultadoProveedor>;
   enviarDocumento(d: Documento): Promise<ResultadoProveedor>;
 }
 
@@ -185,13 +184,6 @@ export class EvolutionHttp implements ClienteEvolution {
     return true;
   }
 
-  async enviarTexto(d: Pick<Documento, "numero" | "texto">): Promise<ResultadoProveedor> {
-    const raw = await this.pedir("POST", `/message/sendText/${this.instancia}`, {
-      number: d.numero.replace(/^\+/, ""), text: d.texto,
-    });
-    return resultadoDeEnvio(raw);
-  }
-
   // PDF en base64 con el texto como pie (teinvito: evolutionMediaRequest). Sin «delay»: el ritmo lo marca la cola.
   async enviarDocumento(d: Documento): Promise<ResultadoProveedor> {
     const raw = await this.pedir("POST", `/message/sendMedia/${this.instancia}`, {
@@ -231,7 +223,6 @@ export class EvolutionSimulado implements ClienteEvolution {
   async cerrarSesion(): Promise<void> {
     if (this.estado.existe) this.estado = { existe: true, estado: "close", numero: null };
   }
-  async enviarTexto(): Promise<ResultadoProveedor> { return this.enviarDocumento(); }
   async enviarDocumento(): Promise<ResultadoProveedor> {
     if (this.estado.estado !== "open") return { ok: false, permanente: false, error: "La línea simulada no está vinculada. El mensaje no salió." };
     return { ok: true, idExterno: `SIMULADO-wa-${Date.now().toString(36)}` };

@@ -22,19 +22,18 @@ const base = new Date(); base.setUTCDate(base.getUTCDate() + 1); base.setUTCHour
 const en = (s: number) => new Date(base.getTime() + s * 1000);
 const sinAzar = () => 0; // pausa mínima: 20 s en WhatsApp, 2 s en correo
 
-type Falsos = { clientes: Clientes; wa: Documento[]; textos: string[]; mail: Correo[]; abierta: { v: boolean }; fallar: { v: boolean } };
+type Falsos = { clientes: Clientes; wa: Documento[]; mail: Correo[]; abierta: { v: boolean }; fallar: { v: boolean } };
 function falsos(): Falsos {
-  const wa: Documento[] = [], textos: string[] = [], mail: Correo[] = [];
+  const wa: Documento[] = [], mail: Correo[] = [];
   const abierta = { v: true }, fallar = { v: false };
   const resp = (id: string): ResultadoProveedor => (fallar.v ? { ok: false, permanente: false, error: "fallo de prueba" } : { ok: true, idExterno: id });
   const whatsapp: ClienteEvolution = {
     simulado: false, crearInstancia: async () => undefined, conectar: async () => ({ estado: "open", qr: null }),
     resumen: async () => ({ estado: abierta.v ? "open" : "close", numero: "+34000000000", existe: true }), cerrarSesion: async () => undefined,
-    enviarTexto: async (d) => { textos.push(d.texto); return resp(`TEXTO${textos.length}`); },
     enviarDocumento: async (d) => { wa.push(d); return resp(`WA${wa.length}`); },
   };
   const correo: ClienteCorreo = { simulado: false, verificarRemitente: async () => true, enviar: async (c) => { mail.push(c); return resp(`MAIL${mail.length}`); } };
-  return { clientes: { whatsapp, correo }, wa, textos, mail, abierta, fallar };
+  return { clientes: { whatsapp, correo }, wa, mail, abierta, fallar };
 }
 
 let n = 0;
@@ -185,7 +184,7 @@ describe("cola de envío real", () => {
     expect((await filas()).filter((x) => x.estado === "enviada_al_servicio" && !x.simulado)).toHaveLength(3);
   });
 
-  it("prepara una rectificación de texto y conserva la cola original para el PDF corregido", async () => {
+  it("envía un PDF corregido por turno con rectificación o mensaje normal según el historial", async () => {
     const anterior = await ficha(), pendiente = await ficha(), nuevo = await ficha(), dudoso = await ficha();
     await consultarDueno("UPDATE cne.mjrv SET junta_origen_id = (SELECT id FROM cne.juntas_madrid WHERE serie='M' AND numero=1), rotulo_credencial = 'M01' WHERE id = $1", [anterior]);
     await encender("whatsapp");
@@ -210,10 +209,16 @@ describe("cola de envío real", () => {
     await controlarColaWhatsApp(admin, 1, "reanudar");
     await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes });
     await procesarCola({ ahora: en(20), azar: sinAzar, clientes: f.clientes });
-    expect(f.wa).toHaveLength(1);
+    expect(f.wa).toHaveLength(2);
     expect(f.wa[0].texto).toContain("M1");
+    expect(f.wa[0].texto).not.toContain("Rectificación");
     expect(f.wa[0].nombreArchivo).toMatch(/^M1-/);
-    expect(f.textos).toEqual([expect.stringContaining("F1 (Femenino)")]);
+    expect(f.wa[1].texto).toContain("Rectificación");
+    expect(f.wa[1].texto).toContain("F1 (Femenino)");
+    expect(f.wa[1].nombreArchivo).toMatch(/^F1-/);
+    const pdf = await PDFDocument.load(Buffer.from(f.wa[1].pdfBase64, "base64"));
+    const contenido = pdf.getPage(0).node.Contents() as PDFArray;
+    expect(inflateSync(contenido.lookup(0, PDFRawStream).getContents()).toString("ascii")).toContain("<4631>");
   });
 
   it("nunca envía fichas de prueba, aunque haya una fila en cola con simulado = false", async () => {

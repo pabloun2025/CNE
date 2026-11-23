@@ -47,7 +47,7 @@ describe("línea de WhatsApp de CNE (cliente simulado)", () => {
     const cliente: ClienteEvolution = {
       simulado: true,
       crearInstancia: async () => { creadas++; await base.crearInstancia(); },
-      conectar: () => base.conectar(), resumen: () => base.resumen(), cerrarSesion: () => base.cerrarSesion(), enviarDocumento: () => base.enviarDocumento(), enviarTexto: () => base.enviarTexto(),
+      conectar: () => base.conectar(), resumen: () => base.resumen(), cerrarSesion: () => base.cerrarSesion(), enviarDocumento: () => base.enviarDocumento(),
     };
     await crearLinea(sesion(), cliente);
     await crearLinea(sesion(), cliente);

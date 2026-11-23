@@ -43,16 +43,6 @@ describe("cliente de Evolution API (instancia propia cne-madrid)", () => {
     expect(llamadas[5].body).toEqual({ number: "34600000000", mediatype: "document", mimetype: "application/pdf", caption: "Hola", media: "UERG", fileName: "c.pdf" });
   });
 
-  it("envía el aviso de texto por la segunda línea sin adjunto", async () => {
-    const { f, llamadas } = falso([{ status: 201, json: { key: { id: "TEXTO" } } }]);
-    const c = new EvolutionHttp({ baseUrl: "http://evolution-api:8080", apiKey: CLAVE, fetch: f, linea: 2 });
-    expect(await c.enviarTexto({ numero: "+34600000000", texto: "Rectificación" })).toEqual({ ok: true, idExterno: "TEXTO" });
-    expect(llamadas[0]).toMatchObject({
-      url: "http://evolution-api:8080/message/sendText/cne-madrid-2",
-      method: "POST", body: { number: "34600000000", text: "Rectificación" },
-    });
-  });
-
   it("habilita la recepción de mensajes solo en la instancia elegida", async () => {
     const { f, llamadas } = falso([{ status: 200 }, { status: 201 }]);
     const c = new EvolutionHttp({ baseUrl: "http://evolution-api:8080", apiKey: CLAVE, fetch: f, linea: 2 });

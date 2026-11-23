@@ -124,18 +124,17 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
       const ficha = sel.datos[0];
       if (actual?.destino !== fila.destino) {
         r = { ok: false, permanente: true, error: "El contacto o la ficha cambió después de ponerla en cola. Revise la ficha y vuelva a encolarla." };
-      } else if (fila.whatsapp_rectificacion) {
-        const junta = juntaEnCredencial(ficha.serie, persona.junta.slice(1));
-        const serie = ficha.serie === "M" ? "Femenino" : "Masculino";
-        const texto = `Rectificación de su credencial MJRV. Su junta se identifica como ${junta} (${serie}). Su junta y zona asignadas siguen siendo las mismas. Disculpe la confusión.\nConsulado General del Ecuador en Madrid`;
-        r = await whatsapp.enviarTexto({ numero: fila.destino, texto });
       } else {
         // Los envíos reales autorizados usan el PDF definitivo incluso durante el ensayo.
         const d = { ...ficha, prueba: false, rotulo: canal === "whatsapp" ? juntaEnCredencial(ficha.serie, persona.junta.slice(1)) : ficha.rotulo };
         const m = await mensajeCredencial(canal === "whatsapp" ? d : ficha, canal, persona);
         const pdfBase64 = Buffer.from(await credencialesIndividuales([d], await medidasCredencial())).toString("base64");
         if (canal === "whatsapp") {
-          r = await whatsapp.enviarDocumento({ numero: fila.destino, texto: m.texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
+          const serie = ficha.serie === "M" ? "Femenino" : "Masculino";
+          const texto = fila.whatsapp_rectificacion
+            ? `Rectificación de su credencial MJRV. Adjuntamos su credencial corregida con la junta ${d.rotulo} (${serie}). Su junta y zona asignadas siguen siendo las mismas. Presente el QR de esta credencial en la entrada. Disculpe la confusión.\nConsulado General del Ecuador en Madrid`
+            : m.texto;
+          r = await whatsapp.enviarDocumento({ numero: fila.destino, texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
         } else {
           r = await clientes.correo.enviar({ envioId: fila.id, para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, responderA: configEnvios.correoReplyTo ?? undefined, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
         }
