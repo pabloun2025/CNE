@@ -35,21 +35,42 @@ jobs:
           echo '=== EVOLUTION API DESDE CNE ==='
           sudo docker exec cne-prod-cne-app-1 ./node_modules/.bin/tsx -e '
             import { clienteEvolution } from "./src/server/envios/evolution";
-            const cliente = clienteEvolution({ fetch: async (url, opciones) => {
-              try {
-                const respuesta = await fetch(url, opciones);
-                console.log("Evolution HTTP", respuesta.status);
-                return respuesta;
-              } catch (error) {
-                const codigo = error?.cause?.code;
-                console.log("Evolution: error de red", /^[A-Z0-9_]+$/.test(codigo ?? "") ? codigo : "sin código");
-                throw error;
+            async function comprobar() {
+              for (const linea of [1, 2] as const) {
+                const cliente = clienteEvolution({ linea, fetch: async (url, opciones) => {
+                  const respuesta = await fetch(url, opciones);
+                  console.log("Evolution línea", linea, "HTTP", respuesta.status);
+                  if (url.includes("/instance/fetchInstances?") && respuesta.ok) {
+                    const datos = await respuesta.clone().json().catch(() => null);
+                    const nombre = linea === 1 ? "cne-madrid" : "cne-madrid-2";
+                    const f = Array.isArray(datos) ? datos.find((i) => i?.name === nombre) : null;
+                    if (f) {
+                      const codigo = Number.isSafeInteger(f.disconnectionReasonCode) ? f.disconnectionReasonCode : "sin código";
+                      const fecha = typeof f.disconnectionAt === "string" && Number.isFinite(Date.parse(f.disconnectionAt))
+                        ? new Date(f.disconnectionAt).toISOString() : "sin fecha";
+                      const detalle = typeof f.disconnectionObject === "string" ? f.disconnectionObject : "";
+                      const motivo = /connection[ _-]?replaced|conflict.{0,60}replaced/i.test(detalle) ? "sesión sustituida"
+                        : /logged[ _-]?out|device[ _-]?removed/i.test(detalle) ? "sesión cerrada"
+                        : /forbidden|banned|blocked/i.test(detalle) ? "rechazada"
+                        : /stream[ _-]?error/i.test(detalle) ? "error de sesión" : "sin detalle clasificable";
+                      console.log("Desconexión registrada", linea, codigo, fecha, motivo);
+                    }
+                  }
+                  return respuesta;
+                } });
+                if (cliente.simulado) console.log("Evolution línea", linea, "modo simulado");
+                else {
+                  try {
+                    const { existe, estado } = await cliente.resumen();
+                    console.log("Evolution línea", linea, existe ? estado : "sin crear");
+                  } catch (e) {
+                    const codigo = e?.cause?.code || e?.code;
+                    console.log("Evolution línea", linea, "consulta fallida", /^[A-Z0-9_]+$/.test(codigo || "") ? codigo : "sin código");
+                  }
+                }
               }
-            }});
-            if (cliente.simulado) console.log("Evolution: modo simulado");
-            else cliente.resumen().then(({ existe, estado }) => {
-              console.log("Evolution: línea CNE", existe ? estado : "sin crear");
-            }).catch(() => { console.log("Evolution: no se pudo consultar la línea de CNE"); });
+            }
+            comprobar();
           ' || echo 'No se pudo ejecutar la comprobación desde el contenedor de CNE.'
           echo '=== ACCESO A CONFIGURACIÓN DE ENVÍOS ==='
           sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
@@ -64,6 +85,9 @@ jobs:
           echo '=== COLAS DE CREDENCIALES (solo recuentos) ==='
           sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
             "BEGIN READ ONLY; SELECT canal, linea_whatsapp, count(*) FILTER (WHERE intentos = 0) AS esperando, count(*) FILTER (WHERE intentos > 0) AS en_intento FROM cne.envios_credencial WHERE estado = 'en_cola' AND NOT simulado GROUP BY canal, linea_whatsapp ORDER BY 1, 2; COMMIT;" || true
+          echo '=== PAUSAS Y VINCULACIONES DE CNE ==='
+          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
+            "BEGIN READ ONLY; SELECT linea, encendido, CASE WHEN pausa = 'La línea de WhatsApp no está vinculada.' THEN 'desconectada' WHEN pausa LIKE '%fallos seguidos%' THEN 'fallos seguidos' WHEN pausa = 'Pausado desde Credenciales.' THEN 'manual' WHEN pausa IS NOT NULL THEN 'otra pausa' ELSE 'sin pausa' END FROM cne.configuracion CROSS JOIN LATERAL (VALUES (1, whatsapp_real, whatsapp_pausa_motivo), (2, whatsapp_real_2, whatsapp_pausa_motivo_2)) l(linea, encendido, pausa); SELECT accion, coalesce(datos->>'linea','1'), to_char(creado_en AT TIME ZONE 'Europe/Madrid','DD-MM HH24:MI:SS') FROM cne.auditoria WHERE accion IN ('linea_whatsapp_desvinculada','linea_whatsapp_vinculacion','linea_whatsapp_creada','envios_pausados','envios_reanudados') ORDER BY id DESC LIMIT 15; COMMIT;" || true
           echo '=== ALMACENAMIENTO DE MENSAJES EN EVOLUTION ==='
           for c in $(sudo docker ps --format '{{.Names}}' | grep -i evolution); do
             sudo docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$c" |
