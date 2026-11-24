@@ -1,6 +1,6 @@
 name: Comprobar letras F/M (solo lectura)
 
-# Recuentos sin datos personales: rótulos guardados por letra y serie, y estado de las colas de envío.
+# Recuentos sin datos personales: rótulos, archivos de recibos y estado de las colas de envío.
 on:
   workflow_dispatch:
 
@@ -31,6 +31,17 @@ jobs:
           SELECT 'Cola | canal | estado | línea | rectificación | cuántos';
           SELECT canal, estado, coalesce(linea_whatsapp::text, ''), whatsapp_rectificacion, count(*)
             FROM cne.envios_credencial WHERE NOT simulado GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3, 4;
+          SELECT 'Actas y archivos previos al despliegue F/M | modo | emitidas | PDF cifrado | pagadas | firmas PDF';
+          SELECT CASE WHEN a.es_prueba THEN 'prueba' ELSE 'elección' END, count(*),
+                 count(*) FILTER (WHERE a.recibo_cifrado IS NOT NULL AND a.recibo_nonce IS NOT NULL),
+                 count(*) FILTER (WHERE EXISTS (SELECT 1 FROM cne.pagos_confirmados p WHERE p.acta_id = a.id)),
+                 (SELECT count(*) FROM cne.firmas_recibo f WHERE f.es_prueba = a.es_prueba AND f.creado_en < timestamptz '2026-11-24 12:16:55 Europe/Madrid')
+            FROM cne.actas_pago a WHERE a.creado_en < timestamptz '2026-11-24 12:16:55 Europe/Madrid'
+           GROUP BY a.es_prueba ORDER BY 1;
+          SELECT 'Totales previos al despliegue F/M | actas | PDF cifrado | firmas PDF';
+          SELECT count(*), count(*) FILTER (WHERE a.recibo_cifrado IS NOT NULL AND a.recibo_nonce IS NOT NULL),
+                 (SELECT count(*) FROM cne.firmas_recibo WHERE creado_en < timestamptz '2026-11-24 12:16:55 Europe/Madrid')
+            FROM cne.actas_pago a WHERE a.creado_en < timestamptz '2026-11-24 12:16:55 Europe/Madrid';
           COMMIT;
           SQL
           rm -f ~/.ssh/oracle
