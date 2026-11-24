@@ -1,0 +1,36 @@
+name: Comprobar letras F/M (solo lectura)
+
+# Recuentos sin datos personales: rótulos guardados por letra y serie, y estado de las colas de envío.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
+          chmod 600 ~/.ssh/oracle
+          ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 \
+            'sudo docker exec -i cne-prod-cne-postgres-1 psql -X -U cne_owner -d cne -At -F " | "' <<'SQL'
+          BEGIN READ ONLY;
+          SELECT 'Modo: ' || modo FROM cne.configuracion WHERE id = 1;
+          SELECT 'Rótulo guardado | serie junta | fichas activas';
+          SELECT coalesce(upper(substring(m.rotulo_credencial from '^\s*([A-Za-z])')), '(vacío)'), j.serie, count(*)
+            FROM cne.mjrv m JOIN cne.juntas_madrid j ON j.id = m.junta_origen_id
+           WHERE m.activo GROUP BY 1, 2 ORDER BY 1, 2;
+          SELECT 'Cola | canal | estado | línea | rectificación | cuántos';
+          SELECT canal, estado, coalesce(linea_whatsapp::text, ''), whatsapp_rectificacion, count(*)
+            FROM cne.envios_credencial WHERE NOT simulado GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3, 4;
+          COMMIT;
+          SQL
+          rm -f ~/.ssh/oracle
