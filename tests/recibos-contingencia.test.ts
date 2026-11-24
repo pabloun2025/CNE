@@ -1,6 +1,7 @@
 import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { POST as descargar } from "@/app/api/admin/finanzas/recibos/contingencia/route";
+import { POST as emitir } from "@/app/api/admin/finanzas/recibos/emitir/route";
 import { login } from "@/server/auth";
 import { closePools } from "@/server/db";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
@@ -92,9 +93,22 @@ describe("descarga del padrón de actas de contingencia", () => {
     expect(paginas[2]).toContain("Voto Nro. H12");
     expect(paginas.every((p) => p.includes("29 de noviembre de 2026") && p.includes("NRO. ____________"))).toBe(true);
     expect(paginas.join("\n")).not.toMatch(/000000000[14]|SIN VALIDEZ|ANVERSO|REVERSO/);
+    const [{ id: uno }, { id: dos }] = await consultarDueno<{ id: number }>(
+      "SELECT id FROM cne.mjrv WHERE cedula IN ('0000000002','0000000010') ORDER BY cedula");
+    const seleccion = new URLSearchParams({ modo: "eleccion", formato: "manual" });
+    seleccion.append("id", String(uno));
+    seleccion.append("id", String(dos));
+    const lote = await emitir(new Request("http://localhost/api/admin/finanzas/recibos/emitir", { method: "POST", body: seleccion }));
+    expect(lote.status).toBe(200);
+    expect(lote.headers.get("content-disposition")).toMatch(/^attachment/);
+    const paginasSeleccion = await textoDePaginas(lote);
+    expect(paginasSeleccion).toHaveLength(2);
+    expect(paginasSeleccion[0]).toContain("0000000002");
+    expect(paginasSeleccion[1]).toContain("0000000010");
+    expect(paginasSeleccion.every((p) => p.includes("NRO. ____________"))).toBe(true);
     expect(await estado()).toEqual(antes);
     expect(await consultarDueno("SELECT datos FROM cne.auditoria WHERE accion = 'actas_contingencia_descargadas' ORDER BY id"))
-      .toEqual([{ datos: { modo: "prueba", fichas: 4 } }, { datos: { modo: "eleccion", fichas: 3 } }]);
+      .toEqual([{ datos: { modo: "prueba", fichas: 4 } }, { datos: { modo: "eleccion", fichas: 3 } }, { datos: { modo: "eleccion", fichas: 2 } }]);
 
     await consultarDueno("UPDATE cne.mjrv SET activo = false");
     const vacio = await descargar(solicitud("eleccion"));

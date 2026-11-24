@@ -53,6 +53,7 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
       const f = new FormData();
       f.set("mjrvId", String(ficha.mjrvId));
       f.set("lado", lado);
+      f.set("modo", ficha.modoPrueba ? "prueba" : "eleccion");
       f.set("imagen", imagen, `${lado}.jpg`);
       const r = await fetch("/api/admin/finanzas/foto", { method: "POST", body: f });
       if (!r.ok) throw new Error((await r.json()).error ?? "No se pudo guardar la foto.");
@@ -73,13 +74,20 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
     await consultar(ficha.cedula);
   });
 
-  const emitir = () => ficha && ejecutar(async () => {
-    const r = await fetch(`/api/admin/finanzas/acta/${ficha.mjrvId}`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ verificado, modo: ficha.modoPrueba ? "prueba" : "eleccion" }) });
+  const emitir = (sinAnexo = false) => ficha && ejecutar(async () => {
+    const modo = ficha.modoPrueba ? "prueba" : "eleccion";
+    const r = sinAnexo
+      ? await fetch("/api/admin/finanzas/recibos/emitir", {
+        method: "POST", body: new URLSearchParams({ id: String(ficha.mjrvId), modo, formato: "sin_anexo" }),
+      })
+      : await fetch(`/api/admin/finanzas/acta/${ficha.mjrvId}`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ verificado, modo }) });
     const pdf = await leerPdfRecibo(r);
     setRecibo({ ...pdf, mjrvId: ficha.mjrvId, modoPrueba: ficha.modoPrueba });
     await consultar(ficha.cedula, true);
-    setMensaje(r.headers.get("x-acta-borrador") === "1" ? "Se abrió un borrador. Superadministración debe configurar al firmante." : "Recibo listo para imprimir. Entréguelo a Caja.");
+    setMensaje(r.headers.get("x-acta-borrador") === "1" ? "Se abrió un borrador. Superadministración debe configurar al firmante."
+      : sinAnexo && !ficha.cedulaValidada ? "Recibo listo para imprimir. Valide el documento antes de pasar a Caja."
+      : "Recibo listo para imprimir. Entréguelo a Caja.");
   });
 
   const confirmar = () => ficha?.acta && ejecutar(async () => {
@@ -136,17 +144,13 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
                 </fieldset>
               )}
               {ficha.documentosCompletos && !ficha.cedulaValidada && <button className="button-like" disabled={ocupado} onClick={validar}>Validar documento</button>}
-              {!ficha.cedulaValidada && <form method="post" action="/api/admin/finanzas/recibos/emitir" target="_blank">
-                <input type="hidden" name="id" value={ficha.mjrvId} />
-                <input type="hidden" name="modo" value={ficha.modoPrueba ? "prueba" : "eleccion"} />
-                <button className="button-like secondary" disabled={ocupado}>Imprimir en contingencia</button>
-              </form>}
+              {!recibo && <button type="button" className="button-like secondary" disabled={ocupado} onClick={() => emitir(true)}>Imprimir recibo sin anexo</button>}
               {!recibo && ficha.cedulaValidada && ficha.documentosCompletos && (
                 <>
                   <label className="flex items-start gap-2"><input type="checkbox" checked={verificado} onChange={(e) => verificar(e.target.checked)} />
                     Verifiqué que cumplió sus funciones como MJRV.
                   </label>
-                  <button className="button-like w-full sm:w-auto" disabled={!verificado || ocupado} onClick={emitir}>{ficha.acta ? "Reimprimir recibo" : "Emitir e imprimir recibo"}</button>
+                  <button className="button-like w-full sm:w-auto" disabled={!verificado || ocupado} onClick={() => emitir()}>{ficha.acta ? "Reimprimir recibo" : "Emitir e imprimir recibo"}</button>
                 </>
               )}
               {!ficha.parametrosCompletos && <p role="status">Superadministración debe completar los datos del firmante.</p>}

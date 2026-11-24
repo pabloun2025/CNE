@@ -5,6 +5,7 @@ import type { EstadoDocs, LadoDocumento } from "../domain/documentos";
 import { decryptBuffer, encryptBuffer } from "./crypto";
 import { normalizarFrase } from "../domain/limpieza";
 import type { Sesion } from "./auth";
+import type { Modo } from "./config";
 import { registrarAuditoria } from "./auditoria";
 import { query, withOwnerTx, withTx } from "./db";
 
@@ -20,14 +21,37 @@ export type BusquedaCompleta = Busqueda & { nombre: string; cedula: string };
 const normalizarCedula = (c: string) => c.trim().toUpperCase().replace(/\s+/g, "");
 const iniciales = (nombres: string, apellidos: string) => `${nombres.trim()[0] ?? "?"}. ${apellidos.trim()[0] ?? "?"}.`;
 
+function estadoDeLados(lados: Lado[]): EstadoDocs {
+  const anverso = lados.includes("anverso");
+  const reverso = lados.includes("reverso");
+  const pasaporte = lados.includes("pasaporte");
+  return { anverso, reverso, completos: pasaporte || (anverso && reverso), ...(pasaporte ? { pasaporte: true } : {}) };
+}
+
 export async function estadoDocumentos(mjrvId: number, client?: PoolClient): Promise<EstadoDocs> {
   const sql = "SELECT lado FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba()";
   const params = [mjrvId];
   const filas = client ? (await client.query<{ lado: Lado }>(sql, params)).rows : await query<{ lado: Lado }>(sql, params);
-  const anverso = filas.some((f) => f.lado === "anverso");
-  const reverso = filas.some((f) => f.lado === "reverso");
-  const pasaporte = filas.some((f) => f.lado === "pasaporte");
-  return { anverso, reverso, completos: pasaporte || (anverso && reverso), ...(pasaporte ? { pasaporte: true } : {}) };
+  return estadoDeLados(filas.map((f) => f.lado));
+}
+
+export type FichaDocumentosFinanzas = { id: number; nombre: string; cedula: string; junta: string } & EstadoDocs;
+
+export async function listarDocumentosFinanzas(): Promise<{ modo: Modo; fichas: FichaDocumentosFinanzas[] }> {
+  return withTx(async (client) => {
+    const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
+    const { rows } = await client.query<Omit<FichaDocumentosFinanzas, keyof EstadoDocs> & { lados: Lado[] }>(
+      `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, j.serie || j.numero AS junta,
+              coalesce(d.lados, ARRAY[]::text[]) AS lados
+         FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
+         LEFT JOIN LATERAL (
+           SELECT array_agg(f.lado) AS lados FROM documentos_mjrv f
+           WHERE f.mjrv_id = m.id AND f.es_prueba = cne.en_prueba()
+         ) d ON true
+        WHERE m.activo AND (cne.en_prueba() OR NOT m.es_prueba)
+        ORDER BY j.serie, j.numero, m.apellidos, m.nombres, m.id`);
+    return { modo, fichas: rows.map(({ lados, ...ficha }) => ({ ...ficha, ...estadoDeLados(lados) })) };
+  });
 }
 
 // La búsqueda usa el número del padrón. El formulario público solo recibe iniciales y junta; la estación ve el nombre completo.
@@ -43,7 +67,7 @@ export async function buscarPorCedula(cedulaBruta: string): Promise<BusquedaComp
 export type ResultadoFoto = { ok: true; estado: EstadoDocs } | { ok: false; status: 400 | 404 | 409; mensaje: string };
 
 // Re-codifica con sharp (aplica la orientación y quita EXIF), cifra y guarda. Repetir una foto la sustituye.
-export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: Buffer; origen: "publico" | "estacion"; operadorId?: number; enlaceId?: number }): Promise<ResultadoFoto> {
+export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: Buffer; origen: "publico" | "estacion"; operadorId?: number; enlaceId?: number; modoEsperado?: Modo }): Promise<ResultadoFoto> {
   const esPasaporte = d.lado === "pasaporte";
   if (d.imagen.length < MIN_BYTES) return { ok: false, status: 400, mensaje: "La imagen es demasiado pequeña o está vacía. Vuelva a fotografiar el documento." };
   if (d.imagen.length > MAX_BYTES) return { ok: false, status: 400, mensaje: "La imagen pesa más de 2 MB. Vuelva a tomarla." };
@@ -57,7 +81,8 @@ export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: 
   if (procesada.length < MIN_BYTES) return { ok: false, status: 400, mensaje: "La imagen no tiene detalle suficiente. Vuelva a tomarla con mejor luz." };
   const hash = sha256Bytes(procesada);
   return withTx(async (client) => {
-    await client.query("SELECT id FROM configuracion WHERE id = 1 FOR SHARE");
+    const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
+    if (d.modoEsperado && d.modoEsperado !== modo) return { ok: false as const, status: 409 as const, mensaje: "El modo cambió. Actualice la página antes de guardar la foto." };
     if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [d.mjrvId])).rows[0]) return { ok: false as const, status: 404 as const, mensaje: "No se encontró la ficha." };
     if (!esPasaporte) {
       // El reverso no puede ser la misma foto que el anverso (ni al revés).
@@ -83,9 +108,9 @@ export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: 
 
 // Solo para el acta (M15) y la ficha del administrador, siempre tras la guarda correspondiente.
 type DocumentoCifrado = { imagen_cifrada: Buffer; nonce: Buffer };
-export async function leerDocumento(mjrvId: number, lado: Lado, client?: PoolClient): Promise<Buffer | null> {
-  const sql = "SELECT imagen_cifrada, nonce FROM documentos_mjrv WHERE mjrv_id = $1 AND lado = $2 AND es_prueba = cne.en_prueba()";
-  const params = [mjrvId, lado];
+export async function leerDocumento(mjrvId: number, lado: Lado, client?: PoolClient, modoEsperado?: Modo): Promise<Buffer | null> {
+  const sql = "SELECT imagen_cifrada, nonce FROM documentos_mjrv WHERE mjrv_id = $1 AND lado = $2 AND es_prueba = cne.en_prueba() AND ($3::text IS NULL OR es_prueba = ($3 = 'prueba'))";
+  const params = [mjrvId, lado, modoEsperado ?? null];
   const [f] = client ? (await client.query<DocumentoCifrado>(sql, params)).rows : await query<DocumentoCifrado>(sql, params);
   return f ? decryptBuffer(f.imagen_cifrada, f.nonce) : null;
 }

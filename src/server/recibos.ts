@@ -130,9 +130,13 @@ export async function descargarRecibo(tipo: TipoRecibo, id: number, client?: Poo
   return { numero, pdf };
 }
 
-export async function descargarActasContingencia(sesion: Sesion, modo: Modo): Promise<
-  { ok: true; pdf: Uint8Array } | { ok: false; status: 404 | 409; mensaje: string }
+export async function descargarActasContingencia(sesion: Sesion, modo: Modo, ids?: number[]): Promise<
+  { ok: true; pdf: Uint8Array } | { ok: false; status: 400 | 404 | 409; mensaje: string }
 > {
+  const seleccion = ids ? [...new Set(ids)] : null;
+  if (seleccion && (!seleccion.length || seleccion.some((id) => !Number.isSafeInteger(id) || id < 1))) {
+    return { ok: false, status: 400, mensaje: "Seleccione fichas válidas." };
+  }
   return withTx(async (client) => {
     const { rows: [config] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
     if (modo !== config.modo) return { ok: false, status: 409, mensaje: "El modo cambió. Actualice la página antes de descargar." };
@@ -142,8 +146,9 @@ export async function descargarActasContingencia(sesion: Sesion, modo: Modo): Pr
               m.telefono_e164 AS telefono, m.correo
          FROM mjrv m JOIN v_mjrv_asignacion v ON v.mjrv_id = m.id
          JOIN juntas_madrid j ON j.id = v.junta_actual_id
-        WHERE $1 = 'prueba' OR NOT m.es_prueba
-        ORDER BY j.serie, j.numero, m.apellidos, m.nombres, m.id`, [modo]);
+        WHERE ($1 = 'prueba' OR NOT m.es_prueba) AND ($2::bigint[] IS NULL OR m.id = ANY($2::bigint[]))
+        ORDER BY j.serie, j.numero, m.apellidos, m.nombres, m.id`, [modo, seleccion]);
+    if (seleccion && personas.length !== seleccion.length) return { ok: false, status: 404, mensaje: "La selección incluye fichas que ya no están disponibles." };
     if (!personas.length) return { ok: false, status: 404, mensaje: "No hay fichas activas en el padrón para descargar." };
     const { pagador_nombre, pagador_cargo } = await leerParametros(client);
     const pagador = pagador_nombre ? { nombre: pagador_nombre, cargo: pagador_cargo ?? "" } : null;

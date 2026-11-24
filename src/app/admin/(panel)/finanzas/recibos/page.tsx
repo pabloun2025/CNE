@@ -17,7 +17,7 @@ export default async function Recibos({ searchParams }: { searchParams: Promise<
     <main className="stack-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1>Recibos</h1>
-        <Link className="button-like" href="/admin/finanzas/recibos/emitir">Emitir recibos numerados</Link>
+        <Link className="button-like" href="/admin/finanzas/recibos/emitir">Imprimir por selección</Link>
       </div>
       <PestanasFinanzas />
       <form action="/api/admin/finanzas/recibos/contingencia" method="post" className="card flex flex-wrap items-center justify-between gap-3">

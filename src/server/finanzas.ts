@@ -170,8 +170,8 @@ async function bloquearSerie(client: PoolClient) {
 }
 
 async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjrvId: number, params: ParametrosPago,
-  modo: Awaited<ReturnType<typeof contextoEmision>>, opciones: { contingencia?: boolean; firma?: Buffer }): Promise<ResultadoActa> {
-  const { contingencia = false, firma } = opciones;
+  modo: Awaited<ReturnType<typeof contextoEmision>>, opciones: { contingencia?: boolean; firma?: Buffer; sinAnexo?: boolean }): Promise<ResultadoActa> {
+  const { contingencia = false, firma, sinAnexo = false } = opciones;
   if (firma && modo.modo_recibo !== "digital") return { ok: false, status: 409, mensaje: "El modo digital no está activado." };
   const quien = puestoDe(s);
   const [m] = (await client.query<{ cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; telefono_e164: string | null; correo: string | null }>(
@@ -193,7 +193,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() FOR SHARE", [mjrvId]);
   }
 
-  const fotos = await documentosParaRecibo(mjrvId, client);
+  const fotos = sinAnexo ? undefined : await documentosParaRecibo(mjrvId, client);
   if (!contingencia && !fotos?.pasaporte && !(fotos?.anverso && fotos.reverso)) {
     return { ok: false, status: 409, mensaje: "Faltan fotos del documento de identidad. No se puede generar el acta." };
   }
@@ -226,12 +226,13 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     telefono: m.telefono_e164 ?? undefined, correo: m.correo ?? undefined };
   const persona: DatosActa["persona"] = { ...(existente?.parametros.persona_recibo ?? personaActual) };
   if (!existente || actualizarDocumento) {
-    if (fotos?.pasaporte) persona.tipoDocumento = "pasaporte";
-    else if (fotos?.anverso && fotos.reverso) persona.tipoDocumento = "cedula";
+    const documento = sinAnexo ? await estadoDocumentos(mjrvId, client) : fotos;
+    if (documento?.pasaporte) persona.tipoDocumento = "pasaporte";
+    else if (documento?.anverso && documento.reverso) persona.tipoDocumento = "cedula";
   }
   if (actualizarDocumento || persona.tipoDocumento === "pasaporte") persona.cedula = m.cedula;
   const anexo = anexoDeRecibo(persona, fotos);
-  if (contingencia && !anexo && existente?.recibo_cifrado && existente.recibo_nonce) {
+  if (contingencia && !sinAnexo && !anexo && existente?.recibo_cifrado && existente.recibo_nonce) {
     const pdf = await normalizarFechaRecibo(decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), existente.parametros.contingencia);
     return { ok: true, pdf, borrador: !existente.importe_eur,
       numero: numeroActa(existente.id, modo.prueba, existente.ordinal_recibo), actaId: existente.id };
@@ -261,7 +262,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     numero, impresionN: existente ? existente.impresion_n + 1 : 1, prueba: modo.prueba, borrador: !importe,
     emitidaEn: acta?.creado_en ?? new Date(), persona,
     importe: { usd: acta?.importe_usd ?? null, eur: importe ?? null, cambio: ordinalRecibo === null ? acta?.tipo_cambio : RECIBOS_TIPO_CAMBIO },
-    ordinalRecibo,
+    ordinalRecibo, sinAnexo,
     pagador: guardados.pagador_nombre ? { nombre: guardados.pagador_nombre, cargo: guardados.pagador_cargo ?? "" } : null,
     firmaReceptor: firma, contingencia: guardados.contingencia, reconstruido: !!existente && !guardados.persona_recibo,
   };
@@ -303,7 +304,7 @@ class EmisionRechazada extends Error {
   }
 }
 
-export async function generarRecibosContingencia(actor: ActorPago, seleccion: number[], modoEsperado?: Modo): Promise<ResultadoLoteRecibos> {
+export async function generarRecibosContingencia(actor: ActorPago, seleccion: number[], modoEsperado?: Modo, sinAnexo = false): Promise<ResultadoLoteRecibos> {
   const ids = [...new Set(seleccion)].sort((a, b) => a - b);
   if (!ids.length || ids.length > MAX_RECIBOS_LOTE || ids.some((id) => !Number.isSafeInteger(id) || id < 1)) {
     return { ok: false, status: 400, mensaje: `Seleccione entre 1 y ${MAX_RECIBOS_LOTE} fichas válidas.` };
@@ -318,7 +319,7 @@ export async function generarRecibosContingencia(actor: ActorPago, seleccion: nu
       const numeros: string[] = [];
       const lote = await PDFDocument.create();
       for (const id of ids) {
-        const recibo = await emitirActa(client, actor, id, params, modo, { contingencia: true });
+        const recibo = await emitirActa(client, actor, id, params, modo, { contingencia: true, sinAnexo });
         if (!recibo.ok) throw new EmisionRechazada(recibo);
         numeros.push(recibo.numero);
         if (ids.length === 1) return { ok: true, pdf: recibo.pdf, numeros };

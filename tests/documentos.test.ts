@@ -5,7 +5,7 @@ import { POST as buscar } from "@/app/api/d/buscar/route";
 import { POST as foto } from "@/app/api/d/foto/route";
 import { closePools } from "@/server/db";
 import type { Sesion } from "@/server/auth";
-import { borrarTodasLasFotos, buscarPorCedula, documentosParaRecibo, estadoDocumentos, guardarDocumento, leerDocumento, LIMITE_PUBLICO, resumenFotos } from "@/server/documentos";
+import { borrarTodasLasFotos, buscarPorCedula, documentosParaRecibo, estadoDocumentos, guardarDocumento, leerDocumento, listarDocumentosFinanzas, LIMITE_PUBLICO, resumenFotos } from "@/server/documentos";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 // Foto ficticia de ruido: pesa lo bastante y cada una es distinta.
@@ -144,5 +144,26 @@ describe("documentos de identidad", () => {
     expect(await estadoDocumentos(ficha)).toEqual({ anverso: true, reverso: false, completos: false });
     expect(await leerDocumento(ficha, "pasaporte")).toBeNull();
     expect(await documentosParaRecibo(ficha)).toEqual({ anverso: await leerDocumento(ficha, "anverso") });
+  });
+
+  it("lista documento completo, parcial y ausente sin mezclar modos", async () => {
+    const [{ id: falta }] = await consultarDueno<{ id: number }>(
+      `INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+       SELECT '0000000003', 'APELLIDO PRUEBA 003', 'NOMBRE PRUEBA', 'VOCAL', 'vocal', id FROM cne.juntas_madrid
+       WHERE serie = 'H' AND numero = 12 RETURNING id`);
+    expect(await guardarDocumento({ mjrvId: id, lado: "pasaporte", imagen: await imagen(), origen: "estacion" })).toMatchObject({ ok: true });
+    const listado = await listarDocumentosFinanzas();
+    expect(listado.modo).toBe("prueba");
+    expect(listado.fichas).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id, completos: true, pasaporte: true }),
+      expect.objectContaining({ cedula: "0000000002", completos: false, anverso: true }),
+      expect.objectContaining({ id: falta, completos: false, anverso: false, reverso: false }),
+    ]));
+    await consultarDueno("UPDATE cne.configuracion SET modo = 'eleccion'");
+    const eleccion = await listarDocumentosFinanzas();
+    expect(eleccion.modo).toBe("eleccion");
+    expect(eleccion.fichas.find((f) => f.id === id)).toMatchObject({ anverso: true, reverso: false, completos: false });
+    expect(eleccion.fichas.find((f) => f.id === id)?.pasaporte).toBeUndefined();
+    expect(await guardarDocumento({ mjrvId: falta, lado: "pasaporte", imagen: await imagen(), origen: "estacion", modoEsperado: "prueba" })).toMatchObject({ ok: false, status: 409 });
   });
 });

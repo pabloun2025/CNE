@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
+import { PDFDocument } from "pdf-lib";
 import { closePools } from "@/server/db";
 import { guardarDocumento } from "@/server/documentos";
 import { confirmarPago, fichaPago, generarActa, generarRecibosContingencia, type ActorPago } from "@/server/finanzas";
@@ -46,6 +47,17 @@ describe("secuencia de emisión de recibos", () => {
     expect(await buscarRecibos("PRUEBA-2026-001", 1)).toMatchObject({ total: 1, filas: [{ numero: "PRUEBA-2026-001", pagado: false }] });
     const acta = (await fichaPago(buscar(1)))!.acta!;
     expect(await descargarRecibo("acta", acta.id)).toMatchObject({ numero: "PRUEBA-2026-001" });
+  });
+
+  it("emite un PDF sin anexo por selección, guarda el número y mantiene el bloqueo de Caja", async () => {
+    await adjuntarFotos(personas[0]);
+    const lote = await generarRecibosContingencia(revision, [personas[0], personas[1], personas[0]], "prueba", true);
+    expect(lote).toMatchObject({ ok: true, numeros: ["PRUEBA-2026-001", "PRUEBA-2026-002"] });
+    if (!lote.ok) throw new Error(lote.mensaje);
+    expect((await PDFDocument.load(lote.pdf)).getPageCount()).toBe(2);
+    expect(await generarRecibosContingencia(revision, [personas[1]], "prueba", true)).toMatchObject({ ok: true, numeros: ["PRUEBA-2026-002"] });
+    const ficha = (await fichaPago(buscar(1), caja))!;
+    expect(await confirmarPago(caja, { mjrvId: ficha.mjrvId, actaId: ficha.acta!.id, verificado: true })).toMatchObject({ ok: false, mensaje: expect.stringContaining("Faltan fotos") });
   });
 
   it("caja confirma con ambos lados y validación aunque revisión mantenga la ficha abierta", async () => {

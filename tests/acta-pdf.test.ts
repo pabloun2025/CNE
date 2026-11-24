@@ -34,6 +34,20 @@ async function leerRecibo(bytes: Uint8Array, paginaN = 0) {
 }
 
 describe("PDF del recibo oficial de pago", () => {
+  it("imprime el FO-04 numerado sin sección de fotos aunque exista un pasaporte", async () => {
+    const pasaporte = await sharp({ create: { width: 750, height: 500, channels: 3, background: "#add8dc" } }).jpeg().toBuffer();
+    const { documento, pagina, texto, anchosImagenes } = await leerRecibo(await actaPago({
+      ...datos, persona: { ...datos.persona, tipoDocumento: "pasaporte" }, anexo: { pasaporte }, sinAnexo: true,
+    }));
+    expect(documento.getPageCount()).toBe(1);
+    expect(pagina.getWidth()).toBeCloseTo((297 * 72) / 25.4);
+    expect(texto).toContain("MAD-2026-001");
+    expect(texto).toContain("EUR 58,82");
+    expect(texto).toContain("FIRMA Y SELLO DEL CÓNSUL");
+    expect(texto).not.toMatch(/ANVERSO|REVERSO|PÁGINA DE DATOS/);
+    expect(anchosImagenes).toHaveLength(1);
+  });
+
   it("imprime el formulario oficial y las dos caras de la cédula en una hoja A4 horizontal", async () => {
     const anverso = await sharp({ create: { width: 860, height: 540, channels: 3, background: "#add8dc" } }).jpeg().toBuffer();
     const reverso = await sharp({ create: { width: 800, height: 500, channels: 3, background: "#f1cabd" } }).jpeg().toBuffer();

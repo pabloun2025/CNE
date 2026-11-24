@@ -15,14 +15,15 @@ export default async function EmitirRecibos({ searchParams }: { searchParams: Pr
   const juntaInvalida = Boolean(junta && !leerJunta(junta));
   const resultado = juntaInvalida ? [] : await listarMjrv({ q, junta });
   const modo = await leerModo();
-  const fichas = resultado.slice(0, MAX_RECIBOS_LOTE).map((f) => ({
+  const permitidas = resultado.filter((f) => modo === "prueba" || !f.es_prueba);
+  const fichas = permitidas.slice(0, MAX_RECIBOS_LOTE).map((f) => ({
     id: f.id, nombre: `${f.apellidos}, ${f.nombres}`, cedula: f.cedula, junta: f.origen,
   }));
   return (
     <main className="stack-lg">
-      <h1>Emitir recibos de contingencia</h1>
+      <h1>Imprimir recibos por selección</h1>
       <Link href="/admin/finanzas/recibos" className="underline">Volver a Recibos</Link>
-      <p>Seleccione las fichas por nombre o junta. El primer recibo definitivo ocupa su puesto en la serie. Las reimpresiones conservan el número y el importe. Para pagar, valide primero el documento de identidad.</p>
+      <p>Seleccione uno, varios o todos. Para confirmar el pago en Caja, valide primero el documento de identidad.</p>
       <form action="/admin/finanzas/recibos/emitir" className="card flex flex-wrap items-end gap-3">
         <label className="min-w-0 flex-1">Nombre, apellido o cédula
           <input name="q" type="search" maxLength={120} defaultValue={q} />
@@ -35,7 +36,7 @@ export default async function EmitirRecibos({ searchParams }: { searchParams: Pr
       {juntaInvalida ? <p role="alert">Escriba una junta válida, por ejemplo H12.</p>
         : fichas.length ? (
           <>
-            {resultado.length > fichas.length && <p className="hint">Se muestran las primeras {MAX_RECIBOS_LOTE} fichas. Use los filtros para ver otras.</p>}
+            {permitidas.length > fichas.length && <p className="hint">Se muestran las primeras {MAX_RECIBOS_LOTE} fichas. Use los filtros para ver otras.</p>}
             <SeleccionRecibos key={JSON.stringify([q, junta, modo])} fichas={fichas} modo={modo} />
           </>
         ) : <p>No hay fichas activas con esa búsqueda.</p>}

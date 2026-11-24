@@ -22,6 +22,7 @@ export type DatosActa = {
   pagador: { nombre: string; cargo: string } | null;
   anexo?: { anverso?: Buffer; reverso?: Buffer; pasaporte?: Buffer };
   reconstruido?: boolean;
+  sinAnexo?: boolean;
   contingencia?: boolean;
   firmaReceptor?: Buffer;
 };
@@ -67,7 +68,7 @@ function marcaDeAgua(page: PDFPage, f: PDFFont, prueba: boolean) {
 }
 
 export async function actaPago(d: DatosActa): Promise<Uint8Array> {
-  if (d.ordinalRecibo == null) return actaHistorica(d);
+  if (d.ordinalRecibo == null && !d.sinAnexo) return actaHistorica(d);
   const plantilla = await prepararActaOficial();
   await agregarActaOficial(plantilla, d);
   return plantilla.pdf.save();
@@ -132,6 +133,9 @@ async function agregarActaOficial({ pdf, normal, bold, logo }: Awaited<ReturnTyp
   texto("PROCESO: ELECCIONES SECCIONALES Y CPCCS 2027", izquierda, 488, ancho, { font: bold, size: 11, alineacion: "centro" });
 
   const manual = "manual" in d;
+  const sinAnexo = manual || d.sinAnexo;
+  const fondoTabla = sinAnexo ? 66 : 204;
+  const lineaFirma = sinAnexo ? 108 : 218;
   const numero = manual ? ESPACIO_MANUSCRITO : d.impresionN > 1 ? `${d.numero} · REIMPRESIÓN ${d.impresionN}` : d.numero;
   const avisos = manual ? "CONTINGENCIA · PARA COMPLETAR A MANO"
     : [d.borrador && "BORRADOR", d.reconstruido && "COPIA RECONSTRUIDA", d.contingencia && "EMISIÓN DE CONTINGENCIA"].filter(Boolean).join(" · ");
@@ -140,10 +144,10 @@ async function agregarActaOficial({ pdf, normal, bold, logo }: Awaited<ReturnTyp
   texto(`NRO. ${numero}   |   ${fecha}`, centro, 467, mitad, { font: bold, alineacion: "derecha" });
 
   page.drawRectangle({ x: izquierda, y: 344, width: ancho, height: 22, color: azulOficial });
-  page.drawRectangle({ x: izquierda, y: 204, width: ancho, height: 252, borderWidth: 0.6, borderColor: negro });
+  page.drawRectangle({ x: izquierda, y: fondoTabla, width: ancho, height: 456 - fondoTabla, borderWidth: 0.6, borderColor: negro });
   for (const y of [435, 414, 366, 344, 322, 282]) trazo(izquierda, y, derecha, y);
   trazo(izquierda, 302, centro, 302);
-  trazo(centro, 204, centro, 366);
+  trazo(centro, fondoTabla, centro, 366);
   trazo(centro, 414, centro, 456);
 
   campo(izquierda + 8, 443, "CIRCUNSCRIPCIÓN:", "Europa, Asia y Oceanía");
@@ -168,11 +172,11 @@ async function agregarActaOficial({ pdf, normal, bold, logo }: Awaited<ReturnTyp
   campo(centro + 8, 299, "CARGO:", d.pagador?.cargo);
   texto("FIRMA DEL CIUDADANO:", izquierda, 270, mitad, { font: bold, size: 8, alineacion: "centro" });
   texto("FIRMA Y SELLO DEL CÓNSUL O RESPONSABLE CONSULAR:", centro, 270, mitad, { font: bold, size: 8, alineacion: "centro" });
-  trazo(izquierda + 8, 218, centro - 8, 218, true);
-  trazo(centro + 8, 218, derecha - 8, 218, true);
+  trazo(izquierda + 8, lineaFirma, centro - 8, lineaFirma, true);
+  trazo(centro + 8, lineaFirma, derecha - 8, lineaFirma, true);
 
   const anchoMarco = mitad - 6;
-  const fotos = manual ? [] : d.persona.tipoDocumento === "pasaporte" ? [
+  const fotos = sinAnexo ? [] : d.persona.tipoDocumento === "pasaporte" ? [
     ["PÁGINA DE DATOS DEL PASAPORTE", centro - anchoMarco / 2, d.anexo?.pasaporte],
   ] as const : [
     ["ANVERSO DE LA CÉDULA", izquierda, d.anexo?.anverso],
