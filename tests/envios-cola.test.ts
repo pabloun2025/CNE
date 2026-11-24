@@ -354,7 +354,7 @@ describe("cola de envío real", () => {
     expect(await guardarRemitente(superadmin, "remitente@ejemplo.invalid", "Remitente Prueba", " Respuestas@Ejemplo.invalid ")).toEqual({ ok: true });
     await encender("correo");
     await ficha();
-    const nombreArchivo = `H1-${9000000000 + n}.pdf`;
+    const nombreArchivo = `M1-${9000000000 + n}.pdf`;
     await ficha({ junta: 22 });
     expect(await enviarLote(admin, "correo")).toMatchObject({ enCola: 2 });
     const f = falsos();
@@ -367,13 +367,13 @@ describe("cola de envío real", () => {
       texto: expect.stringContaining("Muestre el código QR en papel o en su móvil."),
       html: expect.stringContaining("Consulado General del Ecuador en Madrid"),
     });
-    expect(f.mail[0].texto).toContain("H1");
+    expect(f.mail[0].texto).toContain("M1");
     expect(f.mail[0].texto).toContain("Amarillo");
     expect(f.mail[0].html).toContain("Cómo llegar en Google Maps");
     expect(Buffer.from(f.mail[0].adjunto.base64, "base64").subarray(0, 5).toString()).toBe("%PDF-");
     expect((await procesarCola({ ahora: base, azar: sinAzar, clientes: f.clientes })).correo.accion).toBe("enviado");
     expect(f.mail).toHaveLength(2);
-    expect(f.mail[1].texto).toContain("Junta H22");
+    expect(f.mail[1].texto).toContain("Junta M22");
     expect(f.mail[1].texto).toContain("Zona Azul");
   });
 

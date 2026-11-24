@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SeleccionRecibos } from "@/components/seleccion-recibos";
-import { leerJunta } from "@/domain/juntas";
+import { leerJuntaPublica } from "@/domain/juntas";
 import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
 import { MAX_RECIBOS_LOTE } from "@/server/finanzas";
 import { leerModo } from "@/server/config";
@@ -12,7 +12,7 @@ export default async function EmitirRecibos({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q.trim().slice(0, 120) : "";
   const junta = typeof params.junta === "string" ? params.junta.trim().slice(0, 12) : "";
-  const juntaInvalida = Boolean(junta && !leerJunta(junta));
+  const juntaInvalida = Boolean(junta && !leerJuntaPublica(junta));
   const resultado = juntaInvalida ? [] : await listarMjrv({ q, junta });
   const modo = await leerModo();
   const permitidas = resultado.filter((f) => modo === "prueba" || !f.es_prueba);
@@ -29,11 +29,11 @@ export default async function EmitirRecibos({ searchParams }: { searchParams: Pr
           <input name="q" type="search" maxLength={120} defaultValue={q} />
         </label>
         <label>Junta de origen
-          <input name="junta" placeholder="H12" maxLength={12} defaultValue={junta} />
+          <input name="junta" placeholder="M12 o F12" maxLength={12} defaultValue={junta} />
         </label>
         <button className="bg-blue-700 px-4 py-2">Buscar</button>
       </form>
-      {juntaInvalida ? <p role="alert">Escriba una junta válida, por ejemplo H12.</p>
+      {juntaInvalida ? <p role="alert">Escriba una junta válida, por ejemplo M12 o F12.</p>
         : fichas.length ? (
           <>
             {permitidas.length > fichas.length && <p className="hint">Se muestran las primeras {MAX_RECIBOS_LOTE} fichas. Use los filtros para ver otras.</p>}

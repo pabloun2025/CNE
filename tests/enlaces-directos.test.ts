@@ -75,7 +75,7 @@ describe("enlaces directos de estación", () => {
     const r = await bandeja(solicitud());
     expect(r.headers.get("cache-control")).toBe("no-store");
     expect(await r.json()).toMatchObject({ modo: "prueba", escaneados: [{
-      cedula: CEDULA, nombre: "APELLIDO PRUEBA, NOMBRE PRUEBA", junta: "H12", escaneadoEn: expect.any(String),
+      cedula: CEDULA, nombre: "APELLIDO PRUEBA, NOMBRE PRUEBA", junta: "M12", escaneadoEn: expect.any(String),
       emitido: false, pagado: false, documentado: false, actaId: null,
     }] });
     expect(await (await consultarCaja()).json()).toEqual({ modo: "prueba", escaneados: [] });

@@ -1,5 +1,6 @@
 import type { Modo } from "./config";
 import { withTx } from "./db";
+import { juntaPublicaSql } from "./junta-sql";
 import { normalizarCedula } from "./revocar-credencial";
 
 // Se acepta una sola cédula activa y se conserva la hora del primer escaneo de ese modo.
@@ -37,7 +38,7 @@ export async function listarEscaneadosFinanzas(caja: boolean) {
     const { rows } = await client.query<EscaneadoFinanzas>(
       `WITH candidatas AS (
         SELECT m.id AS "mjrvId", m.cedula, m.apellidos || ', ' || m.nombres AS nombre,
-               j.serie || j.numero AS junta,
+               ${juntaPublicaSql("j")} AS junta,
                coalesce(e.creado_en, a.creado_en) AS "escaneadoEn", a.id AS "actaId",
                a.id IS NOT NULL AS emitido, false AS pagado,
                EXISTS (SELECT 1 FROM v_cedulas_validadas v WHERE v.mjrv_id = m.id)

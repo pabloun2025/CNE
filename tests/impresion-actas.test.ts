@@ -30,21 +30,21 @@ describe("impresión de actas", () => {
 
   it("empieza en impresión y un escaneo deja un icono por persona, visible para otro financiero", async () => {
     expect(await leerModoRecibo()).toBe("impresion");
-    expect(await escanearParaRecibo(actor, "0000000031")).toMatchObject({ ok: true, modo: "impresion", junta: "H12" });
-    expect(await escanearParaRecibo(otro, "0000000031")).toMatchObject({ ok: true, modo: "impresion", junta: "H12" });
-    expect(await escanearParaRecibo(otro, "0000000032")).toMatchObject({ ok: true, modo: "impresion", junta: "H13" });
+    expect(await escanearParaRecibo(actor, "0000000031")).toMatchObject({ ok: true, modo: "impresion", junta: "M12" });
+    expect(await escanearParaRecibo(otro, "0000000031")).toMatchObject({ ok: true, modo: "impresion", junta: "M12" });
+    expect(await escanearParaRecibo(otro, "0000000032")).toMatchObject({ ok: true, modo: "impresion", junta: "M13" });
     const lista = await listarPendientes();
-    expect(lista.map((p) => p.junta).sort()).toEqual(["H12", "H13"]);
+    expect(lista.map((p) => p.junta).sort()).toEqual(["M12", "M13"]);
     expect(await consultarDueno("SELECT 1 FROM cne.pagos_confirmados")).toHaveLength(0);
   });
 
   it("al pulsar el icono sale el acta y deja de estar pendiente, sin confirmar el pago", async () => {
-    const [h12] = (await listarPendientes()).filter((p) => p.junta === "H12");
+    const [h12] = (await listarPendientes()).filter((p) => p.junta === "M12");
     const r = await imprimirPendiente(actor, h12.id);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(Buffer.from(r.pdf).subarray(0, 4).toString()).toBe("%PDF");
-    expect((await listarPendientes()).some((p) => p.junta === "H12")).toBe(false);
+    expect((await listarPendientes()).some((p) => p.junta === "M12")).toBe(false);
     expect(await consultarDueno("SELECT 1 FROM cne.pagos_confirmados")).toHaveLength(0);
   });
 
@@ -52,7 +52,7 @@ describe("impresión de actas", () => {
     await fijarModoRecibo("digital");
     const antes = (await listarPendientes()).length;
     const e = await escanearParaRecibo(actor, "0000000032");
-    expect(e).toMatchObject({ ok: true, modo: "digital", junta: "H13" });
+    expect(e).toMatchObject({ ok: true, modo: "digital", junta: "M13" });
     expect(await listarPendientes()).toHaveLength(antes);
     if (!e.ok || e.modo !== "digital") return;
     expect(await guardarFirma(actor, e.mjrvId, await firma())).toEqual({ ok: true });

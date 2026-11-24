@@ -68,7 +68,7 @@ describe("envío simulado de credenciales", () => {
     await enviarCredencial(admin, ids["0000000005"], "whatsapp", espia);
     const m = recibido as MensajeCredencial | null;
     expect(m?.pdf.length).toBeGreaterThan(1000);
-    expect(m?.rotulo).toBe("H1");
+    expect(m?.rotulo).toBe("M1");
     expect(Buffer.from(m!.pdf.subarray(0, 5)).toString()).toBe("%PDF-");
   });
 
@@ -177,7 +177,7 @@ describe("D08 · texto del mensaje de la credencial", () => {
       await enviarCredencial(admin, ids["0000000006"], "correo", espia);
       expect(texto).toContain("https://madrid.ejemplo.invalid/d");
       expect(html).toContain('href="https://madrid.ejemplo.invalid/d"');
-      expect(texto).toContain("H1");
+      expect(texto).toContain("M1");
       expect(texto).toContain("Amarillo");
       expect(texto).toContain("página donde sale su foto");
       expect(html).toContain("página donde sale su foto");

@@ -8,6 +8,7 @@ import type { Sesion } from "./auth";
 import type { Modo } from "./config";
 import { registrarAuditoria } from "./auditoria";
 import { query, withOwnerTx, withTx } from "./db";
+import { juntaPublicaSql } from "./junta-sql";
 
 export type Lado = LadoDocumento;
 export type { EstadoDocs } from "../domain/documentos";
@@ -41,7 +42,7 @@ export async function listarDocumentosFinanzas(): Promise<{ modo: Modo; fichas: 
   return withTx(async (client) => {
     const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
     const { rows } = await client.query<Omit<FichaDocumentosFinanzas, keyof EstadoDocs> & { lados: Lado[] }>(
-      `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, j.serie || j.numero AS junta,
+      `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, ${juntaPublicaSql("j")} AS junta,
               coalesce(d.lados, ARRAY[]::text[]) AS lados
          FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
          LEFT JOIN LATERAL (

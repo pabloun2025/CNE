@@ -58,7 +58,7 @@ describe("panel financiero", () => {
     r = await resumenFinanzas();
     expect(r).toMatchObject({ pagados: 1, pendientes: 2, totalEur: "58.82", documentacionIncompleta: 1 });
     const pagada = r.filas.find((f) => f.estado === "pagada")!;
-    expect(pagada).toMatchObject({ eur: "58.82", operador: "Fin Prueba", simulado: true, junta: "H1" });
+    expect(pagada).toMatchObject({ eur: "58.82", operador: "Fin Prueba", simulado: true, junta: "M1" });
   });
 
   it("el total suma solo confirmaciones", async () => {
@@ -101,7 +101,7 @@ describe("panel financiero", () => {
       const hoja = XLSX.read(new Uint8Array(await excel.arrayBuffer())).Sheets.Informe;
       const filas = XLSX.utils.sheet_to_json<(string | number)[]>(hoja, { header: 1, blankrows: false });
       expect(filas).toContainEqual(["Junta", "EUR"]);
-      expect(filas).toContainEqual(["H1", 58.82]);
+      expect(filas).toContainEqual(["M1", 58.82]);
       expect(filas).toContainEqual(["TOTAL ENTREGADO EUR (solo pagos confirmados)", 117.64]);
       expect(filas.flat()).not.toContain("Cédula");
 
@@ -183,14 +183,14 @@ describe("panel financiero", () => {
     const prueba = await resumenFinanzas();
     expect(prueba.modoPrueba).toBe(true);
     const fichaPrueba = prueba.filas.find((f) => f.id === fichaId);
-    expect(fichaPrueba).toMatchObject({ junta: "H25", zona: "azul", cargo: "VOCAL", operadorIngreso: "Puerta Prueba", operador: "Fin Prueba", eur: "58.82" });
+    expect(fichaPrueba).toMatchObject({ junta: "M25", zona: "azul", cargo: "VOCAL", operadorIngreso: "Puerta Prueba", operador: "Fin Prueba", eur: "58.82" });
     expect(new Date(fichaPrueba?.ingresoEn ?? "").toISOString()).toBe("2026-11-29T07:05:00.000Z");
     expect(fichaPrueba?.validacionEn).toBeTruthy();
     await consultarDueno("UPDATE cne.configuracion SET modo = 'eleccion'");
     try {
       const eleccion = await resumenFinanzas();
       expect(eleccion).toMatchObject({ modoPrueba: false, totalEur: "0", pagados: 0 });
-      expect(eleccion.filas.find((f) => f.id === fichaId)).toMatchObject({ junta: "H1", zona: "amarillo", ingresoEn: null, operadorIngreso: null, eur: null });
+      expect(eleccion.filas.find((f) => f.id === fichaId)).toMatchObject({ junta: "M1", zona: "amarillo", ingresoEn: null, operadorIngreso: null, eur: null });
     } finally {
       await consultarDueno("UPDATE cne.configuracion SET modo = 'prueba'");
     }

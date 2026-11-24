@@ -1,5 +1,6 @@
 import type { LineaEnvioWhatsApp } from "../domain/envios-ritmo";
 import { query } from "./db";
+import { juntaPublicaSql } from "./junta-sql";
 import type { EstadoEnvio } from "./envios";
 import type { EstadoBrevo } from "./envios/brevo-webhook";
 
@@ -18,7 +19,7 @@ type SeguimientoCanal = { estado: EstadoEntrega; fecha: string | null; destino: 
 type SeguimientoFicha = { id: number; nombre: string; cedula: string; junta: string; whatsapp: SeguimientoCanal & { linea: LineaEnvioWhatsApp | null; rectificacion: boolean }; correo: SeguimientoCanal };
 
 export const estadoEntregasCredenciales = () => query<SeguimientoFicha>(
-  `SELECT m.id, concat(m.apellidos, ', ', m.nombres) AS nombre, m.cedula, concat(j.serie, j.numero) AS junta,
+  `SELECT m.id, concat(m.apellidos, ', ', m.nombres) AS nombre, m.cedula, ${juntaPublicaSql("j")} AS junta,
           jsonb_build_object('estado', coalesce(w.estado_entrega, w.estado, CASE WHEN nullif(btrim(m.telefono_e164), '') IS NULL THEN 'sin_contacto' ELSE 'sin_envio' END),
                              'fecha', coalesce(w.evento_entrega_en, w.enviado_en, w.creado_en), 'linea', w.linea_whatsapp, 'rectificacion', coalesce(w.whatsapp_rectificacion, false),
                              'destino', coalesce(w.destino, m.telefono_e164), 'error', CASE WHEN w.estado_entrega = 'error' THEN 'WhatsApp informó un error de entrega.' ELSE w.error END) AS whatsapp,

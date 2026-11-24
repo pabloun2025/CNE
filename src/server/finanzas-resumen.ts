@@ -1,4 +1,5 @@
 import { query } from "./db";
+import { juntaPublicaSql } from "./junta-sql";
 import type { FilaInforme } from "../domain/informe";
 import type { EstadoPago } from "./finanzas";
 
@@ -19,7 +20,7 @@ export async function resumenFinanzas(): Promise<ResumenFinanzas> {
             (SELECT coalesce(sum(importe_eur), 0)::text FROM pagos_confirmados) AS "totalEur",
             ARRAY(SELECT row_to_json(f) FROM (
      SELECT m.id, m.cedula, m.apellidos, m.nombres, m.apellidos || ', ' || m.nombres AS nombre,
-            jv.serie || jv.numero AS junta, jv.zona_color AS zona, m.cargo_original AS cargo,
+            ${juntaPublicaSql("jv")} AS junta, jv.zona_color AS zona, m.cargo_original AS cargo,
             CASE WHEN m.incorporado_en IS NOT NULL AND m.es_prueba = en_prueba() THEN m.incorporado_en::text ELSE l.creado_en::text END AS "ingresoEn",
             CASE WHEN m.incorporado_en IS NOT NULL AND m.es_prueba = en_prueba() THEN m.incorporado_por ELSE nullif(btrim(i.nombre || ' ' || i.apellido), '') END AS "operadorIngreso",
             v.validada_en::text AS "validacionEn",

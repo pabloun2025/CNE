@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import { query, withTx } from "./db";
+import { juntaPublicaSql } from "./junta-sql";
 
 // La puerta puede leer la cédula o el nombre impreso. Esta clave junta las dos lecturas.
 export function claveAcceso(t: string): string {
@@ -28,7 +29,7 @@ export async function listarActivos(q?: string): Promise<FilaRevocable[]> {
     filtro = "AND (m.apellidos ILIKE $1 OR m.nombres ILIKE $1 OR m.cedula ILIKE $1)";
   }
   return query<FilaRevocable>(
-    `SELECT m.id, m.cedula, m.apellidos, m.nombres, jo.serie || jo.numero AS junta,
+    `SELECT m.id, m.cedula, m.apellidos, m.nombres, ${juntaPublicaSql("jo")} AS junta,
             EXISTS (SELECT 1 FROM credenciales_revocadas r WHERE r.mjrv_id = m.id OR r.cedula = m.cedula) AS revocada
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
       WHERE m.activo ${filtro}

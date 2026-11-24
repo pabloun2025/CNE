@@ -1,3 +1,4 @@
+import { formatoPublicoJunta } from "@/domain/juntas";
 import { buscarPorCedula } from "@/server/documentos";
 import { accesoDirectoEstacion } from "@/server/estaciones";
 
@@ -10,5 +11,5 @@ export async function POST(request: Request) {
   const c = (await request.json().catch(() => null)) as { cedula?: unknown } | null;
   if (!c || typeof c.cedula !== "string") return Response.json({ error: "Falta el número de cédula." }, { status: 400 });
   const m = await buscarPorCedula(c.cedula);
-  return Response.json(m ? { encontrada: true, ...m } : { encontrada: false });
+  return Response.json(m ? { encontrada: true, ...m, junta: formatoPublicoJunta(m.junta) } : { encontrada: false });
 }

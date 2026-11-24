@@ -90,7 +90,7 @@ describe("descarga del padrón de actas de contingencia", () => {
     expect(paginas[0]).toContain("0000000002");
     expect(paginas[1]).toContain("0000000010");
     expect(paginas[2]).toContain("0000000003");
-    expect(paginas[2]).toContain("Voto Nro. H12");
+    expect(paginas[2]).toContain("Voto Nro. M12");
     expect(paginas.every((p) => p.includes("29 de noviembre de 2026") && p.includes("NRO. ____________"))).toBe(true);
     expect(paginas.join("\n")).not.toMatch(/000000000[14]|SIN VALIDEZ|ANVERSO|REVERSO/);
     const [{ id: uno }, { id: dos }] = await consultarDueno<{ id: number }>(

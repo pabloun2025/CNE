@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { CapturaDocumentosPuesto } from "@/components/captura-cedula";
 import { leerPdfRecibo, VisorRecibo, type PdfRecibo } from "@/components/visor-recibo";
+import { formatoPublicoJunta } from "@/domain/juntas";
 import type { LadoDocumento } from "@/domain/documentos";
 import type { FichaPago } from "@/server/finanzas";
 
@@ -111,7 +112,7 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
       {mensaje && <p role="status" className="font-semibold">{mensaje}</p>}
       {ficha && (
         <div className="stack">
-          <div><h3>{ficha.nombre}</h3><p>{ficha.cedula} · Junta {ficha.juntaVigente} · {ficha.cargo}</p></div>
+          <div><h3>{ficha.nombre}</h3><p>{ficha.cedula} · Junta {formatoPublicoJunta(ficha.juntaVigente)} · {ficha.cargo}</p></div>
           {ficha.modoPrueba && <p role="status">Modo prueba</p>}
           {ficha.acta && <p>Recibo <strong>{ficha.acta.numero}</strong>{ficha.importeEur ? ` · ${moneda.format(Number(ficha.importeEur))}` : ""}</p>}
           {!ficha.activo && <p role="alert">Ficha de baja.</p>}
