@@ -1,6 +1,6 @@
 // Importador de MJRV (01 §8). El mapeo de columnas vive en un único objeto para adaptarlo al archivo real.
 import { parsePhoneNumberFromString } from "libphonenumber-js";
-import { leerJunta, type Serie } from "../juntas";
+import { juntaEnCredencial, leerJunta, leerJuntaPublica, type Serie } from "../juntas";
 
 // Campo interno → posibles encabezados (ya sin tildes ni mayúsculas).
 export const MAPEO_COLUMNAS = {
@@ -28,7 +28,7 @@ export type Vista = {
   // D02: el archivo no trae columna de rótulo (se imprime el texto de la junta tal cual).
   sinColumnaRotulo: boolean;
   // D02: el archivo usa M = masculino / F = femenino. Recuento de filas por serie ya interpretada.
-  nomenclaturaMF: boolean; porSerie: { H: number; M: number };
+  porSerie: { H: number; M: number };
 };
 
 export const sinTildes = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim();
@@ -74,12 +74,10 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
   const columnas = columnasDe(Object.keys(filas[0] ?? {}));
   const faltan = (["cedula", "apellidos", "nombres", "cargo", "junta"] as Campo[]).filter((c) => !columnas[c]);
   if (filas.length === 0) {
-    return { filas: [], avisosJunta: [], errores: 1, advertencias: 0, validas: 0, sinColumnaRotulo: false, nomenclaturaMF: false, porSerie: { H: 0, M: 0 } };
+    return { filas: [], avisosJunta: [], errores: 1, advertencias: 0, validas: 0, sinColumnaRotulo: false, porSerie: { H: 0, M: 0 } };
   }
-  // M/F del modelo de credencial: M = masculino (serie H) y F = femenino (serie M). Solo si alguna celda trae una F.
-  // Sin ninguna F se mantiene H/M como siempre; así M01 nunca se convierte en «mujeres» por suposición.
-  const celdaTexto = (f: Record<string, unknown>, c: Campo) => (columnas[c] ? textoCelda(f[columnas[c]!]) : "");
-  const nomenclaturaMF = filas.some((f) => /^[fF]\s*\d+$/.test(celdaTexto(f, "junta")) || /^(f|femenino)$/.test(sinTildes(celdaTexto(f, "serie"))));
+  // La letra del Excel es siempre pública: M = masculino (serie interna H) y F = femenino (serie interna M).
+  // «H» se acepta como masculino por compatibilidad. Nunca se interpreta «M» como mujeres.
   const celda = (f: Record<string, unknown>, c: Campo) => (columnas[c] ? textoCelda(f[columnas[c]!]) : "");
   const vistas: FilaVista[] = filas.map((f, i) => {
     const errores: string[] = [];
@@ -107,23 +105,20 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
     let numero: number | null = null;
     const juntaTexto = celda(f, "junta");
     const serieTexto = sinTildes(celda(f, "serie"));
-    const formaCombinada = nomenclaturaMF ? /^[fFmM]\s*\d+$/ : /^[hHmM]\s*\d+$/;
+    const formaCombinada = /^[fFmMhH]\s*\d+$/;
     let combinada: { serie: Serie; numero: number } | null = null;
     if (formaCombinada.test(juntaTexto)) {
-      const letra = juntaTexto.trim()[0].toUpperCase();
-      combinada = nomenclaturaMF ? leerJunta(`${letra === "M" ? "H" : "M"}${juntaTexto.trim().slice(1)}`) : leerJunta(juntaTexto);
+      combinada = leerJuntaPublica(juntaTexto);
     }
     if (combinada) ({ serie, numero } = combinada);
     else {
-      const s: Serie | null = nomenclaturaMF
-        ? (/^(m|hombre|hombres|masculino|varon)$/.test(serieTexto) ? "H" : /^(f|mujer|mujeres|femenino)$/.test(serieTexto) ? "M" : null)
-        : (/^(h|hombre|hombres|masculino|varon)$/.test(serieTexto) ? "H" : /^(m|mujer|mujeres|femenino)$/.test(serieTexto) ? "M" : null);
+      const s: Serie | null = /^(m|h|hombre|hombres|masculino|varon)$/.test(serieTexto) ? "H" : /^(f|mujer|mujeres|femenino)$/.test(serieTexto) ? "M" : null;
       const n = /^\d{1,3}$/.test(juntaTexto) ? Number(juntaTexto) : null;
-      if (!s || n === null) errores.push("Junta no interpretable: indique serie (H/M) y número, o algo como H12.");
-      else if (!leerJunta(`${s}${n}`)) errores.push(`La junta ${s}${n} no existe (hay H1–H41 y M1–M54).`);
+      if (!s || n === null) errores.push("Junta no interpretable: indique serie (M masculino o F femenino) y número, o algo como M12 o F12.");
+      else if (!leerJunta(`${s}${n}`)) errores.push(`La junta ${juntaEnCredencial(s, n)} no existe (hay M1–M41 y F1–F54).`);
       else { serie = s; numero = n; }
     }
-    if (combinada === null && /^[hHmMfF]\s*\d+$/.test(juntaTexto)) errores.push(`La junta ${juntaTexto.toUpperCase()} no existe (hay H1–H41 y M1–M54).`);
+    if (combinada === null && /^[hHmMfF]\s*\d+$/.test(juntaTexto)) errores.push(`La junta ${juntaTexto.toUpperCase()} no existe (hay M1–M41 y F1–F54).`);
 
     let correo: string | null = celda(f, "correo").toLowerCase() || null;
     if (correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) {
@@ -160,7 +155,7 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
   const porSerie = { H: 0, M: 0 };
   for (const v of vistas) if (v.datos.serie) porSerie[v.datos.serie]++;
   return {
-    filas: vistas, avisosJunta, errores, sinColumnaRotulo: !columnas.rotulo, nomenclaturaMF, porSerie,
+    filas: vistas, avisosJunta, errores, sinColumnaRotulo: !columnas.rotulo, porSerie,
     advertencias: vistas.filter((v) => v.advertencias.length).length,
     validas: vistas.length - errores,
   };

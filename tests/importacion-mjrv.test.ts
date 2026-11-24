@@ -109,19 +109,24 @@ describe("D02 · rótulo del Excel y nomenclatura M/F", () => {
     // Serie y número en columnas separadas: no hay texto de junta que imprimir.
     expect(normalizarFilas([fila()]).filas[0].datos.rotulo).toBeNull();
   });
-  it("M01 y F01: M = masculino (H1) y F = femenino (M1), con aviso y recuento", () => {
+  it("M01 y F01: M = masculino (serie H) y F = femenino (serie M), con recuento", () => {
     const v = normalizarFilas([fila({ serie: "", junta: "M01" }), fila({ cedula: "0000000002", serie: "", junta: "F01" })]);
-    expect(v.nomenclaturaMF).toBe(true);
-    expect(v.filas.map((f) => [f.datos.serie, f.datos.numero, f.datos.rotulo])).toEqual([["H", 1, "M01"], ["M", 1, "F01"]]);
+    expect(v.filas.map((f) => [f.datos.serie, f.datos.numero])).toEqual([["H", 1], ["M", 1]]);
     expect(v.porSerie).toEqual({ H: 1, M: 1 });
     expect(v.errores).toBe(0);
   });
-  it("sin ninguna F se mantiene H/M como hoy", () => {
-    const v = normalizarFilas([fila({ serie: "", junta: "H12" }), fila({ cedula: "0000000002", serie: "", junta: "M3" })]);
-    expect(v.nomenclaturaMF).toBe(false);
-    expect(v.filas.map((f) => [f.datos.serie, f.datos.numero])).toEqual([["H", 12], ["M", 3]]);
+  it("un Excel con solo juntas «M1…» se lee como masculino, nunca como mujeres", () => {
+    const v = normalizarFilas([fila({ serie: "", junta: "M1" }), fila({ cedula: "0000000002", serie: "", junta: "M12" })]);
+    expect(v.filas.map((f) => [f.datos.serie, f.datos.numero])).toEqual([["H", 1], ["H", 12]]);
+    expect(v.porSerie).toEqual({ H: 2, M: 0 });
+    // M42 no existe como junta masculina (hay M1–M41).
+    expect(normalizarFilas([fila({ serie: "", junta: "M42" })]).filas[0].errores.join()).toMatch(/M1–M41 y F1–F54/);
   });
-  it("columna serie con F/M también activa la nomenclatura", () => {
+  it("«H12» sigue valiendo como masculino por compatibilidad", () => {
+    const v = normalizarFilas([fila({ serie: "", junta: "H12" })]);
+    expect(v.filas[0].datos).toMatchObject({ serie: "H", numero: 12 });
+  });
+  it("columna serie: M = masculino y F = femenino", () => {
     const v = normalizarFilas([fila({ serie: "M", junta: 2 }), fila({ cedula: "0000000002", serie: "F", junta: 2 })]);
     expect(v.filas.map((f) => f.datos.serie)).toEqual(["H", "M"]);
   });

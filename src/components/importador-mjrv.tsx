@@ -23,7 +23,7 @@ export function ImportadorMjrv() {
   const conProblemas = v?.filas.filter((f) => f.errores.length || f.advertencias.length) ?? [];
   return (
     <div className="space-y-4">
-      <p className="text-sm">Columnas: cédula, apellidos, nombres, cargo, serie, junta, correo, teléfono y rótulo (opcional). <a className="underline" href="/plantillas/mjrv.xlsx">Descargar plantilla</a>.</p>
+      <p className="text-sm">Columnas: cédula, apellidos, nombres, cargo, serie (M o F), junta, correo, teléfono y rótulo (opcional). <a className="underline" href="/plantillas/mjrv.xlsx">Descargar plantilla</a>.</p>
       <input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => { setArchivo(e.target.files?.[0] ?? null); setVista(null); setResultado(null); }} className="block w-full text-base" />
       <button onClick={revisar} disabled={!archivo || pendiente} className="rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60">Revisar archivo</button>
 
@@ -36,7 +36,7 @@ export function ImportadorMjrv() {
         <div className="space-y-3">
           <p>{v.filas.length} filas · <strong>{v.validas} válidas</strong> · {v.errores} con errores · {v.advertencias} con advertencias · {v.nuevas} nuevas · {v.actualizadas} se actualizarán.</p>
           {v.sinColumnaRotulo && <p role="note">La credencial mostrará el rótulo disponible en la ficha o su junta.</p>}
-          {v.nomenclaturaMF && <p role="note" className="rounded border-2 border-amber-600 bg-amber-50 p-3 text-base font-semibold text-amber-900">El archivo usa M = masculino y F = femenino: M se importa como serie H (hombres) y F como serie M (mujeres). Resultado: {v.porSerie.H} en serie H y {v.porSerie.M} en serie M. Compruebe que es correcto antes de aplicar.</p>}
+          <p role="note" className="rounded border-2 border-amber-600 bg-amber-50 p-3 text-base font-semibold text-amber-900">La letra de la junta es M para masculino y F para femenino. Resultado: {v.porSerie.H} fichas en juntas M y {v.porSerie.M} en juntas F. Compruebe que es correcto antes de aplicar.</p>
           {v.avisosJunta.length > 0 && <ul className="list-disc pl-5 text-sm text-amber-800">{v.avisosJunta.map((a) => <li key={a}>{a}</li>)}</ul>}
           {conProblemas.length > 0 && (
             <div className="overflow-x-auto">
