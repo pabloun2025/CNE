@@ -18,13 +18,13 @@ describe("fichas de MJRV", () => {
     const r = await crearMjrv(sesion, datos());
     expect(r.ok).toBe(true);
     const f = await obtenerFicha((r as { id: number }).id);
-    expect(f).toMatchObject({ rol: "presidente", cargo_original: "PRESIDENTE/A", origen: "H12", vigente: "H12", activo: true, es_prueba: false, rotulo_credencial: null });
+    expect(f).toMatchObject({ rol: "presidente", cargo_original: "PRESIDENTE/A", origen: "M12", vigente: "M12", activo: true, es_prueba: false, rotulo_credencial: null });
     expect(await crearMjrv(sesion, datos({ junta: "H13" }))).toEqual({ ok: false, mensaje: "Ya existe una ficha con esa cédula." });
   });
 
   it("rechaza junta inexistente, cédula inválida y datos vacíos", async () => {
     expect((await crearMjrv(sesion, datos({ cedula: "0000000002", junta: "H42" }))).ok).toBe(false);
-    expect((await crearMjrv(sesion, datos({ cedula: "0000000002", junta: "M55" }))).ok).toBe(false);
+    expect((await crearMjrv(sesion, datos({ cedula: "0000000002", junta: "F55" }))).ok).toBe(false);
     expect((await crearMjrv(sesion, datos({ cedula: "ab" }))).ok).toBe(false);
     expect((await crearMjrv(sesion, datos({ cedula: "0000000002", nombres: "" }))).ok).toBe(false);
     expect((await crearMjrv(sesion, datos({ cedula: "0000000002", telefono: "123" }))).ok).toBe(false);
@@ -38,17 +38,20 @@ describe("fichas de MJRV", () => {
   });
 
   it("editar mantiene la cédula única y conserva un rótulo importado", async () => {
-    const b = await crearMjrv(sesion, datos({ cedula: "0000000002", cargo: "Vocal", junta: "M5" }));
+    const b = await crearMjrv(sesion, datos({ cedula: "0000000002", cargo: "Vocal", junta: "F5" }));
     const id = (b as { id: number }).id;
     await consultarDueno("UPDATE cne.mjrv SET rotulo_credencial = 'F05' WHERE id = $1", [id]);
     expect(await editarMjrv(sesion, id, datos({ cedula: "0000000001" }))).toMatchObject({ ok: false });
-    expect((await editarMjrv(sesion, id, datos({ cedula: "0000000002", cargo: "Suplente", junta: "M54" }))).ok).toBe(true);
-    expect(await obtenerFicha(id)).toMatchObject({ rol: "suplente", cargo_original: "2do. VOCAL SUPLENTE", origen: "M54", rotulo_credencial: "F05" });
+    expect((await editarMjrv(sesion, id, datos({ cedula: "0000000002", cargo: "Suplente", junta: "F54" }))).ok).toBe(true);
+    expect(await obtenerFicha(id)).toMatchObject({ rol: "suplente", cargo_original: "2do. VOCAL SUPLENTE", origen: "F54", rotulo_credencial: "F05" });
   });
 
   it("filtros por junta, rol, estado y búsqueda", async () => {
+    // «M12» es la junta masculina 12 (serie interna H); «F12» la femenina, que no tiene fichas. «H12» se acepta como masculino.
+    expect((await listarMjrv({ junta: "M12" })).map((m) => m.cedula)).toEqual(["0000000001"]);
     expect((await listarMjrv({ junta: "H12" })).map((m) => m.cedula)).toEqual(["0000000001"]);
-    expect(await listarMjrv({ junta: "H99", estado: "todos" })).toEqual([]);
+    expect(await listarMjrv({ junta: "F12" })).toEqual([]);
+    expect(await listarMjrv({ junta: "M99", estado: "todos" })).toEqual([]);
     expect((await listarMjrv({ rol: "suplente" })).map((m) => m.cedula)).toEqual(["0000000002"]);
     expect((await listarMjrv({ q: "000000000" })).length).toBe(2);
     expect((await listarMjrv({ q: "%" })).length).toBe(0);
@@ -81,7 +84,7 @@ describe("fichas de MJRV", () => {
     await consultarDueno(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, rotulo_credencial, es_prueba)
       SELECT lpad((1000 + i)::text, 10, '0'), 'APELLIDO PRUEBA MASIVA ' || lpad(i::text, 3, '0'), 'NOMBRE PRUEBA', 'Vocal', 'vocal', j.id, 'H12', true
       FROM generate_series(1, 501) AS i CROSS JOIN cne.juntas_madrid j WHERE j.serie = 'H' AND j.numero = 12`);
-    const fichas = await listarMjrv({ q: "APELLIDO PRUEBA MASIVA", junta: "H12", rol: "vocal" });
+    const fichas = await listarMjrv({ q: "APELLIDO PRUEBA MASIVA", junta: "M12", rol: "vocal" });
     expect(fichas).toHaveLength(501);
     expect(fichas.at(-1)).toMatchObject({ cedula: "0000001501", rotulo_credencial: "H12" });
   });

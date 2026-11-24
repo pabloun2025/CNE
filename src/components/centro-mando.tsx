@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { filtrarJuntas, gruposMapaMadrid, type Filtro, type JuntaMando, type Indicadores } from "@/domain/mando";
-import { ZONA_HEX, ZONA_NOMBRE, ZONAS, type ZonaColor } from "@/domain/juntas";
+import { etiquetaFichaJunta, filtrarJuntas, gruposMapaMadrid, type Filtro, type JuntaMando, type Indicadores } from "@/domain/mando";
+import { juntaEnCredencial, ZONA_HEX, ZONA_NOMBRE, ZONAS, type ZonaColor } from "@/domain/juntas";
 import type { Modo } from "@/server/config";
 import { horaCorta, useSondeo } from "./sondeo";
 import { FichaJunta } from "./ficha-junta";
@@ -17,10 +17,6 @@ const FILTROS: { id: Filtro; texto: string }[] = [
   { id: "todas", texto: "Todos los estados" }, { id: "faltan", texto: "Faltan miembros" },
   { id: "completas", texto: "Completas" }, { id: "transferibles", texto: "Con suplentes transferibles" },
 ];
-
-function etiquetaFicha(j: JuntaMando) {
-  return `${j.serie}${j.numero}. ${j.presentes} hay, faltan ${j.faltan}${j.movimiento ? ". Hubo traslado" : ""}`;
-}
 
 function CifrasMando({ indicadores: i, className }: { indicadores: Indicadores; className: string }) {
   return (
@@ -37,10 +33,10 @@ function TarjetaJunta({ junta: j, abrir, resumida = false }: {
 }) {
   const estado = j.estado === "completa" ? "Completa" : j.estado === "nadie" ? "Sin nadie" : "Incompleta";
   return (
-    <button type="button" className={estilos.tarjeta} aria-label={etiquetaFicha(j)}
+    <button type="button" className={estilos.tarjeta} aria-label={etiquetaFichaJunta(j)}
       onClick={(e) => { e.currentTarget.focus(); abrir(j.id); }}>
       <span className={estilos.cabeceraJunta}>
-        <strong>{j.serie}{j.numero}</strong>
+        <strong>{juntaEnCredencial(j.serie, j.numero)}</strong>
         <span aria-hidden="true" className={estilos.estadoJunta} style={{ background: ARO[j.estado] }} title={estado} />
         {j.movimiento && <span aria-hidden="true" className={estilos.marca} title="Hubo traslado">⇄</span>}
       </span>

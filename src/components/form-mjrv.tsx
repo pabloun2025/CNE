@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { CARGOS_FICHA, etiquetaCargoCredencial } from "@/domain/cargos-credencial";
 import { CEDULA_MAX, CEDULA_MIN, opcionesJuntas, PREFIJO_MOVIL } from "@/domain/ingreso";
-import { leerJunta, zonaDe, ZONA_NOMBRE, type Serie } from "@/domain/juntas";
+import { juntaEnCredencial, leerJuntaPublica, zonaDe, ZONA_NOMBRE, type Serie } from "@/domain/juntas";
 import { crearMjrvAccion, editarMjrvAccion, type EstadoMjrv } from "@/server/mjrv-actions";
 import type { DatosMjrv } from "@/server/mjrv";
 
@@ -12,8 +12,10 @@ const campo = "mt-1 w-full rounded border border-slate-400 px-3 py-3 text-base";
 export function FormMjrv({ id, inicial }: { id?: number; inicial?: DatosMjrv }) {
   const [estado, enviar, pendiente] = useActionState<EstadoMjrv, FormData>(id ? editarMjrvAccion : crearMjrvAccion, null);
   const v = inicial;
-  const junta = leerJunta(v?.junta ?? "");
-  const [serie, fijarSerie] = useState<Serie | "">(junta?.serie ?? "");
+  const junta = leerJuntaPublica(v?.junta ?? "");
+  // La letra pública M (masculino) / F (femenino) se guarda como serie interna H / M.
+  const [letra, fijarLetra] = useState<"M" | "F" | "">(junta ? (juntaEnCredencial(junta.serie, 1)[0] as "M" | "F") : "");
+  const serie: Serie | "" = letra === "F" ? "M" : letra === "M" ? "H" : "";
   const [numero, fijarNumero] = useState(junta ? String(junta.numero) : "");
   const zona = serie ? zonaDe(serie, Number(numero)) : null;
   const cargoActual = v ? etiquetaCargoCredencial(v.cargo) : undefined;
@@ -34,10 +36,10 @@ export function FormMjrv({ id, inicial }: { id?: number; inicial?: DatosMjrv }) 
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-sm font-medium">Serie de la junta
-          <select name="serie" value={serie} onChange={(e) => { fijarSerie(e.target.value as Serie | ""); fijarNumero(""); }} required className={campo}>
-            <option value="">Elija H o M</option>
-            <option value="H">H</option>
-            <option value="M">M</option>
+          <select name="serie" value={letra} onChange={(e) => { fijarLetra(e.target.value as "M" | "F" | ""); fijarNumero(""); }} required className={campo}>
+            <option value="">Elija M o F</option>
+            <option value="M">M · Masculino</option>
+            <option value="F">F · Femenino</option>
           </select>
         </label>
         <label className="text-sm font-medium">Número de la junta

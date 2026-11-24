@@ -29,7 +29,7 @@ export default async function ListaMjrv({ searchParams }: { searchParams: Promis
       </header>
       <form className="mb-4 flex flex-wrap gap-2">
         <input name="q" type="search" aria-label="Apellidos o cédula" defaultValue={f.q} placeholder="Apellidos o cédula" className={`${campo} min-w-0 max-w-full`} />
-        <input name="junta" aria-label="Junta" defaultValue={f.junta} placeholder="Junta (H12)" className={`${campo} w-28`} />
+        <input name="junta" aria-label="Junta" defaultValue={f.junta} placeholder="Junta (M12 o F12)" className={`${campo} w-28`} />
         <select name="rol" aria-label="Cargo" defaultValue={f.rol ?? ""} className={`${campo} max-w-full`}>
           <option value="">Todos los cargos</option>
           {CARGOS_FICHA.map((cargo) => <option key={cargo.valor} value={cargo.valor}>{cargo.etiqueta}</option>)}

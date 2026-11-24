@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularMando, filtrarJuntas, gruposMapaMadrid, type JuntaEntrada, type PersonaEntrada } from "@/domain/mando";
+import { calcularMando, etiquetaFichaJunta, filtrarJuntas, gruposMapaMadrid, type JuntaEntrada, type PersonaEntrada } from "@/domain/mando";
 import { TRAMOS } from "@/domain/juntas";
 
 const juntas: JuntaEntrada[] = [
@@ -83,6 +83,19 @@ describe("mapa de Madrid", () => {
     const grupos = gruposMapaMadrid(juntas);
     expect(grupos.map((g) => g.zona)).toEqual(["amarillo", "rojo"]);
     expect(grupos[0].filas.flat().map((f) => f.numero)).toEqual([12, 13]);
+  });
+
+  it("muestra M para las juntas de hombres y F para las de mujeres, nunca la serie interna", () => {
+    const r = calcularMando(juntas, [], []);
+    const hombres = r.juntas.find((j) => j.serie === "H" && j.numero === 12)!;
+    const mujeres = r.juntas.find((j) => j.serie === "M" && j.numero === 1)!;
+    expect(etiquetaFichaJunta(hombres)).toMatch(/^M12\. /);
+    expect(etiquetaFichaJunta(mujeres)).toMatch(/^F1\. /);
+    const entradas = TRAMOS.flatMap(({ serie, desde, hasta, zona }) =>
+      Array.from({ length: hasta - desde + 1 }, (_, i) => ({ id: (serie === "H" ? 0 : 41) + desde + i, serie, numero: desde + i, zona })));
+    const titulos = gruposMapaMadrid(calcularMando(entradas, [], []).juntas).map((g) => g.titulo);
+    expect(titulos).toEqual(["Amarillo · Masculino", "Azul · Masculino", "Rojo · Femenino", "Celeste · Femenino", "Verde · Femenino", "Rosado · Femenino"]);
+    expect(titulos.join(" ")).not.toMatch(/Hombres|Mujeres/);
   });
 
   it("ubica las 95 juntas por zona y fila numérica", () => {

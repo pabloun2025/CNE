@@ -3,7 +3,8 @@ import { armarPropuesta, efectoNoViable, juntasConVacantes, opcionesPropuesta, p
 import { pedirPropuestaIa } from "./propuesta-ia";
 import { leerAsignaciones } from "./mando";
 import { CARGOS, cubrirCargos, type AsignacionCargo, type Cargo, type CoberturaJunta, type PersonaCargo } from "../domain/cargos";
-import { leerJunta } from "../domain/juntas";
+import { leerJuntaPublica } from "../domain/juntas";
+import { juntaPublicaSql } from "./junta-sql";
 import { registrarAuditoria } from "./auditoria";
 import { query, withTx } from "./db";
 
@@ -92,8 +93,8 @@ export async function descartarPropuesta(a: Actor, p: { mjrvId: number; origenId
 // Movimiento manual desde la ficha de junta, con cargo opcional (una vacante del destino o «sin cargo»).
 // Si la persona cubre un cargo en el origen y la junta quedaría con menos cargos cubiertos, exige confirmación explícita.
 export async function moverManual(a: Actor, d: { mjrvId: number; destino: string; confirmar: boolean; cargo?: string }): Promise<Resultado> {
-  const j = leerJunta(d.destino);
-  if (!j) return { ok: false, mensaje: "La junta de destino no existe (H1–H41, M1–M54)." };
+  const j = leerJuntaPublica(d.destino);
+  if (!j) return { ok: false, mensaje: "La junta de destino no existe (M1–M41 masculino, F1–F54 femenino)." };
   const destinoId = (await query<{ id: number }>("SELECT id FROM juntas_madrid WHERE serie = $1 AND numero = $2", [j.serie, j.numero]))[0].id;
   const origenId = (await query<{ junta_actual_id: number }>("SELECT junta_actual_id FROM v_mjrv_asignacion WHERE mjrv_id = $1", [d.mjrvId]))[0]?.junta_actual_id;
   if (!origenId) return { ok: false, mensaje: "La persona no existe o está de baja." };
@@ -110,7 +111,7 @@ export async function moverManual(a: Actor, d: { mjrvId: number; destino: string
         const nuevas = await vacantesSinPersona(client, origenId, d.mjrvId);
         const abiertas = nuevas.filter((c) => !antes.vacantes.includes(c));
         if (abiertas.length > 0 && !d.confirmar) {
-          const etiquetaOrigen = (await client.query<{ e: string }>("SELECT serie || numero AS e FROM juntas_madrid WHERE id = $1", [origenId])).rows[0].e;
+          const etiquetaOrigen = (await client.query<{ e: string }>(`SELECT ${juntaPublicaSql("juntas_madrid")} AS e FROM juntas_madrid WHERE id = $1`, [origenId])).rows[0].e;
           return { ok: false as const, confirmar: true, mensaje: `${etiquetaOrigen} quedará sin ${abiertas.join(" ni ")}. ¿Continuar?` };
         }
       }

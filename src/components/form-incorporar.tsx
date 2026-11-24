@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { JuntaMando } from "@/domain/mando";
+import { juntaEnCredencial } from "@/domain/juntas";
 import { incorporarVotanteAccion } from "@/server/movimiento-actions";
 
 const campo = "mt-1 block w-full";
@@ -37,7 +38,7 @@ export function FormIncorporar({ juntas, onCerrar, onCambio }: { juntas: JuntaMa
         <form onSubmit={enviar} className="mt-3 grid max-w-md gap-3">
           <label className="text-sm font-medium">Junta
             <select value={juntaId ?? ""} onChange={(e) => setJuntaId(Number(e.target.value))} className={campo}>
-              {conVacantes.map((j) => <option key={j.id} value={j.id}>{j.serie}{j.numero} · {j.texto}</option>)}
+              {conVacantes.map((j) => <option key={j.id} value={j.id}>{juntaEnCredencial(j.serie, j.numero)} · {j.texto}</option>)}
             </select>
           </label>
           <label className="text-sm font-medium">Cargo que cubrirá

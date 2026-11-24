@@ -2,6 +2,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { CARGOS, type Cargo } from "../domain/cargos";
 import { registrarAuditoria } from "./auditoria";
 import { withTx } from "./db";
+import { juntaPublicaSql } from "./junta-sql";
 import { coberturaEnTx, insertarAsignacion, type Actor, type Resultado } from "./movimientos";
 
 export type DatosIncorporar = { nombres: string; apellidos: string; cedula: string; juntaId: number; cargo: string; telefono?: string; correo?: string };
@@ -31,11 +32,11 @@ export async function incorporarVotante(a: Actor, d: DatosIncorporar): Promise<R
 
   return withTx(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock(7001, $1)", [d.juntaId]);
-    const junta = (await client.query<{ e: string }>("SELECT serie || numero AS e FROM juntas_madrid WHERE id = $1", [d.juntaId])).rows[0];
+    const junta = (await client.query<{ e: string }>(`SELECT ${juntaPublicaSql("juntas_madrid")} AS e FROM juntas_madrid WHERE id = $1`, [d.juntaId])).rows[0];
     if (!junta) return { ok: false as const, mensaje: "La junta no existe." };
     // La cédula es única (también entre fichas de baja): nunca se crea una segunda ficha.
     const previa = (await client.query<{ activo: boolean; junta: string }>(
-      "SELECT m.activo, jo.serie || jo.numero AS junta FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id WHERE m.cedula = $1", [cedula])).rows[0];
+      `SELECT m.activo, ${juntaPublicaSql("jo")} AS junta FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id WHERE m.cedula = $1`, [cedula])).rows[0];
     if (previa) return { ok: false as const, mensaje: `Ya existe una ficha con esa cédula (junta ${previa.junta}, estado ${previa.activo ? "activa" : "de baja"}). No se creó otra.` };
     if (!(await coberturaEnTx(client, d.juntaId)).vacantes.includes(cargo)) return { ok: false as const, cambio: true, mensaje: `La situación cambió: el cargo de ${cargo} de ${junta.e} ya no está vacante. No se creó la ficha.` };
     const m = (await client.query<{ id: number }>(

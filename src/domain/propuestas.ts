@@ -2,7 +2,7 @@
 // Orden para cubrir una vacante: 1.º suplente de la propia junta (automático, ver cargos.ts), 2.º suplente transferible de la misma zona,
 // 3.º el de la zona más cercana, 4.º votante incorporado (a mano). Aquí se resuelven el 2.º y el 3.º.
 import { cubrirCargos, ETIQUETA_CARGO, type AsignacionCargo, type Cargo, type PersonaCargo } from "./cargos";
-import type { Serie, ZonaColor } from "./juntas";
+import { juntaEnCredencial, type Serie, type ZonaColor } from "./juntas";
 
 export type JuntaProp = { id: number; serie: Serie; numero: number; zona: ZonaColor; orden_cercania: number };
 export type PersonaProp = PersonaCargo & { apellidos: string; nombres: string; cedula: string };
@@ -26,7 +26,8 @@ export type Propuesta = {
   mismaZona: boolean; motivo: string;
 };
 
-const etiqueta = (j: JuntaProp) => `${j.serie}${j.numero}`;
+// Letra pública: M = masculino (serie interna H), F = femenino (serie interna M).
+const etiqueta = (j: JuntaProp) => juntaEnCredencial(j.serie, j.numero);
 const claveJunta = (j: JuntaProp) => `${j.serie === "H" ? 0 : 1}${String(j.numero).padStart(3, "0")}`;
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 

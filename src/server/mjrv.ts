@@ -1,12 +1,13 @@
 import type { PoolClient } from "pg";
 import { cubrirCargos, type AsignacionCargo, type PersonaCargo } from "../domain/cargos";
 import { resolverCargo, validarCedula as validarCedulaTexto, validarCorreo, validarMovil } from "../domain/ingreso";
-import { leerJunta } from "../domain/juntas";
+import { leerJuntaPublica } from "../domain/juntas";
 import type { Rol } from "../domain/importacion/mjrv";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
 import type { Modo } from "./config";
 import { query, withTx } from "./db";
+import { juntaPublicaSql } from "./junta-sql";
 import { estadoDocumentos, type EstadoDocs } from "./documentos";
 import { PERSONAS_CARGO } from "./mando";
 
@@ -22,7 +23,7 @@ const SQL_VIGENTE = `coalesce((SELECT d.junta_destino_id FROM decisiones_movimie
 export async function listarMjrv(f: FiltrosMjrv): Promise<FilaLista[]> {
   const where: string[] = [];
   const p: unknown[] = [];
-  const j = leerJunta(f.junta ?? "");
+  const j = leerJuntaPublica(f.junta ?? "");
   if (f.junta?.trim() && !j) return [];
   if (j) { p.push(j.serie, j.numero); where.push(`jo.serie = $${p.length - 1} AND jo.numero = $${p.length}`); }
   if (f.rol && ROLES.includes(f.rol)) { p.push(f.rol); where.push(`m.rol = $${p.length}`); }
@@ -37,7 +38,7 @@ export async function listarMjrv(f: FiltrosMjrv): Promise<FilaLista[]> {
   }
   return query<FilaLista>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.rol, m.cargo_original, m.activo, m.es_prueba, m.rotulo_credencial,
-            jo.serie || jo.numero AS origen, jv.serie || jv.numero AS vigente, m.incorporado_en IS NOT NULL AS incorporada,
+            ${juntaPublicaSql("jo")} AS origen, ${juntaPublicaSql("jv")} AS vigente, m.incorporado_en IS NOT NULL AS incorporada,
             EXISTS (SELECT 1 FROM lecturas_puerta l WHERE l.mjrv_id = m.id AND l.resultado = 'valido') AS ingresado
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id JOIN juntas_madrid jv ON jv.id = ${SQL_VIGENTE}
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
@@ -57,7 +58,7 @@ export type Ficha = EstadoDocs & {
 export async function obtenerFicha(id: number): Promise<Ficha | null> {
   const f = await query<Omit<Ficha, keyof EstadoDocs | "movimientos" | "pago" | "actas">>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.rol, m.rotulo_credencial, m.correo, m.telefono_e164, m.activo, m.baja_motivo, m.es_prueba,
-            m.credencial_generada_en::text, m.fuente_archivo, jo.serie || jo.numero AS origen, jv.serie || jv.numero AS vigente,
+            m.credencial_generada_en::text, m.fuente_archivo, ${juntaPublicaSql("jo")} AS origen, ${juntaPublicaSql("jv")} AS vigente,
             (SELECT min(l.creado_en)::text FROM lecturas_puerta l WHERE l.mjrv_id = m.id AND l.resultado = 'valido') AS ingreso_en,
             m.incorporado_en::text, m.incorporado_por
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id JOIN juntas_madrid jv ON jv.id = ${SQL_VIGENTE}
@@ -68,7 +69,7 @@ export async function obtenerFicha(id: number): Promise<Ficha | null> {
   const pago = await query<{ en: string; importe_usd: string | null; importe_eur: string | null; operador: string }>(
     "SELECT p.confirmado_en::text AS en, p.importe_usd::text, p.importe_eur::text, coalesce(nullif(btrim(o.nombre || ' ' || o.apellido), ''), u.nombre) AS operador FROM pagos_confirmados p LEFT JOIN operadores_madrid o ON o.id = p.operador_id LEFT JOIN usuarios u ON u.id = p.usuario_id WHERE p.mjrv_id = $1", [id]);
   const movimientos = await query<Ficha["movimientos"][number]>(
-    `SELECT d.creado_en::text, jo.serie || jo.numero AS origen, jd.serie || jd.numero AS destino, d.decision, d.manual, d.actor_nombre
+    `SELECT d.creado_en::text, ${juntaPublicaSql("jo")} AS origen, ${juntaPublicaSql("jd")} AS destino, d.decision, d.manual, d.actor_nombre
        FROM decisiones_movimiento d JOIN juntas_madrid jo ON jo.id = d.junta_origen_id JOIN juntas_madrid jd ON jd.id = d.junta_destino_id
       WHERE d.mjrv_id = $1 ORDER BY d.creado_en DESC, d.id DESC`, [id]);
   const cobro = pago[0];
@@ -86,8 +87,8 @@ function validar(d: DatosMjrv, permiteConservarCargo = false) {
   const cargo = resolverCargo(d.cargo);
   // En edición, el valor vacío conserva el cargo guardado, incluso si procede de una importación.
   if (!cargo && !(permiteConservarCargo && d.cargo === "")) return { ok: false as const, mensaje: "Elija el cargo." };
-  const j = leerJunta(d.junta);
-  if (!j) return { ok: false as const, mensaje: "La junta no existe: use H1–H41 o M1–M54." };
+  const j = leerJuntaPublica(d.junta);
+  if (!j) return { ok: false as const, mensaje: "La junta no existe: use M1–M41 (masculino) o F1–F54 (femenino)." };
   const correo = validarCorreo(d.correo);
   if (!correo.ok) return correo;
   const telefono = validarMovil(d.telefono);
@@ -192,7 +193,7 @@ type Cliente = { query: (sql: string, params?: unknown[]) => Promise<{ rows: unk
 // La junta está constituida si los tres cargos están cubiertos y esta persona cubre uno.
 async function juntaConstituidaCon(client: Cliente, id: number): Promise<{ etiqueta: string; juntaId: number; asignacion: boolean } | null> {
   const v = (await client.query(
-    `SELECT v.junta_actual_id, j.serie || j.numero AS etiqueta
+    `SELECT v.junta_actual_id, ${juntaPublicaSql("j")} AS etiqueta
        FROM v_mjrv_asignacion v JOIN juntas_madrid j ON j.id = v.junta_actual_id WHERE v.mjrv_id = $1`, [id])).rows[0] as { junta_actual_id: number; etiqueta: string } | undefined;
   if (!v) return null;
   const personas = (await client.query(`${PERSONAS_CARGO} WHERE v.junta_actual_id = $1 OR v.junta_origen_id = $1`, [v.junta_actual_id])).rows as PersonaCargo[];

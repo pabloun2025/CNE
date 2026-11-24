@@ -1,6 +1,6 @@
 // Estado de las 95 juntas (especificación §7.3, §13.5; decisión 9 del 18-11-2026). Puro: sin base de datos.
 import { cubrirCargos, type AsignacionCargo, type Cargo, type PersonaCargo } from "./cargos";
-import { TRAMOS, ZONA_NOMBRE, type Serie, type ZonaColor } from "./juntas";
+import { juntaEnCredencial, TRAMOS, ZONA_NOMBRE, type Serie, type ZonaColor } from "./juntas";
 
 export type JuntaEntrada = { id: number; serie: Serie; numero: number; zona: ZonaColor };
 export type PersonaEntrada = PersonaCargo;
@@ -64,9 +64,14 @@ export function gruposMapaMadrid(juntas: JuntaMando[]) {
       fichas.filter((j) => j.numero > (fines[i - 1] ?? 0) && j.numero <= fin));
     return [{
       zona,
-      titulo: `${ZONA_NOMBRE[zona]} · ${serie === "H" ? "Hombres" : "Mujeres"}`, filas,
+      titulo: `${ZONA_NOMBRE[zona]} · ${serie === "H" ? "Masculino" : "Femenino"}`, filas,
     }];
   });
+}
+
+// Texto leído por los lectores de pantalla en cada tarjeta. La junta lleva la letra pública (M / F).
+export function etiquetaFichaJunta(j: JuntaMando): string {
+  return `${juntaEnCredencial(j.serie, j.numero)}. ${j.presentes} hay, faltan ${j.faltan}${j.movimiento ? ". Hubo traslado" : ""}`;
 }
 
 // «Faltan miembros»: primero a las que les falta un cargo, después dos, después tres (nadie).

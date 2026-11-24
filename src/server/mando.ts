@@ -1,6 +1,7 @@
 import { cubrirCargos, type AsignacionCargo, type Cargo, type PersonaCargo, type TipoCobertura } from "../domain/cargos";
 import { calcularMando, type JuntaMando, type Indicadores } from "../domain/mando";
 import { query, withTx } from "./db";
+import { juntaPublicaSql } from "./junta-sql";
 import type { Modo } from "./config";
 import type { Serie, ZonaColor } from "../domain/juntas";
 
@@ -38,10 +39,10 @@ const ETIQUETA_TIPO: Record<Exclude<TipoCobertura, "traslado">, string> = { titu
 
 // Ficha ampliada: los tres cargos con quién los cubre, y los asignados de origen y recibidos por traslado con su situación.
 export async function detalleJunta(juntaId: number): Promise<DetalleJunta | null> {
-  const j = (await query<{ id: number; etiqueta: string; zona: ZonaColor }>("SELECT id, serie || numero AS etiqueta, zona_color AS zona FROM juntas_madrid WHERE id = $1", [juntaId]))[0];
+  const j = (await query<{ id: number; etiqueta: string; zona: ZonaColor }>(`SELECT id, ${juntaPublicaSql("juntas_madrid")} AS etiqueta, zona_color AS zona FROM juntas_madrid WHERE id = $1`, [juntaId]))[0];
   if (!j) return null;
   const miembros = await query<Omit<MiembroFicha, "cargo">>(
-    `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.rol, jo.serie || jo.numero AS origen, ja.serie || ja.numero AS actual, v.ingresado, v.con_excepcion,
+    `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.rol, ${juntaPublicaSql("jo")} AS origen, ${juntaPublicaSql("ja")} AS actual, v.ingresado, v.con_excepcion,
             EXISTS (SELECT 1 FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'no_viable' AND d.rehabilitada_en IS NULL) AS no_viable,
             (m.incorporado_en IS NOT NULL) AS incorporado
        FROM mjrv m JOIN v_mjrv_asignacion v ON v.mjrv_id = m.id

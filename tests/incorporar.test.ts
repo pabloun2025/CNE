@@ -52,7 +52,7 @@ describe("incorporar un votante como MJRV", () => {
 
   it("cédula repetida (activa o de baja) → rechazo sin crear nada; cargo ya cubierto → rechazo", async () => {
     const antes = (await consultarDueno("SELECT 1 FROM cne.mjrv")).length;
-    expect(await incorporarVotante(actor, datos({ cedula: "0000000001" }))).toMatchObject({ ok: false, mensaje: `Ya existe una ficha con esa cédula (junta H9, estado activa). No se creó otra.` });
+    expect(await incorporarVotante(actor, datos({ cedula: "0000000001" }))).toMatchObject({ ok: false, mensaje: `Ya existe una ficha con esa cédula (junta M9, estado activa). No se creó otra.` });
     await consultarDueno("UPDATE cne.mjrv SET activo = false WHERE cedula = '0000000002'");
     expect(await incorporarVotante(actor, datos({ cedula: "000000002" }))).toMatchObject({ ok: false, mensaje: expect.stringContaining("estado de baja") }); // 9 dígitos: se completa con el cero
     await consultarDueno("UPDATE cne.mjrv SET activo = true WHERE cedula = '0000000002'");

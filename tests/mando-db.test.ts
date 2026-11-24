@@ -40,7 +40,7 @@ describe("centro de mando con la demostración", () => {
   it("la ficha de junta lista los miembros y su situación", async () => {
     const [j] = await consultarDueno<{ id: number }>("SELECT id FROM cne.juntas_madrid WHERE serie='H' AND numero=12");
     const d = await detalleJunta(j.id);
-    expect(d?.junta.etiqueta).toBe("H12");
+    expect(d?.junta.etiqueta).toBe("M12");
     expect(d?.miembros).toHaveLength(6);
     expect(d?.miembros.filter((x) => x.ingresado)).toHaveLength(3);
     // Los tres cargos con quién los cubre y de qué manera.

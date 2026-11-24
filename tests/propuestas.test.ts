@@ -17,14 +17,14 @@ describe("propuestas de redistribución por cargos", () => {
     // H15 (amarillo) sin vocal; suplentes sobrantes en H7 (amarillo) y en H30 (azul, más cercano en número).
     const personas = [...faltaVocal(2), ...conSobrantes(1, 1), ...conSobrantes(3, 1)];
     const r = proponer(juntas, personas, [])!;
-    expect(r).toMatchObject({ destino: "H15", origen: "H7", mismaZona: true, origenQuedaria: 3, cargo: "vocal", vacantes: ["vocal"] });
-    expect(r.motivo).toBe("H15 no tiene vocal; H7 sigue completa (queda con 3).");
+    expect(r).toMatchObject({ destino: "M15", origen: "M7", mismaZona: true, origenQuedaria: 3, cargo: "vocal", vacantes: ["vocal"] });
+    expect(r.motivo).toBe("M15 no tiene vocal; M7 sigue completa (queda con 3).");
   });
 
   it("si no hay en la misma zona, la zona más cercana", () => {
     // Destino M35 (verde, orden 5); suplentes en H30 (azul, 3) y M12 (celeste, 1): |5-3|=2 < |5-1|=4.
     const personas = [...faltaVocal(5), ...conSobrantes(3, 1), ...conSobrantes(4, 1)];
-    expect(proponer(juntas, personas, [])).toMatchObject({ destino: "M35", origen: "H30", mismaZona: false });
+    expect(proponer(juntas, personas, [])).toMatchObject({ destino: "F35", origen: "M30", mismaZona: false });
   });
 
   it("un suplente que cubre un cargo en su propia junta nunca se propone", () => {
@@ -38,14 +38,14 @@ describe("propuestas de redistribución por cargos", () => {
 
   it("la primera vacante es el cargo propuesto y salen todas las vacantes del destino", () => {
     const r = proponer(juntas, [P(2, "presidente"), ...conSobrantes(1, 1)], [])!;
-    expect(r).toMatchObject({ destino: "H15", cargo: "secretario", vacantes: ["secretario", "vocal"] });
+    expect(r).toMatchObject({ destino: "M15", cargo: "secretario", vacantes: ["secretario", "vocal"] });
   });
 
   it("destinos con una vacante primero, después dos, y las de nadie (tres) al final", () => {
     const personas = [P(2, "presidente"), ...faltaVocal(3), ...conSobrantes(1, 2)];
-    expect(proponer(juntas, personas, [])!.destino).toBe("H30"); // le falta 1 antes que H15 (le faltan 2)
+    expect(proponer(juntas, personas, [])!.destino).toBe("M30"); // le falta 1 antes que H15 (le faltan 2)
     const soloCero = [...conSobrantes(1, 1)]; // H15, H30, M12, M35 sin nadie
-    expect(proponer(juntas, soloCero, [])!.destino).toBe("H15");
+    expect(proponer(juntas, soloCero, [])!.destino).toBe("M15");
   });
 
   it("respeta «pasada» (par persona-destino) y «no_viable» (persona), y se rehabilita", () => {
@@ -72,12 +72,12 @@ describe("propuestas de redistribución por cargos", () => {
     const personas = [...faltaVocal(2), ...faltaVocal(3), ...conSobrantes(1, 2)];
     const [a, b] = personas.filter((p) => p.rol === "suplente" && p.junta_origen_id === 1);
     const primera = proponer(juntas, personas, [])!;
-    expect(primera).toMatchObject({ mjrvId: a.id, destino: "H15" });
+    expect(primera).toMatchObject({ mjrvId: a.id, destino: "M15" });
     const cierra = (id: number, destino: number, motivo: string): DecisionProp => ({ mjrv_id: id, junta_destino_id: destino, decision: "no_viable", motivo, rehabilitada: false });
     const trasA = proponer(juntas, personas, [cierra(a.id, primera.destinoId, "No contesta")])!;
-    expect(trasA).toMatchObject({ mjrvId: b.id, destino: "H15" });
+    expect(trasA).toMatchObject({ mjrvId: b.id, destino: "M15" });
     const trasB = proponer(juntas, personas, [cierra(a.id, primera.destinoId, "Ya no está"), cierra(b.id, trasA.destinoId, "No contesta")])!;
-    expect(trasB).toMatchObject({ mjrvId: a.id, destino: "H30" });
+    expect(trasB).toMatchObject({ mjrvId: a.id, destino: "M30" });
     expect(proponer(juntas, personas, [cierra(a.id, primera.destinoId, "No quiere"), cierra(b.id, trasA.destinoId, "No contesta")])!.mjrvId).toBe(b.id);
     expect(proponer(juntas, personas, [cierra(a.id, primera.destinoId, "No quiere"), cierra(b.id, trasB.destinoId, "No quiere")])).toBeNull();
   });

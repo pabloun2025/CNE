@@ -28,7 +28,7 @@ describe("borrar fichas", () => {
     const creada = await crearMjrv(sesion, datos());
     expect(creada.ok).toBe(true);
     if (!creada.ok) return;
-    expect(await obtenerFicha(creada.id)).toMatchObject({ rol: "presidente", cargo_original: "PRESIDENTE/A", origen: "H20", telefono_e164: "+34612345678", correo: "a@b.c" });
+    expect(await obtenerFicha(creada.id)).toMatchObject({ rol: "presidente", cargo_original: "PRESIDENTE/A", origen: "M20", telefono_e164: "+34612345678", correo: "a@b.c" });
     expect((await editarMjrv(sesion, creada.id, datos({ cargo: "secretario", correo: "b@c.d" }))).ok).toBe(true);
     expect(await obtenerFicha(creada.id)).toMatchObject({ rol: "secretario", correo: "b@c.d" });
     expect(await borrarMjrv(sesion, creada.id, false)).toMatchObject({ ok: false });

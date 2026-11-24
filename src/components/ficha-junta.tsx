@@ -84,7 +84,7 @@ export function FichaJunta({ juntaId, onCerrar, onCambio, compacta = false }: { 
                   {m.incorporado ? " · Incorporada desde votantes" : ""}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <input value={destino[m.id] ?? ""} onChange={(e) => setDestino((d) => ({ ...d, [m.id]: e.target.value }))} placeholder="Mover a… (H12)" aria-label={`Destino para ${m.nombre}`} className="w-40" />
+                  <input value={destino[m.id] ?? ""} onChange={(e) => setDestino((d) => ({ ...d, [m.id]: e.target.value }))} placeholder="Mover a… (M12 o F12)" aria-label={`Destino para ${m.nombre}`} className="w-40" />
                   <select value={cargoMover[m.id] ?? ""} onChange={(e) => setCargoMover((d) => ({ ...d, [m.id]: e.target.value }))} aria-label={`Cargo de ${m.nombre} en el destino`}>
                     <option value="">sin cargo</option><option value="presidente">presidente</option><option value="secretario">secretario</option><option value="vocal">vocal</option>
                   </select>

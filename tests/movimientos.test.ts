@@ -42,13 +42,13 @@ describe("movimientos con cargos", () => {
   it("aceptar crea la decisión y la asignación del cargo en la misma operación: destino verde con marca ⇄", async () => {
     const [s] = await sembrar(1);
     const p = (await propuestaActual())!;
-    expect(p).toMatchObject({ mjrvId: s, origen: "H7", destino: "H15", origenQuedaria: 3, cargo: "vocal", vacantes: ["vocal"] });
+    expect(p).toMatchObject({ mjrvId: s, origen: "M7", destino: "M15", origenQuedaria: 3, cargo: "vocal", vacantes: ["vocal"] });
     expect(await aceptarPropuesta(actor, p)).toEqual({ ok: true });
     const { destinoId } = await ids();
     expect(await asignaciones()).toEqual([{ mjrv_id: s, junta_id: destinoId, cargo: "vocal", origen: "traslado", activa: true }]);
     const m = await estadoMando();
     expect(m.juntas.find((j) => j.numero === 15 && j.serie === "H")).toMatchObject({ presentes: 3, estado: "completa", movimiento: true });
-    expect((await detalleJunta(destinoId))!.cargos[2]).toMatchObject({ cargo: "vocal", mjrvId: s, tipo: "traslado", etiqueta: "Trasladado desde H7" });
+    expect((await detalleJunta(destinoId))!.cargos[2]).toMatchObject({ cargo: "vocal", mjrvId: s, tipo: "traslado", etiqueta: "Trasladado desde M7" });
     const [d] = await consultarDueno<{ decision: string; actor_nombre: string; manual: boolean }>("SELECT decision, actor_nombre, manual FROM cne.decisiones_movimiento");
     expect(d).toEqual({ decision: "aceptada", actor_nombre: "Op Mando", manual: false });
     expect(await propuestaActual()).toBeNull();
@@ -137,7 +137,7 @@ describe("movimientos con cargos", () => {
     const { origenId, destinoId } = await ids();
     expect(await moverManual(actor, { mjrvId: pres, destino: "H99", confirmar: false })).toMatchObject({ ok: false });
     const sin = await moverManual(actor, { mjrvId: pres, destino: "H15", confirmar: false });
-    expect(sin).toMatchObject({ ok: false, confirmar: true, mensaje: "H7 quedará sin presidente. ¿Continuar?" });
+    expect(sin).toMatchObject({ ok: false, confirmar: true, mensaje: "M7 quedará sin presidente. ¿Continuar?" });
     expect(await moverManual(actor, { mjrvId: pres, destino: "H15", confirmar: true, cargo: "presidente" })).toEqual({ ok: true });
     expect((await consultarDueno<{ manual: boolean }>("SELECT manual FROM cne.decisiones_movimiento"))[0].manual).toBe(true);
     expect(await asignaciones()).toEqual([{ mjrv_id: pres, junta_id: destinoId, cargo: "presidente", origen: "traslado", activa: true }]);
@@ -160,7 +160,7 @@ describe("movimientos con cargos", () => {
     const [a, b] = [await persona("H", 7, "suplente"), await persona("H", 7, "suplente")]; // a hace de vocal; b sobra
     expect(await moverManual(actor, { mjrvId: b, destino: "H15", confirmar: false })).toEqual({ ok: true });
     // Mover a «a» (que cubre el vocal) sí pide confirmación: nadie lo reemplazaría.
-    expect(await moverManual(actor, { mjrvId: a, destino: "H15", confirmar: false })).toMatchObject({ ok: false, confirmar: true, mensaje: "H7 quedará sin vocal. ¿Continuar?" });
+    expect(await moverManual(actor, { mjrvId: a, destino: "H15", confirmar: false })).toMatchObject({ ok: false, confirmar: true, mensaje: "M7 quedará sin vocal. ¿Continuar?" });
   });
 
   it("no contesta suelta el asiento y no quiere no; el hueco no se vuelve a proponer", async () => {
