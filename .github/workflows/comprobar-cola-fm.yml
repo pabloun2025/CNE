@@ -1,0 +1,35 @@
+name: Comprobar cola F/M (solo lectura)
+
+# Construye el texto, el rótulo y el PDF de cada envío en cola sin enviar nada. Imprime solo recuentos.
+# Falla (código 1) si alguna letra no corresponde a la serie o el texto lleva la serie interna.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
+          chmod 600 ~/.ssh/oracle
+          SSH=(ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109)
+          SCP=(scp -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new)
+          limpiar() {
+            "${SSH[@]}" 'rm -f /tmp/cne-comprobar-cola-fm.ts; sudo docker exec cne-prod-cne-app-1 rm -f /app/scripts/ops/.comprobar-cola-tmp.ts' >/dev/null 2>&1 || true
+            rm -f ~/.ssh/oracle
+          }
+          trap limpiar EXIT
+          "${SCP[@]}" scripts/ops/comprobar-cola-fm.ts ubuntu@51.170.51.109:/tmp/cne-comprobar-cola-fm.ts
+          # Se copia dentro de scripts/ops del contenedor para que resuelva sus importaciones relativas; solo lee.
+          "${SSH[@]}" 'sudo docker cp /tmp/cne-comprobar-cola-fm.ts cne-prod-cne-app-1:/app/scripts/ops/.comprobar-cola-tmp.ts'
+          "${SSH[@]}" 'sudo docker exec -i -w /app cne-prod-cne-app-1 ./node_modules/.bin/tsx scripts/ops/.comprobar-cola-tmp.ts'

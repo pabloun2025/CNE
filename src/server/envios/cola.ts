@@ -1,12 +1,10 @@
-import { juntaEnCredencial } from "../../domain/juntas";
 import type { PoolClient } from "pg";
 import { FALLOS_PARA_PAUSAR, pausaWhatsAppMs, type CanalEnvio, type LineaEnvioWhatsApp } from "../../domain/envios-ritmo";
 import { getAppPool, withTx } from "../db";
 import { clientesPorDefecto, leerConfigEnvios, remitenteEfectivo, type Clientes } from "../envios-config";
-import { mensajeCredencial } from "../envios";
+import { prepararContenidoEnvio } from "./contenido";
 import { seleccionarParaCredencial } from "../credenciales";
 import { medidasCredencial } from "../credencial-config";
-import { credencialesIndividuales } from "../pdf/credencial";
 import type { ResultadoProveedor } from "./http";
 
 // Cola de envío real (09 §3.7). Procesa como mucho UN mensaje por canal y vuelta; la pausa al azar entre mensajes se guarda
@@ -125,18 +123,12 @@ async function procesarCanal(client: PoolClient, canal: CanalEnvio, reloj: () =>
       if (actual?.destino !== fila.destino) {
         r = { ok: false, permanente: true, error: "El contacto o la ficha cambió después de ponerla en cola. Revise la ficha y vuelva a encolarla." };
       } else {
-        // Los envíos reales autorizados usan el PDF definitivo incluso durante el ensayo.
-        const d = { ...ficha, prueba: false, rotulo: canal === "whatsapp" ? juntaEnCredencial(ficha.serie, persona.junta.slice(1)) : ficha.rotulo };
-        const m = await mensajeCredencial(canal === "whatsapp" ? d : ficha, canal, persona);
-        const pdfBase64 = Buffer.from(await credencialesIndividuales([d], await medidasCredencial())).toString("base64");
+        const c = await prepararContenidoEnvio({ canal, ficha, persona, rectificacion: fila.whatsapp_rectificacion, medidas: await medidasCredencial() });
+        const { texto, pdfBase64 } = c;
         if (canal === "whatsapp") {
-          const serie = ficha.serie === "M" ? "Femenino" : "Masculino";
-          const texto = fila.whatsapp_rectificacion
-            ? `Rectificación de su credencial MJRV. Adjuntamos su credencial corregida con la junta ${d.rotulo} (${serie}). Su junta y zona asignadas siguen siendo las mismas. Presente el QR de esta credencial en la entrada. Disculpe la confusión.\nConsulado General del Ecuador en Madrid`
-            : m.texto;
-          r = await whatsapp.enviarDocumento({ numero: fila.destino, texto, nombreArchivo: m.nombreArchivo, pdfBase64 });
+          r = await whatsapp.enviarDocumento({ numero: fila.destino, texto, nombreArchivo: c.nombreArchivo, pdfBase64 });
         } else {
-          r = await clientes.correo.enviar({ envioId: fila.id, para: fila.destino, asunto: m.asunto, texto: m.texto, html: m.html, remitente, responderA: configEnvios.correoReplyTo ?? undefined, adjunto: { nombre: m.nombreArchivo, base64: pdfBase64 } });
+          r = await clientes.correo.enviar({ envioId: fila.id, para: fila.destino, asunto: c.asunto, texto: c.texto, html: c.html, remitente, responderA: configEnvios.correoReplyTo ?? undefined, adjunto: { nombre: c.nombreArchivo, base64: pdfBase64 } });
         }
       }
     }
