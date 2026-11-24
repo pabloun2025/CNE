@@ -21,7 +21,7 @@ Documento para que otra IA (o persona) continúe el trabajo sin perder contexto.
 
 ## 3. Estado: qué está construido y publicado
 
-Producción: **https://madrid.consulado.app**. La versión verificada del circuito de tres puestos es `4e73cb9`. [Estado público](https://madrid.consulado.app/api/salud)
+Producción: **https://madrid.consulado.app**. La versión verificada en Oracle es `5073b61`. [Estado público](https://madrid.consulado.app/api/salud)
 
 | Bloque | Estado |
 |---|---|
@@ -422,3 +422,5 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Si aparece posteriormente un caso histórico, usar **Finanzas → Recibos → Reimprimir** con las fotos disponibles del documento original. CNE reconstruye con la plantilla vigente y emplea el ordinal, la fecha y los importes del recibo ya emitido. Si faltan las fotos, **Imprimir por selección → Automática** permite generar la copia sin anexo de una ficha con recibo definitivo existente. Conservar cualquier PDF firmado original. La copia no exige repetir el desembolso.
 - En Chromium a 375 y 1366 px se comprobó el acceso desde Enlaces de estación, la descarga privada y el rechazo de solicitudes anónimas. Se revisaron visualmente las siete hojas y se decodificaron sus 15 QR desde el PDF renderizado a 150 ppp con destinos ficticios.
 - La revisión adicional corrigió los avisos y errores del importador que aún podían mostrar letras antiguas. Se usa la junta asignada en todas las credenciales aunque el Excel traiga texto libre. El comprobador de la cola marca como incoherente el turno sin credencial o con una junta distinta de la asignada.
+- Oracle publicó `5073b61`. Pasaron 1.237 pruebas, TypeScript y la compilación de producción. ESLint terminó sin errores, con la advertencia anterior de Unslop. El verificador confirmó Madrid y Recordatorio. Los tres formatos de descarga rechazaron el acceso anónimo en producción. [CI](https://github.com/pabloun2025/CNE/actions/runs/45490390846) · [Despliegue](https://github.com/pabloun2025/CNE/actions/runs/45490389710) · [Verificación pública](https://github.com/pabloun2025/CNE/actions/runs/45491053438)
+- A las 22:26 (Madrid), Puerta, Documentación, Escáner de Finanzas y Centro de mando tenían un enlace activo cada uno. Se reconstruyeron el mensaje y el PDF de los 280 turnos en cola solo para comprobar su contenido. La línea 1 tenía 158 turnos F (64 normales y 94 de rectificación) y la línea 2 tenía 122 turnos M (34 normales y 88 de rectificación), con cero incoherencias y cero intentos en esos turnos. Ambas líneas seguían desvinculadas, con el envío real apagado y en pausa manual. La vinculación y la reanudación quedan a cargo de Pablo. [Enlaces y recuentos](https://github.com/pabloun2025/CNE/actions/runs/45490397614) · [Contenido de la cola](https://github.com/pabloun2025/CNE/actions/runs/45491059080) · [Estado de las líneas](https://github.com/pabloun2025/CNE/actions/runs/45491064782)
