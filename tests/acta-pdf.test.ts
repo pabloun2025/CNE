@@ -1,3 +1,4 @@
+import { formatoPublicoJunta } from "@/domain/juntas";
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
@@ -62,7 +63,7 @@ describe("PDF del recibo oficial de pago", () => {
     expect(texto).toContain("MAD-2026-001");
     expect(texto).toContain("NOMBRE PRUEBA 001 APELLIDO PRUEBA 001");
     expect(texto).toContain("0000000001");
-    expect(texto).toContain("M54");
+    expect(texto).toContain("F54");
     expect(texto).toContain("VOCAL");
     expect(texto).toContain("USD 70,00");
     expect(texto).toContain("1,190");
@@ -167,10 +168,21 @@ describe("PDF del recibo oficial de pago", () => {
   });
 });
 
+describe("Letras públicas de la junta en el recibo", () => {
+  it("muestra F para la junta de mujeres (serie interna M) y M para la de hombres (serie interna H)", async () => {
+    const mujeres = await leerRecibo(await actaPago(datos));
+    expect(mujeres.texto).toContain("F54");
+    expect(mujeres.texto).not.toContain("M54");
+    const hombres = await leerRecibo(await actaPago({ ...datos, persona: { ...datos.persona, juntaVigente: "H12" } }));
+    expect(hombres.texto).toContain("M12");
+    expect(hombres.texto).not.toContain("H12");
+  });
+});
+
 describe("PDF de contingencia para completar a mano", () => {
   it("incluye por ficha una página A4 apaisada con el número y el EUR en blanco, sin anexo ni hora", async () => {
     const personaPasaporte = { ...datos.persona, tipoDocumento: "pasaporte" as const };
-    const segunda = { ...datos.persona, juntaVigente: "M55", cedula: "0000000002" };
+    const segunda = { ...datos.persona, juntaVigente: "H5", cedula: "0000000002" };
     const pdf = await actasContingencia([personaPasaporte, segunda], datos.pagador, true);
     const primera = await leerRecibo(pdf);
     expect(primera.documento.getPageCount()).toBe(2);
@@ -186,7 +198,7 @@ describe("PDF de contingencia para completar a mano", () => {
       expect(texto).toContain("USD 70,00");
       expect(texto).toContain("1,190");
       expect(texto).toContain(ficha.cedula);
-      expect(texto).toContain(ficha.juntaVigente);
+      expect(texto).toContain(formatoPublicoJunta(ficha.juntaVigente));
       expect(texto).toContain("PAGADOR PRUEBA");
       expect(texto).toContain("PRUEBA");
       expect(texto).not.toMatch(/\b\d{1,2}:\d{2}\b|MAD-2026|58,8[23]|ANVERSO|REVERSO|PÁGINA DE DATOS/);

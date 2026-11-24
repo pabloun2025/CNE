@@ -5,6 +5,7 @@ import { eurosEnLetras } from "../../domain/pago";
 import { A4, MM } from "../../domain/credencial-layout";
 import { RECIBOS_IMPORTE_USD, RECIBOS_TIPO_CAMBIO } from "../../domain/recibos";
 import { FECHA_CONTINGENCIA } from "./fecha-recibo";
+import { formatoPublicoJunta } from "../../domain/juntas";
 
 export type DatosActa = {
   numero: string;
@@ -160,7 +161,7 @@ async function agregarActaOficial({ pdf, normal, bold, logo }: Awaited<ReturnTyp
   const eur = d.importe.eur?.replace(".", ",") ?? (manual ? ESPACIO_MANUSCRITO : "________");
   const cambio = d.importe.cambio?.replace(".", ",") ?? "________";
   texto(`Yo, ${nombre}, con cédula Nro. ${d.persona.cedula}, declaro haber recibido USD ${usd},`, izquierda + 8, 399, ancho - 16);
-  texto(`por haber participado en la Junta Receptora del Voto Nro. ${d.persona.juntaVigente} con el nombramiento de ${d.persona.cargo}.`, izquierda + 8, 386, ancho - 16);
+  texto(`por haber participado en la Junta Receptora del Voto Nro. ${formatoPublicoJunta(d.persona.juntaVigente)} con el nombramiento de ${d.persona.cargo}.`, izquierda + 8, 386, ancho - 16);
   texto(`Importe entregado: EUR ${eur}    ·    Tipo de cambio (USD por EUR): ${cambio}`, izquierda + 8, 373, ancho - 16, { font: bold });
 
   texto("RECIBÍ CONFORME", izquierda, 351, mitad, { font: bold, color: blanco, size: 10, alineacion: "centro" });
@@ -281,7 +282,7 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
     ["APELLIDOS", d.persona.apellidos, true],
     ["NOMBRES", d.persona.nombres, true],
     ["CÉDULA DE IDENTIDAD", d.persona.cedula, true],
-    ["JUNTA RECEPTORA DEL VOTO", d.persona.juntaVigente, true],
+    ["JUNTA RECEPTORA DEL VOTO", formatoPublicoJunta(d.persona.juntaVigente), true],
     ["FUNCIÓN EN LA JUNTA", d.persona.cargo, false],
   ];
   const altoGrid = hCampo * 3;
@@ -389,7 +390,7 @@ async function actaHistorica(d: DatosActa): Promise<Uint8Array> {
     y2 -= altoPanel + 4 * MM;
   }
 
-  const ref = `MJRV: ${d.persona.nombres} ${d.persona.apellidos}  |  C. I.: ${d.persona.cedula}  |  JRV: ${d.persona.juntaVigente}`;
+  const ref = `MJRV: ${d.persona.nombres} ${d.persona.apellidos}  |  C. I.: ${d.persona.cedula}  |  JRV: ${formatoPublicoJunta(d.persona.juntaVigente)}`;
   const refLineas = partir(ref, normal, 9, ancho - 16);
   const hRef = 6 * MM + refLineas.length * 12;
   p2.drawRectangle({ x: ML, y: y2 - hRef, width: 3, height: hRef, color: amarillo });

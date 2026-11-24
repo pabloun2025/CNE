@@ -6,7 +6,7 @@ import { credencialesIndividuales } from "./pdf/credencial";
 import { nombrePdfCredencial, seleccionarParaCredencial, type PersonaCredencial, type Seleccion } from "./credenciales";
 import { medidasCredencial } from "./credencial-config";
 import { correoCredencial, textoCredencial } from "../domain/mensaje-credencial";
-import { leerJunta, zonaDe } from "../domain/juntas";
+import { leerJuntaPublica, zonaDe } from "../domain/juntas";
 import { enlaceWallet } from "./wallet/google";
 import { canalEnReal } from "./envios-config";
 import { elegirProveedor, type Canal, type ProveedorEnvio } from "./envios/proveedor";
@@ -25,7 +25,7 @@ export async function mensajeCredencial(d: DatosCredencial, canal: Canal, { id, 
   if (canal === "whatsapp") {
     return { asunto: "Su credencial de miembro de Junta Receptora del Voto", texto: textoCredencial(datos), nombreArchivo };
   }
-  const asignada = leerJunta(junta);
+  const asignada = leerJuntaPublica(junta);
   if (!asignada || zonaDe(asignada.serie, asignada.numero) !== zona) {
     throw new Error("La junta o su zona de color es incoherente. Revise la asignación de la ficha.");
   }

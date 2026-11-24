@@ -153,10 +153,14 @@ describe("Google Wallet · ruta pública y mensajes de fichas", () => {
   it("el mensaje de una ficha real lleva el enlace y el de una ficha de prueba no", async () => {
     Object.assign(process.env, ENTORNO, { HOST_MADRID: "madrid.ejemplo.invalid" });
     const d = { cedula: "0000000101", apellidos: "A", nombres: "N", cargo: "VOCAL", rotulo: "H01", serie: "H" as const, zona: "amarillo" as const, prueba: false };
-    const persona = { id, junta: "H1", zona: "amarillo" as const };
+    const persona = { id, junta: "M1", zona: "amarillo" as const };
     const real = await mensajeCredencial(d, "whatsapp", persona);
     expect(real.texto).toContain(`https://madrid.ejemplo.invalid/w/${id}.`);
     expect((await mensajeCredencial({ ...d, prueba: true }, "whatsapp", persona)).texto).not.toContain("/w/");
     expect((await mensajeCredencial(d, "correo", persona)).html).toContain("Guardar en Google Wallet (Android)");
+    // El correo muestra la letra pública de la junta (M masculino), no la serie interna H.
+    const correo = await mensajeCredencial(d, "correo", persona);
+    expect(correo.texto).toContain("Junta M1 · Zona Amarillo");
+    expect(correo.texto).not.toContain("Junta H1");
   });
 });

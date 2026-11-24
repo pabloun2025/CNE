@@ -1,5 +1,5 @@
 import { etiquetaCargoCredencial } from "../domain/cargos-credencial";
-import { etiquetaJunta, leerJunta, rotuloCredencial, ZONAS, type Serie, type ZonaColor } from "../domain/juntas";
+import { juntaEnCredencial, leerJuntaPublica, rotuloPublico, ZONAS, type Serie, type ZonaColor } from "../domain/juntas";
 import type { DatosCredencial } from "./pdf/credencial";
 import { leerModo } from "./config";
 import { query } from "./db";
@@ -31,7 +31,7 @@ export async function seleccionarParaCredencial(sel: Seleccion): Promise<Resulta
   const vacia = { datos: [], ids: [], personas: [], total: 0 };
   if (sel.alcance === "ids") { p.push(sel.ids ?? []); where.push(`m.id = ANY($${p.length}::bigint[])`); }
   else if (sel.alcance === "junta") {
-    const j = leerJunta(sel.valor ?? "");
+    const j = leerJuntaPublica(sel.valor ?? "");
     if (!j) return vacia;
     p.push(j.serie, j.numero);
     where.push(`jo.serie = $${p.length - 1} AND jo.numero = $${p.length}`);
@@ -47,8 +47,9 @@ export async function seleccionarParaCredencial(sel: Seleccion): Promise<Resulta
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
       WHERE ${where.join(" AND ")} ORDER BY jo.serie, jo.numero, m.rol, m.apellidos, m.id`, p);
   const personas = filas.map((f) => {
-    const junta = etiquetaJunta(f.serie, f.numero);
-    return { id: f.id, nombre: `${f.apellidos}, ${f.nombres}`, rotulo: rotuloCredencial(f.rotulo_credencial, junta), junta, zona: f.zona_color, sinPreparar: f.sin_preparar };
+    // Letra pública: M = masculino, F = femenino. La serie interna no sale de aquí.
+    const junta = juntaEnCredencial(f.serie, f.numero);
+    return { id: f.id, nombre: `${f.apellidos}, ${f.nombres}`, rotulo: rotuloPublico(f.rotulo_credencial, junta), junta, zona: f.zona_color, sinPreparar: f.sin_preparar };
   });
   return {
     total: filas.length,

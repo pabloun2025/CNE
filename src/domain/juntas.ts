@@ -43,6 +43,13 @@ export function rotuloCredencial(rotulo: string | null, junta: string): string {
   return rotulo?.trim() || junta;
 }
 
+// Rótulo que ve el ciudadano. Un rótulo importado con forma de junta («H12», «M5», «F05») es ambiguo
+// (el Excel mezcló las letras): se sustituye por la letra pública de la asignación. Un texto libre se respeta.
+export function rotuloPublico(rotulo: string | null, juntaPublica: string): string {
+  const r = rotulo?.trim();
+  return !r || /^[A-Za-z]\s*0*\d+$/.test(r) ? juntaPublica : r;
+}
+
 export function zonaDe(serie: Serie, numero: number): ZonaColor | null {
   return TRAMOS.find((t) => t.serie === serie && numero >= t.desde && numero <= t.hasta)?.zona ?? null;
 }
@@ -54,4 +61,18 @@ export function leerJunta(texto: string): { serie: Serie; numero: number } | nul
   const serie = m[1].toUpperCase() as Serie;
   const numero = Number(m[2]);
   return zonaDe(serie, numero) ? { serie, numero } : null;
+}
+
+// Lo que escribe el usuario es siempre público: M = masculino (serie H), F = femenino (serie M).
+// «H» se acepta como masculino por compatibilidad. Nunca interprete «M» como mujeres.
+export function leerJuntaPublica(texto: string): { serie: Serie; numero: number } | null {
+  const m = /^\s*([HhMmFf])\s*0*(\d{1,3})\s*$/.exec(texto);
+  if (!m) return null;
+  const letra = m[1].toUpperCase();
+  return leerJunta(`${letra === "F" ? "M" : "H"}${m[2]}`);
+}
+
+// Nombre público de la serie interna.
+export function nombreSerie(serie: Serie): string {
+  return serie === "M" ? "Femenino" : "Masculino";
 }

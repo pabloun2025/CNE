@@ -29,8 +29,8 @@ export function SelectorCredenciales({ personas, elegidas, cambiar }: {
       <div className="grid gap-3 sm:grid-cols-3">
         <label>Serie<select className="w-full" value={serie} onChange={(e) => { setSerie(e.target.value); setJunta(""); }}>
           <option value="">Todas</option>
-          <option value="H">H · Hombres</option>
-          <option value="M">M · Mujeres</option>
+          <option value="M">M · Masculino</option>
+          <option value="F">F · Femenino</option>
         </select></label>
         <label>Junta<select className="w-full" value={junta} onChange={(e) => setJunta(e.target.value)}>
           <option value="">Todas</option>
