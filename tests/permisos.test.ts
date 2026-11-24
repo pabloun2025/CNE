@@ -31,6 +31,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /admin/credenciales/envios/descargar": SOLO_ADMIN,
   "GET /admin/informes/descargar": FINANZAS,
   "GET /admin/documentos/cartel": ["admin", "superadmin"],
+  "GET /admin/operadores/guias/[n]": ["admin", "superadmin"], // lleva los enlaces de estación activos
   "GET /admin/credenciales/pdf": SOLO_ADMIN,
   "POST /admin/credenciales/pdf": SOLO_ADMIN,
   "GET /api/admin/documentos/[id]/[lado]": SOLO_ADMIN,
@@ -175,7 +176,7 @@ describe("matriz de permisos", () => {
   });
 
   describe("rutas API", () => {
-    const PARAMS = { id: "1", tipo: "acta", lado: "anverso", mjrvId: "1", archivo: "cne-prep-20260101T000000Z.dump" };
+    const PARAMS = { n: "1", id: "1", tipo: "acta", lado: "anverso", mjrvId: "1", archivo: "cne-prep-20260101T000000Z.dump" };
     async function llamar(r: (typeof rutasDescubiertas)[number], token?: string): Promise<number> {
       const modulo = await import(/* @vite-ignore */ r.archivo);
       const url = `http://localhost${urlDe(r.archivo)}`;
@@ -252,7 +253,7 @@ describe("matriz de permisos", () => {
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "financiero"],
       mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/documentos": ["consul", "financiero"], "finanzas/caja": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], informes: ["consul", "financiero"],
-      credenciales: ["consul"], "credenciales/envios": ["consul"], "credenciales/whatsapp": ["consul"], "credenciales/whatsapp/bandeja": ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
+      credenciales: ["consul"], "credenciales/envios": ["consul"], "credenciales/whatsapp": ["consul"], "credenciales/whatsapp/bandeja": ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], "operadores/guias": ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
     const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
     const clavePagina = (f: string) => path.relative(path.join(SRC, "app/admin/(panel)"), path.dirname(f)).split(path.sep).join("/");
