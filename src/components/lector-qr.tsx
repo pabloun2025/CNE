@@ -164,13 +164,13 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, medidas = CR80, mensa
     };
   }, [activa, tokenPuerta]);
 
-  const altoVisor = "clamp(128px, 31svh, 224px)";
+  const altoVisor = "clamp(152px, 53svh, 420px)";
   const proporcion = medidas.ancho / medidas.alto;
   const textoGuia = estadoTexto === "error" ? "Lectura de texto no disponible. Use el ingreso manual."
     : estadoTexto === "ilegible" ? "Acerque la credencial o use el ingreso manual"
     : mensajeCredencial || "Centre la credencial completa o su QR";
   return (
-    <div className={tokenPuerta ? "relative mx-auto w-full max-w-md overflow-hidden border-2 border-stone-900 bg-black"
+    <div className={tokenPuerta ? "relative mx-auto w-full max-w-lg overflow-hidden rounded-xl border-2 border-stone-900 bg-black"
       : encuadre ? "relative mx-auto aspect-square max-h-[45vh] w-full max-w-[45vh] overflow-hidden border-2 border-stone-900 bg-black"
       : "relative overflow-hidden border-2 border-stone-900 bg-black"}
       style={tokenPuerta ? { height: altoVisor } : encuadre ? undefined : { minHeight: 240 }}>
@@ -179,7 +179,7 @@ export function LectorQr({ onCodigo, onError, tokenPuerta, medidas = CR80, mensa
         <>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
             <div ref={marco} className="aspect-square w-[65%] border-[3px] border-[#f2b705] shadow-[0_0_0_999px_rgba(0,0,0,0.35)]"
-              style={tokenPuerta ? { aspectRatio: proporcion, width: `min(82%, calc((${altoVisor} - 46px) * ${proporcion}))` } : undefined} />
+              style={tokenPuerta ? { aspectRatio: proporcion, width: `min(88%, calc((${altoVisor} - 50px) * ${proporcion}))` } : undefined} />
           </div>
           <p className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-center text-xs font-medium text-white" role={tokenPuerta ? "status" : undefined}>{tokenPuerta ? textoGuia : "Encuadre el QR en el recuadro amarillo"}</p>
         </>

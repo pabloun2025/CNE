@@ -1,3 +1,4 @@
+import { formatoPublicoJunta } from "@/domain/juntas";
 import { buscarPorCedula, ipDeSolicitud, permitirPublico } from "@/server/documentos";
 
 export const dynamic = "force-dynamic";
@@ -9,5 +10,5 @@ export async function POST(request: Request) {
   if (!c || typeof c.cedula !== "string") return Response.json({ error: "Falta el número de cédula." }, { status: 400 });
   const m = await buscarPorCedula(c.cedula);
   if (!m) return Response.json({ encontrada: false });
-  return Response.json({ encontrada: true, iniciales: m.iniciales, junta: m.junta, anverso: m.anverso, reverso: m.reverso, pasaporte: m.pasaporte });
+  return Response.json({ encontrada: true, iniciales: m.iniciales, junta: formatoPublicoJunta(m.junta), anverso: m.anverso, reverso: m.reverso, pasaporte: m.pasaporte });
 }

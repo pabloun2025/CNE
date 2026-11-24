@@ -34,6 +34,11 @@ export function juntaEnCredencial(serie: Serie, numero: number | string): string
   return `${serie === "M" ? "F" : "M"}${numero}`;
 }
 
+export function formatoPublicoJunta(junta: string): string {
+  const j = leerJunta(junta);
+  return j ? juntaEnCredencial(j.serie, j.numero) : junta;
+}
+
 export function rotuloCredencial(rotulo: string | null, junta: string): string {
   return rotulo?.trim() || junta;
 }

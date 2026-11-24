@@ -65,7 +65,7 @@ describe("documentos de identidad", () => {
     await consultarDueno("UPDATE cne.configuracion SET documentos_publico_abierto = false");
     const r = await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "0000000001" }), "203.0.113.5", true));
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ encontrada: true, iniciales: "N. A.", junta: "H12", anverso: true, reverso: true });
+    expect(await r.json()).toEqual({ encontrada: true, iniciales: "N. A.", junta: "M12", anverso: true, reverso: true });
     expect(await (await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula: "9999999999" }), "203.0.113.5", true))).json()).toEqual({ encontrada: false });
     expect((await buscarPorCedula("0000000001"))?.nombre).toBe("APELLIDO PRUEBA 001, NOMBRE PRUEBA");
   });
@@ -115,7 +115,7 @@ describe("documentos de identidad", () => {
     const cedula = "0000000002";
     const [{ id: ficha }] = await consultarDueno<{ id: number }>(
       `INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
-       SELECT $1, 'APELLIDO PRUEBA 002', 'NOMBRE PRUEBA', 'VOCAL', 'vocal', id FROM cne.juntas_madrid WHERE serie = 'H' AND numero = 12
+       SELECT $1, 'APELLIDO PRUEBA 002', 'NOMBRE PRUEBA', 'VOCAL', 'vocal', id FROM cne.juntas_madrid WHERE serie = 'M' AND numero = 12
        RETURNING id`, [cedula]);
     await consultarDueno(
       `INSERT INTO cne.documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, bytes, ancho, alto, sha256, origen, es_prueba)
@@ -130,7 +130,7 @@ describe("documentos de identidad", () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ ok: true, anverso: false, reverso: false, pasaporte: true, completos: true });
     const consulta = await buscar(peticion("/api/d/buscar", JSON.stringify({ cedula }), "203.0.113.52", true));
-    expect(await consulta.json()).toEqual({ encontrada: true, iniciales: "N. A.", junta: "H12", anverso: false, reverso: false, pasaporte: true });
+    expect(await consulta.json()).toEqual({ encontrada: true, iniciales: "N. A.", junta: "F12", anverso: false, reverso: false, pasaporte: true });
     expect(await buscarPorCedula("PRUEBA025")).toBeNull();
     const doc = await documentosParaRecibo(ficha);
     expect(doc).toEqual({ pasaporte: await leerDocumento(ficha, "pasaporte") });

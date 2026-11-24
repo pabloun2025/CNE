@@ -31,7 +31,7 @@ function trabajador(): Promise<Worker> {
 
 async function reconocer(imagen: Buffer): Promise<string> {
   const preparada = await sharp(imagen, { limitInputPixels: 2_000_000 })
-    .grayscale().normalise().resize({ width: 900, height: 900, fit: "inside" }).png().toBuffer().catch(() => null);
+    .grayscale().normalise().resize({ width: 1000, height: 1000, fit: "inside" }).png().toBuffer().catch(() => null);
   if (!preparada) return "";
   const worker = await trabajador();
   const { data } = await worker.recognize(preparada);
