@@ -192,9 +192,9 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 ### 7.1. Registro y credenciales
 
-**ALERTA DE INSUMO — nomenclatura de credenciales de 2026.** El PDF visual aportado (disponible en `insumos/originales/MODELO_DE_CREDENCIALES_DE_MJRV.pdf`) muestra ejemplos **M01 para masculino** y **F01 para femenino**; el esquema anterior de fichas Madrid en esta especificación conserva **H/M**. Las dos referencias **no son equivalentes**. No definir automáticamente el sexo/serie por una inicial aislada, ni cambiar el rótulo operativo de las 95 juntas sin cotejar el Excel definitivo. Separar identificador interno de junta, sexo/grupo, número y texto imprimible. Véase `insumos/GUIA_DE_USO_PARA_CLAUDE.md`.
+**DECIDIDO (24-11-2026).** En el operativo de Madrid, la serie visible es **M para masculino** y **F para femenino**. Esta nomenclatura se usa en pantallas, formularios, archivos Excel, credenciales, recibos, mensajes e informes. El número, la zona y la junta asignada se conservan.
 
-**DECIDIDO.** El administrador Madrid carga un Excel con nombre, apellidos, número de cédula, cargo en junta (presidente, secretario, vocal, suplentes u otros del archivo), serie H/M y junta asignada, más correo y teléfono si figuran. Puede dar altas, editar o dar bajas individuales. La plantilla PDF de credencial la aportará Pablo: tamaño CR80 85,6 × 54 mm, con datos del MJRV y **QR individual cuyo contenido es su número de cédula**.
+**DECIDIDO.** El administrador Madrid carga un Excel con nombre, apellidos, número de cédula, cargo en junta (presidente, secretario, vocal, suplentes u otros del archivo), serie M/F y junta asignada, más correo y teléfono si figuran. Puede dar altas, editar o dar bajas individuales. La plantilla PDF de credencial la aportará Pablo: tamaño CR80 85,6 × 54 mm, con datos del MJRV y **QR individual cuyo contenido es su número de cédula**.
 
 **DECIDIDO.** Salidas: credencial PDF individual; hojas A4 **optimizadas para acomodar el máximo número de credenciales legibles sin recortarlas**, listas para imprimir, cortar y colocar en portaidentificaciones con cordón; envío individual por WhatsApp mediante teinvito/Evolution API y **por correo electrónico**. Plantilla gráfica y archivo fuente pendientes.
 
@@ -288,7 +288,7 @@ El manual operativo de Madrid (Caja Mágica, 29 de noviembre de 2026) fija espac
 
 **DECIDIDO.** Aceptar un movimiento deja la junta en verde y le añade la marca de movimiento. El verde de «3 presentes» y la marca de movimiento conviven: la marca dice que hubo traslado.
 
-**DECIDIDO (21-11-2026).** El Centro de mando abre en Amarillo · Hombres. La vista de trabajo muestra una zona a la vez, con tarjetas del mismo tamaño, números grandes y los recuentos de presentes y faltantes. El selector por color cambia la zona y el filtro acota las juntas por estado. La vista general muestra las 95 juntas y los indicadores en pantalla completa. En pantallas pequeñas admite desplazamiento vertical para mantener la lectura. En ambas vistas, el orden es numérico dentro de cada zona y las juntas se identifican con la serie H/M de las credenciales.
+**DECIDIDO (21-11-2026).** El Centro de mando abre en Amarillo · Masculino. La vista de trabajo muestra una zona a la vez, con tarjetas del mismo tamaño, números grandes y los recuentos de presentes y faltantes. El selector por color cambia la zona y el filtro acota las juntas por estado. La vista general muestra las 95 juntas y los indicadores en pantalla completa. En pantallas pequeñas admite desplazamiento vertical para mantener la lectura. En ambas vistas, el orden es numérico dentro de cada zona y las juntas se identifican con la serie M/F de las credenciales.
 
 **DECIDIDO.** Numeración de las fichas.
 
@@ -356,7 +356,7 @@ La dirección leída en el manual (Calle Camino de Perales 23, 28041 Madrid) no 
 - **DECIDIDO.** No construir código, diagramar pantallas definitivas ni desplegar hasta autorización expresa. Cuando la haya, entregar primero instrucciones completas para desarrollo con Claude/Codex y plan de validación.
 - **DECIDIDO.** No confundir datos personales y pagos de Madrid con el seguimiento internacional DGSMH; nunca trasladarlos automáticamente al tablero de Quito.
 - **DECIDIDO.** No asumir que tener tres MJRV presentes equivale a instalación electoral oficial. El sistema Madrid apoya decisiones de conformación; la comunicación formal a Quito se hace en su portal.
-- **DECIDIDO.** Mantener la numeración H/M, zonas cromáticas y material operativo del proceso. No importar al CPCCS 2026 procedimientos de escrutinio específicos del referéndum de 2025.
+- **DECIDIDO.** Mantener la numeración M/F, zonas cromáticas y material operativo del proceso. No importar al CPCCS 2026 procedimientos de escrutinio específicos del referéndum de 2025.
 
 ## 10. Modelo funcional detallado y criterios transversales
 
@@ -539,7 +539,7 @@ La interfaz de las estaciones debe ser **una sola tarea por pantalla**, compatib
 
 ### 13.2. Carga de MJRV y ficha individual
 
-**DECIDIDO:** importar Excel con nombres, apellidos, cédula, función en junta, serie H/M, número de junta, y correo/teléfono cuando consten. El administrador puede crear, editar y dar de baja fichas particulares. **DISEÑO DERIVADO:**
+**DECIDIDO:** importar Excel con nombres, apellidos, cédula, función en junta, serie M/F, número de junta, y correo/teléfono cuando consten. El administrador puede crear, editar y dar de baja fichas particulares. **DISEÑO DERIVADO:**
 
 - La importación inicial se prepara durante el desarrollo a partir del archivo real, tras detectar duplicados, campos ausentes, identificadores inconsistentes y asignaciones imposibles.
 - La ficha individual muestra identidad, cargo/función según el Excel, JRV inicialmente asignada, asignación operativa vigente, información de contacto disponible, estado de credencial, llegada, fotografías, movimientos y pago, **según permisos**.
@@ -574,10 +574,10 @@ Al enviar credenciales, distinguir claramente **«preparada»**, **«enviada al 
 
 ### 13.5. Centro de mando: lectura de las 95 juntas
 
-**DECIDIDO:** visualizar 95 fichas, separadas en hombres **H1–H41** y mujeres **M1–M54**, agrupables por problemas, con identificación de zona cromática según distribución del apartado «Mapa de juntas de Madrid». **DISEÑO DERIVADO:**
+**DECIDIDO:** visualizar 95 fichas, separadas en hombres **M1–M41** y mujeres **F1–F54**, agrupables por problemas, con identificación de zona cromática según distribución del apartado «Mapa de juntas de Madrid». **DISEÑO DERIVADO:**
 
 - Cabecera con número de MJRV que llegaron; JRV con al menos tres integrantes operativamente disponibles; JRV a las que les faltan integrantes; y suplentes identificados como transferibles.
-- Vista principal de fichas con **serie H/M + número**, color de **zona**, estado de dotación y, si corresponde, señal de que hubo movimiento.
+- Vista principal de fichas con **serie M/F + número**, color de **zona**, estado de dotación y, si corresponde, señal de que hubo movimiento.
 - Colores de **estado**, distintos de colores de **zona**: verde para tres presentes; ámbar para junta incompleta; rojo si no ha llegado nadie. Mostrar también texto y conteo.
 - Orden y filtros que pongan primero las juntas más próximas a quedar constituidas, las sin dotación y las que tienen suplentes transferibles. No forzar una geometría del nivel −2 ni dibujar incorrectamente los bloques.
 - Ficha ampliada de junta con miembros originalmente asignados, marcados como llegados, reasignados, faltantes y personas disponibles para apoyar, sujeto a permisos.
@@ -857,7 +857,7 @@ Las pruebas siguientes constituyen una **lista de comprobación del software, no
 | M-05 | Operador puerta abre enlace sin PIN válido | No puede registrar ingresos ni acceder a otras funciones |
 | M-06 | Primera lectura válida | Verde, «Válida», pitido agudo, un ingreso y actualización del centro de mando |
 | M-07 | QR inexistente o duplicado | Rojo, dos pitidos graves, sin segundo ingreso válido |
-| M-08 | Consulta tablero 95 JRV | Aparecen H1–H41 y M1–M54, zonas cromáticas y estados de dotación |
+| M-08 | Consulta tablero 95 JRV | Aparecen M1–M41 y F1–F54, zonas cromáticas y estados de dotación |
 | M-09 | Solo dos miembros presentes en una junta | La ficha sigue incompleta, sin reportar instalación oficial a Quito |
 | M-10 | Suplente sobrante en misma zona | Se propone preferentemente para una junta que lo necesita |
 | M-11 | No hay suplente sobrante en misma zona | Se propone otra zona, priorizando cercanía sin movimientos automáticos |

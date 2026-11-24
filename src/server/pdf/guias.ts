@@ -7,7 +7,7 @@ import { FUNCION_NOMBRE, type Funcion } from "../../domain/estaciones";
 export type EnlaceGuia = { etiqueta: string; token: string };
 export type ContextoGuias = { base: string; enlaces: Partial<Record<Funcion, EnlaceGuia>> };
 
-type Qr = { titulo: string; detalle?: string; url: string | null; funcion?: Funcion; pequeno?: boolean };
+type Qr = { titulo: string; detalle?: string; url: string | null; funcion?: Funcion };
 type Extra =
   | { tipo: "nota"; texto: string }
   | { tipo: "tarjetas"; items: { t: string; d: string }[] }
@@ -21,11 +21,10 @@ type Guia = {
   qrs: (c: ContextoGuias) => Qr[];
 };
 
-export const NOTA_ESTACION = "Acceso directo al puesto. Requiere nombre y PIN. Si se revoca el enlace, vuelva a descargar esta guía.";
-export const SIN_ENLACE = "Sin enlace activo: créelo en Operadores";
+export const SIN_ENLACE = "Sin enlace activo: pida un enlace a Superadministración.";
 const dominio = (base: string) => base.replace(/^https?:\/\//, "");
 const estacion = (funcion: Funcion, c: ContextoGuias, titulo?: string): Qr => ({ funcion, titulo: titulo ?? FUNCION_NOMBRE[funcion], url: c.enlaces[funcion] ? `${c.base}/e/${c.enlaces[funcion]!.token}` : null, detalle: c.enlaces[funcion]?.etiqueta });
-const admin = (c: ContextoGuias, ruta: string, titulo: string, pequeno = false): Qr => ({ titulo, detalle: ruta, url: `${c.base}${ruta}`, pequeno });
+const admin = (c: ContextoGuias, ruta: string, titulo: string): Qr => ({ titulo, detalle: ruta, url: `${c.base}${ruta}` });
 
 export const GUIAS: Guia[] = [
   {
@@ -45,18 +44,18 @@ export const GUIAS: Guia[] = [
     subtitulo: "Un móvil para escanear y dos ordenadores, uno para Revisión y otro para Caja.",
     chips: [{ t: "Escaneo", d: "Móvil de Finanzas" }, { t: "Revisión", d: "Primer ordenador" }, { t: "Caja", d: "Segundo ordenador" }],
     pasos: [
-      { t: "Escaneo envía la ficha a Revisión", d: "Abra el enlace de Escaneo de Finanzas. Lea el QR de la credencial. Cuando diga Credencial enviada a Revisión, indique que pase a Revisión. Si el QR no lee, en Revisión pueden buscar por cédula." },
+      { t: "Escaneo envía la ficha a Revisión", d: "Abra Escáner de Finanzas con el QR de esta guía. Lea el QR de la credencial. Cuando diga Credencial enviada a Revisión, indique que pase a Revisión. Si el QR no lee, en Revisión pueden buscar por cédula." },
       { t: "Revisión valida e imprime", d: "En Finanzas, abra Revisar e imprimir y seleccione la ficha recibida o búsquela por cédula. Compruebe las fotos y pulse Validar documento. Marque que cumplió sus funciones y pulse Emitir e imprimir recibo. Entregue el papel a Caja." },
       { t: "Caja recoge la firma, paga y confirma", d: "En Caja, compruebe la ficha y el importe del recibo. Recoja la firma en papel y entregue el efectivo. Después marque la verificación y pulse Confirmar pago entregado. Si dice Pago ya confirmado, deténgase y consulte el recibo." },
     ],
     recuadro: { t: "Si falta el documento o hay que imprimir en lote", d: "Complete las fotos en la pestaña Documentos de Finanzas. Puede preparar un recibo sin anexo y dejar el pago pendiente hasta validar. En Recibos, pulse Imprimir por selección y elija Automática o En blanco para rellenar a mano. El lote se descarga en un solo PDF." },
-    qrs: (c) => [estacion("finanzas", c), admin(c, "/admin/finanzas/pagar", "Revisión", true), admin(c, "/admin/finanzas/caja", "Caja", true)],
+    qrs: (c) => [estacion("finanzas", c), admin(c, "/admin/finanzas/pagar", "Revisión"), admin(c, "/admin/finanzas/caja", "Caja")],
   },
   {
     n: 3, archivo: "03-escaneo-puerta", titulo: "Escaneo en Puerta",
     subtitulo: "Su tarea es registrar la entrada y orientar a cada MJRV hacia el color de su junta.",
     pasos: [
-      { t: "Abra su enlace de Puerta", d: "Use el enlace del puesto que le entregue el cónsul. Pulse Activar cámara y permita el acceso cuando el móvil lo pida." },
+      { t: "Abra su enlace de Puerta", d: "Escanee el QR de Puerta de esta guía. Pulse Activar cámara y permita el acceso cuando el móvil lo pida." },
       { t: "Coloque la credencial en el recuadro amarillo", d: "Si tiene QR, apunte al código del papel o de la pantalla. Si no hay QR, centre la credencial completa. Si aparece una ficha para revisar, confirme que corresponde a esa persona y pulse Confirmar ingreso." },
       { t: "Mire el resultado antes de seguir", d: "Con el OK verde, indique el número y la zona que aparecen. Si sale Ya usada o Ingreso no autorizado, pida al responsable de Puerta que revise el caso.", extra: { tipo: "estados", items: [{ t: "OK · Junta F1", d: "Rojo", ok: true }, { t: "Ingreso no autorizado", d: "Consulte al responsable", ok: false }] } },
       { t: "Si la cámara sigue sin leer, use el ingreso manual", d: "Pulse Ingreso manual por cédula, escriba el número y pulse Comprobar. Si hace falta, use Ingreso por nombre y escriba nombres y apellidos." },
@@ -72,7 +71,7 @@ export const GUIAS: Guia[] = [
       { t: "Tome la foto y guárdela", d: "Busque buena luz. Centre el documento entero y pulse Tomar foto. Si se lee bien, pulse Usar esta foto. Con cédula, repita en la otra cara." },
       { t: "Compruebe que terminó", d: "En el formulario, espere a que diga Listo. Indique que lleve su credencial y su documento al punto de pago cuando termine su trabajo en la junta." },
     ],
-    recuadro: { t: "Si necesita que el puesto tome las fotos", d: "Abra el enlace de Documentación que le entregue el cónsul. Pulse Buscar con la cédula o escanee el QR de la credencial. Compruebe el nombre y guarde las fotos ahí." },
+    recuadro: { t: "Si necesita que el puesto tome las fotos", d: "Escanee el QR de Documentación de esta guía. Pulse Buscar con la cédula o escanee el QR de la credencial. Compruebe el nombre y guarde las fotos ahí." },
     qrs: (c) => [estacion("documentacion", c), { titulo: "Formulario de la persona", detalle: `${dominio(c.base)}/d`, url: `${c.base}/d` }],
   },
   {
@@ -121,7 +120,7 @@ const AMARILLO = rgb(0.949, 0.718, 0.02), AZUL_BANDERA = rgb(0.039, 0.239, 0.561
 const VERDE = rgb(0.13, 0.5, 0.25), VERDE_FONDO = rgb(0.9, 0.96, 0.92), ROJO_FONDO = rgb(0.99, 0.92, 0.92);
 const W = A4.ancho * MM, H = A4.alto * MM, MARGEN = 40, ANCHO = W - 2 * MARGEN;
 export const LADO_QR_MM = 36;
-const QR_GRANDE = LADO_QR_MM * MM, QR_PEQUENO = 24 * MM;
+const LADO_QR = LADO_QR_MM * MM;
 
 type Fuentes = { n: PDFFont; b: PDFFont };
 
@@ -233,24 +232,24 @@ async function dibujarGuia(pdf: PDFDocument, f: Fuentes, g: Guia, c: ContextoGui
 async function dibujarQrs(pdf: PDFDocument, page: PDFPage, f: Fuentes, qrs: Qr[], { arriba, abajo }: { arriba: number; abajo: number }): Promise<void> {
   const n = qrs.length;
   const imagenes = new Map<string, PDFImage>();
-  for (const q of qrs) if (q.url && !imagenes.has(q.url)) imagenes.set(q.url, await pdf.embedPng(await QRCode.toBuffer(q.url, { margin: 2, scale: 8, errorCorrectionLevel: "M" })));
+  for (const q of qrs) if (q.url && !imagenes.has(q.url)) imagenes.set(q.url, await pdf.embedPng(await QRCode.toBuffer(q.url, { margin: 4, scale: 8, errorCorrectionLevel: "M" })));
   const horizontal = n <= 2, gap = 14;
   const colAncho = (ANCHO - gap * (n - 1)) / n;
-  const lado = (q: Qr) => (q.pequeno ? QR_PEQUENO : QR_GRANDE);
-  const nota = (q: Qr) => (q.funcion && q.url ? NOTA_ESTACION : null);
-
-  const altoColumna = (q: Qr) => {
-    const ancho = horizontal ? colAncho - lado(q) - 14 : colAncho;
-    const textos = alturaTexto(f, q, ancho, nota(q));
-    return horizontal ? Math.max(lado(q), textos) : lado(q) + 8 + textos;
-  };
-  const altoBloque = Math.max(...qrs.map(altoColumna));
-  // Centrado entre los pasos y el recuadro final.
-  const top = abajo + altoBloque + Math.max(0, (arriba - abajo - altoBloque) / 2);
-  if (top - altoBloque < abajo) throw new Error("La guía no cabe en una página.");
+  const anchoTexto = horizontal ? colAncho - LADO_QR - 14 : colAncho;
+  const altoTexto = Math.max(...qrs.map((q) => alturaTexto(f, q, anchoTexto)));
+  const conEstacion = qrs.some((q) => q.funcion && q.url);
+  const conMando = qrs.some((q) => q.funcion === "mando" && q.url);
+  const aviso = [
+    conMando ? "Solo Centro de mando pide nombre y PIN." : "",
+    conEstacion ? "Si se revoca el enlace, vuelva a descargar la guía." : "",
+  ].filter(Boolean).join(" ");
+  const altoQr = horizontal ? Math.max(LADO_QR, altoTexto) : LADO_QR + 8 + altoTexto;
+  const altoBloque = altoQr + (aviso ? 24 : 0);
+  if (altoBloque > arriba - abajo) throw new Error("La guía no cabe en una página.");
+  const top = abajo + altoBloque + (arriba - abajo - altoBloque) / 2;
 
   qrs.forEach((q, i) => {
-    const x0 = MARGEN + i * (colAncho + gap), l = lado(q);
+    const x0 = MARGEN + i * (colAncho + gap), l = LADO_QR;
     const qx = x0;
     const qy = top - l;
     if (q.url) page.drawImage(imagenes.get(q.url)!, { x: qx, y: qy, width: l, height: l });
@@ -259,20 +258,19 @@ async function dibujarQrs(pdf: PDFDocument, page: PDFPage, f: Fuentes, qrs: Qr[]
       let yy = qy + l / 2 + 8;
       for (const t of ajustar(SIN_ENLACE, f.b, 9, l - 14)) { page.drawText(t, { x: qx + 7, y: yy, size: 9, font: f.b, color: ROJO }); yy -= 12; }
     }
-    const tx = horizontal ? x0 + l + 14 : x0, tw = horizontal ? colAncho - l - 14 : colAncho;
+    const tx = horizontal ? x0 + l + 14 : x0, tw = anchoTexto;
     let ty = horizontal ? top - 12 : qy - 14;
     const titulo = ajustar(q.titulo, f.b, 11, tw);
     for (const t of titulo) { page.drawText(t, { x: tx, y: ty, size: 11, font: f.b, color: AZUL }); ty -= 14; }
     if (q.detalle) for (const t of ajustar(q.detalle, f.n, 9, tw)) { page.drawText(t, { x: tx, y: ty, size: 9, font: f.n, color: GRIS }); ty -= 12; }
-    const aviso = nota(q);
-    if (aviso) { ty -= 2; for (const t of ajustar(aviso, f.n, 8.5, tw)) { page.drawText(t, { x: tx, y: ty, size: 8.5, font: f.n, color: TEXTO }); ty -= 11; } }
+    if (n === 4 && i > 0) page.drawLine({ start: { x: x0 - 7, y: top - altoQr }, end: { x: x0 - 7, y: top }, thickness: 0.7, color: LINEA });
   });
+  if (aviso) page.drawText(aviso, { x: MARGEN, y: top - altoQr - 16, size: 10, font: f.n, color: GRIS });
 }
 
-function alturaTexto(f: Fuentes, q: Qr, ancho: number, nota: string | null): number {
+function alturaTexto(f: Fuentes, q: Qr, ancho: number): number {
   let h = ajustar(q.titulo, f.b, 11, ancho).length * 14;
   if (q.detalle) h += ajustar(q.detalle, f.n, 9, ancho).length * 12;
-  if (nota) h += 2 + ajustar(nota, f.n, 8.5, ancho).length * 11;
   return h + 4;
 }
 

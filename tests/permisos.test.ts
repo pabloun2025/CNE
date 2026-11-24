@@ -31,7 +31,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /admin/credenciales/envios/descargar": SOLO_ADMIN,
   "GET /admin/informes/descargar": FINANZAS,
   "GET /admin/documentos/cartel": ["admin", "superadmin"],
-  "GET /admin/operadores/guias/[n]": ["admin", "superadmin"], // lleva los enlaces de estación activos
+  "GET /admin/operadores/guias/[n]": SOLO_ADMIN, // lleva los enlaces de estación activos
   "GET /admin/credenciales/pdf": SOLO_ADMIN,
   "POST /admin/credenciales/pdf": SOLO_ADMIN,
   "GET /api/admin/documentos/[id]/[lado]": SOLO_ADMIN,

@@ -12,11 +12,14 @@ export default async function Guias() {
   return (
     <main className="max-w-3xl stack">
       <h1>Guías rápidas</h1>
-      <p>Cada guía es una hoja A4 con el QR de acceso directo al puesto. Vuelva a descargarlas si revoca o crea un enlace.</p>
-      {sin.length > 0 && <p role="status" className="font-medium text-red-700">Sin enlace activo: {sin.map((f) => FUNCION_NOMBRE[f]).join(", ")}. Créelo en Operadores; mientras tanto la guía lo indica.</p>}
-      {/* Descarga de un PDF: no es navegación entre páginas. */}
-      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-      <p><a className="button-like" href="/admin/operadores/guias/todas">Descargar todas (un PDF, 7 páginas)</a></p>
+      <p>Cada guía es una hoja A4. Los QR de estación dan acceso al puesto. Comparta las guías con el personal asignado y vuelva a descargarlas si se revoca o se crea un enlace.</p>
+      {sin.length > 0 && <p role="status" className="font-medium text-red-700">Sin enlace activo: {sin.map((f) => FUNCION_NOMBRE[f]).join(", ")}. Pida un enlace a Superadministración.</p>}
+      <div className="flex flex-wrap gap-3">
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a className="button-like" href="/admin/operadores/guias/zip">Descargar ZIP (7 PDF)</a>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a className="button-like secondary" href="/admin/operadores/guias/todas">Descargar un PDF para imprimir</a>
+      </div>
       <ul className="divide-y">
         {GUIAS.map((g) => (
           <li key={g.n} className="flex flex-wrap items-center justify-between gap-2 py-3">
