@@ -1,5 +1,5 @@
 import { etiquetaCargoCredencial } from "../domain/cargos-credencial";
-import { juntaEnCredencial, leerJuntaPublica, rotuloPublico, ZONAS, type Serie, type ZonaColor } from "../domain/juntas";
+import { juntaEnCredencial, leerJuntaPublica, ZONAS, type Serie, type ZonaColor } from "../domain/juntas";
 import type { DatosCredencial } from "./pdf/credencial";
 import { leerModo } from "./config";
 import { query } from "./db";
@@ -24,7 +24,7 @@ export function leerIdsCredenciales(valores: (string | File)[]): number[] | null
   return [...ids];
 }
 
-// Las fichas activas del padrón usan la junta cuando no tienen un rótulo importado.
+// La credencial de cada ficha del padrón muestra su junta asignada.
 export async function seleccionarParaCredencial(sel: Seleccion): Promise<ResultadoSeleccion> {
   const where = ["m.activo", "m.incorporado_en IS NULL"];
   const p: unknown[] = [];
@@ -41,15 +41,15 @@ export async function seleccionarParaCredencial(sel: Seleccion): Promise<Resulta
     where.push(`jo.zona_color = $${p.length}`);
   } else if (sel.alcance === "sin_generar") where.push("m.credencial_generada_en IS NULL");
   const modoPrueba = (await leerModo()) === "prueba";
-  const filas = await query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; rotulo_credencial: string | null; serie: Serie; numero: number; zona_color: ZonaColor; es_prueba: boolean; sin_preparar: boolean }>(
-    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.rotulo_credencial, jo.serie, jo.numero, jo.zona_color,
+  const filas = await query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; serie: Serie; numero: number; zona_color: ZonaColor; es_prueba: boolean; sin_preparar: boolean }>(
+    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, jo.serie, jo.numero, jo.zona_color,
             m.es_prueba, m.credencial_generada_en IS NULL AS sin_preparar
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
       WHERE ${where.join(" AND ")} ORDER BY jo.serie, jo.numero, m.rol, m.apellidos, m.id`, p);
   const personas = filas.map((f) => {
     // Letra pública: M = masculino, F = femenino. La serie interna no sale de aquí.
     const junta = juntaEnCredencial(f.serie, f.numero);
-    return { id: f.id, nombre: `${f.apellidos}, ${f.nombres}`, rotulo: rotuloPublico(f.rotulo_credencial, junta), junta, zona: f.zona_color, sinPreparar: f.sin_preparar };
+    return { id: f.id, nombre: `${f.apellidos}, ${f.nombres}`, rotulo: junta, junta, zona: f.zona_color, sinPreparar: f.sin_preparar };
   });
   return {
     total: filas.length,

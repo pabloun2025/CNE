@@ -1,13 +1,13 @@
-# Traspaso del Proyecto CNE — estado al 21-11-2026
+# Traspaso del Proyecto CNE — estado al 24-11-2026
 
 Documento para que otra IA (o persona) continúe el trabajo sin perder contexto. **Léalo entero antes de tocar nada.** Responsable del proyecto: Pablo Martínez (Ministro, Embajada del Ecuador en España). Se comunica en español, trato de usted, preguntas en opciones de selección (A/B/C) con recomendación.
 
-**Último estado, 21-11-2026.** Consulte la [sección 23](#23-importe-comunicado-a-los-mjrv) para la guía de pago, la [sección 22](#22-cédula-como-identificador-y-foto-de-pasaporte) para la captura, la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales y la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio.
+**Último estado, 24-11-2026.** Consulte la [sección 41](#41-entrega-de-guías-con-qr-y-comprobación-del-archivo-de-recibos-24-11) para las guías con QR y el cierre de la revisión F/M, la [sección 23](#23-importe-comunicado-a-los-mjrv) para la guía de pago, la [sección 22](#22-cédula-como-identificador-y-foto-de-pasaporte) para la captura, la [sección 19](#19-credenciales-por-zona-y-alta-manual) para las credenciales y la [sección 18](#18-reinicio-integral-y-recibos-de-madrid) para los recibos y el reinicio.
 
 ## 1. Qué es y qué alcance tiene hoy
 
 - Repositorio privado `pabloun2025/CNE`. Rama de trabajo `claude/optimistic-wozniak-ksg62y`; **producción se publica solo desde `main`** (Pablo autorizó trabajar sobre `main`).
-- **Alcance vigente: solo el sistema operativo de Madrid** (miembros de las juntas receptoras del voto, MJRV) para la jornada del **29-11-2026** en la Caja Mágica (95 juntas: H 1–41, M 1–54, seis zonas de color).
+- **Alcance vigente: solo el sistema operativo de Madrid** (miembros de las juntas receptoras del voto, MJRV) para la jornada del **29-11-2026** en la Caja Mágica (95 juntas: M1–M41 y F1–F54, seis zonas de color).
 - **Fuera de alcance por decisión de Pablo (18-11):** el portal de reporte consular y el tablero DGSMH **no se construyen**. Sus documentos de diseño (00–06) quedan como referencia; la maqueta estática del tablero sigue en `maqueta/` y en https://tablero-dgsmh.onrender.com (Render, sitio estático gratuito).
 - Las tres funciones principales del sistema (así lo presenta Pablo): **el QR de la credencial sirve para armar las juntas**, **las fotos de la cédula o del pasaporte sirven para el comprobante de pago**, y **el pago es ordenado y seguro** (nadie cobra dos veces).
 
@@ -421,3 +421,4 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - La consulta de solo lectura encontró **0 actas, 0 archivos cifrados y 0 firmas PDF** anteriores al fin del despliegue F/M (24-11 a las 12:16:55, Madrid), en ambos modos. El ZIP de guías y la consulta se comprobaron con datos ficticios. [Recuento de producción](https://github.com/pabloun2025/CNE/actions/runs/45488971178)
 - Si aparece posteriormente un caso histórico, usar **Finanzas → Recibos → Reimprimir** con las fotos disponibles del documento original. CNE reconstruye con la plantilla vigente y emplea el ordinal, la fecha y los importes del recibo ya emitido. Si faltan las fotos, **Imprimir por selección → Automática** permite generar la copia sin anexo de una ficha con recibo definitivo existente. Conservar cualquier PDF firmado original. La copia no exige repetir el desembolso.
 - En Chromium a 375 y 1366 px se comprobó el acceso desde Enlaces de estación, la descarga privada y el rechazo de solicitudes anónimas. Se revisaron visualmente las siete hojas y se decodificaron sus 15 QR desde el PDF renderizado a 150 ppp con destinos ficticios.
+- La revisión adicional corrigió los avisos y errores del importador que aún podían mostrar letras antiguas. Se usa la junta asignada en todas las credenciales aunque el Excel traiga texto libre. El comprobador de la cola marca como incoherente el turno sin credencial o con una junta distinta de la asignada.

@@ -97,14 +97,12 @@ describe("importación de MJRV contra la base (todo o nada)", () => {
 });
 
 describe("D02 · rótulo del Excel y nomenclatura M/F", () => {
-  it("con columna «Rótulo» se imprime ese texto tal cual", () => {
+  it("con columna «Rótulo» se conserva el texto de origen", () => {
     const v = normalizarFilas([fila({ "Rótulo": "ABC-7" }), fila({ cedula: "0000000002", "Rótulo": "" })]);
-    expect(v.sinColumnaRotulo).toBe(false);
     expect(v.filas.map((f) => f.datos.rotulo)).toEqual(["ABC-7", null]);
   });
-  it("sin columna de rótulo, el rótulo es el texto de la junta y se avisa", () => {
+  it("sin columna de rótulo, conserva como referencia el texto de la junta", () => {
     const v = normalizarFilas([fila({ serie: "", junta: "H12" })]);
-    expect(v.sinColumnaRotulo).toBe(true);
     expect(v.filas[0].datos.rotulo).toBe("H12");
     // Serie y número en columnas separadas: no hay texto de junta que imprimir.
     expect(normalizarFilas([fila()]).filas[0].datos.rotulo).toBeNull();
@@ -120,7 +118,13 @@ describe("D02 · rótulo del Excel y nomenclatura M/F", () => {
     expect(v.filas.map((f) => [f.datos.serie, f.datos.numero])).toEqual([["H", 1], ["H", 12]]);
     expect(v.porSerie).toEqual({ H: 2, M: 0 });
     // M42 no existe como junta masculina (hay M1–M41).
-    expect(normalizarFilas([fila({ serie: "", junta: "M42" })]).filas[0].errores.join()).toMatch(/M1–M41 y F1–F54/);
+    expect(normalizarFilas([fila({ serie: "", junta: "M42" })]).filas[0].errores.join()).toMatch(/M1–M41 o F1–F54/);
+  });
+  it("muestra únicamente juntas M y F en los avisos y en los errores de revisión", () => {
+    const v = normalizarFilas([fila({ junta: "M2" }), fila({ cedula: "0000000002", junta: "F2" }), fila({ cedula: "0000000003", junta: "H42" })]);
+    expect(v.avisosJunta.join(" ")).toMatch(/junta F2[\s\S]*junta M2/);
+    expect(v.avisosJunta.join(" ")).not.toContain("H2");
+    expect(v.filas[2].errores.join(" ")).not.toContain("H42");
   });
   it("«H12» sigue valiendo como masculino por compatibilidad", () => {
     const v = normalizarFilas([fila({ serie: "", junta: "H12" })]);

@@ -18,7 +18,7 @@ describe("comprobación de la cola sin enviar", () => {
   beforeAll(async () => {
     await reiniciarBase();
     // Rótulos guardados con la letra antigua: la salida debe llevar la pública.
-    const h = await ficha(1, "H", 12, "H12"), m = await ficha(2, "M", 5, "M5"), libre = await ficha(3, "H", 13, "Mesa especial");
+    const h = await ficha(1, "H", 12, "H12"), m = await ficha(2, "M", 5, "M5"), libre = await ficha(3, "H", 13, "Puesto H13");
     await encolar(h, "whatsapp"); await encolar(m, "whatsapp", true); await encolar(m, "correo"); await encolar(libre, "correo");
     await encolar(h, "correo", false, true); // simulado: no cuenta
   });
@@ -30,7 +30,7 @@ describe("comprobación de la cola sin enviar", () => {
     const g = Object.fromEntries(r.map((x) => [x.grupo, x]));
     expect(g["whatsapp línea 1 · normal"]).toMatchObject({ total: 1, letraM_serieH: 1, incoherentes: 0, textoConSerieInterna: 0 });
     expect(g["whatsapp línea 1 · rectificación"]).toMatchObject({ total: 1, letraF_serieM: 1, incoherentes: 0 });
-    expect(g["correo · normal"]).toMatchObject({ total: 2, letraF_serieM: 1, textoLibre: 1, incoherentes: 0 });
+    expect(g["correo · normal"]).toMatchObject({ total: 2, letraF_serieM: 1, letraM_serieH: 1, textoLibre: 0, incoherentes: 0 });
     expect(await consultarDueno("SELECT id, estado, intentos FROM cne.envios_credencial ORDER BY id")).toEqual(antes);
     expect(lineasRecuento(r).join("\n")).not.toMatch(/PRUEBA|@|\+34/);
   });
@@ -41,4 +41,12 @@ describe("comprobación de la cola sin enviar", () => {
     await consultarDueno("UPDATE cne.juntas_madrid SET zona_color = 'rojo' WHERE serie = 'M' AND numero = 5");
     expect(r.reduce((n, x) => n + x.incoherentes, 0)).toBeGreaterThan(0);
   });
+  it("marca como incoherente un turno que perdió su credencial", async () => {
+    const id = await ficha(4, "H", 12, null);
+    await encolar(id, "whatsapp");
+    await consultarDueno("UPDATE cne.mjrv SET activo = false WHERE id = $1", [id]);
+    const resultados = await comprobarCola();
+    expect(resultados.find((r) => r.grupo === "whatsapp línea 1 · normal")).toMatchObject({ sinCredencial: 1, incoherentes: 1 });
+  });
+
 });

@@ -25,8 +25,6 @@ export type FilaMjrv = {
 export type FilaVista = { datos: FilaMjrv; errores: string[]; advertencias: string[] };
 export type Vista = {
   filas: FilaVista[]; avisosJunta: string[]; errores: number; advertencias: number; validas: number;
-  // D02: el archivo no trae columna de rótulo (se imprime el texto de la junta tal cual).
-  sinColumnaRotulo: boolean;
   // D02: el archivo usa M = masculino / F = femenino. Recuento de filas por serie ya interpretada.
   porSerie: { H: number; M: number };
 };
@@ -74,7 +72,7 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
   const columnas = columnasDe(Object.keys(filas[0] ?? {}));
   const faltan = (["cedula", "apellidos", "nombres", "cargo", "junta"] as Campo[]).filter((c) => !columnas[c]);
   if (filas.length === 0) {
-    return { filas: [], avisosJunta: [], errores: 1, advertencias: 0, validas: 0, sinColumnaRotulo: false, porSerie: { H: 0, M: 0 } };
+    return { filas: [], avisosJunta: [], errores: 1, advertencias: 0, validas: 0, porSerie: { H: 0, M: 0 } };
   }
   // La letra del Excel es siempre pública: M = masculino (serie interna H) y F = femenino (serie interna M).
   // «H» se acepta como masculino por compatibilidad. Nunca se interpreta «M» como mujeres.
@@ -100,7 +98,7 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
     const rol = rolDeCargo(cargo);
     if (cargo && rol === "otro") advertencias.push(`Cargo no reconocido («${cargo}»): se guarda con rol «otro».`);
 
-    // Junta: «H12» en una sola celda, o serie y número en columnas separadas.
+    // Junta: «M12» o «F12» en una sola celda, o serie y número en columnas separadas.
     let serie: Serie | null = null;
     let numero: number | null = null;
     const juntaTexto = celda(f, "junta");
@@ -111,14 +109,15 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
       combinada = leerJuntaPublica(juntaTexto);
     }
     if (combinada) ({ serie, numero } = combinada);
-    else {
+    else if (formaCombinada.test(juntaTexto)) {
+      errores.push("La junta indicada no existe. Use M1–M41 o F1–F54.");
+    } else {
       const s: Serie | null = /^(m|h|hombre|hombres|masculino|varon)$/.test(serieTexto) ? "H" : /^(f|mujer|mujeres|femenino)$/.test(serieTexto) ? "M" : null;
       const n = /^\d{1,3}$/.test(juntaTexto) ? Number(juntaTexto) : null;
       if (!s || n === null) errores.push("Junta no interpretable: indique serie (M masculino o F femenino) y número, o algo como M12 o F12.");
       else if (!leerJunta(`${s}${n}`)) errores.push(`La junta ${juntaEnCredencial(s, n)} no existe (hay M1–M41 y F1–F54).`);
       else { serie = s; numero = n; }
     }
-    if (combinada === null && /^[hHmMfF]\s*\d+$/.test(juntaTexto)) errores.push(`La junta ${juntaTexto.toUpperCase()} no existe (hay M1–M41 y F1–F54).`);
 
     let correo: string | null = celda(f, "correo").toLowerCase() || null;
     if (correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) {
@@ -132,7 +131,7 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
       if (p?.isValid()) telefono = p.number;
       else advertencias.push("Teléfono no interpretable: se ignora.");
     }
-    // El rótulo es el del Excel, tal cual y sin recalcular. Sin columna de rótulo, el texto de la junta si es del tipo «M01».
+    // Conserva el texto del Excel como referencia de las credenciales anteriores.
     const rotulo = columnas.rotulo ? celda(f, "rotulo") || null : /^[A-Za-z]\s*\d+$/.test(juntaTexto) ? juntaTexto : null;
     return { datos: { fila: i + 2, cedula, apellidos, nombres, cargo, rol, serie, numero, correo, telefono, rotulo }, errores, advertencias };
   });
@@ -144,7 +143,11 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
 
   // Avisos por junta (no bloquean).
   const porJunta = new Map<string, FilaMjrv[]>();
-  for (const v of vistas) if (v.datos.serie && v.datos.numero) porJunta.set(`${v.datos.serie}${v.datos.numero}`, [...(porJunta.get(`${v.datos.serie}${v.datos.numero}`) ?? []), v.datos]);
+  for (const { datos } of vistas) {
+    if (!datos.serie || !datos.numero) continue;
+    const junta = juntaEnCredencial(datos.serie, datos.numero);
+    porJunta.set(junta, [...(porJunta.get(junta) ?? []), datos]);
+  }
   const avisosJunta: string[] = [];
   for (const [junta, gente] of [...porJunta].sort()) {
     if (gente.filter((g) => g.rol === "presidente").length > 1) avisosJunta.push(`La junta ${junta} tiene más de un presidente.`);
@@ -155,7 +158,7 @@ export function normalizarFilas(filas: Record<string, unknown>[]): Vista {
   const porSerie = { H: 0, M: 0 };
   for (const v of vistas) if (v.datos.serie) porSerie[v.datos.serie]++;
   return {
-    filas: vistas, avisosJunta, errores, sinColumnaRotulo: !columnas.rotulo, porSerie,
+    filas: vistas, avisosJunta, errores, porSerie,
     advertencias: vistas.filter((v) => v.advertencias.length).length,
     validas: vistas.length - errores,
   };

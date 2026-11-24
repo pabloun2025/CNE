@@ -32,7 +32,7 @@ export async function comprobarCola(): Promise<RecuentoCola[]> {
     const g = grupo(`${e.canal === "whatsapp" ? `whatsapp línea ${e.linea}` : "correo"} · ${e.rectificacion ? "rectificación" : "normal"}`);
     g.total++;
     const s = seleccion.get(e.mjrv_id);
-    if (!s) { g.sinCredencial++; continue; }
+    if (!s) { g.sinCredencial++; g.incoherentes++; continue; }
     const serie = s.ficha.serie;
     let c;
     try {
@@ -40,15 +40,18 @@ export async function comprobarCola(): Promise<RecuentoCola[]> {
     } catch {
       g.errorAlPreparar++; g.incoherentes++; continue;
     }
-    const letra = /^\s*([MFHmfh])\s*\d/.exec(c.rotulo)?.[1].toUpperCase();
+    const letra = /^([MFH])\s*\d/i.exec(c.rotulo)?.[1].toUpperCase();
     if (!letra) g.textoLibre++;
-    else if (letra === "M" && serie === "H") g.letraM_serieH++;
-    else if (letra === "F" && serie === "M") g.letraF_serieM++;
-    else g.incoherentes++;
-    // La serie interna (H, o M seguida del número de una junta femenina) no debe salir en nada de lo que recibe el ciudadano.
+    if (c.rotulo === s.persona.junta) {
+      if (letra === "M" && serie === "H") g.letraM_serieH++;
+      if (letra === "F" && serie === "M") g.letraF_serieM++;
+    }
     const salida = [c.texto, c.asunto, c.html ?? "", c.nombreArchivo, c.rotulo].join("\n");
     const interna = new RegExp(`(?<![A-Za-z0-9_./-])${serie}${s.persona.junta.slice(1)}(?!\\d)`);
-    if (/(?<![A-Za-z0-9_./-])H\s?\d/.test(salida) || (serie === "M" && interna.test(salida))) { g.textoConSerieInterna++; g.incoherentes++; }
+    const tieneSerieInterna = /(?<![A-Za-z0-9_./-])H\s?\d/.test(salida) || (serie === "M" && interna.test(salida));
+    if (tieneSerieInterna) g.textoConSerieInterna++;
+    const letraCorrecta = letra === (serie === "H" ? "M" : "F");
+    if (tieneSerieInterna || !letraCorrecta || c.rotulo !== s.persona.junta) g.incoherentes++;
   }
   return [...grupos.values()].sort((a, b) => a.grupo.localeCompare(b.grupo));
 }

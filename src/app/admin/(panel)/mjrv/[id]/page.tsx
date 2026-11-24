@@ -1,5 +1,4 @@
 import { SOLO_CONSUL } from "@/domain/roles";
-import { rotuloPublico } from "@/domain/juntas";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotonesEnvio } from "@/components/envios-credenciales";
@@ -35,7 +34,7 @@ export default async function FichaMjrv({ params }: { params: Promise<{ id: stri
         <p><strong>Cargo original:</strong> {m.cargo_original} (rol: {m.rol})</p>
         <p><strong>Junta de origen:</strong> {m.origen}</p>
         <p><strong>Junta vigente:</strong> {m.vigente}{m.vigente !== m.origen ? " (trasladado)" : ""}</p>
-        {tieneCredencial && <p><strong>Rótulo de credencial:</strong> {rotuloPublico(m.rotulo_credencial, m.origen)}</p>}
+        {tieneCredencial && <p><strong>Rótulo de credencial:</strong> {m.origen}</p>}
         <p><strong>Credencial preparada:</strong> {hora(m.credencial_generada_en)}</p>
         <p><strong>Contacto:</strong> {[m.correo, m.telefono_e164].filter(Boolean).join(" · ") || "sin datos"}</p>
         <p><strong>Llegada:</strong> {m.incorporado_en ? `${hora(m.incorporado_en)} (incorporada)` : m.ingreso_en ? hora(m.ingreso_en) : "no registrada"}</p>

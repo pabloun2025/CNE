@@ -23,7 +23,7 @@ describe("rótulo guardado con la letra antigua", () => {
     expect(rotuloPublico("M5", "F5")).toBe("F5");
     const r = await seleccionarParaCredencial({ alcance: "todas" });
     const porCedula = Object.fromEntries(r.datos.map((d) => [d.cedula, d.rotulo]));
-    expect(porCedula).toEqual({ "0000000001": "M12", "0000000002": "F5", "0000000003": "Mesa especial" });
+    expect(porCedula).toEqual({ "0000000001": "M12", "0000000002": "F5", "0000000003": "M13" });
   });
 
   it("el script comprueba sin escribir y aplica la letra pública", async () => {

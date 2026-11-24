@@ -42,6 +42,10 @@ jobs:
           SELECT count(*), count(*) FILTER (WHERE a.recibo_cifrado IS NOT NULL AND a.recibo_nonce IS NOT NULL),
                  (SELECT count(*) FROM cne.firmas_recibo WHERE creado_en < timestamptz '2026-11-24 12:16:55 Europe/Madrid')
             FROM cne.actas_pago a WHERE a.creado_en < timestamptz '2026-11-24 12:16:55 Europe/Madrid';
+          SELECT 'Enlaces de estación activos | función | cuántos';
+          SELECT funcion, count(*) FROM cne.enlaces_estacion
+           WHERE activo AND revocado_en IS NULL AND token_cifrado IS NOT NULL AND token_nonce IS NOT NULL
+           GROUP BY funcion ORDER BY funcion;
           COMMIT;
           SQL
           rm -f ~/.ssh/oracle
