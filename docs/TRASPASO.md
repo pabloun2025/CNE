@@ -435,3 +435,8 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 
 - El cotejo de las 276 filas identificadas del Excel oficial con CNE encontró una sola alta, Secretaría de M9, y ninguna diferencia en los datos de las otras 275. El Excel marca vacante la Secretaría de F23, que continúa activa en CNE. No se hizo ninguna baja. [Cotejo](https://github.com/pabloun2025/CNE/actions/runs/45635522998)
 - Se registró el alta de M9, se verificó el PDF con el rótulo M9 y se añadió un turno real de WhatsApp a la línea 2, sin cambiar su configuración. Brevo aceptó el correo con el PDF. Al verificar, el WhatsApp seguía en cola con cero intentos y el correo aún no tenía acuse de entrega. [Operación](https://github.com/pabloun2025/CNE/actions/runs/45636566392) · [Verificación](https://github.com/pabloun2025/CNE/actions/runs/45636641796)
+
+## 44. Enlaces privados para la prueba de credenciales por SMS (25-11)
+
+- `/s/[token]` muestra un PDF individual. El enlace cifrado caduca e incluye una ficha y su teléfono de destino. Para fichas reales solo funciona en modo elección con la cédula y el teléfono vigentes, y con la ficha activa y sin revocación.
+- La prueba usa un PDF marcado «PRUEBA» sin datos del padrón. SMS Publi validó el secreto `SMSPUBLI_API` en GitHub Actions. La prueba individual se tramita por separado del lote y del circuito de WhatsApp. [Comprobación del proveedor](https://github.com/pabloun2025/CNE/actions/runs/45710113923)

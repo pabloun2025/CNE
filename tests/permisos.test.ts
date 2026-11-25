@@ -63,6 +63,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
   "GET /w/[token]": "publica", // enlace firmado por ficha; solo fichas reales activas (Google Wallet)
+  "GET /s/[token]": "publica", // token cifrado por ficha, con caducidad y validación de revocación
   "POST /api/webhooks/evolution": [], // requiere la credencial de la línea de Evolution
   "POST /api/webhooks/brevo": [], // autentica el token de Brevo, no una sesión de CNE
   "POST /api/d/foto": "publica", // la ruta valida el archivo y limita peticiones por IP
