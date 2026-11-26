@@ -37,38 +37,30 @@ try {
   const cuenta = await api("account/get-balance", { api_key: apiKey });
   console.log(JSON.stringify({ cuenta: cuenta.json.status === "ok" ? "autenticada" : "rechazada", http: cuenta.http, codigo: codigo(cuenta.json.error_id) }));
   if (cuenta.http !== 200 || cuenta.json.status !== "ok") process.exit(1);
-  const simulacion = await api("sms/send-landing", { ...datos, fake: 1 });
-  const prueba = simulacion.json.result?.[0];
-  if (simulacion.http !== 200 || simulacion.json.status !== "ok" || prueba?.status !== "ok") {
-    console.log(JSON.stringify({ simulacion: "rechazada", http: simulacion.http, codigo: codigo(prueba?.error_id ?? simulacion.json.error_id) }));
+  solicitado = true;
+  const real = await api("sms/send-landing", datos);
+  const envio = real.json.result?.[0];
+  if (real.http !== 200 || real.json.status !== "ok" || envio?.status !== "ok" || !idValido(envio?.sms_id)) {
+    console.log(JSON.stringify({ real: "sin_confirmacion", http: real.http, codigo: codigo(envio?.error_id ?? real.json.error_id) }));
     process.exitCode = 1;
   } else {
-    console.log(JSON.stringify({ simulacion: "aceptada", plantilla: datos.landing_id, caracteresSinEnlace: textoFijo.length }));
-    solicitado = true;
-    const real = await api("sms/send-landing", datos);
-    const envio = real.json.result?.[0];
-    if (real.http !== 200 || real.json.status !== "ok" || envio?.status !== "ok" || !idValido(envio?.sms_id)) {
-      console.log(JSON.stringify({ real: "sin_confirmacion", http: real.http, codigo: codigo(envio?.error_id ?? real.json.error_id) }));
-      process.exitCode = 1;
-    } else {
-      const smsId = envio.sms_id;
-      console.log(JSON.stringify({ real: "aceptado", smsId }));
-      let acuse = null;
-      for (const demora of [0, 4000, 6500, 9000]) {
-        await esperar(demora);
-        try {
-          const informe = await api("sms/get-reports", { api_key: apiKey, sms_id: smsId });
-          const fila = informe.json.result?.find?.((item) => item.sms_id === smsId);
-          acuse = codigo(fila?.status) ?? acuse;
-          if (["DELIVRD", "UNDELIV", "EXPIRED", "REJECTD", "DELETED"].includes(acuse)) break;
-        } catch {
-          // Un fallo al consultar el acuse no cambia la aceptación ni dispara otro envío.
-        }
+    const smsId = envio.sms_id;
+    console.log(JSON.stringify({ real: "aceptado", smsId }));
+    let acuse = null;
+    for (const demora of [0, 4000, 6500, 9000]) {
+      await esperar(demora);
+      try {
+        const informe = await api("sms/get-reports", { api_key: apiKey, sms_id: smsId });
+        const fila = informe.json.result?.find?.((item) => item.sms_id === smsId);
+        acuse = codigo(fila?.status) ?? acuse;
+        if (["DELIVRD", "UNDELIV", "EXPIRED", "REJECTD", "DELETED"].includes(acuse)) break;
+      } catch {
+        // Un fallo al consultar el acuse no cambia la aceptación ni dispara otro envío.
       }
-      console.log(JSON.stringify({ acuse: acuse ?? "PENDIENTE" }));
     }
+    console.log(JSON.stringify({ acuse: acuse ?? "PENDIENTE" }));
   }
 } catch {
-  console.error(solicitado ? "Resultado del SMS real incierto. Consultar el panel antes de repetir." : "Sin respuesta válida en la simulación. El SMS real no se solicitó.");
+  console.error(solicitado ? "Resultado del SMS real incierto. Consultar el panel antes de repetir." : "Sin respuesta válida al comprobar la cuenta. El SMS real no se solicitó.");
   process.exitCode = 1;
 }
