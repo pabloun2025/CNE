@@ -481,3 +481,9 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 
 - La autorización de publicación se recibió el 26 de noviembre. La etiqueta `cne-puesto-movil-20261126` usa el despliegue habitual de Oracle. La carga exige una credencial efímera y recibe únicamente partes cifradas y verificadas. La clave privada de Madrid abre el paquete dentro del contenedor, instala el padrón y su clave en el volumen de CNE y elimina las partes. Obtenidas las credenciales, el mismo endpoint rechaza nuevas cargas.
 - El correo real del puesto móvil tiene un interruptor propio del servicio y respeta la pausa de correo de CNE. El diagnóstico accesible con la credencial de seguimiento comprueba el remitente de Brevo sin enviar mensajes. Los accesos del puesto y seguimiento están separados y se entregan por el canal privado de coordinación.
+
+## 51. Nombre del padrón y márgenes del justificante (26-11)
+
+- Los justificantes nuevos del puesto móvil, del QR laboral y del generador Windows sin conexión comparten la plantilla A4 con los párrafos justificados. Se comprobó que el texto conserva todas sus palabras y que la firma y el sello coinciden píxel a píxel. La constancia térmica justifica su texto explicativo y conserva los QR originales.
+- El puesto móvil pide nombre únicamente si la cédula no consta. La portada `https://cne.consulado.app/` abre ese puesto. El enlace corto de voluntarios admite el fragmento de acceso abreviado, y el seguimiento conserva su credencial independiente.
+- El ZIP privado de Windows conserva un único inicio para el puesto. El generador A4 sin conexión se abre desde `Sistema/Justificante laboral/start.cmd` y comparte el runtime de Windows.
