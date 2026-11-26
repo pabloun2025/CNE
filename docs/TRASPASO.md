@@ -488,6 +488,11 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - El puesto móvil pide nombre únicamente si la cédula no consta. La portada `https://cne.consulado.app/` abre ese puesto. El enlace corto de voluntarios admite el fragmento de acceso abreviado, y el seguimiento conserva su credencial independiente.
 - El ZIP privado de Windows conserva un único inicio para el puesto. El generador A4 sin conexión se abre desde `Sistema/Justificante laboral/start.cmd` y comparte el runtime de Windows.
 
+## 52. Aviso electoral de Madrid para SMS (26-11)
+
+- El aviso general está en `/voto-madrid.html`. Reúne horario de sufragio, consulta oficial del CNE, transporte a la Caja Mágica y documentos admitidos. Las imágenes se sirven desde CNE. El enlace al mapa abre las indicaciones del recinto.
+- Se comprobó el diseño de 320 a 1440 px, incluida la vista móvil de 375 px, la carga de imágenes y los enlaces del CNE, mapa y teléfono. Antes de la prueba individual, verificar la URL desde internet. El mensaje usa un solo segmento y el remitente consular `+34913430250`.
+
 ## 53. Correo y justificante laboral del puesto móvil (26-11)
 
 - Al escribir la primera parte del correo, el formulario puede completar dominios habituales mediante botones. Los dominios se filtran después de la arroba y el campo permite escribir cualquier dirección válida. Las sugerencias se calculan en el teléfono y se limpian al iniciar otra consulta.
