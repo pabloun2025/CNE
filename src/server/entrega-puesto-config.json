@@ -1,0 +1,84 @@
+{
+  "id": "5536b87b625f262fa287",
+  "vence": 1796040000000,
+  "subir": "7010dd2083f6539a612377d5be2a64d34203a8484791f1de6c8dfe3bb2750194",
+  "bajar": "cb2ea1bb077a8ca3aa54c34f51fe4a95c2887d6cfb3d9581dcc8d0f07dd0b8f0",
+  "partes": [
+    {
+      "size": 4194304,
+      "sha256": "5c82aabdaab97b7b7edba6800f95ba8af65524bfb766bedd956872bb47bf4e45"
+    },
+    {
+      "size": 4194304,
+      "sha256": "6582c31230f9f616633210e1c4302f67a1118533fe72fa39941a530debe963b0"
+    },
+    {
+      "size": 4194304,
+      "sha256": "63e045198f64ec3deaccc5473a2060fb027471907aa7c793a8ca98635bbbd9cb"
+    },
+    {
+      "size": 4194304,
+      "sha256": "498972568ac7fee193e5a189e2914b548d896b718a367cf7a6df96e11b0373b9"
+    },
+    {
+      "size": 4194304,
+      "sha256": "de99651c706fe881c306840e7d3be3810d5958d8f2eec216eb7ed62dbde38663"
+    },
+    {
+      "size": 4194304,
+      "sha256": "58f9967a97b20c583e433a434339188e6f54ede8562362e626651aee5dfca602"
+    },
+    {
+      "size": 4194304,
+      "sha256": "3df2c2adc82514501fb2cc49c346a6b500712d3ad1ea9842f3639900266b5a65"
+    },
+    {
+      "size": 4194304,
+      "sha256": "46bcec9f4ddf01184a961f574c5a7a76239548cd594c65b0014dd0e913152cff"
+    },
+    {
+      "size": 4194304,
+      "sha256": "010f4cf3dff31c90d93255659ae223564ea399de6b18d9a718026fa3e3063dba"
+    },
+    {
+      "size": 4194304,
+      "sha256": "c0450e3684b68328888f527d97f608a1c570401ad762638d78184b9d6bcf8a05"
+    },
+    {
+      "size": 4194304,
+      "sha256": "7c0b344e2a3f74bfb1ab4cdc2440a28a06fa797a7537c4e3784e1b5eec61bd5e"
+    },
+    {
+      "size": 4194304,
+      "sha256": "8c0acd38316e2198a71e2ac6b9f46a0a3b8527985818712213e73813f757c7a1"
+    },
+    {
+      "size": 4194304,
+      "sha256": "56105bcad3ba9c4759293d90549b2a39e313b58d20d3f088839d07d2e91eed78"
+    },
+    {
+      "size": 4194304,
+      "sha256": "c4421d3cee46ccd393426e22bc50f9af6a3ec33be58f1d69d10a9b2c091aa575"
+    },
+    {
+      "size": 4194304,
+      "sha256": "fe4e21b0fbb2509122d9869b1a9b35876e9a56c2142bc77e695808b9bfc8c932"
+    },
+    {
+      "size": 4194304,
+      "sha256": "4ae3bdd76a55923fbeda82eb32941092079114194719f8b4eacf3cd4f58cd63b"
+    },
+    {
+      "size": 4194304,
+      "sha256": "74c2dd84d306e17b19d16a895de6d219361b0a1bd3ca9add7b392e3c4d6a5383"
+    },
+    {
+      "size": 4194304,
+      "sha256": "497dc05707a357da4a701fb1531d8dc4961a0a201c871bd45efd230611968ac0"
+    },
+    {
+      "size": 2420765,
+      "sha256": "c3229cd7f1a4bc819e33daeb84cffc1dd626ec14b7320d29c2d78b3b6672806b"
+    }
+  ]
+}

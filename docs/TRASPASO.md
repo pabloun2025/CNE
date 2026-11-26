@@ -462,3 +462,8 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Los tickets del puesto sin conexión enlazan a `/justificante-laboral` con un código cifrado y firmado, transportado en el fragmento de la URL. Ambos tickets tienen fecha y hora de Madrid. La constancia de quien no figura en el padrón incluye el QR de `/guia-electoral.pdf` y se conserva como respaldo de comparecencia.
 - El formulario ya dispone de nombre y cédula. Admite hasta tres aperturas por ticket, valida la letra del DNI o NIE opcional y genera el PDF con la firma y el sello aprobados. El padrón y la clave privada de emisión permanecen fuera del servidor. La base web solo guarda los identificadores y vencimientos necesarios para limitar aperturas.
 - La etiqueta de lanzamiento `cne-voto-publicacion-20261129-r2` usa el despliegue habitual de CNE si apunta a `main`. La etiqueta anotada `cne-voto-verificado-20261129-r2` contiene la clave pública del receptor y el cotejo de la guía después de verificar los enlaces desde internet.
+
+## 48. Descarga privada temporal del puesto de Windows (26-11)
+
+- `/entrega-puesto` permite guardar en el cliente el ZIP del puesto. El servidor almacena exclusivamente partes cifradas. La clave de descifrado se recibe en el fragmento del enlace y se usa en el navegador. Los tokens de acceso se verifican mediante sus huellas. El paquete real permanece fuera de Git.
+- La entrega temporal caduca el 30 de noviembre de 2026 a las 13:00 (Madrid). Se despliega por el flujo habitual de CNE y mediante la etiqueta `cne-zip-privado-20261126`.

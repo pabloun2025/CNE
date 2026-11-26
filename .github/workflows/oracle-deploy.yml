@@ -7,6 +7,7 @@ on:
   push:
     tags:
       - cne-voto-publicacion-20261129-r2
+      - cne-zip-privado-20261126
   workflow_dispatch:
     inputs:
       accion:
@@ -104,7 +105,7 @@ jobs:
         run: rm -f ~/.ssh/oracle /tmp/cne-bootstrap.json /tmp/cne-source.tar.gz
 
   verificar-enlaces-electorales:
-    if: ${{ always() && github.event_name == 'push' }}
+    if: ${{ always() && github.ref == 'refs/tags/cne-voto-publicacion-20261129-r2' }}
     needs: [ci, deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 4
