@@ -1,0 +1,38 @@
+name: Verificar QR electoral desde internet
+
+on:
+  push:
+    tags:
+      - cne-voto-prueba-publica-20261129
+
+permissions:
+  contents: read
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cotejar los destinos y la clave pública
+        env:
+          REVISION: 1881aeac53acf3e82e4af3118e5129c0b30511a9
+        run: |
+          set -euo pipefail
+          site=https://madrid.consulado.app
+          for intento in $(seq 1 30); do
+            if curl --max-time 9 -fsSL "$site/api/salud" -o /tmp/salud.json &&
+               jq -e --arg version "$REVISION" '.ok == true and .version == $version' /tmp/salud.json >/dev/null; then
+              break
+            fi
+            test "$intento" -lt 30
+            sleep 14
+          done
+          curl --max-time 15 -fsSL "$site/justificante-laboral" -o /tmp/justificante.html
+          grep -qi 'Justificante laboral' /tmp/justificante.html
+          curl --max-time 15 -fsSL "$site/guia-electoral.pdf" -o /tmp/guia-electoral.pdf
+          cmp /tmp/guia-electoral.pdf public/guia-electoral.pdf
+          curl --max-time 15 -fsSL "$site/api/voto/clave-publica" -o /tmp/receptor.pem
+          openssl pkey -pubin -in /tmp/receptor.pem -outform DER -out /tmp/receptor.der
+          test "$(wc -c </tmp/receptor.der)" -eq 44
+          printf '::notice title=Verificación pública electoral::revision %s receptor %s guia %s\n' "$REVISION" "$(base64 -w0 /tmp/receptor.der)" "$(sha256sum /tmp/guia-electoral.pdf | cut -d ' ' -f1)"
