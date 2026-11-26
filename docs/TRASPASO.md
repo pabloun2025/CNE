@@ -520,3 +520,9 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - El formulario del QR permite descargar el PDF o solicitarlo por correo, tanto para una persona con junta como para una persona que no consta en el padrón. Usa el mismo PDF y el remitente institucional que usa el puesto móvil. El envío respeta la pausa general de correo.
 - La migración `2026-12-16-correo-justificante.sql` reserva un envío por apertura y no guarda la dirección. Los reintentos quedan disponibles si el proveedor confirma que el correo no salió. Si la entrega es incierta, se evita duplicarla. Los QR emitidos previamente siguen abriendo el formulario actualizado.
 - Comprobado en Chromium a 375 px y en PostgreSQL 16 con un proveedor simulado, incluida la descarga, el adjunto y dos solicitudes simultáneas que generan un solo envío.
+
+## 58. Actualización del padrón de Madrid y credenciales (26-11)
+
+- Se aplicó la revisión de la hoja oficial de las 18:27, hora de Madrid. Se dieron de alta las vocalías principales de F27 y M35. Se dieron de baja las secretarías de F11 y F14, la vocalía principal de F25 y la presidencia de M1. Las bajas conservan sus fichas e historial. La presidencia de F8 ya tenía la cédula normalizada con el cero inicial. CNE quedó con 275 fichas activas, incluida la secretaría de F23 conservada en el cotejo anterior. [Operación en Oracle](https://github.com/pabloun2025/CNE/actions/runs/45891398408)
+- Se generaron los tres PDF. SMS Publi aceptó los SMS individuales de F27 y M35 con el secreto `API_SMSQUEENS`. F8 ya tenía un SMS entregado al móvil oficial. Brevo entregó los PDF a F8 y M35. El correo de F27 devolvió un rebote permanente y requiere una dirección confirmada para reenviarlo. [Cotejo posterior y acuses](https://github.com/pabloun2025/CNE/actions/runs/45891559613)
+- Actualización de datos comprobada en el sistema que ejecutaba `e21c296`. El Excel y los datos nominativos quedaron fuera de Git.
