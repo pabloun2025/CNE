@@ -1,28 +1,67 @@
-name: Enviar una prueba del mailing de Madrid por Brevo
+name: Mailing consular de Madrid
 on:
   workflow_dispatch:
+    inputs:
+      modo:
+        type: choice
+        options: [preparar, importar, crear, enviar, consultar, acuse, limpiar]
+        required: true
+      paquete:
+        type: string
+        required: false
+      id:
+        type: string
+        required: false
 permissions:
   contents: read
 concurrency:
-  group: cne-madrid-prueba-mailing-20261126
+  group: cne-madrid-campana-20261126
   cancel-in-progress: false
 jobs:
-  prueba:
+  correo:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Enviar un único correo de revisión
+      - name: Operar la campaña desde el servidor de correo
         env:
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          MODO: ${{ inputs.modo }}
+          PAQUETE: ${{ inputs.paquete }}
+          ID: ${{ inputs.id }}
         run: |
           set -euo pipefail
           umask 077
-          [[ "$GITHUB_RUN_ATTEMPT" == 1 ]]
           test -n "$ORACLE_SSH_KEY"
-          clave=$(mktemp)
-          trap 'unlink "$clave"' EXIT
-          printf '%s\n' "$ORACLE_SSH_KEY" > "$clave"
-          tar -C scripts/ops/mailing-madrid -cf - enviar-prueba.mjs mailing-madrid.html mailing-madrid.json |
-            ssh -i "$clave" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 \
-            'sudo docker exec -i cne-prod-cne-app-1 sh -c "set -eu; umask 077; directorio=\$(mktemp -d); trap '\''rm -rf -- \"\$directorio\"'\'' EXIT; cd \"\$directorio\"; tar -xf -; node enviar-prueba.mjs"'
+          tmp=$(mktemp -d)
+          trap 'rm -rf -- "$tmp"' EXIT
+          printf '%s\n' "$ORACLE_SSH_KEY" > "$tmp/ssh"
+          oracle=(ssh -i "$tmp/ssh" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109)
+          carpeta=/tmp/cne-madrid-campana-20261126
+          case "$MODO" in
+            preparar)
+              "${oracle[@]}" "set -eu; umask 077; mkdir -p '$carpeta'; if [ ! -f '$carpeta/publica.crt' ]; then openssl req -x509 -newkey rsa:3072 -keyout '$carpeta/privada.pem' -out '$carpeta/publica.crt' -days 1 -nodes -subj /CN=CNE-MADRID-CAMPANA >/dev/null 2>&1; fi; cat '$carpeta/publica.crt'"
+              "${oracle[@]}" 'sudo docker exec -i cne-prod-cne-app-1 node --input-type=module -' < scripts/ops/mailing-madrid/preflight.mjs
+              ;;
+            importar|acuse)
+              [[ "$GITHUB_RUN_ATTEMPT" == 1 ]]
+              [[ "$ID" =~ ^[0-9]+:[0-9]+:[0-9]+:[a-f0-9]{64}$ && -n "$PAQUETE" ]]
+              mkdir "$tmp/correo"
+              cp scripts/ops/mailing-madrid/{campana.mjs,mailing-madrid.html,mailing-madrid.json} "$tmp/correo/"
+              printf '%s' "$PAQUETE" | base64 -d > "$tmp/correo/destinos.cms"
+              tar -C "$tmp/correo" -cf - campana.mjs mailing-madrid.html mailing-madrid.json destinos.cms |
+                "${oracle[@]}" 'set -eu; umask 077; directorio=$(mktemp -d); trap '\''rm -rf -- "$directorio"'\'' EXIT; cd "$directorio"; tar -xf -; openssl cms -decrypt -binary -inform DER -inkey /tmp/cne-madrid-campana-20261126/privada.pem -in destinos.cms | gzip -dc > destinos.json; tar -cf - campana.mjs mailing-madrid.html mailing-madrid.json destinos.json | sudo docker exec -i cne-prod-cne-app-1 sh -c "set -eu; umask 077; tmp=\$(mktemp -d); trap '\''rm -rf -- \"\$tmp\"'\'' EXIT; cd \"\$tmp\"; tar -xf -; node campana.mjs '"$MODO $ID"'"'
+              ;;
+            crear|enviar|consultar)
+              [[ "$MODO" != enviar || "$GITHUB_RUN_ATTEMPT" == 1 ]]
+              [[ "$ID" =~ ^[0-9]+:[0-9]+:[0-9]+:[a-f0-9]{64}$ ]]
+              tar -C scripts/ops/mailing-madrid -cf - campana.mjs mailing-madrid.html mailing-madrid.json |
+                "${oracle[@]}" 'sudo docker exec -i cne-prod-cne-app-1 sh -c "set -eu; tmp=\$(mktemp -d); trap '\''rm -rf -- \"\$tmp\"'\'' EXIT; cd \"\$tmp\"; tar -xf -; node campana.mjs '"$MODO $ID"'"'
+              ;;
+            limpiar)
+              "${oracle[@]}" "set -eu; rm -f '$carpeta/privada.pem' '$carpeta/publica.crt'; rmdir '$carpeta'"
+              ;;
+            *)
+              exit 2
+              ;;
+          esac
