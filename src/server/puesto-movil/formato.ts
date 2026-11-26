@@ -1,4 +1,4 @@
-import { createDecipheriv } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 // CPD2 (nonce de 12 bytes, etiqueta de 16 bytes y JSON cifrado). Compatible con el importador de custodia.
 export const MARCA = Buffer.from("CPD2");
@@ -35,5 +35,18 @@ export function descifrar(archivo: Buffer, clave: Buffer): Map<string, Elector> 
     // GCM autentica el bloque completo en final(), antes de analizar o indexar las fichas.
     gcm.final();
     return indexar(JSON.parse(plain.toString("utf8")));
+  } finally { plain.fill(0); }
+}
+
+export function cifrar(registros: ReadonlyMap<string, Elector>, clave: Buffer) {
+  const filas = Array.from(registros, ([cedula, { verificarWeb, ...ficha }]) =>
+    ({ cedula, ...ficha, ...(verificarWeb ? { verificarWeb } : {}) }));
+  const plain = Buffer.from(JSON.stringify(filas));
+  const nonce = randomBytes(12);
+  try {
+    const gcm = createCipheriv("aes-256-gcm", clave, nonce);
+    gcm.setAAD(MARCA);
+    const datos = Buffer.concat([gcm.update(plain), gcm.final()]);
+    return Buffer.concat([MARCA, nonce, gcm.getAuthTag(), datos]);
   } finally { plain.fill(0); }
 }

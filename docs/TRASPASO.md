@@ -520,3 +520,9 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - El formulario del QR permite descargar el PDF o solicitarlo por correo, tanto para una persona con junta como para una persona que no consta en el padrón. Usa el mismo PDF y el remitente institucional que usa el puesto móvil. El envío respeta la pausa general de correo.
 - La migración `2026-12-16-correo-justificante.sql` reserva un envío por apertura y no guarda la dirección. Los reintentos quedan disponibles si el proveedor confirma que el correo no salió. Si la entrega es incierta, se evita duplicarla. Los QR emitidos previamente siguen abriendo el formulario actualizado.
 - Comprobado en Chromium a 375 px y en PostgreSQL 16 con un proveedor simulado, incluida la descarga, el adjunto y dos solicitudes simultáneas que generan un solo envío.
+
+## 58. Padrón Electoral 3 y Zona Única (26-11)
+
+- El Excel corregido contiene 77.480 cédulas únicas, con las mismas cédulas y nombres del anterior. Cambian 26.497 códigos de junta. Incluye 75.541 registros de Caja Mágica, 1.417 de Toledo y 522 de Zaragoza.
+- Se comprobaron las 95 juntas de Caja Mágica y los rangos del catálogo de colores. Toledo y Zaragoza tienen 1M y 1F, ambas con «Zona Única».
+- El reemplazo móvil recibe el sobre cifrado, valida el padrón antes de publicarlo y sustituye el archivo mediante renombrado atómico. Mantiene los accesos del puesto y de coordinación. La carga se cierra después de aplicarse y el cierre electoral retira el padrón vigente.

@@ -3,7 +3,7 @@ import { credencialesMovil } from "@/server/puesto-movil/credenciales";
 const pagina = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive"><title>Puesto móvil de información electoral · Madrid</title>
-<link rel="stylesheet" href="/electoral/puesto-movil.css"><script defer src="/electoral/puesto-movil.js?v=portada"></script></head>
+<link rel="stylesheet" href="/electoral/puesto-movil.css"><script defer src="/electoral/puesto-movil.js?v=zona-unica"></script></head>
 <body>
 <header><div class="cabecera"><img src="/electoral/escudo.png" alt="República del Ecuador" width="82" height="43"><div><strong>Consulado General del Ecuador</strong><span>Madrid · España</span></div></div></header>
 <main data-acceso-puesto="">
@@ -16,7 +16,7 @@ const pagina = `<!doctype html>
     <p id="consulta-estado" class="feedback" role="status" hidden></p>
   </form>
   <section id="resultado" class="panel" hidden><h2 id="resultado-titulo" tabindex="-1">Asignación electoral</h2>
-    <div id="ubicacion"><div class="asignacion"><div><span>Junta receptora del voto</span><strong id="junta"></strong></div><div id="zona-fila" hidden><span>Zona</span><strong id="zona"></strong></div></div><p><span id="recinto-etiqueta">Recinto</span> <b id="recinto"></b></p></div>
+    <div id="ubicacion"><div class="asignacion"><div><span>Junta receptora del voto</span><strong id="junta"></strong></div><div id="zona-fila" hidden><span id="zona-etiqueta">Zona</span><strong id="zona"></strong></div></div><p><span id="recinto-etiqueta">Recinto</span> <b id="recinto"></b></p></div>
     <p id="verificar" class="verificar" hidden>Verifique la asignación en la consulta oficial del CNE. <a href="https://lugarvotacion.cne.gob.ec/" target="_blank" rel="noopener noreferrer">Consultar el CNE</a></p>
   </section>
   <form id="envio" class="panel" autocomplete="off" hidden>

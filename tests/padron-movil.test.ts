@@ -39,6 +39,18 @@ it("cifra sin datos de identificación en disco, abre únicamente por cédula ex
   expect(() => prepararPadronMovil([revisar],dir)).toThrow();
 });
 
+it("conserva las juntas y la Zona Única del fichero corregido", () => {
+  const filas = [
+    { ...original, recinto:"Toledo", junta:"M1", zona:"Zona Única" },
+    { ...revisar, recinto:"Zaragoza", junta:"F1", zona:"Zona Única", verificarWeb:false },
+  ];
+  prepararPadronMovil(filas,dir);
+  const almacen = crearAlmacenPadronMovil(dir);
+  for (const fila of filas) {
+    expect(almacen.consultar(fila.cedula)).toMatchObject({ recinto:fila.recinto, junta:fila.junta, zona:"Zona Única", verificarWeb:false });
+  }
+});
+
 it("el temporizador retira el índice y ambos archivos al cierre sin una solicitud y conserva los archivos ajenos", () => {
   prepararPadronMovil([original],dir);
   writeFileSync(join(dir,"conservar.txt"),"prueba");

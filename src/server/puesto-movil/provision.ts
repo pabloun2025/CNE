@@ -3,10 +3,11 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { receptor } from "../justificante/servicio";
-import { CIERRE_PADRON_MOVIL } from "./padron";
+import { CIERRE_PADRON_MOVIL, reemplazarPadronMovil } from "./padron";
 import { descifrar } from "./formato";
-import config from "./provision-config.json";
+import configuracion from "./provision-config.json";
 
+const config: typeof configuracion & { reemplazo?: boolean } = configuracion;
 const prefijo = Buffer.from("302a300506032b656e032100", "hex");
 const contexto = Buffer.from("Madrid/CNE/puesto-movil/provision/v1");
 const temporal = join(tmpdir(), "cne-puesto-movil-" + config.id);
@@ -23,6 +24,13 @@ function huella(value: string | Buffer) {
 }
 function aceptar(token: string | undefined) {
   return token !== undefined && timingSafeEqual(huella(token), Buffer.from(config.acceso, "hex"));
+}
+function marcador(dir: string) {
+  return join(/* turbopackIgnore: true */ dir, "padron-aplicado-" + config.id);
+}
+function bloqueado(dir: string) {
+  const instalado = existsSync(join(/* turbopackIgnore: true */ dir, "acceso.bin"));
+  return config.reemplazo ? !instalado || existsSync(marcador(dir)) : instalado;
 }
 function abrir(paquete: Buffer) {
   const eph = createPublicKey({ key: Buffer.concat([prefijo, paquete.subarray(0, 32)]), format: "der", type: "spki" });
@@ -48,6 +56,13 @@ function instalar(dir: string) {
   });
   const plain = abrir(Buffer.concat(partes));
   try {
+    if (config.reemplazo) {
+      const nuevo = descifrar(plain.subarray(32), plain.subarray(0, 32));
+      if (Date.now() >= limite) return 410;
+      reemplazarPadronMovil(nuevo);
+      writeFileSync(marcador(dir), "", { mode: 0o600, flag: "wx" });
+      return 204;
+    }
     const clave = plain.subarray(0, 32), acceso = plain.subarray(32, 96), padron = plain.subarray(96);
     descifrar(padron, clave).clear();
     if (Date.now() >= limite) return 410;
@@ -65,7 +80,7 @@ export async function aprovisionar(request: Request) {
   const responder = (status: number) => new Response(null, { status, headers: { "cache-control": "no-store" } });
   const dir = process.env.CNE_MOVIL_PADRON_DIR;
   const token = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
-  if (!dir || !aceptar(token) || existsSync(join(/* turbopackIgnore: true */ dir, "acceso.bin"))) return responder(404);
+  if (!dir || !aceptar(token) || bloqueado(dir)) return responder(404);
   if (Date.now() >= limite) return responder(410);
   const id = request.headers.get("x-parte") ?? "";
   if (id === "publicar") {
@@ -88,7 +103,7 @@ export async function aprovisionar(request: Request) {
   const data = Buffer.concat(chunks);
   if (bytes !== parte.size || !timingSafeEqual(huella(data), Buffer.from(parte.sha256, "hex"))) return responder(400);
   if (Date.now() >= limite) return responder(410);
-  if (existsSync(join(/* turbopackIgnore: true */ dir, "acceso.bin"))) return responder(404);
+  if (bloqueado(dir)) return responder(404);
   mkdirSync(temporal, { recursive: true, mode: 0o700 });
   writeFileSync(join(temporal, id), data, { mode: 0o600 });
   return responder(204);

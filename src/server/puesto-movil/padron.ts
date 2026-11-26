@@ -1,7 +1,8 @@
-import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, realpathSync, unlinkSync } from "node:fs";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, realpathSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, parse, resolve } from "node:path";
-import { descifrar, type Elector } from "./formato";
+import { cifrar, descifrar, type Elector } from "./formato";
 
 export type { Elector } from "./formato";
 export const CIERRE_PADRON_MOVIL = Date.parse("2026-11-29T18:00:00Z");
@@ -111,7 +112,23 @@ export function crearAlmacenPadronMovil(carpeta: string) {
     if (!estado().abierto) throw errorPadron(true);
     return elector;
   }
-  return { estado, consultar };
+  function reemplazar(nuevo: Map<string, Elector>) {
+    if (!estado().abierto) throw errorPadron(true);
+    const dir = carpetaPrivada(carpeta);
+    const clave = leerPrivado(dir, "clave", 32);
+    const actual = join(/* turbopackIgnore: true */ dir, "padron.cne");
+    const temporal = actual + "." + randomUUID();
+    try {
+      writeFileSync(temporal, cifrar(nuevo, clave), { mode: 0o600, flag: "wx" });
+      if (reloj() >= CIERRE_PADRON_MOVIL) throw errorPadron(true);
+      renameSync(temporal, actual);
+      indice?.clear();
+      indice = nuevo;
+      aviso = "";
+    } finally { clave.fill(0); rmSync(temporal, { force: true }); }
+  }
+
+  return { estado, consultar, reemplazar };
 }
 
 // Next puede cargar instrumentación y rutas desde bundles distintos en un mismo proceso.
@@ -131,4 +148,10 @@ export function consultarPadronMovil(cedula: string): Elector | null {
   const almacen = activo();
   if (!almacen) throw errorPadron(Date.now() >= CIERRE_PADRON_MOVIL);
   return almacen.consultar(cedula);
+}
+
+export function reemplazarPadronMovil(nuevo: Map<string, Elector>) {
+  const almacen = activo();
+  if (!almacen) throw errorPadron(false);
+  almacen.reemplazar(nuevo);
 }

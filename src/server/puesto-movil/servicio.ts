@@ -138,7 +138,9 @@ function informacion(tipo: Tipo, elector: ReturnType<typeof consultarPadronMovil
     return [elector?.recinto ? "Ubicación indicada: " + elector.recinto : "", junta ? "Código del padrón: " + junta : "",
       "Verifique su junta y el recinto en https://lugarvotacion.cne.gob.ec/"].filter(Boolean).join("\n");
   }
-  return ["Recinto: " + elector?.recinto, "Junta: " + junta, elector?.zona ? "Zona: " + elector.zona : ""].filter(Boolean).join("\n");
+  const zona = elector?.zona;
+  const lineaZona = zona && (zona === "Zona Única" ? zona : "Zona: " + zona);
+  return ["Recinto: " + elector?.recinto, "Junta: " + junta, lineaZona].filter(Boolean).join("\n");
 }
 
 async function cambiarEstado(id: string, estado: EstadoEnvio) {

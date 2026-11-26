@@ -193,11 +193,12 @@
       mostrar("ubicacion", Boolean(r));
       if (r) {
         const madrid = r.recinto === "Caja Mágica";
-        const zona = madrid ? r.zona : null;
+        const zona = r.zona;
         el("junta").textContent = r.junta ? String(r.junta).replace(/^([MF])(\d+)$/, "$2$1") : "Por verificar";
         el("recinto").textContent = r.recinto || "";
         el("recinto-etiqueta").textContent = r.verificarWeb && !madrid ? "Ciudad" : "Recinto";
         el("zona").textContent = zona || "";
+        mostrar("zona-etiqueta", zona !== "Zona Única");
         mostrar("zona-fila", Boolean(zona));
         el("ubicacion").dataset.zona = zona ? String(zona).toLowerCase() : "";
         mostrar("verificar", Boolean(r.verificarWeb || !r.junta || (madrid && !zona)));

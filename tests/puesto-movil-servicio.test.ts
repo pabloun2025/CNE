@@ -115,6 +115,16 @@ describe("Puesto electoral móvil", () => {
     expect(Buffer.from(mensaje.adjunto.base64, "base64").subarray(0, 5).toString()).toBe("%PDF-");
   });
 
+  it.each([["Toledo","M1","1M"],["Zaragoza","F1","1F"]])("muestra y envía Zona Única en %s", async (recinto,junta,rotulo) => {
+    dependencias.consultar.mockReturnValue({ nombre:"PERSONA FICTICIA", junta, recinto, zona:"Zona Única", verificarWeb:false });
+    const { resultado, turno } = await (await post("consulta", { cedula: presente })).json();
+    expect(resultado).toEqual({ junta, recinto, zona:"Zona Única", verificarWeb:false });
+    expect((await post("envio", { turno, correo:"prueba@example.invalid" })).status).toBe(200);
+    const texto=dependencias.correo.mock.calls[0][0].texto;
+    expect(texto).toContain("Recinto: "+recinto+"\nJunta: "+rotulo+"\nZona Única");
+    expect(texto).not.toContain("lugarvotacion");
+  });
+
   it("incluye la guía si no consta, y tras el cierre mantiene las cifras", async () => {
     const { resultado, turno } = await (await post("consulta", { cedula: ausente })).json();
     expect(resultado).toBeNull();
