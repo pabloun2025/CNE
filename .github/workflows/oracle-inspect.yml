@@ -4,7 +4,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: cne-sms-landing-215041-prueba
+  group: cne-sms-landing-215041-texto-final
   cancel-in-progress: false
 jobs:
   prueba:
@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Validar la plantilla y enviar un SMS de prueba
+      - name: Enviar el SMS de prueba a dos destinatarios
         env:
           API_SMSQUEENS: ${{ secrets.API_SMSQUEENS }}
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
