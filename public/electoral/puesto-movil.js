@@ -5,8 +5,9 @@
   const fragmento = location.hash.slice(1);
   const gestion = fragmento.startsWith("seguimiento=");
   const acceso = gestion ? fragmento.slice("seguimiento=".length) : fragmento;
-  if (location.hash) history.replaceState(null, "", location.pathname);
-  window.addEventListener("hashchange", () => { if (location.hash) location.reload(); });
+  const formatoPuesto = /^(?:[A-Za-z0-9_-]{18}|[A-Za-z0-9_-]{43})$/;
+  if (location.hash && (gestion || !formatoPuesto.test(acceso))) history.replaceState(null, "", location.pathname);
+  window.addEventListener("hashchange", () => location.reload());
 
   let abierto = false;
   let cerrado = false;
@@ -264,8 +265,8 @@
     } catch (error) { mensaje("mensaje", error.message, true); }
     finally { boton.disabled = false; }
   });
-  if (!(gestion ? /^[A-Za-z0-9_-]{43}$/ : /^(?:[A-Za-z0-9_-]{18}|[A-Za-z0-9_-]{43})$/).test(acceso)) {
-    mensaje("mensaje", "Abra el enlace facilitado por la coordinación electoral para acceder al puesto.");
+  if (!(gestion ? /^[A-Za-z0-9_-]{43}$/ : formatoPuesto).test(acceso)) {
+    mensaje("mensaje", "Para consultar, abra el enlace completo que compartió la coordinación electoral, incluido el código después del #.");
   } else if (gestion) {
     el("titulo").textContent = "Seguimiento del puesto móvil";
     mostrar("seguimiento", true);
