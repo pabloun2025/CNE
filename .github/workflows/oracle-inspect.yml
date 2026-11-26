@@ -15,7 +15,18 @@ jobs:
       - name: Validar la plantilla y enviar un SMS de prueba
         env:
           API_SMSQUEENS: ${{ secrets.API_SMSQUEENS }}
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
         run: |
           set -euo pipefail
           [[ "$GITHUB_RUN_ATTEMPT" == 1 ]]
-          node scripts/ops/prueba-sms-landing-54298.mjs
+          umask 077
+          test -n "$API_SMSQUEENS"
+          test -n "$ORACLE_SSH_KEY"
+          carpeta=$(mktemp -d)
+          trap 'unlink "$carpeta/oracle"; unlink "$carpeta/sms.key"; unlink "$carpeta/prueba.mjs"; rmdir "$carpeta"' EXIT
+          printf '%s\n' "$ORACLE_SSH_KEY" > "$carpeta/oracle"
+          printf '%s' "$API_SMSQUEENS" > "$carpeta/sms.key"
+          cp scripts/ops/prueba-sms-landing-54298.mjs "$carpeta/prueba.mjs"
+          tar -C "$carpeta" -cf - prueba.mjs sms.key |
+            ssh -i "$carpeta/oracle" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 \
+              'sudo docker exec -i cne-prod-cne-app-1 sh -c "set -eu; umask 077; directorio=\$(mktemp -d); trap '\''rm -rf -- \"\$directorio\"'\'' EXIT; cd \"\$directorio\"; tar -xf -; API_SMSQUEENS=\$(cat sms.key) node prueba.mjs"'
