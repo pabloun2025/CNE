@@ -37,11 +37,12 @@ export default async function SeguimientoEnvios({ searchParams }: { searchParams
   const buscado = q.toLocaleLowerCase("es");
   const canal = CANALES.find((c) => c === f.canal) ?? "";
   const filtro = FILTROS.find((x) => x.clave === f.estado);
-  const soloAbiertos = f.apertura === "abierto";
+  const apertura = f.apertura === "abierto" || f.apertura === "sin_apertura" ? f.apertura : "";
   const coinciden = fichas.filter((p) => {
     const texto = `${p.nombre} ${p.cedula} ${p.junta}`.toLocaleLowerCase("es");
     if (!texto.includes(buscado)) return false;
-    if (soloAbiertos && !p.sms.abierto_en) return false;
+    if (apertura === "abierto" && !p.sms.abierto_en) return false;
+    if (apertura === "sin_apertura" && (!p.sms.fecha || p.sms.abierto_en)) return false;
     return !filtro || (canal ? [canal] : CANALES).some((c) => filtro.estados.includes(p[c].estado));
   });
 
@@ -63,9 +64,11 @@ export default async function SeguimientoEnvios({ searchParams }: { searchParams
         <label>Estado<select name="estado" defaultValue={filtro?.clave ?? ""} className="block">
           <option value="">Todos</option>{FILTROS.map((x) => <option key={x.clave} value={x.clave}>{x.texto}</option>)}
         </select></label>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" name="apertura" value="abierto" defaultChecked={soloAbiertos} /> Solo credenciales abiertas por SMS
-        </label>
+        <label>Apertura por SMS<select name="apertura" defaultValue={apertura} className="block">
+          <option value="">Todas</option>
+          <option value="abierto">Credencial abierta</option>
+          <option value="sin_apertura">Sin apertura registrada</option>
+        </select></label>
         <button className="bg-slate-800 px-4 py-2 text-white">Filtrar</button>
       </form>
       <p role="status">{coinciden.length} de {fichas.length} fichas</p>
