@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Validar la plantilla y enviar un SMS de prueba
+      - name: Consultar el acuse del SMS ya enviado
         env:
           API_SMSQUEENS: ${{ secrets.API_SMSQUEENS }}
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}

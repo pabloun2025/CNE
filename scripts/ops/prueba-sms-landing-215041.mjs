@@ -1,24 +1,5 @@
-import { setTimeout as esperar } from "node:timers/promises";
-
 const apiKey = process.env.API_SMSQUEENS?.trim();
 if (!apiKey) throw new Error("Falta API_SMSQUEENS.");
-const mensaje = {
-  from: "+34913430250",
-  to: "34678882421",
-  text: "Compatriota, este domingo 29 también hay elecciones en Ecuador. Te esperamos para votar en Madrid. Consulta tu junta: {LANDING}",
-  custom: "CNE29NLANDING215041TEST",
-};
-const datos = {
-  api_key: apiKey,
-  landing_id: 215041,
-  campaign_name: "Madrid 29N · Prueba individual de landing",
-  encoding: "GSM7",
-  concat: 0,
-  messages: [mensaje],
-};
-const textoFijo = mensaje.text.replace("{LANDING}", "");
-if (!/^[A-Za-z0-9é ,.:]+$/.test(textoFijo) || textoFijo.length > 120) throw new Error("Texto SMS inválido.");
-
 async function api(ruta, body) {
   const r = await fetch(`https://api.gateway360.com/api/3.0/${ruta}`, {
     method: "POST",
@@ -31,36 +12,13 @@ async function api(ruta, body) {
 }
 
 const codigo = (valor) => typeof valor === "string" && /^[A-Z0-9_]{1,60}$/.test(valor) ? valor : null;
-const idValido = (valor) => typeof valor === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(valor);
-let solicitado = false;
 try {
-  const cuenta = await api("account/get-balance", { api_key: apiKey });
-  console.log(JSON.stringify({ cuenta: cuenta.json.status === "ok" ? "autenticada" : "rechazada", http: cuenta.http, codigo: codigo(cuenta.json.error_id) }));
-  if (cuenta.http !== 200 || cuenta.json.status !== "ok") process.exit(1);
-  solicitado = true;
-  const real = await api("sms/send-landing", datos);
-  const envio = real.json.result?.[0];
-  if (real.http !== 200 || real.json.status !== "ok" || envio?.status !== "ok" || !idValido(envio?.sms_id)) {
-    console.log(JSON.stringify({ real: "sin_confirmacion", http: real.http, codigo: codigo(envio?.error_id ?? real.json.error_id) }));
-    process.exitCode = 1;
-  } else {
-    const smsId = envio.sms_id;
-    console.log(JSON.stringify({ real: "aceptado", smsId }));
-    let acuse = null;
-    for (const demora of [0, 4000, 6500, 9000]) {
-      await esperar(demora);
-      try {
-        const informe = await api("sms/get-reports", { api_key: apiKey, sms_id: smsId });
-        const fila = informe.json.result?.find?.((item) => item.sms_id === smsId);
-        acuse = codigo(fila?.status) ?? acuse;
-        if (["DELIVRD", "UNDELIV", "EXPIRED", "REJECTD", "DELETED"].includes(acuse)) break;
-      } catch {
-        // Un fallo al consultar el acuse no cambia la aceptación ni dispara otro envío.
-      }
-    }
-    console.log(JSON.stringify({ acuse: acuse ?? "PENDIENTE" }));
-  }
+  const smsId = "8b670b9426784d37ac63b5168127b23c";
+  const informe = await api("sms/get-reports", { api_key: apiKey, sms_id: smsId });
+  const fila = informe.json.result?.find?.((item) => item.sms_id === smsId);
+  console.log(JSON.stringify({ acuse: codigo(fila?.status) ?? "PENDIENTE", http: informe.http, codigo: codigo(informe.json.error_id) }));
+  if (informe.http !== 200 || informe.json.status !== "ok") process.exitCode = 1;
 } catch {
-  console.error(solicitado ? "Resultado del SMS real incierto. Consultar el panel antes de repetir." : "Sin respuesta válida al comprobar la cuenta. El SMS real no se solicitó.");
+  console.error("No fue posible consultar el acuse.");
   process.exitCode = 1;
 }
