@@ -104,8 +104,8 @@ jobs:
         run: rm -f ~/.ssh/oracle /tmp/cne-bootstrap.json /tmp/cne-source.tar.gz
 
   verificar-enlaces-electorales:
-    if: ${{ github.event_name == 'push' }}
-    needs: deploy
+    if: ${{ always() && github.event_name == 'push' }}
+    needs: [ci, deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 4
     permissions:
@@ -113,10 +113,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Comprobar guía y justificante desde internet
+        env:
+          RESULTADO_CI: ${{ needs.ci.result }}
+          RESULTADO_DESPLIEGUE: ${{ needs.deploy.result }}
         run: |
           set -euo pipefail
+          test "$RESULTADO_CI" = success && test "$RESULTADO_DESPLIEGUE" = success
           site=https://madrid.consulado.app
-          curl --retry 4 --retry-delay 3 --max-time 15 -fsSL "$site/justificante-laboral/" -o /tmp/cne-justificante.html
+          curl --retry 4 --retry-delay 3 --max-time 15 -fsSL "$site/justificante-laboral" -o /tmp/cne-justificante.html
           grep -qi 'Justificante laboral' /tmp/cne-justificante.html
           curl --retry 4 --retry-delay 3 --max-time 15 -fsSL "$site/guia-electoral.pdf" -o /tmp/cne-guia.pdf
           cmp /tmp/cne-guia.pdf public/guia-electoral.pdf
@@ -128,3 +132,15 @@ jobs:
           printf 'revision %s\nreceptor %s\nguia %s\n' "$GITHUB_SHA" "$(base64 -w0 /tmp/cne-receptor.der)" "$(sha256sum /tmp/cne-guia.pdf | cut -d ' ' -f1)" > /tmp/cne-voto-verificacion.txt
           git tag -a cne-voto-verificado-20261129 -F /tmp/cne-voto-verificacion.txt "$GITHUB_SHA"
           git push origin refs/tags/cne-voto-verificado-20261129
+      - name: Registrar un fallo de publicación
+        if: ${{ failure() }}
+        env:
+          RESULTADO_CI: ${{ needs.ci.result }}
+          RESULTADO_DESPLIEGUE: ${{ needs.deploy.result }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          etiqueta="cne-voto-estado-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mensaje="CI: $RESULTADO_CI. Despliegue: $RESULTADO_DESPLIEGUE. Verificación pública: fallida."
+          git tag -a "$etiqueta" -m "$mensaje" "$GITHUB_SHA"
+          git push origin "refs/tags/$etiqueta"

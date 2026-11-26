@@ -14,3 +14,5 @@ next-env.d.ts
 graphify-out/
 .tmp-permisos-respaldos
 .tmp-guias
+
+!src/server/recursos-electorales/emisor-ventanilla-public.pem

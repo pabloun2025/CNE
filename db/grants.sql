@@ -19,6 +19,7 @@ BEGIN
       cne.documentos_mjrv, cne.actas_pago, cne.asignaciones_cargo, cne.lecturas_puerta,
       cne.fichas_abiertas_finanzas, cne.credenciales_revocadas, cne.pendientes_impresion, cne.firmas_recibo TO cne_app;
     GRANT USAGE ON ALL SEQUENCES IN SCHEMA cne TO cne_app;
+    GRANT INSERT, UPDATE (solicitudes, vencimientos) ON cne.aperturas_justificante TO cne_app;
     GRANT UPDATE (ultimo_ordinal) ON cne.secuencia_recibos TO cne_app;
     GRANT INSERT (mjrv_id, validada_en), UPDATE (validada_en) ON cne.cedulas_validadas TO cne_app;
   END IF;
