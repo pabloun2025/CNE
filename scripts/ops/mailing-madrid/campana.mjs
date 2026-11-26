@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { setTimeout as esperar } from "node:timers/promises";
+import { gunzipSync } from "node:zlib";
 
 const modo = process.argv[2];
 const llave = process.env.BREVO_API_KEY?.trim();
@@ -174,10 +175,24 @@ async function auditar(id,n) {
       }
       const archivo=await fetch(url,{redirect:"error",signal:AbortSignal.timeout(25000)});
       exigir(archivo.ok,"Brevo no pudo entregar el archivo de destinatarios.");
-      const lineas=(await archivo.text()).replace(/^\uFEFF/,"").trimEnd().split(/\r?\n/);
-      const columnas=[",",";","	"].map(sep=>({sep,index:leerCsv(lineas[0],sep).findIndex(h=>/^(email|e-mail|email address|correo electr[oó]nico)$/i.test(h.trim()))})).find(x=>x.index>=0);
-      exigir(columnas,"No se identificó la columna de destinatarios.");
-      const correos=lineas.slice(1).filter(l=>l.trim()).map(l=>leerCsv(l,columnas.sep)[columnas.index]?.trim().toLowerCase());
+      let bytes=Buffer.from(await archivo.arrayBuffer());
+      if(bytes[0]===0x1f && bytes[1]===0x8b)bytes=gunzipSync(bytes);
+      const decodificar=bytes[0]===0xff && bytes[1]===0xfe ? "utf16le" : "utf8";
+      const lineas=bytes.toString(decodificar).replace(/^\uFEFF/,"").trimEnd().split(/\r?\n/);
+      const normalizar=s=>s.trim().toLowerCase().replace(/[^a-z]/g,"");
+      let columnas=null;
+      for(let fila=0;fila<Math.min(10,lineas.length)&&!columnas;fila++){
+        for(const sep of [",",";","\t","|"]){
+          const index=leerCsv(lineas[fila],sep).findIndex(h=>["email","emailaddress","emailid","recipient","recipientemail","correoelectrnico"].includes(normalizar(h)));
+          if(index>=0){columnas={sep,index,fila};break;}
+        }
+      }
+      if(!columnas){
+        const meta=lineas.slice(0,2).map(l=>l.replace(/\S*@\S*|https?:\/\/\S+/g,"[omitido]").replace(/[^A-Za-z0-9;, _:.=<>\t|"-]/g,"").slice(0,140));
+        salida({auditoria:"Formato no reconocido",tipo:archivo.headers.get("content-type"),bytes:bytes.length,lineas:lineas.length,meta});
+        return;
+      }
+      const correos=lineas.slice(columnas.fila+1).filter(l=>l.trim()).map(l=>leerCsv(l,columnas.sep)[columnas.index]?.trim().toLowerCase());
       exigir(correos.every(e=>typeof e==="string"&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)),"La exportación contiene filas no reconocidas.");
       const unicos=new Set(correos);
       salida({ auditoria:true, filas:correos.length, unicos:unicos.size, repetidos:correos.length-unicos.size,
