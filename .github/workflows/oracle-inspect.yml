@@ -4,7 +4,7 @@ on:
     inputs:
       modo:
         type: choice
-        options: [comprobar, enviar, reconciliar, consultar, limpiar]
+        options: [comprobar, enviar, continuar, reconciliar, consultar, limpiar]
         required: true
         default: comprobar
 permissions:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   envio:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Operar el lote autorizado en SMS Publi
@@ -28,13 +28,13 @@ jobs:
           umask 077
           test -n "$API_SMSQUEENS"
           test -n "$ORACLE_SSH_KEY"
-          case "$MODO" in comprobar|enviar|reconciliar|consultar|limpiar) ;; *) exit 2 ;; esac
+          case "$MODO" in comprobar|enviar|continuar|reconciliar|consultar|limpiar) ;; *) exit 2 ;; esac
           t=$(mktemp -d)
           trap 'rm -rf -- "$t"' EXIT
           printf '%s\n' "$ORACLE_SSH_KEY" > "$t/oracle"
           printf '%s' "$API_SMSQUEENS" > "$t/sms.key"
           cp scripts/ops/sms-madrid-29n.mjs scripts/ops/sms-madrid-29n-oracle.sh "$t/"
-          if [[ "$MODO" == enviar ]]; then
+          if [[ "$MODO" == enviar || "$MODO" == continuar ]]; then
             test "$GITHUB_RUN_ATTEMPT" = 1
             cp scripts/ops/sms-madrid-29n.cms "$t/lista.cms"
           else

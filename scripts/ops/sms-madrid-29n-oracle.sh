@@ -14,10 +14,12 @@ case "$modo" in
     touch "$trabajo/lista.txt"
     ;;
   reconciliar) touch "$trabajo/lista.txt" ;;
-  enviar)
+  enviar|continuar)
     openssl cms -decrypt -binary -inform DER -in "$trabajo/lista.cms" -inkey "$estado/clave.pem" -out "$trabajo/lista.txt"
     test -s "$trabajo/lista.txt"
-    if ! (set -o noclobber; date -u +%FT%TZ > "$estado/envio-iniciado"); then
+    marca=envio-iniciado
+    if [[ "$modo" == continuar ]]; then test -f "$estado/envio-iniciado"; marca=continuar-iniciado; fi
+    if ! (set -o noclobber; date -u +%FT%TZ > "$estado/$marca"); then
       echo 'El lote ya fue iniciado. Consulte el registro antes de repetir.'
       exit 1
     fi
@@ -42,4 +44,4 @@ tar -C "$trabajo" -cf - sms-madrid-29n.mjs sms.key lista.txt |
     cd "$t"
     tar -xf -
     API_SMSQUEENS=$(cat sms.key) node sms-madrid-29n.mjs
-  ' | if [[ "$modo" == enviar ]]; then tee -a "$estado/resultado.log"; else cat; fi
+  ' | if [[ "$modo" == enviar || "$modo" == continuar ]]; then tee -a "$estado/resultado.log"; else cat; fi

@@ -21,7 +21,7 @@ async function api(ruta, body = {}) {
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({ api_key: apiKey, ...body }),
     redirect: "error",
-    signal: AbortSignal.timeout(ruta === "sms/send-landing" ? 30000 : 11000),
+    signal: AbortSignal.timeout(ruta === "sms/send-landing" ? 50000 : 11000),
   });
   return { http: r.status, json: await r.json() };
 }
@@ -39,7 +39,7 @@ async function comprobar() {
   const precios = Object.values(redes ?? {}).map(({ price }) => Number(price));
   exigir(tarifas.http === 200 && tarifas.json.status === "ok" && precios.length && precios.every(p => Number.isFinite(p) && p > 0), "Tarifa de España no verificable.");
   const tarifaMinima = Math.min(...precios), tarifaMaxima = Math.max(...precios);
-  const costeMaximo = Math.ceil(total * tarifaMaxima * 100) / 100;
+  const costeMaximo = Math.ceil((total - (modo === "continuar" ? 1000 : 0)) * tarifaMaxima * 100) / 100;
   const pruebasEstado = Object.fromEntries(pruebas.map(([nombre, id], i) => [nombre,
     codigo(acuses[i]?.json?.result?.find?.((fila) => fila.sms_id === id)?.status) ?? "PENDIENTE"]));
   console.log(JSON.stringify({ saldo, moneda, tarifaMinima, tarifaMaxima, costeMaximo, total, pruebas: pruebasEstado }));
@@ -51,45 +51,57 @@ async function ejecutar() {
   const numeros = lista.trimEnd().split("\n");
   exigir(numeros.length === total && new Set(numeros).size === total && numeros.every(n => /^34[67]\d{8}$/.test(n)), "La lista no coincide con el recuento de móviles únicos.");
   exigir(createHash("sha256").update(lista).digest("hex") === "d8142add27fef57f719f7e31eef8f71f5ce9c4857aed04d36a3aaa4c85a6f2c1", "La huella de la lista no coincide con el CSV validado.");
-  let aceptados = 0, rechazados = 0;
+  const primerPendiente = modo === "continuar" ? 1000 : 0;
+  const limite = 200;
+  const inicios = [];
+  for (let inicio = primerPendiente; inicio < numeros.length; inicio += limite) inicios.push(inicio);
   const causas = {};
-  const limite = 1000;
-  for (let inicio = 0; inicio < numeros.length; inicio += limite) {
-    const lote = 1 + inicio / limite;
+  let aceptados = 0, rechazados = 0;
+
+  async function procesar(inicio) {
     const messages = numeros.slice(inicio, inicio + limite).map((to, i) => ({
       from: "+34913430250", to, text: texto, custom: `CNE29NP1-${String(inicio + i + 1).padStart(5,"0")}`,
     }));
-    console.log(JSON.stringify({ lote, solicitados: messages.length, inicio: inicio + 1 }));
-    let envio;
-    try {
-      envio = await api("sms/send-landing", { landing_id: 215041, campaign_name: "Madrid 29N · Primer envío", encoding: "GSM7", concat: 0, messages });
-    } catch {
-      throw new Control(`Resultado incierto en lote ${lote}. Buscar sus referencias en el panel antes de cualquier reintento.`);
-    }
+    console.log(JSON.stringify({ inicio: inicio + 1, solicitados: messages.length }));
+    const envio = await api("sms/send-landing", { landing_id: 215041, campaign_name: "Madrid 29N · Primer envío", encoding: "GSM7", concat: 0, messages });
     const respuestas = envio.json.result;
-    exigir(envio.http === 200 && envio.json.status === "ok" && Array.isArray(respuestas) && respuestas.length === messages.length,
-      `El lote ${lote} requiere conciliación (HTTP ${envio.http}, ${codigo(envio.json.error_id) ?? "SIN_CODIGO"}).`);
+    if (envio.http !== 200 || envio.json.status !== "ok" || !Array.isArray(respuestas) || respuestas.length !== messages.length) {
+      return { inicio: inicio + 1, solicitados: messages.length, incierto: true, http: envio.http, error: codigo(envio.json.error_id) };
+    }
     let ok = 0, fallo = 0;
     for (const [i, r] of respuestas.entries()) {
-      if (r.custom && r.custom !== messages[i].custom) throw new Control(`Referencias incompatibles en lote ${lote}.`);
+      exigir(!r.custom || r.custom === messages[i].custom, "Referencias incompatibles.");
       if (r.status === "ok" && typeof r.sms_id === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(r.sms_id)) {
         ok++;
       } else {
-        exigir(r.status === "error" && !r.sms_id, `Estado incierto en lote ${lote}.`);
+        exigir(r.status === "error" && !r.sms_id, "Estado incierto.");
         fallo++;
         const causa = codigo(r.error_id) ?? "SIN_CODIGO";
         causas[causa] = (causas[causa] ?? 0) + 1;
         console.log(JSON.stringify({ rechazado: messages[i].custom, causa }));
       }
     }
-    aceptados += ok;
-    rechazados += fallo;
-    console.log(JSON.stringify({ lote, aceptados: ok, rechazados: fallo, totalAceptados: aceptados, totalRechazados: rechazados }));
-    exigir(ok > 0 && !Object.keys(causas).some(c => ["NOT_ENOUGH_BALANCE", "INVALID_LANDING", "INVALID_SENDER", "INVALID_TEXT", "UNAUTHORIZED"].includes(c)),
-      `Hay un rechazo general en el lote ${lote}. No se solicitaron los lotes posteriores.`);
-    if (inicio + limite < numeros.length) await esperar(500);
+    return { inicio: inicio + 1, aceptados: ok, rechazados: fallo };
   }
-  console.log(JSON.stringify({ final: true, total, aceptados, rechazados, causas }));
+
+  for (let i = 0; i < inicios.length; i += 4) {
+    const wave = inicios.slice(i, i + 4);
+    const resultados = await Promise.all(wave.map(inicio => procesar(inicio).catch(() => ({
+      inicio: inicio + 1, solicitados: Math.min(limite, total - inicio), incierto: true,
+    }))));
+    for (const r of resultados) {
+      aceptados += r.aceptados ?? 0;
+      rechazados += r.rechazados ?? 0;
+      console.log(JSON.stringify(r));
+    }
+    const hayRechazoGeneral = Object.keys(causas).some(c => ["NOT_ENOUGH_BALANCE", "INVALID_LANDING", "INVALID_SENDER", "INVALID_TEXT", "UNAUTHORIZED"].includes(c));
+    if (resultados.some(r => r.incierto || r.aceptados === 0) || hayRechazoGeneral) {
+      console.log(JSON.stringify({ final: false, aceptados, rechazados, causas }));
+      throw new Control("Conciliar la última tanda antes de continuar.");
+    }
+    if (i + 4 < inicios.length) await esperar(200);
+  }
+  console.log(JSON.stringify({ final: true, primerPendiente, total, aceptados, rechazados, causas }));
 }
 
 async function reconciliar() {
@@ -104,11 +116,11 @@ async function reconciliar() {
 }
 
 try {
-  exigir(apiKey && ["comprobar", "enviar", "reconciliar"].includes(modo), "Modo o clave ausentes.");
+  exigir(apiKey && ["comprobar", "enviar", "continuar", "reconciliar"].includes(modo), "Modo o clave ausentes.");
   if (modo === "reconciliar") await reconciliar();
   else {
     await comprobar();
-    if (modo === "enviar") await ejecutar();
+    if (["enviar","continuar"].includes(modo)) await ejecutar();
   }
 } catch (e) {
   console.error(e instanceof Control ? e.message : "La operación no pudo confirmarse. Revise el registro y el panel antes de repetir.");
