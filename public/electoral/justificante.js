@@ -27,9 +27,7 @@
   }
   if (!/^[A-Za-z0-9_-]{165,825}$/.test(token)) {
     el("entrada").hidden = true;
-    mensaje(token === "prueba"
-      ? "Este QR corresponde a una impresión de prueba. El justificante laboral estará disponible con el ticket de la jornada."
-      : "Escanee el código QR de justificante laboral de su ticket para continuar.");
+    mensaje("Escanee el código QR de justificante laboral de su ticket para continuar.");
     return;
   }
   el("abrir").disabled = false;

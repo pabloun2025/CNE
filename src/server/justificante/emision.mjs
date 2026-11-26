@@ -2,7 +2,8 @@
 import {createDecipheriv,createPrivateKey,createPublicKey,diffieHellman,hkdfSync,verify} from 'node:crypto';
 import {nombreImprimible} from './nombres.mjs';
 const CIERRE_MS=Date.parse('2026-11-29T18:00:00Z');
-const INICIO_JORNADA_MS=Date.parse('2026-11-28T23:00:00Z');
+// Hora de Madrid en la que se habilitó la ventanilla de producción.
+const INICIO_EMISION_MS=Date.parse('2026-11-25T23:00:00Z');
 const x25519Prefix=Buffer.from('302a300506032b656e032100','hex');
 const issueContext=Buffer.from('CNE-Madrid-2026-11-29/justificante/v1');
 const idFormat=/^[A-Za-z0-9_-]{16}$/;
@@ -24,7 +25,7 @@ function sharedKey(privateKey,publicKey,nonce){
 }
 function checkData(cedula,nombre,tipo,issued,id){
   if(typeof cedula!=='string'||!/^\d{10}$/.test(cedula)
-    ||!nombreImprimible(nombre)||!['con','sin'].includes(tipo)||!Number.isSafeInteger(issued)||issued<INICIO_JORNADA_MS||issued>=CIERRE_MS
+    ||!nombreImprimible(nombre)||!['con','sin'].includes(tipo)||!Number.isSafeInteger(issued)||issued<INICIO_EMISION_MS||issued>=CIERRE_MS
     ||typeof id!=='string'||!idFormat.test(id))throw invalid();
 }
 
