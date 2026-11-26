@@ -4,6 +4,9 @@ name: Deploy to Oracle
 # Solo necesita el secreto ORACLE_SSH_KEY. APP_MASTER_KEY y la contraseña inicial de la superadmin
 # se generan en el servidor la primera vez si no existen como secretos; nunca se imprimen.
 on:
+  push:
+    tags:
+      - cne-voto-publicacion-20261129
   workflow_dispatch:
     inputs:
       accion:
@@ -30,7 +33,7 @@ concurrency:
 
 jobs:
   ci:
-    if: ${{ inputs.accion == 'desplegar' }}
+    if: ${{ github.event_name == 'push' || inputs.accion == 'desplegar' }}
     uses: ./.github/workflows/ci.yml
 
   deploy:
@@ -47,6 +50,11 @@ jobs:
           exit 1
 
       - uses: actions/checkout@v4
+
+      - name: Verificar que la etiqueta apunta a main
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          test "$GITHUB_SHA" = "$(git ls-remote origin refs/heads/main | cut -f1)"
 
       - name: Preparar clave SSH y paquete protegido
         env:
@@ -68,7 +76,7 @@ jobs:
 
       - name: Instalar y verificar CNE
         env:
-          ACCION: ${{ inputs.accion }}
+          ACCION: ${{ inputs.accion || 'desplegar' }}
         run: |
           set +x
           SSH=(ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109)
@@ -94,3 +102,29 @@ jobs:
       - name: Borrar archivos temporales
         if: always()
         run: rm -f ~/.ssh/oracle /tmp/cne-bootstrap.json /tmp/cne-source.tar.gz
+
+  verificar-enlaces-electorales:
+    if: ${{ github.event_name == 'push' }}
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar guía y justificante desde internet
+        run: |
+          set -euo pipefail
+          site=https://madrid.consulado.app
+          curl --retry 4 --retry-delay 3 --max-time 15 -fsSL "$site/justificante-laboral/" -o /tmp/cne-justificante.html
+          grep -qi 'Justificante laboral' /tmp/cne-justificante.html
+          curl --retry 4 --retry-delay 3 --max-time 15 -fsSL "$site/guia-electoral.pdf" -o /tmp/cne-guia.pdf
+          cmp /tmp/cne-guia.pdf public/guia-electoral.pdf
+          curl --retry 4 --retry-delay 3 --max-time 15 -fsSL "$site/api/voto/clave-publica" -o /tmp/cne-receptor.pem
+          openssl pkey -pubin -in /tmp/cne-receptor.pem -outform DER -out /tmp/cne-receptor.der
+          test "$(wc -c </tmp/cne-receptor.der)" -eq 44
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          printf 'revision %s\nreceptor %s\nguia %s\n' "$GITHUB_SHA" "$(base64 -w0 /tmp/cne-receptor.der)" "$(sha256sum /tmp/cne-guia.pdf | cut -d ' ' -f1)" > /tmp/cne-voto-verificacion.txt
+          git tag -a cne-voto-verificado-20261129 -F /tmp/cne-voto-verificacion.txt "$GITHUB_SHA"
+          git push origin refs/tags/cne-voto-verificado-20261129
