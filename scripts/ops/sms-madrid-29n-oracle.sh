@@ -13,6 +13,7 @@ case "$modo" in
     cat "$estado/cert.pem"
     touch "$trabajo/lista.txt"
     ;;
+  reconciliar) touch "$trabajo/lista.txt" ;;
   enviar)
     openssl cms -decrypt -binary -inform DER -in "$trabajo/lista.cms" -inkey "$estado/clave.pem" -out "$trabajo/lista.txt"
     test -s "$trabajo/lista.txt"

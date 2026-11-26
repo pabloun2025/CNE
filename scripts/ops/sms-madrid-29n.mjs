@@ -92,10 +92,24 @@ async function ejecutar() {
   console.log(JSON.stringify({ final: true, total, aceptados, rechazados, causas }));
 }
 
+async function reconciliar() {
+  const saldo = await api("account/get-balance");
+  console.log(JSON.stringify({ saldoActual: saldo.json.result?.balance ?? null, moneda: saldo.json.result?.currency ?? null }));
+  const referencias = ["CNE29NP1-00001", "CNE29NP1-00002", "CNE29NP1-00100", "CNE29NP1-00500", "CNE29NP1-01000"];
+  const informes = await Promise.all(referencias.map((custom) => api("sms/get-reports", { custom })));
+  const ejemplos = informes.map((r, i) => ({ referencia: referencias[i], http: r.http, cantidad: r.json.result?.length ?? null, estados: r.json.result?.map(v => codigo(v.status)) }));
+  const porFecha = await api("sms/get-reports", { from_date: "2026-11-26 21:00:00", to_date: "2026-11-27 01:00:00", page: 1 });
+  const filas = porFecha.json.result;
+  console.log(JSON.stringify({ ejemplos, porFecha: { http: porFecha.http, cantidad: filas?.length ?? null, delLote: filas?.filter?.(r => /^CNE29NP1-/.test(r.custom ?? "")).length ?? null } }));
+}
+
 try {
-  exigir(apiKey && ["comprobar", "enviar"].includes(modo), "Modo o clave ausentes.");
-  await comprobar();
-  if (modo === "enviar") await ejecutar();
+  exigir(apiKey && ["comprobar", "enviar", "reconciliar"].includes(modo), "Modo o clave ausentes.");
+  if (modo === "reconciliar") await reconciliar();
+  else {
+    await comprobar();
+    if (modo === "enviar") await ejecutar();
+  }
 } catch (e) {
   console.error(e instanceof Control ? e.message : "La operación no pudo confirmarse. Revise el registro y el panel antes de repetir.");
   process.exitCode = 1;
