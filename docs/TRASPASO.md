@@ -509,3 +509,8 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 
 - El puesto Windows usa el modo alfanumérico del QR para transportar el mismo sobre cifrado y firmado. El canje admite el formato original y el compacto e identifica el ticket por el mismo identificador interno. En el ticket de control, la matriz pasó de 77 a 69 módulos por lado y de cuatro a seis puntos por módulo a 203 dpi, con cuatro módulos de margen.
 - Para actualizar ventanilla, publicar primero el lector web y luego reemplazar el ZIP privado. La prueba automatizada de lectura reproduce el ancho de 512 puntos. La lectura en papel se comprueba en la térmica de ventanilla.
+
+## 56. Lectura rápida del ticket térmico (26-11)
+
+- El ticket con junta muestra recinto, junta y zona antes de los datos personales. La junta se imprime a 24 pt y el encabezado de zona identifica la serie masculina o femenina cuando corresponde. El ticket de comparecencia destaca que la persona no figura en el padrón. Ambos explican qué abre cada QR y conservan el aviso de hasta tres aperturas.
+- Se verificaron los PDF de 80 mm con uno y dos QR a 203 dpi. El segundo PDF usa una identidad ficticia y un firmante efímero. El ZIP privado incluye la misma revisión del diseño, con el padrón cifrado intacto.
