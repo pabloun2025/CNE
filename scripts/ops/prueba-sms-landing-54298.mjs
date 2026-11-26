@@ -34,6 +34,9 @@ const codigo = (valor) => typeof valor === "string" && /^[A-Z0-9_]{1,60}$/.test(
 const idValido = (valor) => typeof valor === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(valor);
 let solicitado = false;
 try {
+  const cuenta = await api("account/get-balance", { api_key: apiKey });
+  console.log(JSON.stringify({ cuenta: cuenta.json.status === "ok" ? "autenticada" : "rechazada", http: cuenta.http, codigo: codigo(cuenta.json.error_id) }));
+  if (cuenta.http !== 200 || cuenta.json.status !== "ok") process.exit(1);
   const simulacion = await api("sms/send-landing", { ...datos, fake: 1 });
   const prueba = simulacion.json.result?.[0];
   if (simulacion.http !== 200 || simulacion.json.status !== "ok" || prueba?.status !== "ok") {
