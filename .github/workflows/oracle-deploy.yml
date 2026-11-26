@@ -17,6 +17,7 @@ on:
       - cne-puesto-movil-correo-20261126
       - cne-movil-pdf-dominio-20261126
       - cne-windows-margenes-20261126
+      - cne-movil-correo-justificante-20261126
   workflow_dispatch:
     inputs:
       accion:

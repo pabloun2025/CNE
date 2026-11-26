@@ -487,3 +487,8 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Los justificantes nuevos del puesto móvil, del QR laboral y del generador Windows sin conexión comparten la plantilla A4 con los párrafos justificados. Se comprobó que el texto conserva todas sus palabras y que la firma y el sello coinciden píxel a píxel. La constancia térmica justifica su texto explicativo y conserva los QR originales.
 - El puesto móvil pide nombre únicamente si la cédula no consta. La portada `https://cne.consulado.app/` abre ese puesto. El enlace corto de voluntarios admite el fragmento de acceso abreviado, y el seguimiento conserva su credencial independiente.
 - El ZIP privado de Windows conserva un único inicio para el puesto. El generador A4 sin conexión se abre desde `Sistema/Justificante laboral/start.cmd` y comparte el runtime de Windows.
+
+## 53. Correo y justificante laboral del puesto móvil (26-11)
+
+- Al escribir la primera parte del correo, el formulario puede completar dominios habituales mediante botones. Los dominios se filtran después de la arroba y el campo permite escribir cualquier dirección válida. Las sugerencias se calculan en el teléfono y se limpian al iniciar otra consulta.
+- El PDF generado desde el puesto móvil y los QR usa «informa» y un recuadro cerrado para los datos, con espacio para dos líneas de nombre. Se verificó con y sin NIE, y se conservó la firma y el sello. El ZIP de Windows vuelve a incluir solamente el puesto de tickets, compatible con la térmica.

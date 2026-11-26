@@ -19,6 +19,39 @@
   let relojCierre;
   let operativo = false;
   const controles = ["cedula","buscar","correo","documento","enviar"];
+  const correo = el("correo");
+  const sugerencias = el("dominios-correo");
+  const dominios = ["gmail.com","hotmail.com","outlook.com","icloud.com","yahoo.es","hotmail.es","yahoo.com"];
+
+  function sugerirDominios() {
+    const [usuario, prefijo = "", ...resto] = correo.value.split("@");
+    const escrito = prefijo.toLowerCase();
+    const habilitar = !operativo && usuario && !resto.length && !/\s/u.test(correo.value) && !dominios.includes(escrito);
+    for (const boton of sugerencias.children) {
+      boton.hidden = !habilitar || !boton.value.startsWith(escrito) || usuario.length + boton.value.length + 1 > correo.maxLength;
+    }
+    sugerencias.hidden = [...sugerencias.children].every(boton => boton.hidden);
+  }
+  for (const dominio of dominios) {
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.value = dominio;
+    boton.textContent = "@" + dominio;
+    boton.addEventListener("click", () => {
+      correo.value = correo.value.split("@")[0] + "@" + dominio;
+      correo.focus();
+      sugerirDominios();
+    });
+    sugerencias.append(boton);
+  }
+  correo.addEventListener("input", sugerirDominios);
+  correo.addEventListener("focus", sugerirDominios);
+  el("envio").addEventListener("keydown", event => {
+    if (event.key === "Escape" && !sugerencias.hidden && (event.target === correo || sugerencias.contains(event.target))) {
+      correo.focus();
+      sugerencias.hidden = true;
+    }
+  });
 
   function mensaje(id, texto = "", error = false) {
     const campo = el(id);
@@ -30,6 +63,7 @@
     operativo = valor;
     controles.forEach(id => { el(id).disabled = valor; });
     el("nombre").disabled = valor || el("datos-nombre").hidden;
+    sugerirDominios();
   }
   function retirarResultado() {
     generacion++;
