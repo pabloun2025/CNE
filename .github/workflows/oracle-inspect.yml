@@ -1,4 +1,4 @@
-name: Enviar una copia individual del mailing de Madrid por Brevo
+name: Consultar un acuse individual del correo de Madrid
 on:
   workflow_dispatch:
 permissions:
@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Enviar un único correo de revisión
+      - name: Consultar el acuse sin enviar
         env:
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
         run: |

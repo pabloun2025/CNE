@@ -1,75 +1,20 @@
-import { readFileSync } from "node:fs";
-import { setTimeout as esperar } from "node:timers/promises";
-
-const apiKey = process.env.BREVO_API_KEY?.trim();
-const para = readFileSync(new URL("./individual.txt", import.meta.url), "utf8").trim();
-if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) process.exit(1);
-const cfg = JSON.parse(readFileSync(new URL("./mailing-madrid.json", import.meta.url), "utf8"));
-const htmlContent = readFileSync(new URL(cfg.html, import.meta.url), "utf8");
-if (!apiKey || cfg.replyTo !== "cecumadrid@cancilleria.gob.ec" ||
-    !htmlContent.includes("Ecuador vota") || !htmlContent.includes("https://lugarvotacion.cne.gob.ec/")) {
-  console.error("No se validó la plantilla o la conexión de Brevo.");
-  process.exit(1);
-}
-
-async function api(path, body) {
-  return fetch(`https://api.brevo.com/v3${path}`, {
-    method: body ? "POST" : "GET",
-    headers: { "api-key": apiKey, accept: "application/json", ...(body && { "content-type": "application/json" }) },
-    ...(body && { body: JSON.stringify(body) }),
-    redirect: "error",
-    signal: AbortSignal.timeout(body ? 20000 : 8000),
+import {readFileSync} from "node:fs";
+const email=readFileSync("individual.txt","utf8").trim().toLowerCase();
+const llave=process.env.BREVO_API_KEY?.trim();
+if(!llave || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) process.exit(2);
+async function api(ruta) {
+  const r=await fetch(`https://api.brevo.com/v3${ruta}`,{
+    headers:{"api-key":llave,accept:"application/json"},
+    redirect:"error",signal:AbortSignal.timeout(12000),
   });
+  if(!r.ok){console.log(JSON.stringify({http:r.status}));throw new Error("Consulta fallida");}
+  return r.json();
 }
-
-let iniciada = false;
-try {
-  const r = await api("/senders");
-  const d = await r.json();
-  const activos = new Set((Array.isArray(d.senders) ? d.senders : [])
-    .filter((s) => s?.active === true && typeof s.email === "string")
-    .map((s) => s.email.trim().toLowerCase()));
-  const from = ["avisos@consulado.app", process.env.MAIL_FROM_ADDRESS?.trim().toLowerCase()]
-    .find((email) => email && activos.has(email));
-  if (!r.ok || !from) throw new Error("Sin remitente verificado.");
-  const payload = {
-    sender: { email: from, name: cfg.remitente },
-    replyTo: { email: cfg.replyTo, name: cfg.remitente },
-    to: [{ email: para }],
-    subject: cfg.asunto,
-    textContent: cfg.texto,
-    htmlContent,
-    tags: ["consulado-madrid-copia-individual"],
-  };
-  iniciada = true;
-  const envio = await api("/smtp/email", payload);
-  const resultado = await envio.json();
-  const messageId = resultado.messageId;
-  if (!envio.ok || typeof messageId !== "string" || !/^<?[A-Za-z0-9_.+@-]{1,200}>?$/.test(messageId)) {
-    const codigo = typeof resultado.code === "string" && /^[A-Za-z0-9_-]{1,60}$/.test(resultado.code) ? resultado.code : null;
-    console.log(JSON.stringify({ aceptado: envio.ok || envio.status >= 500 ? null : false, http: envio.status, codigo }));
-    process.exitCode = 1;
-  } else {
-    console.log(JSON.stringify({ aceptado: true, messageId, desde: from, replyTo: cfg.replyTo }));
-    let evento = "pendiente";
-    for (const demora of [0, 3500, 6500, 9000]) {
-      await esperar(demora);
-      try {
-        const q = new URLSearchParams({ messageId, days: "2", limit: "50" });
-        const acuse = await api(`/smtp/statistics/events?${q}`);
-        const datos = await acuse.json();
-        const estados = (Array.isArray(datos.events) ? datos.events : [])
-          .filter((e) => e.email?.toLowerCase() === para && e.messageId?.replace(/[<>]/g, "") === messageId.replace(/[<>]/g, ""))
-          .map((e) => e.event);
-        if (estados.includes("delivered")) { evento = "entregado"; break; }
-        if (estados.some((e) => ["hardBounce", "blocked", "invalid", "error"].includes(e))) { evento = "fallido"; break; }
-      } catch {
-        // Una consulta de seguimiento fallida no cambia la aceptación del correo.
-      }
-    }
-    console.log(JSON.stringify({ evento }));
-  }
-} catch {
-  console.log(JSON.stringify({ aceptado: iniciada ? null : false, error: iniciada ? "RESPUESTA_INCIERTA" : "BREVO_NO_DISPONIBLE" }));
-  process.exitCode = 1;
-}
+try{
+ const c=await api(`/contacts/${encodeURIComponent(email)}`);
+ if(!Number.isSafeInteger(c.id) || c.email?.toLowerCase()!==email){console.log(JSON.stringify({contacto:"no confirmado"}));process.exit(1);}
+ const e=await api(`/contacts/${c.id}/campaignStats?startDate=2026-11-26&endDate=2026-11-27`);
+ const evento=(k)=>e[k]?.some(x=>x.campaignId===2)===true;
+ console.log(JSON.stringify({campana:2,enLista:c.listIds?.includes(6),nombre:c.attributes?.CNE_MADRID_29N ?? null,
+   enviado:evento("messagesSent"),entregado:evento("delivered"),abierto:evento("opened"),rebote:evento("hardBounces")||evento("softBounces")}));
+}catch{process.exitCode=1;}
