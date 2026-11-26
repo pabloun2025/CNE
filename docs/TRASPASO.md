@@ -503,3 +503,4 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 ## 54. Acceso directo al puesto móvil (26-11)
 
 - La portada `https://cne.consulado.app/` abre la consulta sin exigir un fragmento. El HTML de ese dominio recibe únicamente el acceso abreviado del puesto. La dirección de Madrid sigue aceptando los enlaces existentes y el seguimiento requiere su credencial independiente. La portada sigue mostrando el cierre cuando vence el padrón.
+- Producción verificada en `09b1626` mediante el despliegue de Oracle `45872509015`. En Chromium a 375 px se abrió la portada en una sesión nueva y tras recargar. La exportación de contactos rechazó el acceso público y se comprobó la descarga privada del ZIP de Windows.
