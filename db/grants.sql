@@ -20,6 +20,7 @@ BEGIN
       cne.fichas_abiertas_finanzas, cne.credenciales_revocadas, cne.pendientes_impresion, cne.firmas_recibo TO cne_app;
     GRANT USAGE ON ALL SEQUENCES IN SCHEMA cne TO cne_app;
     GRANT INSERT, UPDATE (solicitudes, vencimientos) ON cne.aperturas_justificante TO cne_app;
+    GRANT INSERT, UPDATE (estado) ON cne.envios_justificante TO cne_app;
     GRANT INSERT, UPDATE (estado, intentos, envio_iniciado, huella_peticion) ON cne.puesto_movil_actividad TO cne_app;
     GRANT INSERT, UPDATE (nonce, cifrado) ON cne.puesto_movil_contactos TO cne_app;
     GRANT UPDATE (ultimo_ordinal) ON cne.secuencia_recibos TO cne_app;

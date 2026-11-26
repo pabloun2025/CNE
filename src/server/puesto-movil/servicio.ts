@@ -5,8 +5,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { decryptBuffer, encryptBuffer, masterKey } from "../crypto";
 import { query } from "../db";
-import { clienteCorreo, type ClienteCorreo } from "../envios/brevo";
-import { leerConfigEnvios, remitenteEfectivo } from "../envios-config";
+import { correoElectoral } from "../envios/correo-electoral";
 import { ErrorJustificante } from "../justificante/servicio";
 import { prepararDocumentoLaboral, validarDocumentoEspanol } from "../justificante/documento.mjs";
 import { consultarPadronMovil, estadoPadronMovil } from "./padron";
@@ -146,36 +145,8 @@ async function cambiarEstado(id: string, estado: EstadoEnvio) {
   await query("UPDATE cne.puesto_movil_actividad SET estado=$2 WHERE id=$1 AND estado='enviando'", [id, estado]);
 }
 
-let verificacion: { candidatos: string; vence: number; direccion: Promise<string | null> } | undefined;
-
-async function remitenteActivo(proveedor: ClienteCorreo, direcciones: string[]) {
-  const candidatos = direcciones.join("|");
-  if (verificacion?.candidatos !== candidatos || verificacion.vence <= Date.now()) {
-    const registro = {
-      candidatos, vence: Date.now() + 20_000,
-      direccion: Promise.all(direcciones.map(d => proveedor.verificarRemitente(d).catch(() => false)))
-        .then(activos => direcciones.find((_, i) => activos[i]) ?? null),
-    };
-    verificacion = registro;
-    if (await registro.direccion) registro.vence = Date.now() + 300_000;
-    return registro.direccion;
-  }
-  return verificacion.direccion;
-}
-
-async function correoMovil() {
-  const config = await leerConfigEnvios();
-  const proveedor = clienteCorreo();
-  const remitente = remitenteEfectivo(config);
-  const configurado = process.env.CNE_MOVIL_CORREO_ACTIVO === "1" && !config.correoPausa && !proveedor.simulado;
-  const candidatos = [...new Set([remitente.direccion, process.env.MAIL_FROM_ADDRESS ?? "", "avisos@consulado.app"])]
-    .filter(direccion => email.safeParse(direccion).success);
-  const activo = configurado ? await remitenteActivo(proveedor, candidatos) : null;
-  return { proveedor, remitente: { ...remitente, direccion: activo ?? "" }, configurado, habilitado: Boolean(activo) };
-}
-
 export async function diagnosticoCorreo() {
-  const { configurado, habilitado } = await correoMovil();
+  const { configurado, habilitado } = await correoElectoral();
   return { configurado, remitenteVerificado: habilitado };
 }
 
@@ -206,7 +177,7 @@ export async function enviar(datos: Record<string, unknown>) {
     }
   }
 
-  const { proveedor, remitente, habilitado } = await correoMovil();
+  const { proveedor, remitente, habilitado } = await correoElectoral();
   if (!habilitado) fallo(503, "El correo del puesto aún no está habilitado.");
   let pdf: Uint8Array;
   let guia: Buffer | null = null;

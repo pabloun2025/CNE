@@ -514,3 +514,9 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 
 - El ticket con junta muestra recinto, junta y zona antes de los datos personales. La junta se imprime a 24 pt y el encabezado de zona identifica la serie masculina o femenina cuando corresponde. El ticket de comparecencia destaca que la persona no figura en el padrón. Ambos explican qué abre cada QR y conservan el aviso de hasta tres aperturas.
 - Se verificaron los PDF de 80 mm con uno y dos QR a 203 dpi. El segundo PDF usa una identidad ficticia y un firmante efímero. El ZIP privado incluye la misma revisión del diseño, con el padrón cifrado intacto.
+
+## 57. Envío por correo desde el QR laboral (26-11)
+
+- El formulario del QR permite descargar el PDF o solicitarlo por correo, tanto para una persona con junta como para una persona que no consta en el padrón. Usa el mismo PDF y el remitente institucional que usa el puesto móvil. El envío respeta la pausa general de correo.
+- La migración `2026-12-16-correo-justificante.sql` reserva un envío por apertura y no guarda la dirección. Los reintentos quedan disponibles si el proveedor confirma que el correo no salió. Si la entrega es incierta, se evita duplicarla. Los QR emitidos previamente siguen abriendo el formulario actualizado.
+- Comprobado en Chromium a 375 px y en PostgreSQL 16 con un proveedor simulado, incluida la descarga, el adjunto y dos solicitudes simultáneas que generan un solo envío.

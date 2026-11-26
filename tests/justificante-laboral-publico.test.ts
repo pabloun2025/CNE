@@ -10,6 +10,13 @@ import { GET as pagina } from "@/app/justificante-laboral/route";
 import { GET as clave } from "@/app/api/voto/clave-publica/route";
 import { POST as abrir } from "@/app/api/voto/abrir/route";
 import { POST as pdf } from "@/app/api/voto/pdf/route";
+import { POST as correo } from "@/app/api/voto/correo/route";
+
+const envio = vi.hoisted(() => vi.fn());
+vi.mock("@/server/envios/correo-electoral", () => ({
+  correoElectoral: async () => ({ habilitado: true, proveedor: { enviar: envio },
+    remitente: { nombre: "Consulado", direccion: "emisor@prueba.invalid" } }),
+}));
 
 // El puesto de PRUEBA firmó el ticket con el emisor efímero de la fixture.
 // El descifrado, las comprobaciones del sobre, PostgreSQL y el PDF son reales.
@@ -30,7 +37,9 @@ describe("Canje del ticket electoral", () => {
   afterAll(closePools);
 
   it("la página de entrada y la clave pública no consumen aperturas", async () => {
-    expect(await pagina().text()).toContain("Abrir mi justificante");
+    const html = await pagina().text();
+    expect(html).toContain("Abrir mi justificante");
+    expect(html).toContain("Enviar por correo");
     expect(await clave().text()).toMatch(/^-----BEGIN PUBLIC KEY-----/);
     expect(await consultarDueno("SELECT * FROM cne.aperturas_justificante")).toHaveLength(0);
   });
@@ -67,6 +76,23 @@ describe("Canje del ticket electoral", () => {
       expect(doc.getPageCount()).toBe(1);
       expect(doc.getTitle()).toBe("Justificante laboral de asistencia al recinto electoral");
     }
+    expect((await correo(post({sesion:"inventada",correo:"persona@prueba.invalid"}))).status).toBe(403);
+    expect((await correo(post({sesion:datos.sesion,correo:"no es un correo"}))).status).toBe(400);
+    expect((await correo(post({sesion:datos.sesion,correo:"persona@prueba.invalid",documento:"X1234567A"}))).status).toBe(400);
+    expect(envio).not.toHaveBeenCalled();
+    envio.mockResolvedValue({ok:true});
+    const peticionCorreo=()=>correo(post({sesion:datos.sesion,correo:"persona@prueba.invalid",documento:"x1234567l"}));
+    const intentos=await Promise.all([peticionCorreo(),peticionCorreo()]);
+    expect(intentos.map(r=>r.status).sort()).toEqual([200,409]);
+    expect(envio).toHaveBeenCalledTimes(1);
+    const mensaje=envio.mock.calls[0][0];
+    expect(mensaje.para).toBe("persona@prueba.invalid");
+    expect(mensaje.adjunto.nombre).toBe("justificante-laboral.pdf");
+    expect((await PDFDocument.load(Buffer.from(mensaje.adjunto.base64,"base64"))).getPageCount()).toBe(1);
+    expect((await peticionCorreo()).status).toBe(409);
+    const guardado=await consultarDueno("SELECT * FROM cne.envios_justificante");
+    expect(guardado).toHaveLength(1);
+    expect(JSON.stringify(guardado)).not.toContain(mensaje.para);
     const rows=await consultarDueno("SELECT * FROM cne.aperturas_justificante");
     expect(rows).toHaveLength(1);
     expect(JSON.stringify(rows)).not.toContain(datos.nombre);

@@ -43,6 +43,7 @@
       el("restantes").textContent = "Aperturas restantes en este ticket: " + datos.restantes + ".";
       el("entrada").hidden = true;
       el("formulario").hidden = false;
+      el("envio-correo").hidden = false;
       el("documento").focus();
       mensaje("");
     } catch (error) { mensaje(error.message); el("abrir").disabled = false; }
@@ -72,5 +73,23 @@
       el("entrega").querySelector("h2").focus();
       mensaje("");
     } catch (error) { mensaje(error.message); } finally { boton.disabled = false; }
+  });
+  el("envio-correo").addEventListener("submit", async evento => {
+    evento.preventDefault();
+    const boton = el("enviar-correo");
+    if (boton.disabled) return;
+    const correo = el("correo");
+    const destino = correo.value.trim();
+    const estado = el("correo-estado");
+    boton.disabled = correo.disabled = true;
+    estado.hidden = false;
+    estado.textContent = "Enviando el justificante…";
+    try {
+      await post("correo", { sesion, correo: destino, documento: el("documento").value });
+      estado.textContent = "Envío solicitado. Revise su bandeja de entrada y la carpeta de correo no deseado.";
+    } catch (error) {
+      estado.textContent = error.message;
+      boton.disabled = correo.disabled = false;
+    }
   });
 })();

@@ -9,3 +9,4 @@ label{display:block;font-weight:700;margin:18px 0 7px}label span,dt,#ayuda,#rest
 button,.boton{display:inline-block;text-align:center;background:#143e64;color:white;border:0;border-radius:5px;padding:12px 20px;min-height:46px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}button:disabled{opacity:.65}
 :focus-visible{outline:3px solid #a87501;outline-offset:3px}dt{margin-top:10px}dd{font-weight:700;margin:0;overflow-wrap:anywhere}#restantes{margin-bottom:0}
 #mensaje{border-left:4px solid #a9771d;padding:12px 16px;background:#fff5de}footer{padding-top:16px;border-top:1px solid #cbd6dd}footer a{color:#174c73}[hidden]{display:none!important}
+#envio-correo input{display:block;margin-bottom:14px}#correo-estado{margin-bottom:0}
