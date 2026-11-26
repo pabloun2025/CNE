@@ -1,7 +1,7 @@
 const pagina = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Justificante laboral · Consulado del Ecuador en Madrid</title>
-<link rel="stylesheet" href="/electoral/justificante.css"><script src="/electoral/justificante.js" defer></script></head>
+<link rel="stylesheet" href="/electoral/justificante.css"><script src="/electoral/justificante.js?v=qr-compacto" defer></script></head>
 <body><header><div><img src="/electoral/escudo.png" width="46" height="54" alt=""><p><strong>Consulado General del Ecuador</strong><br>Madrid · España</p></div></header>
 <main><p class="fecha">Caja Mágica · 29 de noviembre de 2026</p>
 <h1>Justificante laboral</h1><p class="intro">Descargue el justificante de su asistencia al recinto electoral para presentarlo ante su empresa.</p>

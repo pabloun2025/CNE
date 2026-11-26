@@ -504,3 +504,8 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 
 - La portada `https://cne.consulado.app/` abre la consulta sin exigir un fragmento. El HTML de ese dominio recibe únicamente el acceso abreviado del puesto. La dirección de Madrid sigue aceptando los enlaces existentes y el seguimiento requiere su credencial independiente. La portada sigue mostrando el cierre cuando vence el padrón.
 - Producción verificada en `09b1626` mediante el despliegue de Oracle `45872509015`. En Chromium a 375 px se abrió la portada en una sesión nueva y tras recargar. La exportación de contactos rechazó el acceso público y se comprobó la descarga privada del ZIP de Windows.
+
+## 55. QR laboral con módulos más grandes (26-11)
+
+- El puesto Windows usa el modo alfanumérico del QR para transportar el mismo sobre cifrado y firmado. El canje admite el formato original y el compacto e identifica el ticket por el mismo identificador interno. En el ticket de control, la matriz pasó de 77 a 69 módulos por lado y de cuatro a seis puntos por módulo a 203 dpi, con cuatro módulos de margen.
+- Para actualizar ventanilla, publicar primero el lector web y luego reemplazar el ZIP privado. La prueba automatizada de lectura reproduce el ancho de 512 puntos. La lectura en papel se comprueba en la térmica de ventanilla.

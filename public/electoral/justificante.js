@@ -25,7 +25,7 @@
     }
     return response;
   }
-  if (!/^[A-Za-z0-9_-]{165,825}$/.test(token)) {
+  if (!/^(?:[A-Za-z0-9_-]{165,825}|\.[0-9A-Z.$*+\-]{184,927})$/.test(token)) {
     el("entrada").hidden = true;
     mensaje("Escanee el código QR de justificante laboral de su ticket para continuar.");
     return;

@@ -1,6 +1,7 @@
 // Formato de los QR firmados por el puesto Windows de Caja Mágica.
 import {createDecipheriv,createPrivateKey,createPublicKey,diffieHellman,hkdfSync,verify} from 'node:crypto';
 import {nombreImprimible} from './nombres.mjs';
+import {normalizarTokenQr} from './compacto.cjs';
 const CIERRE_MS=Date.parse('2026-11-29T18:00:00Z');
 // Hora de Madrid en la que se habilitó la ventanilla de producción.
 const INICIO_EMISION_MS=Date.parse('2026-11-25T23:00:00Z');
@@ -31,7 +32,8 @@ function checkData(cedula,nombre,tipo,issued,id){
 
 export function canjearEmision(token,{clavesPuestos,clavePrivada,now=Date.now,vigenciaMs=Infinity}){
   try{
-    if(typeof token!=='string'||!/^[A-Za-z0-9_-]{165,825}$/.test(token))throw invalid();
+    token=normalizarTokenQr(token);
+    if(!/^[A-Za-z0-9_-]{165,825}$/.test(token))throw invalid();
     const data=Buffer.from(token,'base64url');
     if(data.toString('base64url')!==token||data[0]!==1)throw invalid();
     const len=data[1];

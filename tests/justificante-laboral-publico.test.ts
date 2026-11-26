@@ -5,6 +5,7 @@ import ejemplo from "./fixtures/justificante-ficticio.json";
 import { reiniciarBase, consultarDueno } from "./helpers/db";
 import { closePools } from "@/server/db";
 import { validarDocumentoEspanol } from "@/server/justificante/documento.mjs";
+import { compactarQr } from "@/server/justificante/compacto.cjs";
 import { GET as pagina } from "@/app/justificante-laboral/route";
 import { GET as clave } from "@/app/api/voto/clave-publica/route";
 import { POST as abrir } from "@/app/api/voto/abrir/route";
@@ -54,7 +55,8 @@ describe("Canje del ticket electoral", () => {
     expect(primera.status).toBe(200);
     const datos=await primera.json();
     expect(datos).toMatchObject({ nombre:"ÁNGELA ŁUKASZ DE PRUEBA",cedula:"0000000001",restantes:2 });
-    expect((await (await confirmar(repetida)).json()).restantes).toBe(2);
+    const mismoQr = compactarQr(token);
+    expect((await (await abrir(post({token:mismoQr,solicitud:repetida}))).json()).restantes).toBe(2);
     const varias=await Promise.all([confirmar(solicitud()),confirmar(solicitud()),confirmar(solicitud())]);
     expect(varias.map(r=>r.status).sort()).toEqual([200,200,410]);
     expect((await pdf(post({sesion:datos.sesion,documento:"X1234567A"}))).status).toBe(400);
