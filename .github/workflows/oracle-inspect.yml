@@ -4,9 +4,9 @@ on:
     inputs:
       modo:
         type: choice
-        options: [comprobar, enviar, continuar, reconciliar, consultar, limpiar]
+        options: [enviar, consultar]
         required: true
-        default: comprobar
+        default: consultar
 permissions:
   contents: read
 concurrency:

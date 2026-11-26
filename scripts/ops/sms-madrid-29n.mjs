@@ -4,7 +4,7 @@ import { setTimeout as esperar } from "node:timers/promises";
 
 const apiKey = process.env.API_SMSQUEENS?.trim();
 const modo = process.env.CNE_SMS_MODO;
-const total = 29786;
+const total = 9498;
 const texto = "Compatriota, este domingo 29 son las elecciones de Ecuador. Votemos en Madrid con el orgullo de ser ecuatorianos. Revisa donde votar: {LANDING}";
 const pruebas = [
   ["Justina", "62ba425a8e59413783d1dff8734f3930"],
@@ -50,7 +50,7 @@ async function ejecutar() {
   const lista = readFileSync("lista.txt", "utf8");
   const numeros = lista.trimEnd().split("\n");
   exigir(numeros.length === total && new Set(numeros).size === total && numeros.every(n => /^34[67]\d{8}$/.test(n)), "La lista no coincide con el recuento de móviles únicos.");
-  exigir(createHash("sha256").update(lista).digest("hex") === "d8142add27fef57f719f7e31eef8f71f5ce9c4857aed04d36a3aaa4c85a6f2c1", "La huella de la lista no coincide con el CSV validado.");
+  exigir(createHash("sha256").update(lista).digest("hex") === "20cfce2a1daa99211ae59066c88ffc7df9deba1e86387cab38598b483dfaa8fa", "La huella de la lista no coincide con el CSV validado.");
   const primerPendiente = modo === "continuar" ? 1000 : 0;
   const limite = 200;
   const inicios = [];
@@ -60,7 +60,7 @@ async function ejecutar() {
 
   async function procesar(inicio) {
     const messages = numeros.slice(inicio, inicio + limite).map((to, i) => ({
-      from: "+34913430250", to, text: texto, custom: `CNE29NP1-${String(inicio + i + 1).padStart(5,"0")}`,
+      from: "+34913430250", to, text: texto, custom: `CNE29NC1-${String(inicio + i + 1).padStart(5,"0")}`,
     }));
     console.log(JSON.stringify({ inicio: inicio + 1, solicitados: messages.length }));
     const envio = await api("sms/send-landing", { landing_id: 215041, campaign_name: "Madrid 29N · Primer envío", encoding: "GSM7", concat: 0, messages });
@@ -107,12 +107,12 @@ async function ejecutar() {
 async function reconciliar() {
   const saldo = await api("account/get-balance");
   console.log(JSON.stringify({ saldoActual: saldo.json.result?.balance ?? null, moneda: saldo.json.result?.currency ?? null }));
-  const referencias = ["CNE29NP1-00001", "CNE29NP1-00002", "CNE29NP1-00100", "CNE29NP1-00500", "CNE29NP1-01000"];
+  const referencias = ["CNE29NC1-00001", "CNE29NC1-00002", "CNE29NC1-00100", "CNE29NC1-00500", "CNE29NC1-01000"];
   const informes = await Promise.all(referencias.map((custom) => api("sms/get-reports", { custom })));
   const ejemplos = informes.map((r, i) => ({ referencia: referencias[i], http: r.http, cantidad: r.json.result?.length ?? null, estados: r.json.result?.map(v => codigo(v.status)) }));
   const porFecha = await api("sms/get-reports", { from_date: "2026-11-26 21:00:00", to_date: "2026-11-27 01:00:00", page: 1 });
   const filas = porFecha.json.result;
-  console.log(JSON.stringify({ ejemplos, porFecha: { http: porFecha.http, cantidad: filas?.length ?? null, delLote: filas?.filter?.(r => /^CNE29NP1-/.test(r.custom ?? "")).length ?? null } }));
+  console.log(JSON.stringify({ ejemplos, porFecha: { http: porFecha.http, cantidad: filas?.length ?? null, delLote: filas?.filter?.(r => /^CNE29NC1-/.test(r.custom ?? "")).length ?? null } }));
 }
 
 try {

@@ -15,9 +15,13 @@ case "$modo" in
     ;;
   reconciliar) touch "$trabajo/lista.txt" ;;
   enviar|continuar)
+    if ! grep -Eq '"final":true,"primerPendiente":1000,"total":29786' "$estado/resultado.log"; then
+      echo 'El lote principal todavía no está conciliado.'
+      exit 1
+    fi
     openssl cms -decrypt -binary -inform DER -in "$trabajo/lista.cms" -inkey "$estado/clave.pem" -out "$trabajo/lista.txt"
     test -s "$trabajo/lista.txt"
-    marca=envio-iniciado
+    marca=envio-complemento-iniciado
     if [[ "$modo" == continuar ]]; then test -f "$estado/envio-iniciado"; marca=continuar-iniciado; fi
     if ! (set -o noclobber; date -u +%FT%TZ > "$estado/$marca"); then
       echo 'El lote ya fue iniciado. Consulte el registro antes de repetir.'
@@ -25,7 +29,7 @@ case "$modo" in
     fi
     ;;
   consultar)
-    if [[ -f "$estado/resultado.log" ]]; then cat "$estado/resultado.log"; fi
+    if [[ -f "$estado/resultado-complemento.log" ]]; then cat "$estado/resultado-complemento.log"; fi
     exit
     ;;
   limpiar)
@@ -44,4 +48,4 @@ tar -C "$trabajo" -cf - sms-madrid-29n.mjs sms.key lista.txt |
     cd "$t"
     tar -xf -
     API_SMSQUEENS=$(cat sms.key) node sms-madrid-29n.mjs
-  ' | if [[ "$modo" == enviar || "$modo" == continuar ]]; then tee -a "$estado/resultado.log"; else cat; fi
+  ' | if [[ "$modo" == enviar || "$modo" == continuar ]]; then tee -a "$estado/resultado-complemento.log"; else cat; fi
