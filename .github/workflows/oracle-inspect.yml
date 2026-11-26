@@ -4,7 +4,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: cne-madrid-copia-individual-20261126
+  group: cne-madrid-acuse-individual-20261126
   cancel-in-progress: false
 jobs:
   prueba:
@@ -23,6 +23,6 @@ jobs:
           clave=$(mktemp)
           trap 'unlink "$clave"' EXIT
           printf '%s\n' "$ORACLE_SSH_KEY" > "$clave"
-          tar -C scripts/ops/mailing-madrid -cf - enviar-prueba.mjs mailing-madrid.html mailing-madrid.json individual.cms |
+          tar -C scripts/ops/mailing-madrid -cf - enviar-prueba.mjs mailing-madrid.html mailing-madrid.json individual.cms individual-oracle.sh |
             ssh -i "$clave" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 \
-              'set -eu; umask 077; t=$(mktemp -d); trap '''rm -rf -- "$t"''' EXIT; cd "$t"; tar -xf -; openssl cms -decrypt -binary -inform DER -inkey /tmp/cne-madrid-campana-20261126/privada.pem -in individual.cms -out individual.txt; tar -cf - enviar-prueba.mjs mailing-madrid.html mailing-madrid.json individual.txt | sudo docker exec -i cne-prod-cne-app-1 sh -c "set -eu; umask 077; directorio=\$(mktemp -d); trap '''rm -rf -- "\$directorio"''' EXIT; cd "\$directorio"; tar -xf -; node enviar-prueba.mjs"'
+              'set -eu; umask 077; t=$(mktemp -d); trap '\''rm -rf -- "$t"'\'' EXIT; tar -xf - -C "$t"; bash "$t/individual-oracle.sh" "$t"'
