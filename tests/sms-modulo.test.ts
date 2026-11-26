@@ -138,6 +138,25 @@ it("reserva una sola vez aunque dos solicitudes confirmen la misma ficha a la ve
   expect(await listarDestinatariosSms()).toEqual([]);
 });
 
+it("impide que Superadministración cambie de modo durante la llamada a SMS Publi", async () => {
+  const id = await insertarFicha(1);
+  const previa = await vista([id]);
+  let bloqueo = "sin bloqueo";
+  const transporte = vi.fn(async () => {
+    try {
+      await consultarDueno(`BEGIN; SET LOCAL lock_timeout = '100ms';
+        SELECT modo FROM cne.configuracion WHERE id = 1 FOR UPDATE;
+        UPDATE cne.configuracion SET modo = 'prueba' WHERE id = 1; COMMIT`);
+    } catch (error) {
+      bloqueo = (error as { code: string }).code;
+    }
+    return respuesta("ID_PRUEBA_1");
+  });
+  expect(await confirmarEnviosSms(sesion, [id], previa.confirmacion, transporte)).toMatchObject({ aceptado: 1 });
+  expect(bloqueo).toBe("55P03");
+  expect(await consultarDueno("SELECT modo FROM cne.configuracion WHERE id = 1")).toEqual([{ modo: "eleccion" }]);
+});
+
 it("informa entregas tempranas, intentos inciertos y destinatarios que quedaron pendientes", async () => {
   const primero = await insertarFicha(1);
   const segundo = await insertarFicha(2);

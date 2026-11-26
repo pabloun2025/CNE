@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { PoolClient } from "pg";
 import { validarMovil } from "../../domain/ingreso";
 import { juntaEnCredencial, type Serie } from "../../domain/juntas";
 import { registrarAuditoria } from "../auditoria";
@@ -9,7 +10,7 @@ import { masterKey } from "../crypto";
 import { query, withTx } from "../db";
 import { loadEnv } from "../env";
 import type { FetchLike } from "./http";
-import { enviarSmsPubli, mensajeSmsMadrid, remitenteSmsMadrid } from "./sms-publi";
+import { enviarSmsPubli, mensajeSmsMadrid, remitenteSmsMadrid, type ResultadoSmsPubli } from "./sms-publi";
 import { hashEnlaceSms, urlAcuseSms } from "./sms-seguimiento";
 
 export const MAX_SELECCION_SMS = 5;
@@ -94,10 +95,16 @@ export async function prepararEnviosSms(sesion: Sesion, ids: number[]): Promise<
   };
 }
 
+async function bloquearModoEleccion(client: PoolClient): Promise<boolean> {
+  await client.query("SET LOCAL lock_timeout = '1s'");
+  // El cambio de modo toma FOR UPDATE. KEY SHARE deja continuar otros ajustes.
+  const modo = await client.query("SELECT 1 FROM cne.configuracion WHERE id = 1 AND modo = 'eleccion' FOR KEY SHARE");
+  return modo.rowCount === 1;
+}
+
 async function reservar(sesion: Sesion, ficha: FichaSms, token: string): Promise<number | null> {
   return withTx(async (client) => {
-    const modo = await client.query("SELECT 1 FROM cne.configuracion WHERE id = 1 AND modo = 'eleccion' FOR SHARE");
-    if (!modo.rowCount) return null;
+    if (!await bloquearModoEleccion(client)) return null;
     // Se comprueba la ficha en una consulta posterior al bloqueo para detectar reservas o cambios concurrentes.
     const bloqueada = await client.query("SELECT 1 FROM cne.mjrv WHERE id = $1 FOR NO KEY UPDATE", [ficha.id]);
     if (!bloqueada.rowCount) return null;
@@ -116,19 +123,26 @@ async function reservar(sesion: Sesion, ficha: FichaSms, token: string): Promise
 }
 
 async function enviarReservado(id: number, ficha: FichaSms, token: string, { apiKey, host }: NonNullable<ReturnType<typeof configuracion>>, fetch?: FetchLike): Promise<EstadoIntento> {
-  const envio = await enviarSmsPubli({ id, destino: ficha.telefono, remitente: ficha.remitente, texto: ficha.texto,
-    enlace: `https://${host}/s/${token}`, acuse: urlAcuseSms(host, id) }, { apiKey, fetch });
-  // Si el proveedor notificó la entrega primero, su acuse tiene prioridad.
-  const [fila] = await query<{ estado: EstadoIntento }>(
-    `UPDATE cne.envios_sms SET
-        estado = CASE WHEN estado = 'reservado' THEN $2 ELSE estado END,
-        codigo_error = CASE WHEN estado = 'reservado' THEN $3 ELSE codigo_error END,
-        id_externo = coalesce(id_externo, $4), actualizado_en = now()
-      WHERE id = $1 AND ($4::text IS NULL OR id_externo IS NULL OR id_externo = $4)
-      RETURNING estado`,
-    [id, envio.estado, envio.estado === "aceptado" ? null : envio.codigo, envio.estado === "aceptado" ? envio.idExterno : null],
-  );
-  return fila?.estado ?? "incierto";
+  return withTx(async (client) => {
+    const enEleccion = await bloquearModoEleccion(client);
+    const dentroDelPlazo = Date.now() < EXPIRA;
+    // El modo permanece en elección mientras arranca y termina la solicitud acotada al proveedor.
+    const envio: ResultadoSmsPubli = enEleccion && dentroDelPlazo
+      ? await enviarSmsPubli({ id, destino: ficha.telefono, remitente: ficha.remitente, texto: ficha.texto,
+        enlace: `https://${host}/s/${token}`, acuse: urlAcuseSms(host, id) }, { apiKey, fetch })
+      : { estado: "fallo", codigo: enEleccion ? "FUERA_DE_PLAZO" : "FUERA_DE_MODO_ELECCION" };
+    // Si el proveedor notificó la entrega primero, su acuse tiene prioridad.
+    const [fila] = (await client.query<{ estado: EstadoIntento }>(
+      `UPDATE cne.envios_sms SET
+          estado = CASE WHEN estado = 'reservado' THEN $2 ELSE estado END,
+          codigo_error = CASE WHEN estado = 'reservado' THEN $3 ELSE codigo_error END,
+          id_externo = coalesce(id_externo, $4), actualizado_en = now()
+        WHERE id = $1 AND ($4::text IS NULL OR id_externo IS NULL OR id_externo = $4)
+        RETURNING estado`,
+      [id, envio.estado, envio.estado === "aceptado" ? null : envio.codigo, envio.estado === "aceptado" ? envio.idExterno : null],
+    )).rows;
+    return fila?.estado ?? "incierto";
+  });
 }
 
 export async function confirmarEnviosSms(sesion: Sesion, ids: number[], confirmacion: string, fetch?: FetchLike): Promise<ResultadoEnviosSms | { error: string }> {
