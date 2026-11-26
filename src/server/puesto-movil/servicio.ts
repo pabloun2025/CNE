@@ -23,8 +23,8 @@ type Tipo = "con" | "sin";
 type Turno = { contexto: string; id: string; cedula: string; vence: number; tipo: Tipo };
 type EstadoEnvio = "pendiente" | "enviando" | "aceptado" | "incierto";
 
-export function origenMovil() {
-  return process.env.CNE_MOVIL_ORIGEN || "https://madrid.consulado.app";
+export function origenMovilValido(origen: string) {
+  return origen === (process.env.CNE_MOVIL_ORIGEN || "https://madrid.consulado.app") || origen === "https://cne.consulado.app";
 }
 
 function fallo(status: number, message: string): never {
@@ -39,10 +39,11 @@ export function estadoMovil() {
 export function verificarAcceso(request: Request, seguimiento = false) {
   const credenciales = credencialesMovil();
   const config = seguimiento ? credenciales.seguimiento : credenciales.acceso;
-  const token = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
+  const token = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]{18}|[A-Za-z0-9_-]{43})$/)?.[1];
+  const esperado = !seguimiento && token?.length === 18 ? config?.slice(0, 18) : config;
   if (!config || !formatoAcceso.test(config) || !token ||
       (seguimiento && config === credenciales.acceso) ||
-      !timingSafeEqual(createHash("sha256").update(token).digest(), createHash("sha256").update(config).digest())) {
+      !esperado || !timingSafeEqual(createHash("sha256").update(token).digest(), createHash("sha256").update(esperado).digest())) {
     fallo(403, seguimiento ? "Abra el enlace de seguimiento." : "Abra el enlace para voluntarios.");
   }
 }

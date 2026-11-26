@@ -15,7 +15,7 @@ on:
       - cne-zip-produccion-20261126
       - cne-puesto-movil-20261126
       - cne-puesto-movil-correo-20261126
-      - cne-movil-nombre-padron-20261126
+      - cne-movil-pdf-dominio-20261126
   workflow_dispatch:
     inputs:
       accion:
@@ -111,6 +111,18 @@ jobs:
       - name: Borrar archivos temporales
         if: always()
         run: rm -f ~/.ssh/oracle /tmp/cne-bootstrap.json /tmp/cne-source.tar.gz
+
+  dominio-puesto-movil:
+    if: ${{ github.ref == 'refs/tags/cne-movil-pdf-dominio-20261126' }}
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Activar el dominio del puesto móvil
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: python3 scripts/cloudflare-dominio.py crear cne.consulado.app consulado.app madrid.consulado.app
 
   verificar-enlaces-electorales:
     if: ${{ always() && github.ref == 'refs/tags/cne-voto-publicacion-20261129-r2' }}

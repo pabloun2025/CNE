@@ -30,10 +30,10 @@ const ausente = "0000000002";
 type Estado = "pendiente" | "aceptado" | "incierto" | "enviando";
 let actividad: Map<string, { tipo: "con" | "sin"; estado: Estado; huella_peticion: string | null }>;
 
-function post(operacion: string, body: Record<string, unknown>, token = acceso) {
-  return POST(new Request("https://madrid.consulado.app/api/puesto-movil/" + operacion, {
+function post(operacion: string, body: Record<string, unknown>, token = acceso, origen = "https://madrid.consulado.app") {
+  return POST(new Request(origen + "/api/puesto-movil/" + operacion, {
     method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token,
-      origin: "https://madrid.consulado.app" }, body: JSON.stringify(body),
+      origin: origen }, body: JSON.stringify(body),
   }), { params: Promise.resolve({ operacion }) });
 }
 
@@ -82,6 +82,8 @@ describe("Puesto electoral móvil", () => {
     const datos = await consulta.json();
     expect(datos.resultado).toEqual({ junta: "M30", zona: "Azul", recinto: "Caja Mágica", verificarWeb: false });
     expect(datos.turno).not.toContain(presente);
+    expect((await post("consulta", { cedula: presente }, acceso.slice(0,18), "https://cne.consulado.app")).status).toBe(200);
+    expect((await post("seguimiento", {}, gestion.slice(0,18), "https://cne.consulado.app")).status).toBe(403);
   });
 
   it("usa el nombre del padrón, valida el DNI y envía el PDF una sola vez", async () => {

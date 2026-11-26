@@ -212,7 +212,7 @@
     finally { el("actualizar").disabled = false; }
   }
   el("actualizar").addEventListener("click", actualizar);
-  if (!/^[A-Za-z0-9_-]{43}$/.test(acceso)) {
+  if (!(gestion ? /^[A-Za-z0-9_-]{43}$/ : /^(?:[A-Za-z0-9_-]{18}|[A-Za-z0-9_-]{43})$/).test(acceso)) {
     mensaje("mensaje", "Abra el enlace facilitado por la coordinación electoral para acceder al puesto.");
   } else if (gestion) {
     el("titulo").textContent = "Seguimiento del puesto móvil";

@@ -61,12 +61,14 @@ def principal(argv, entorno):
         return f"El token no ve ninguna zona para {host}. Revise los recursos del token o indique la zona."
     cuenta, zona_id = z["account"]["id"], z["id"]
     print("Zona:", z["name"])
-    dns = api(token, "GET", f"/zones/{zona_id}/dns_records?per_page=100")
+    dns = api(token, "GET", f"/zones/{zona_id}/dns_records?name={host}")
     print("DNS:", "ok" if dns.get("success") else dns.get("errors"))
     tuneles = api(token, "GET", f"/accounts/{cuenta}/cfd_tunnel?is_deleted=false")
     print("Túneles:", [(t["id"], t["name"], t["status"], t.get("config_src")) for t in tuneles.get("result") or []] if tuneles.get("success") else tuneles.get("errors"))
     if accion == "comprobar":
         return None
+    if not dns.get("success"):
+        return "No se pudo comprobar si el hostname ya está reservado."
 
     # Túnel existente: el que ya sirve ORIGEN; si no, el que tenga algún hostname de la misma zona.
     elegido = None
@@ -77,12 +79,17 @@ def principal(argv, entorno):
         if origen in nombres:
             elegido = (t, config_t)
             break
-        if elegido is None and any(n.endswith("." + z["name"]) for n in nombres):
+        if host != "cne.consulado.app" and elegido is None and any(n.endswith("." + z["name"]) for n in nombres):
             elegido = (t, config_t)
     if not elegido:
         return f"Ningún túnel gestionado en Cloudflare sirve {origen} ni otro hostname de {z['name']}."
     t, config = elegido
-    if any(r.get("hostname") == host for r in config["ingress"]):
+    destino = f"{t['id']}.cfargotunnel.com"
+    existente = [x for x in (dns.get("result") or []) if x["name"] == host]
+    reglas = [r for r in config["ingress"] if r.get("hostname") == host]
+    if any(x["type"] != "CNAME" or x["content"].rstrip(".") != destino for x in existente) or any(r.get("service") != SERVICIO for r in reglas):
+        return "El hostname ya apunta a otro servicio. No se modificó."
+    if reglas:
         print("Ingress: ya existía.")
     else:
         # La regla nueva va antes de la final «http_status:404» (la que no tiene hostname).
@@ -93,8 +100,7 @@ def principal(argv, entorno):
         print("Ingress:", "ok" if r.get("success") else r.get("errors"))
         if not r.get("success"):
             return "No se pudo guardar la configuración del túnel."
-    registro = {"type": "CNAME", "name": host, "content": f"{t['id']}.cfargotunnel.com", "proxied": True}
-    existente = [x for x in (dns.get("result") or []) if x["name"] == host]
+    registro = {"type": "CNAME", "name": host, "content": destino, "proxied": True}
     r = api(token, "PUT", f"/zones/{zona_id}/dns_records/{existente[0]['id']}", registro) if existente else api(token, "POST", f"/zones/{zona_id}/dns_records", registro)
     print("DNS CNAME:", "ok" if r.get("success") else r.get("errors"))
     if not r.get("success"):
