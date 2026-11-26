@@ -4,7 +4,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: cne-sms-landing-54298-prueba
+  group: cne-sms-landing-215041-prueba
   cancel-in-progress: false
 jobs:
   prueba:
@@ -26,7 +26,7 @@ jobs:
           trap 'unlink "$carpeta/oracle"; unlink "$carpeta/sms.key"; unlink "$carpeta/prueba.mjs"; rmdir "$carpeta"' EXIT
           printf '%s\n' "$ORACLE_SSH_KEY" > "$carpeta/oracle"
           printf '%s' "$API_SMSQUEENS" > "$carpeta/sms.key"
-          cp scripts/ops/prueba-sms-landing-54298.mjs "$carpeta/prueba.mjs"
+          cp scripts/ops/prueba-sms-landing-215041.mjs "$carpeta/prueba.mjs"
           tar -C "$carpeta" -cf - prueba.mjs sms.key |
             ssh -i "$carpeta/oracle" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 \
               'sudo docker exec -i cne-prod-cne-app-1 sh -c "set -eu; umask 077; directorio=\$(mktemp -d); trap '\''rm -rf -- \"\$directorio\"'\'' EXIT; cd \"\$directorio\"; tar -xf -; API_SMSQUEENS=\$(cat sms.key) node prueba.mjs"'

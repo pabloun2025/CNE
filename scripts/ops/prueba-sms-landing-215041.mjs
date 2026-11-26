@@ -6,11 +6,11 @@ const mensaje = {
   from: "+34913430250",
   to: "34678882421",
   text: "Compatriota, este domingo 29 también hay elecciones en Ecuador. Te esperamos para votar en Madrid. Consulta tu junta: {LANDING}",
-  custom: "CNE29NLANDING54298TEST",
+  custom: "CNE29NLANDING215041TEST",
 };
 const datos = {
   api_key: apiKey,
-  landing_id: 54298,
+  landing_id: 215041,
   campaign_name: "Madrid 29N · Prueba individual de landing",
   encoding: "GSM7",
   concat: 0,
