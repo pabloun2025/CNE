@@ -4,13 +4,13 @@ on:
     inputs:
       modo:
         type: choice
-        options: [comprobar, enviar, continuar, reconciliar, consultar, limpiar]
+        options: [consultar]
         required: true
-        default: comprobar
+        default: consultar
 permissions:
   contents: read
 concurrency:
-  group: cne-madrid-29n-primer-envio
+  group: cne-madrid-29n-consulta
   cancel-in-progress: false
 jobs:
   envio:
