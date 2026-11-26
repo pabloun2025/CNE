@@ -10,6 +10,7 @@ on:
       - cne-zip-privado-20261126
       - cne-zip-ventanilla-ajustes-20261126
       - cne-zip-padron-corregido-20261126
+      - cne-zip-impresion-ux-20261126
   workflow_dispatch:
     inputs:
       accion:
