@@ -15,6 +15,7 @@ on:
       - cne-zip-produccion-20261126
       - cne-puesto-movil-20261126
       - cne-puesto-movil-correo-20261126
+      - cne-movil-nombre-padron-20261126
   workflow_dispatch:
     inputs:
       accion:

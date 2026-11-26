@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dependencias = vi.hoisted(() => ({
-  consultar: vi.fn(), estado: vi.fn(), query: vi.fn(), correo: vi.fn(), config: vi.fn(),
+  consultar: vi.fn(), estado: vi.fn(), query: vi.fn(), correo: vi.fn(), config: vi.fn(), pdf: vi.fn(),
 }));
+vi.mock("@/server/justificante/documento.mjs", async importOriginal => {
+  const real = await importOriginal<typeof import("@/server/justificante/documento.mjs")>();
+  return { ...real, prepararDocumentoLaboral: (...args: Parameters<typeof real.prepararDocumentoLaboral>) => {
+    dependencias.pdf(args[2]);
+    return real.prepararDocumentoLaboral(...args);
+  } };
+});
 vi.mock("@/server/puesto-movil/padron", () => ({
   consultarPadronMovil: dependencias.consultar, estadoPadronMovil: dependencias.estado,
 }));
@@ -21,7 +28,7 @@ const gestion = "B".repeat(43);
 const presente = "0000000001";
 const ausente = "0000000002";
 type Estado = "pendiente" | "aceptado" | "incierto" | "enviando";
-let actividad: Map<string, { tipo: "con" | "sin"; estado: Estado; intentos: number; huella_peticion: string | null }>;
+let actividad: Map<string, { tipo: "con" | "sin"; estado: Estado; huella_peticion: string | null }>;
 
 function post(operacion: string, body: Record<string, unknown>, token = acceso) {
   return POST(new Request("https://madrid.consulado.app/api/puesto-movil/" + operacion, {
@@ -44,7 +51,7 @@ beforeEach(() => {
   dependencias.query.mockImplementation(async (sql: string, args: string[] = []) => {
     const [id, param] = args;
     if (sql.startsWith("INSERT")) {
-      actividad.set(id, { tipo: param as "con" | "sin", estado: "pendiente", intentos: 0, huella_peticion: null });
+      actividad.set(id, { tipo: param as "con" | "sin", estado: "pendiente", huella_peticion: null });
       return [];
     }
     if (sql.trim().startsWith("SELECT count")) {
@@ -54,8 +61,7 @@ beforeEach(() => {
     }
     const dato = actividad.get(id);
     if (!dato) return [];
-    if (sql.startsWith("SELECT intentos")) return [{ ...dato }];
-    if (sql.includes("SET intentos")) { dato.intentos++; return []; }
+    if (sql.startsWith("SELECT estado")) return [{ ...dato }];
     if (sql.includes("SET estado='enviando'") && dato.estado === "pendiente") {
       dato.estado = "enviando"; dato.huella_peticion = param; return [{ id }];
     }
@@ -78,16 +84,16 @@ describe("Puesto electoral móvil", () => {
     expect(datos.turno).not.toContain(presente);
   });
 
-  it("coteja el nombre, valida el DNI y envía el PDF una sola vez", async () => {
+  it("usa el nombre del padrón, valida el DNI y envía el PDF una sola vez", async () => {
     const { turno } = await (await post("consulta", { cedula: presente })).json();
-    const envio = { turno, nombre: "Ana Apellido Ficticio", correo: "persona@example.invalid" };
-    expect((await post("envio", { ...envio, nombre: "Otra persona" })).status).toBe(400);
+    const envio = { turno, correo: "persona@example.invalid" };
     expect((await post("envio", { ...envio, documento: "12345678A" })).status).toBe(400);
     const solicitud = { ...envio, documento: "12345678Z" };
     expect(await (await post("envio", solicitud)).json()).toEqual({ aceptado: true });
-    expect(await (await post("envio", solicitud)).json()).toEqual({ aceptado: true });
+    expect(await (await post("envio", { ...solicitud, nombre: "Otra persona" })).json()).toEqual({ aceptado: true });
     expect((await post("envio", { ...solicitud, correo: "otro@example.invalid" })).status).toBe(409);
     expect(dependencias.correo).toHaveBeenCalledTimes(1);
+    expect(dependencias.pdf).toHaveBeenCalledWith(expect.objectContaining({ nombre: "APELLIDO FICTICIO ANA" }));
     const mensaje = dependencias.correo.mock.calls[0][0];
     expect(mensaje.remitente.direccion).toBe("avisos@consulado.app");
     expect(mensaje.texto).toContain("Junta: 30M");
@@ -98,7 +104,9 @@ describe("Puesto electoral móvil", () => {
     const { resultado, turno } = await (await post("consulta", { cedula: ausente })).json();
     expect(resultado).toBeNull();
     const envio = { turno, nombre: "Persona Ficticia", correo: "persona@example.invalid" };
+    expect((await post("envio", { turno, correo: envio.correo })).status).toBe(400);
     expect(await (await post("envio", envio)).json()).toEqual({ aceptado: true });
+    expect(dependencias.pdf).toHaveBeenCalledWith(expect.objectContaining({ nombre: "Persona Ficticia" }));
     expect(dependencias.correo.mock.calls[0][0].texto).toContain("/guia-electoral.pdf");
     expect(dependencias.correo.mock.calls[0][0].adjuntos[0].nombre).toBe("guia-electoral.pdf");
     dependencias.estado.mockReturnValue({ abierto: false, disponible: false, cierreMs: Date.now(), servidorMs: Date.now() });

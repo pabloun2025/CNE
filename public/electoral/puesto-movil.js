@@ -18,7 +18,7 @@
   let temporizador;
   let relojCierre;
   let operativo = false;
-  const controles = ["cedula","buscar","nombre","correo","documento","enviar"];
+  const controles = ["cedula","buscar","correo","documento","enviar"];
 
   function mensaje(id, texto = "", error = false) {
     const campo = el(id);
@@ -29,11 +29,14 @@
   function bloquear(valor) {
     operativo = valor;
     controles.forEach(id => { el(id).disabled = valor; });
+    el("nombre").disabled = valor || el("datos-nombre").hidden;
   }
   function retirarResultado() {
     generacion++;
     turno = "";
     el("envio").reset();
+    mostrar("datos-nombre", false);
+    el("nombre").required = false;
     mostrar("resultado", false);
     mostrar("envio", false);
     ["resultado-titulo","junta","zona","recinto"].forEach(id => { el(id).textContent = ""; });
@@ -162,6 +165,8 @@
         mostrar("verificar", Boolean(r.verificarWeb || !r.junta || (madrid && !zona)));
       } else mostrar("verificar", true);
       mostrar("resultado", true);
+      mostrar("datos-nombre", !r);
+      el("nombre").required = !r;
       mostrar("envio", true);
       mensaje("consulta-estado");
       el("resultado-titulo").focus();
@@ -173,7 +178,8 @@
     event.preventDefault();
     if (!turno || operativo || !permitido()) return;
     const actual = generacion;
-    const datos = { turno, nombre:el("nombre").value.trim(), correo:el("correo").value.trim(), documento:el("documento").value.trim().toUpperCase() };
+    const datos = { turno, correo:el("correo").value.trim(), documento:el("documento").value.trim().toUpperCase() };
+    if (!el("datos-nombre").hidden) datos.nombre = el("nombre").value.trim();
     bloquear(true);
     mensaje("envio-estado", "Enviando el correo…");
     try {

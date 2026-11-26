@@ -122,10 +122,6 @@ function nombreValido(input: unknown): string {
   return nombre;
 }
 
-function nombresOrdenados(nombre: string) {
-  return nombre.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase().match(/[\p{L}\p{N}]+/gu)?.sort().join(" ");
-}
-
 function huellaEnvio(id: string, correo: string, nombre: string, documento: string | null) {
   const clave = masterKey();
   try { return createHmac("sha256", clave).update(JSON.stringify([contexto, id, correo, nombre, documento])).digest("hex"); }
@@ -184,7 +180,6 @@ export async function diagnosticoCorreo() {
 export async function enviar(datos: Record<string, unknown>) {
   exigirPadron();
   const turno = leerTurno(datos.turno);
-  const nombreIngresado = nombreValido(datos.nombre);
   const correo = typeof datos.correo === "string" ? datos.correo.trim() : "";
   if (!email.safeParse(correo).success) fallo(400, "Revise el correo electrónico.");
   let documento;
@@ -195,18 +190,12 @@ export async function enviar(datos: Record<string, unknown>) {
 
   const elector = buscar(turno.cedula);
   if ((elector ? "con" : "sin") !== turno.tipo) fallo(409, "Actualice la consulta antes de enviar.");
-  const nombre = elector?.nombre ?? nombreIngresado;
+  const nombre = elector?.nombre ?? nombreValido(datos.nombre);
   const huella = huellaEnvio(turno.id, correo, nombre, documento?.numero ?? null);
-  const [actividad] = await query<{ intentos: number; estado: EstadoEnvio; huella_peticion: string | null }>(
-    "SELECT intentos,estado,huella_peticion FROM cne.puesto_movil_actividad WHERE id=$1", [turno.id]);
-  if (actividad?.estado === "aceptado" && actividad.huella_peticion === huella &&
-      (!elector || nombresOrdenados(elector.nombre) === nombresOrdenados(nombreIngresado))) return { aceptado: true };
+  const [actividad] = await query<{ estado: EstadoEnvio; huella_peticion: string | null }>(
+    "SELECT estado,huella_peticion FROM cne.puesto_movil_actividad WHERE id=$1", [turno.id]);
+  if (actividad?.estado === "aceptado" && actividad.huella_peticion === huella) return { aceptado: true };
   if (actividad?.estado !== "pendiente") fallo(409, "Ya se solicitó el envío. Revise la bandeja de entrada.");
-  if (actividad.intentos >= 3) fallo(409, "Vuelva a consultar la cédula y coteje el documento.");
-  if (elector && nombresOrdenados(elector.nombre) !== nombresOrdenados(nombreIngresado)) {
-    await query("UPDATE cne.puesto_movil_actividad SET intentos=intentos+1 WHERE id=$1 AND estado='pendiente' AND intentos<3", [turno.id]);
-    fallo(400, "El nombre no coincide. Coteje los nombres y apellidos completos con la cédula.");
-  }
 
   const { proveedor, remitente, habilitado } = await correoMovil();
   if (!habilitado) fallo(503, "El correo del puesto aún no está habilitado.");
@@ -222,7 +211,7 @@ export async function enviar(datos: Record<string, unknown>) {
   if (Date.now() >= turno.vence) fallo(409, "La consulta ha caducado. Vuelva a buscar la cédula.");
   const [reserva] = await query<{ id: string }>(`
     UPDATE cne.puesto_movil_actividad SET estado='enviando',envio_iniciado=now(),huella_peticion=$2
-    WHERE id=$1 AND estado='pendiente' AND intentos<3 RETURNING id`, [turno.id, huella]);
+    WHERE id=$1 AND estado='pendiente' RETURNING id`, [turno.id, huella]);
   if (!reserva) fallo(409, "Ya se solicitó el envío o la consulta se agotó. Revise la bandeja de entrada.");
   try { exigirPadron(); }
   catch (error) { await cambiarEstado(turno.id, "pendiente"); throw error; }

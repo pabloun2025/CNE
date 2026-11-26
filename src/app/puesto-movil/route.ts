@@ -19,8 +19,8 @@ const pagina = `<!doctype html>
   </section>
   <form id="envio" class="panel" autocomplete="off" hidden>
     <h2>Enviar por correo</h2><p class="ayuda">El correo incluye el justificante laboral en PDF y la información electoral.</p>
-    <label for="nombre">Nombres y apellidos</label><input id="nombre" type="text" minlength="2" maxlength="120" autocomplete="off" required aria-describedby="nombre-ayuda">
-    <p id="nombre-ayuda" class="detalle">Escríbalos tal como figuran en el documento de la persona atendida.</p>
+    <div id="datos-nombre" hidden><label for="nombre">Nombres y apellidos</label><input id="nombre" type="text" minlength="2" maxlength="120" autocomplete="off" aria-describedby="nombre-ayuda">
+    <p id="nombre-ayuda" class="detalle">Escríbalos tal como figuran en el documento de la persona atendida.</p></div>
     <label for="correo">Correo electrónico</label><input id="correo" type="email" maxlength="254" autocomplete="off" inputmode="email" autocapitalize="none" spellcheck="false" required>
     <label for="documento">DNI o NIE español <small>(opcional)</small></label><input id="documento" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="documento-ayuda"><p id="documento-ayuda" class="detalle">Incluya la letra de control.</p>
     <button id="enviar" type="submit">Enviar justificante e información</button><p id="envio-estado" class="feedback" role="status" hidden></p>
