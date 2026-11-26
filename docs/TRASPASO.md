@@ -487,3 +487,8 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Los justificantes nuevos del puesto móvil, del QR laboral y del generador Windows sin conexión comparten la plantilla A4 con los párrafos justificados. Se comprobó que el texto conserva todas sus palabras y que la firma y el sello coinciden píxel a píxel. La constancia térmica justifica su texto explicativo y conserva los QR originales.
 - El puesto móvil pide nombre únicamente si la cédula no consta. La portada `https://cne.consulado.app/` abre ese puesto. El enlace corto de voluntarios admite el fragmento de acceso abreviado, y el seguimiento conserva su credencial independiente.
 - El ZIP privado de Windows conserva un único inicio para el puesto. El generador A4 sin conexión se abre desde `Sistema/Justificante laboral/start.cmd` y comparte el runtime de Windows.
+
+## 52. Aviso electoral de Madrid para SMS (26-11)
+
+- El aviso general está en `/voto-madrid.html`. Reúne horario de sufragio, consulta oficial del CNE, transporte a la Caja Mágica y documentos admitidos. Las imágenes se sirven desde CNE. El enlace al mapa abre las indicaciones del recinto.
+- Se comprobó el diseño de 320 a 1440 px, incluida la vista móvil de 375 px, la carga de imágenes y los enlaces del CNE, mapa y teléfono. Antes de la prueba individual, verificar la URL desde internet. El mensaje usa un solo segmento y el remitente consular `+34913430250`.

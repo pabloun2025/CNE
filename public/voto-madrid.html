@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Información para votar el domingo 29 de noviembre de 2026 en Madrid. Consulte su junta, el horario y cómo llegar a la Caja Mágica.">
+  <meta property="og:title" content="Elecciones de Ecuador en Madrid · 29 de noviembre">
+  <meta property="og:description" content="Caja Mágica · 09:00 a 19:00. Consulte su recinto y junta en el CNE.">
+  <meta property="og:image" content="https://madrid.consulado.app/electoral/caja-magica.webp">
+  <link rel="canonical" href="https://madrid.consulado.app/voto-madrid.html">
+  <link rel="icon" type="image/png" href="/electoral/escudo.png">
+  <title>Elecciones de Ecuador en Madrid · 29 de noviembre</title>
+  <style>
+    :root {
+      --tinta: #102b4a;
+      --texto: #3f526b;
+      --azul: #073974;
+      --amarillo: #ffda58;
+      --borde: #dce4ee;
+      --fondo: #f3f6fa;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--tinta);
+      background: var(--fondo);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    h1, h2, p { margin: 0; }
+    a { color: var(--azul); }
+    a:focus-visible { outline: 3px solid #1c68ba; outline-offset: 4px; }
+    .cabecera { background: #fff; border-bottom: 1px solid var(--borde); }
+    .bandera { height: 5px; background: linear-gradient(90deg, #ffdc4d 50%, #1759a8 50% 75%, #da2439 75%); }
+    .contenedor { width: min(calc(100% - 40px), 1080px); margin-inline: auto; }
+    .marcas, .consulado { display: flex; align-items: center; }
+    .marcas { justify-content: space-between; gap: 16px; padding-block: 12px; min-height: 74px; }
+    .consulado { gap: 10px; color: var(--tinta); font-size: .9rem; line-height: 1.24; font-weight: 720; }
+    .consulado img { width: 37px; height: 43px; object-fit: cover; object-position: left center; flex-shrink: 0; }
+    .marca-cne { width: min(124px, 33%); height: auto; flex-shrink: 0; }
+    main { padding-block: clamp(16px, 4vw, 36px) 32px; }
+    .portada {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      border-radius: 21px;
+      padding: clamp(24px, 5vw, 56px);
+      color: #fff;
+      background: #102d50;
+    }
+    .portada img, .portada::after { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+    .portada img { object-fit: cover; object-position: 70% 63%; }
+    .portada::after {
+      content: "";
+      background: linear-gradient(90deg, #0b2546 4%, #0b2546f0 35%, #0b2546b8 66%, #0b254654 100%);
+    }
+    .fecha {
+      display: inline-block;
+      padding: 6px 10px;
+      background: var(--amarillo);
+      color: #172a3f;
+      border-radius: 5px;
+      font-size: .84rem;
+      font-weight: 750;
+    }
+    h1 {
+      margin-block: 15px 9px;
+      max-width: 660px;
+      font-size: clamp(2.1rem, 5.5vw, 4rem);
+      line-height: 1.03;
+      letter-spacing: -.045em;
+      text-wrap: balance;
+    }
+    .eleccion { color: #e5eff9; font-size: clamp(.98rem, 2vw, 1.13rem); line-height: 1.45; }
+    .horario {
+      margin-block: 20px 18px;
+      padding-left: 12px;
+      border-left: 3px solid var(--amarillo);
+      color: #eef5fd;
+      font-size: .94rem;
+      line-height: 1.45;
+    }
+    .horario strong { color: #fff; }
+    .accion {
+      display: inline-flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: .5em;
+      min-height: 48px;
+      padding: 9px 15px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      font-weight: 740;
+      line-height: 1.3;
+      text-align: center;
+      text-decoration: none;
+    }
+    .principal { background: #fff; color: #0a3d75; }
+    .principal:hover { background: #deedff; }
+    .principal:focus-visible { outline-color: var(--amarillo); }
+    .tarjetas { display: grid; grid-template-columns: 1.08fr 1fr; gap: 16px; margin-top: 16px; }
+    .tarjeta { min-width: 0; padding: clamp(18px, 3vw, 28px); background: #fff; border: 1px solid var(--borde); border-radius: 15px; }
+    h2 { font-size: clamp(1.2rem, 2.8vw, 1.48rem); line-height: 1.15; letter-spacing: -.025em; }
+    .tarjeta p { margin-block: 10px 0; color: var(--texto); font-size: .96rem; line-height: 1.48; }
+    .tarjeta p + p { margin-top: 8px; }
+    .tarjeta strong { color: var(--tinta); }
+    .mapa { margin-top: 14px; border-color: #bbd3ed; background: #eaf3ff; }
+    .mapa:hover { background: #d8eaff; }
+    footer { background: #fff; border-top: 1px solid var(--borde); }
+    .pie { padding-block: 18px 22px; color: var(--texto); font-size: .84rem; line-height: 1.55; }
+    .pie p + p { margin-top: 5px; }
+    .pie a[href^="tel:"] { white-space: nowrap; }
+    .credito, .credito a { color: #4d6077; }
+    @media (max-width: 600px) {
+      .contenedor { width: calc(100% - 28px); }
+      .portada { border-radius: 15px; }
+      .portada::after { background: linear-gradient(155deg, #0b2546fa 14%, #0b2546e0 55%, #0b2546bd 100%); }
+      .tarjetas { grid-template-columns: 1fr; gap: 11px; margin-top: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="cabecera">
+    <div class="bandera"></div>
+    <div class="contenedor marcas">
+      <div class="consulado">
+        <img src="/electoral/escudo.png" width="40" height="43" alt="">
+        <span>Consulado General<br>del Ecuador en Madrid</span>
+      </div>
+      <img class="marca-cne" src="/marca/cne-elecciones-2027.jpg" width="124" alt="CNE · Elecciones Seccionales y CPCCS 2027">
+    </div>
+  </header>
+  <main class="contenedor">
+    <section class="portada" aria-labelledby="titulo">
+      <img src="/electoral/caja-magica.webp" width="1440" height="960" alt="" fetchpriority="high">
+      <time class="fecha" datetime="2026-11-29">Domingo, 29 de noviembre de 2026</time>
+      <h1 id="titulo">Elecciones de Ecuador en Madrid</h1>
+      <p class="eleccion">Elección del Consejo de Participación Ciudadana y Control Social (CPCCS)</p>
+      <p class="horario"><strong>Caja Mágica · 09:00 a 19:00</strong><br>Hora local de Madrid</p>
+      <a class="accion principal" href="https://lugarvotacion.cne.gob.ec/">Consultar recinto y junta en el CNE</a>
+    </section>
+
+    <div class="tarjetas">
+      <section class="tarjeta" aria-labelledby="recinto">
+        <h2 id="recinto">Cómo llegar a la Caja Mágica</h2>
+        <p>Camino de Perales, 23 · 28041 Madrid</p>
+        <p><strong>Metro</strong> · Línea 3, San Fermín–Orcasur<br><strong>Autobús EMT</strong> · 23, 78 y 123</p>
+        <a class="accion mapa" href="https://www.google.com/maps/dir/?api=1&amp;destination=Caja%20M%C3%A1gica%2C%20Camino%20de%20Perales%2023%2C%20Madrid">Abrir indicaciones en Google Maps</a>
+      </section>
+      <section class="tarjeta" aria-labelledby="documentos">
+        <h2 id="documentos">Qué llevar para votar</h2>
+        <p>Lleve el <strong>original de su cédula, pasaporte ecuatoriano o ID consular</strong>, vigente o caducado.</p>
+        <p>El voto de los ecuatorianos residentes en el exterior es facultativo.</p>
+      </section>
+    </div>
+  </main>
+  <footer>
+    <div class="contenedor pie">
+      <p><a href="https://www.cancilleria.gob.ec/madrid/">Consulado General del Ecuador en Madrid</a> · <a href="tel:+34913430250">+34 913 430 250</a></p>
+      <p class="credito">Foto de la Caja Mágica: <a href="https://commons.wikimedia.org/wiki/File:Caja_M%C3%A1gica_exterior.jpg">Alvaro Gandara Astray</a>, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a> · recortada y redimensionada.</p>
+    </div>
+  </footer>
+</body>
+</html>
