@@ -14,5 +14,5 @@ button{border:1px solid var(--azul);background:var(--azul);color:#fff;font-weigh
 #envio label{margin-top:15px}#envio>button{margin-top:19px;width:100%}.detalle{margin-top:4px}.ayuda{margin-top:-2px}
 #dominios-correo{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}#dominios-correo button{border:1px solid #899da9;background:#f2f6f8;color:var(--azul);min-height:44px;padding:6px 9px;font-size:.88rem}#dominios-correo button:hover{background:#deeaf1}
 #mensaje,.feedback{padding:9px 12px;background:#e7f1f5;border-left:3px solid #2d708b;margin:9px 0}.feedback[data-error=true],#mensaje[data-error=true]{background:#fff0e7;color:#73361f;border-color:#a64d25}
-dl>div{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:9px 0;border-top:1px solid var(--borde)}dd{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}#actualizar{margin-top:12px}
+dl>div{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:9px 0;border-top:1px solid var(--borde)}dd{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}.acciones-seguimiento{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 footer{border-top:1px solid var(--borde);font-size:.85rem;margin-top:20px;padding-top:12px}[hidden]{display:none!important}

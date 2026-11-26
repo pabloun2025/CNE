@@ -110,7 +110,7 @@
     el("cuenta-cierre").textContent = "Tiempo restante · " + (dias ? dias + " d " : "") + hora;
     mostrar("cuenta-cierre", true);
   }
-  async function api(ruta, datos) {
+  async function api(ruta, datos, archivo = false) {
     const opciones = { cache:"no-store", credentials:"omit", referrerPolicy:"no-referrer" };
     if (datos !== undefined) {
       opciones.method = "POST";
@@ -120,6 +120,7 @@
     let respuesta;
     try { respuesta = await fetch("/api/puesto-movil/" + ruta, opciones); }
     catch { throw Error("No se pudo conectar con el servicio."); }
+    if (respuesta.ok && archivo) return respuesta.blob();
     const body = await respuesta.json().catch(() => ({}));
     if (!respuesta.ok) {
       const error = Error(typeof body.error === "string" ? body.error : "No se pudo completar la solicitud.");
@@ -246,6 +247,23 @@
     finally { el("actualizar").disabled = false; }
   }
   el("actualizar").addEventListener("click", actualizar);
+  el("descargar-contactos").addEventListener("click", async event => {
+    const boton = event.currentTarget;
+    boton.disabled = true;
+    mensaje("mensaje", "Preparando la lista de contactos…");
+    try {
+      const archivo = await api("contactos", {}, true);
+      const enlace = document.createElement("a");
+      enlace.href = URL.createObjectURL(archivo);
+      enlace.download = "contactos-no-empadronados.xlsx";
+      document.body.append(enlace);
+      enlace.click();
+      enlace.remove();
+      setTimeout(() => URL.revokeObjectURL(enlace.href), 30_000);
+      mensaje("mensaje", "Lista de contactos preparada para descargar.");
+    } catch (error) { mensaje("mensaje", error.message, true); }
+    finally { boton.disabled = false; }
+  });
   if (!(gestion ? /^[A-Za-z0-9_-]{43}$/ : /^(?:[A-Za-z0-9_-]{18}|[A-Za-z0-9_-]{43})$/).test(acceso)) {
     mensaje("mensaje", "Abra el enlace facilitado por la coordinación electoral para acceder al puesto.");
   } else if (gestion) {

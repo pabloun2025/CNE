@@ -1,5 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const letras = 'TRWAGMYFPDXBNJZSQVHLCKE';
 const prefijos = { X:'0', Y:'1', Z:'2' };
@@ -23,13 +25,23 @@ export function validarDatosLaborales(input) {
   return { nombre, cedula, documento:validarDocumentoEspanol(input.documento) };
 }
 
+function leerArial() {
+  const dir=process.env.CNE_FUENTES_ARIAL_DIR ?? '/usr/local/share/fonts/cne';
+  try {
+    return { regular:readFileSync(join(/* turbopackIgnore: true */ dir,'arial.ttf')),
+      negrita:readFileSync(join(/* turbopackIgnore: true */ dir,'arialbd.ttf')) };
+  } catch { return null; }
+}
+
 export async function prepararDocumentoLaboral(plantilla, fuente, datos) {
   const pdf = await PDFDocument.load(plantilla);
   pdf.setTitle('Justificante laboral de asistencia al recinto electoral');
   pdf.registerFontkit(fontkit);
-  const nombreFont = await pdf.embedFont(fuente,{subset:true});
-  const regular = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const arial=leerArial();
+  const regular=arial ? await pdf.embedFont(arial.regular,{subset:true}) : await pdf.embedFont(StandardFonts.Helvetica);
+  const bold=arial ? await pdf.embedFont(arial.negrita,{subset:true}) : await pdf.embedFont(StandardFonts.HelveticaBold);
+  const caracteresArial=new Set(bold.getCharacterSet());
+  const nombreFont=arial && [...datos.nombre].every(letra=>caracteresArial.has(letra.codePointAt(0))) ? bold : await pdf.embedFont(fuente,{subset:true});
   const page = pdf.getPage(0);
   const soportados = new Set(nombreFont.getCharacterSet());
   if ([...datos.nombre].some(letra => !soportados.has(letra.codePointAt(0)))) throw Error('El nombre contiene caracteres que requieren asistencia consular.');

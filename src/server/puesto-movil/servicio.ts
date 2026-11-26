@@ -11,6 +11,7 @@ import { ErrorJustificante } from "../justificante/servicio";
 import { prepararDocumentoLaboral, validarDocumentoEspanol } from "../justificante/documento.mjs";
 import { consultarPadronMovil, estadoPadronMovil } from "./padron";
 import { credencialesMovil } from "./credenciales";
+import { guardarContactoAusente } from "./contactos";
 
 const recursos = join(process.cwd(), "src/server/recursos-electorales");
 const formatoAcceso = /^[A-Za-z0-9_-]{43}$/;
@@ -197,6 +198,13 @@ export async function enviar(datos: Record<string, unknown>) {
     "SELECT estado,huella_peticion FROM cne.puesto_movil_actividad WHERE id=$1", [turno.id]);
   if (actividad?.estado === "aceptado" && actividad.huella_peticion === huella) return { aceptado: true };
   if (actividad?.estado !== "pendiente") fallo(409, "Ya se solicitó el envío. Revise la bandeja de entrada.");
+
+  if (!elector) {
+    exigirPadron();
+    if (!await guardarContactoAusente(turno.id, turno.vence, nombre, turno.cedula, correo)) {
+      fallo(409, "Actualice la consulta antes de enviar.");
+    }
+  }
 
   const { proveedor, remitente, habilitado } = await correoMovil();
   if (!habilitado) fallo(503, "El correo del puesto aún no está habilitado.");

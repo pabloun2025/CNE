@@ -1,3 +1,4 @@
+import { read } from "xlsx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dependencias = vi.hoisted(() => ({
@@ -30,6 +31,8 @@ const ausente = "0000000002";
 type Estado = "pendiente" | "aceptado" | "incierto" | "enviando";
 let actividad: Map<string, { tipo: "con" | "sin"; estado: Estado; huella_peticion: string | null }>;
 
+let contactos: Map<string, { huella_cedula: Buffer; nonce: Buffer; cifrado: Buffer }>;
+
 function post(operacion: string, body: Record<string, unknown>, token = acceso, origen = "https://madrid.consulado.app") {
   return POST(new Request(origen + "/api/puesto-movil/" + operacion, {
     method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token,
@@ -42,14 +45,23 @@ beforeEach(() => {
   vi.stubEnv("CNE_MOVIL_SEGUIMIENTO", gestion);
   vi.stubEnv("CNE_MOVIL_CORREO_ACTIVO", "1");
   actividad = new Map();
+  contactos = new Map();
   dependencias.estado.mockReturnValue({ abierto: true, disponible: true, servidorMs: Date.now(), cierreMs: Date.now() + 300000 });
   dependencias.consultar.mockImplementation((cedula: string) => cedula === presente ? {
     nombre: "APELLIDO FICTICIO ANA", junta: "M30", recinto: "Caja Mágica", zona: "Azul", verificarWeb: false,
   } : null);
   dependencias.config.mockResolvedValue({ correoReal: true, correoPausa: null });
   dependencias.correo.mockResolvedValue({ ok: true, idExterno: "simulado" });
-  dependencias.query.mockImplementation(async (sql: string, args: string[] = []) => {
-    const [id, param] = args;
+  dependencias.query.mockImplementation(async (sql: string, args: unknown[] = []) => {
+    if (sql.includes("INSERT INTO cne.puesto_movil_contactos")) {
+      const [huella_cedula, nonce, cifrado, id, vence] = args as [Buffer, Buffer, Buffer, string, number];
+      const turno = actividad.get(id);
+      if (turno?.tipo !== "sin" || turno.estado !== "pendiente" || Date.now() >= vence) return [];
+      contactos.set(huella_cedula.toString("hex"), { huella_cedula, nonce, cifrado });
+      return [{}];
+    }
+    if (sql.includes("FROM cne.puesto_movil_contactos")) return [...contactos.values()];
+    const [id, param] = args as string[];
     if (sql.startsWith("INSERT")) {
       actividad.set(id, { tipo: param as "con" | "sin", estado: "pendiente", huella_peticion: null });
       return [];
@@ -95,6 +107,7 @@ describe("Puesto electoral móvil", () => {
     expect(await (await post("envio", { ...solicitud, nombre: "Otra persona" })).json()).toEqual({ aceptado: true });
     expect((await post("envio", { ...solicitud, correo: "otro@example.invalid" })).status).toBe(409);
     expect(dependencias.correo).toHaveBeenCalledTimes(1);
+    expect(contactos.size).toBe(0);
     expect(dependencias.pdf).toHaveBeenCalledWith(expect.objectContaining({ nombre: "APELLIDO FICTICIO ANA" }));
     const mensaje = dependencias.correo.mock.calls[0][0];
     expect(mensaje.remitente.direccion).toBe("avisos@consulado.app");
@@ -107,7 +120,9 @@ describe("Puesto electoral móvil", () => {
     expect(resultado).toBeNull();
     const envio = { turno, nombre: "Persona Ficticia", correo: "persona@example.invalid" };
     expect((await post("envio", { turno, correo: envio.correo })).status).toBe(400);
+    expect(contactos.size).toBe(0);
     expect(await (await post("envio", envio)).json()).toEqual({ aceptado: true });
+    expect(contactos.size).toBe(1);
     expect(dependencias.pdf).toHaveBeenCalledWith(expect.objectContaining({ nombre: "Persona Ficticia" }));
     expect(dependencias.correo.mock.calls[0][0].texto).toContain("/guia-electoral.pdf");
     expect(dependencias.correo.mock.calls[0][0].adjuntos[0].nombre).toBe("guia-electoral.pdf");
@@ -118,4 +133,51 @@ describe("Puesto electoral móvil", () => {
       consultas: 1, con: 0, sin: 1, correosAceptados: 1, correosInciertos: 0,
     });
   });
+});
+
+it("guarda solicitudes válidas de ausentes antes de Brevo, deduplica y exporta texto sólo a seguimiento tras el cierre", async () => {
+  const { turno } = await (await post("consulta", {cedula: ausente})).json();
+  const inicial = { turno, nombre:"Persona Ficticia", correo:"prueba@example.invalid" };
+  expect((await post("envio", {...inicial, documento:"12345678A"})).status).toBe(400);
+  expect((await post("envio", {...inicial, correo:"incorrecto"})).status).toBe(400);
+  expect(contactos.size).toBe(0);
+  dependencias.correo.mockResolvedValue({ok:false, incierto:false});
+  expect((await post("envio", inicial)).status).toBe(503);
+  expect(contactos.size).toBe(1);
+  const anterior = [...contactos.values()][0];
+  expect(anterior.huella_cedula).toHaveLength(32);
+  expect(anterior.nonce).toHaveLength(12);
+  for (const text of [ausente, inicial.nombre, inicial.correo]) expect(anterior.cifrado.includes(Buffer.from(text))).toBe(false);
+  vi.stubEnv("CNE_MOVIL_CORREO_ACTIVO", "0");
+  const otroTurno = await (await post("consulta", {cedula: ausente})).json();
+  const corregido = { turno:otroTurno.turno, nombre:"=PRUEBA", correo:"corregido@example.invalid" };
+  expect((await post("envio",corregido)).status).toBe(503);
+  expect(contactos.size).toBe(1);
+  const actual = [...contactos.values()][0];
+  expect(actual.huella_cedula.equals(anterior.huella_cedula)).toBe(true);
+  expect(actual.nonce.equals(anterior.nonce)).toBe(false);
+  expect(dependencias.correo).toHaveBeenCalledTimes(1);
+  dependencias.estado.mockReturnValue({abierto:false,disponible:false,servidorMs:Date.now(),cierreMs:Date.now()});
+  expect((await post("contactos",{},acceso)).status).toBe(403);
+  expect((await post("contactos",{},gestion.slice(0,18))).status).toBe(403);
+  const salida = await post("contactos",{},gestion);
+  expect(salida.status).toBe(200);
+  expect(salida.headers.get("content-type")).toContain("spreadsheetml.sheet");
+  expect(salida.headers.get("content-disposition")).toContain("contactos-no-empadronados.xlsx");
+  expect(salida.headers.get("cache-control")).toContain("no-store");
+  const hoja=read(await salida.arrayBuffer(),{type:"array",cellNF:true}).Sheets["No empadronados"];
+  expect(hoja["!ref"]).toBe("A1:C2");
+  expect([hoja.A1.v,hoja.B1.v,hoja.C1.v]).toEqual(["Nombre","Cédula","Correo electrónico"]);
+  expect(hoja.A2).toMatchObject({t:"s",v:corregido.nombre});
+  expect(hoja.A2.f).toBeUndefined();
+  expect(hoja.B2).toMatchObject({t:"s",v:ausente,z:"@"});
+  expect(hoja.C2).toMatchObject({t:"s",v:corregido.correo});
+});
+
+it("no incorpora el contacto cuando la cédula ya consta al validar el formulario", async () => {
+  const {turno}=await (await post("consulta",{cedula:ausente})).json();
+  dependencias.consultar.mockReturnValue({nombre:"Persona Ficticia",junta:"F12",zona:"Celeste",recinto:"Caja Mágica"});
+  expect((await post("envio",{ turno, nombre:"Persona Ficticia", correo:"prueba@example.invalid" })).status).toBe(409);
+  expect(contactos.size).toBe(0);
+  expect(dependencias.correo).not.toHaveBeenCalled();
 });

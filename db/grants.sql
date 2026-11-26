@@ -21,6 +21,7 @@ BEGIN
     GRANT USAGE ON ALL SEQUENCES IN SCHEMA cne TO cne_app;
     GRANT INSERT, UPDATE (solicitudes, vencimientos) ON cne.aperturas_justificante TO cne_app;
     GRANT INSERT, UPDATE (estado, intentos, envio_iniciado, huella_peticion) ON cne.puesto_movil_actividad TO cne_app;
+    GRANT INSERT, UPDATE (nonce, cifrado) ON cne.puesto_movil_contactos TO cne_app;
     GRANT UPDATE (ultimo_ordinal) ON cne.secuencia_recibos TO cne_app;
     GRANT INSERT (mjrv_id, validada_en), UPDATE (validada_en) ON cne.cedulas_validadas TO cne_app;
   END IF;
