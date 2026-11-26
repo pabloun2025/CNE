@@ -4,6 +4,7 @@ const secciones = [
   { ruta: "", texto: "Credenciales" },
   { ruta: "/whatsapp", texto: "Envíos de WhatsApp" },
   { ruta: "/whatsapp/bandeja", texto: "Bandeja de WhatsApp", prefetch: false },
+  { ruta: "/sms", texto: "Envíos SMS" },
   { ruta: "/envios", texto: "Seguimiento" },
   { ruta: "/imprimir", texto: "Imprimir planchas A4" },
 ];
