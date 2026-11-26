@@ -4,9 +4,9 @@ const apiKey = process.env.API_SMSQUEENS?.trim();
 if (!apiKey) throw new Error("Falta API_SMSQUEENS.");
 const mensaje = {
   from: "+34913430250",
-  to: "34678882421",
+  to: "34661172389",
   text: "Compatriota, este domingo 29 también hay elecciones en Ecuador. Te esperamos para votar en Madrid. Consulta tu junta: {LANDING}",
-  custom: "CNE29NLANDING215041TEST",
+  custom: "CNE29NLANDING215041TEST02",
 };
 const datos = {
   api_key: apiKey,
