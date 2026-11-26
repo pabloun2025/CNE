@@ -1,0 +1,46 @@
+name: Credenciales de Madrid por SMS
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "Verificar sin enviar o ejecutar el lote autorizado"
+        type: choice
+        options: [verificar, enviar]
+        default: verificar
+        required: true
+      destino_compartido_confirmado:
+        description: "Confirmados los dos destinatarios del móvil compartido"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: cne-madrid-sms
+  cancel-in-progress: false
+jobs:
+  lote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Operar el lote en el CNE publicado
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          MODO: ${{ inputs.modo }}
+          COMPARTIDO: ${{ inputs.destino_compartido_confirmado }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$ORACLE_SSH_KEY"
+          clave=$(mktemp)
+          trap 'unlink "$clave"' EXIT
+          printf '%s\n' "$ORACLE_SSH_KEY" > "$clave"
+          oracle=(ssh -i "$clave" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109)
+          compartido=0
+          if [ "$COMPARTIDO" = true ]; then compartido=1; fi
+          case "$MODO" in
+            verificar|enviar) ;;
+            *) exit 2 ;;
+          esac
+          "${oracle[@]}" 'sudo docker exec cne-prod-cne-app-1 ./node_modules/.bin/tsx scripts/ops/verificar-seguimiento-sms.ts'
+          "${oracle[@]}" "sudo docker exec -e CNE_SMS_DESTINO_COMPARTIDO_CONFIRMADO=$compartido cne-prod-cne-app-1 ./node_modules/.bin/tsx scripts/ops/enviar-sms-madrid.ts $MODO"

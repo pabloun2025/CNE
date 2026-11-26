@@ -2,6 +2,7 @@ import { etiquetaCargoCredencial } from "@/domain/cargos-credencial";
 import { juntaEnCredencial, type Serie, type ZonaColor } from "@/domain/juntas";
 import { medidasCredencial } from "@/server/credencial-config";
 import { leerTokenCredencialSms } from "@/server/credencial-sms";
+import { registrarAperturaSms } from "@/server/envios/sms-seguimiento";
 import { query } from "@/server/db";
 import { credencialesIndividuales, type DatosCredencial } from "@/server/pdf/credencial";
 
@@ -13,8 +14,9 @@ const prueba: DatosCredencial = {
   cargo: "SECRETARIO", rotulo: "M9", serie: "H", zona: "amarillo", prueba: true,
 };
 
-export async function GET(_peticion: Request, contexto: { params: Promise<{ token: string }> }) {
-  const enlace = leerTokenCredencialSms((await contexto.params).token);
+export async function GET(peticion: Request, contexto: { params: Promise<{ token: string }> }) {
+  const { token } = await contexto.params;
+  const enlace = leerTokenCredencialSms(token);
   if (!enlace) return noEncontrada();
   let ficha = prueba;
   if (enlace !== "prueba") {
@@ -32,6 +34,10 @@ export async function GET(_peticion: Request, contexto: { params: Promise<{ toke
       serie: f.serie, zona: f.zona, prueba: false };
   }
   const pdf = await credencialesIndividuales([ficha], enlace === "prueba" ? undefined : await medidasCredencial());
+  if (enlace !== "prueba" && peticion.method === "GET" &&
+      ![peticion.headers.get("purpose"), peticion.headers.get("sec-purpose")].some((v) => v?.includes("prefetch"))) {
+    await registrarAperturaSms(token, enlace.id);
+  }
   return new Response(new Uint8Array(pdf), { headers: {
     ...cabeceras, "content-type": "application/pdf",
     "content-disposition": enlace === "prueba" ? 'inline; filename="credencial-prueba.pdf"' : 'inline; filename="credencial-mjrv.pdf"',

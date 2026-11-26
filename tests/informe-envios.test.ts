@@ -7,7 +7,7 @@ import { registrarEventoBrevo } from "@/server/envios/brevo-webhook";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 beforeAll(async () => {
-  await reiniciarBase();
+  await reiniciarBase({ correo: "super@prueba.cne", password: "clave-de-prueba-1", modo: "eleccion" });
   await consultarDueno(`
     INSERT INTO cne.mjrv (cedula,apellidos,nombres,rol,cargo_original,junta_origen_id,correo,telefono_e164)
       SELECT f.cedula, 'PRUEBA', f.nombre, 'vocal', 'VOCAL', j.id, f.correo, f.telefono
@@ -55,4 +55,41 @@ it("reconcilia un acuse temprano con el ID del intento y conserva la entrega con
   expect(XLSX.utils.sheet_to_json(libro.Sheets.Entregados)).toContainEqual(expect.objectContaining({
     Cédula: "0000000001", Canal: "WhatsApp", Estado: "Entregado", Línea: 2,
   }));
+});
+
+it("muestra el primer ingreso válido en Puerta en el informe", async () => {
+  await consultarDueno(`
+    INSERT INTO cne.enlaces_estacion (funcion, etiqueta, token_hash) VALUES ('puerta', 'Puerta de prueba', '\\x01');
+    INSERT INTO cne.lecturas_puerta (mjrv_id, codigo_leido, enlace_id, resultado, creado_en)
+      SELECT m.id, m.cedula, e.id, f.resultado, f.fecha::timestamptz
+      FROM cne.mjrv m CROSS JOIN cne.enlaces_estacion e
+      CROSS JOIN (VALUES ('duplicado', '2026-11-29T07:20:00Z'), ('valido', '2026-11-29T07:30:00Z')) f(resultado, fecha)
+      WHERE m.cedula = '0000000001' AND e.etiqueta = 'Puerta de prueba'`);
+
+  const libro = XLSX.read(await informeEnviosExcel(), { type: "buffer" });
+  expect(XLSX.utils.sheet_to_json(libro.Sheets.Entregados)).toContainEqual(expect.objectContaining({
+    Cédula: "0000000001", Canal: "Correo", "Ingreso por Puerta (Madrid)": "29/11/26, 8:30:00",
+  }));
+});
+
+it("conserva la primera apertura SMS aunque el último intento siga sin entrega confirmada", async () => {
+  await consultarDueno(`
+    INSERT INTO cne.envios_sms (mjrv_id, destino, remitente, estado, token_hash, creado_en, actualizado_en, clic_en, abierto_en)
+      SELECT m.id, f.destino, '+34600000009', f.estado, repeat(f.hash, 32), f.envio::timestamptz,
+             f.envio::timestamptz, f.clic::timestamptz, f.abierto::timestamptz
+      FROM cne.mjrv m
+      CROSS JOIN (VALUES
+        ('+34600000001', 'entregado', 'aa', '2026-11-26T10:00:00Z', '2026-11-26T10:05:00Z', '2026-11-26T10:10:00Z'),
+        ('+34600000003', 'aceptado', 'bb', '2026-11-26T10:30:00Z', NULL, NULL)
+      ) f(destino, estado, hash, envio, clic, abierto)
+      WHERE m.cedula = '0000000001'`);
+
+  const libro = XLSX.read(await informeEnviosExcel(), { type: "buffer" });
+  const filas = (hoja: string) => XLSX.utils.sheet_to_json<Record<string, string>>(libro.Sheets[hoja]).filter((fila) => fila.Canal === "SMS");
+  expect(filas("Entregados")).toEqual([]);
+  expect(filas("Sin confirmar")).toEqual([expect.objectContaining({
+    Cédula: "0000000001", Canal: "SMS", Destino: "+34600000003", Estado: "Aceptado por el proveedor",
+    "Fecha (Madrid)": "26/11/26, 11:30:00", "Clic SMS informado (Madrid)": "26/11/26, 11:05:00",
+    "Apertura de credencial SMS (Madrid)": "26/11/26, 11:10:00",
+  })]);
 });

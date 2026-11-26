@@ -117,6 +117,7 @@ values = {
     "APP_VERSION": bootstrap["APP_VERSION"],
     # El host puede estar aún sin decidir (Q-R1): la aplicación no depende de él.
     "HOST_MADRID": elegir("HOST_MADRID"),
+    "SMSPUBLI_API": elegir("SMSPUBLI_API"),
     "COOKIE_SECURE": "1",
     "BACKUP_KEEP_DAYS": "14",
     "BACKUP_INTERVAL_SECONDS": existing.get("BACKUP_INTERVAL_SECONDS") or "86400",

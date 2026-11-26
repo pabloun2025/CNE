@@ -8,7 +8,7 @@ BEGIN
     GRANT INSERT ON cne.escaneos_finanzas, cne.whatsapp_respuestas TO cne_app;
     REVOKE ALL ON cne.respaldo_limpieza FROM cne_app;
     -- Sin DELETE general: la limpieza de pruebas la hace cne_owner. juntas_madrid, pagos_confirmados y migraciones no se borran desde la app.
-    GRANT INSERT, UPDATE ON cne.entregas_whatsapp, cne.usuarios, cne.sesiones, cne.intentos_acceso, cne.sesiones_estacion,
+    GRANT INSERT, UPDATE ON cne.envios_sms, cne.entregas_whatsapp, cne.usuarios, cne.sesiones, cne.intentos_acceso, cne.sesiones_estacion,
       cne.operadores_madrid, cne.enlaces_estacion, cne.mjrv, cne.envios_credencial, cne.auditoria,
       cne.configuracion, cne.parametros_pago,
       cne.lecturas_puerta, cne.excepciones_disponibilidad, cne.decisiones_movimiento, cne.documentos_mjrv,
