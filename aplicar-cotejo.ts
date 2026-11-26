@@ -149,8 +149,30 @@ async function avisos(datos: {d:Entrada; id:number}[], apiKey: string) {
   }
 }
 
+async function estado() {
+  const identificados = await query(
+    `SELECT CASE j.serie WHEN 'M' THEN 'F' ELSE 'M' END || j.numero::text || ':' || m.rol AS puesto,
+            m.activo,m.credencial_generada_en IS NOT NULL AS credencial,
+            CASE WHEN j.serie='M' AND j.numero=8 THEN length(m.cedula)=10 END AS cedula_normalizada,
+            coalesce(c.brevo_estado,c.estado,'sin correo del lote') AS correo,
+            coalesce(s.estado,'sin SMS') AS sms,s.codigo_error AS sms_error,
+            s.abierto_en IS NOT NULL AS pdf_abierto
+       FROM mjrv m JOIN juntas_madrid j ON j.id=m.junta_origen_id
+       LEFT JOIN LATERAL (SELECT e.estado,e.brevo_estado FROM envios_credencial e JOIN auditoria a ON a.entidad_id=e.id::text
+         WHERE e.mjrv_id=m.id AND a.accion=$1 ORDER BY e.id DESC LIMIT 1) c ON true
+       LEFT JOIN LATERAL (SELECT estado,codigo_error,abierto_en FROM envios_sms WHERE mjrv_id=m.id ORDER BY id DESC LIMIT 1) s ON true
+      WHERE m.activo AND NOT m.es_prueba AND (j.serie,j.numero,m.rol) IN
+        (('M',8,'presidente'),('M',27,'vocal'),('H',35,'vocal'))
+      ORDER BY puesto`,[mail]);
+  const [totales] = await query(
+    `SELECT (SELECT count(*)::int FROM mjrv WHERE activo AND NOT es_prueba AND incorporado_en IS NULL) AS activas,
+       (SELECT count(*)::int FROM auditoria a JOIN mjrv m ON a.entidad_id=m.id::text WHERE a.accion=$1 AND NOT m.activo) AS bajas`,[lote+"_baja"]);
+  console.log(JSON.stringify({verificacion:identificados,...totales}));
+}
+
 async function main() {
   const modo = process.env.CNE_COTEJO_MODO;
+  if (modo === "estado") return estado();
   exigir(modo==="comprobar" || modo==="ejecutar","Modo incorrecto.");
   const datos = JSON.parse(readFileSync(process.env.CNE_COTEJO_ARCHIVO!,"utf8")) as Entrada[];
   exigir(datos.map(d=>puesto(d)+":"+d.tipo).join("|")===esperado.join("|"),"Paquete fuera del alcance aprobado.");
