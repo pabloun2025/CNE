@@ -10,8 +10,8 @@ const remitente = "avisos@consulado.app";
 const replyTo = "cecumadrid@cancilleria.gob.ec";
 const enviadosEsperados = 10000;
 const asunto = '{{ contact.CNE_MADRID_29N|default:"Compatriota" }}, este domingo Ecuador también cuenta con tu voto';
-const saludo = 'Hola, {{ contact.CNE_MADRID_29N|default:"compatriota" }}:';
-const huellaEsperada = "3fc932d56b8c62c532773bb8f375c202a5f101b7e6135f1501ca549a98641194";
+const saludo = 'Hola, {% if contact.CNE_MADRID_29N == "Compatriota" %}compatriota{% else %}{{ contact.CNE_MADRID_29N|default:"compatriota" }}{% endif %}:';
+const huellaEsperada = "984a60789504572aa1b3a988f380318245aa7a26cf15f9c769c6cbc8d91cfa94";
 const huella = (contactos) => createHash("sha256").update(contactos.map(({email,nombre}) => email + "\t" + nombre).sort().join("\n")).digest("hex");
 const salida = datos => console.log(JSON.stringify(datos));
 class Control extends Error {}
@@ -59,7 +59,7 @@ async function verificarLista(id) {
   const bloqueados = final.filter(x=>x.bloqueado).length;
   exigir(final.length === enviadosEsperados && huella(final) === huellaEsperada && bloqueados < enviadosEsperados,
     "La lista o los nombres guardados no coinciden con el CSV.");
-  salida({ lista:id, contactos:final.length, sinNombre:final.filter(x=>!x.nombre).length, excluidosPorBrevo:bloqueados });
+  salida({ lista:id, contactos:final.length, genericos:final.filter(x=>!x.nombre || x.nombre==="Compatriota").length, excluidosPorBrevo:bloqueados });
 }
 
 async function importar(id) {
@@ -109,6 +109,11 @@ async function campana(id, crear=false) {
     replyTo, recipients:{listIds:[id]},htmlContent:plantilla(),inlineImageActivation:false,
   })).id:null);
   exigir(Number.isSafeInteger(n) && n>0,"No se encontró la campaña de Madrid.");
+  if (crear && existentes.length) {
+    const borrador=await api(`/emailCampaigns/${n}`);
+    exigir(borrador.status==="draft" && !borrador.scheduledAt,"El borrador ya se está enviando.");
+    await api(`/emailCampaigns/${n}`,"PUT",{htmlContent:plantilla()});
+  }
   return n;
 }
 
@@ -121,7 +126,7 @@ async function verificarCampana(id,n) {
     (c.sender?.email===remitente || c.sender?.id===2) && r?.lists?.length===1 && r.lists[0]===id &&
     !r.exclusionLists?.length && !r.segments?.length &&
     typeof html==="string" && html.includes(atributo) && html.includes("unsubscribe") &&
-    html.includes("3 papeletas para elegir al CPCCS") && html.includes("Tu voto es secreto");
+    html.includes("== \"Compatriota\"") && html.includes("3 papeletas para elegir al CPCCS") && html.includes("Tu voto es secreto");
   salida({ campana:n, lista:id, estado:c.status, configuracion:coincide,
     replyTo:c.replyTo===replyTo ? replyTo:null, enviados:g?.sent, entregados:g?.delivered,
     rebotesDuros:g?.hardBounces, rebotesBlandos:g?.softBounces });
