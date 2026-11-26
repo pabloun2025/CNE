@@ -1,6 +1,7 @@
 "use strict";
 (() => {
   const el = id => document.getElementById(id);
+  window.addEventListener("hashchange", () => { if (location.hash) location.reload(); });
   const token = location.hash.slice(1);
   // El QR personal se conserva solo en memoria durante esta visita.
   if (location.hash) history.replaceState(null, "", location.pathname);

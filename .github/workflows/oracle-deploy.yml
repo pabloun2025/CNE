@@ -6,7 +6,7 @@ name: Deploy to Oracle
 on:
   push:
     tags:
-      - cne-voto-publicacion-20261129
+      - cne-voto-publicacion-20261129-r2
   workflow_dispatch:
     inputs:
       accion:
@@ -130,8 +130,8 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           printf 'revision %s\nreceptor %s\nguia %s\n' "$GITHUB_SHA" "$(base64 -w0 /tmp/cne-receptor.der)" "$(sha256sum /tmp/cne-guia.pdf | cut -d ' ' -f1)" > /tmp/cne-voto-verificacion.txt
-          git tag -a cne-voto-verificado-20261129 -F /tmp/cne-voto-verificacion.txt "$GITHUB_SHA"
-          git push origin refs/tags/cne-voto-verificado-20261129
+          git tag -a cne-voto-verificado-20261129-r2 -F /tmp/cne-voto-verificacion.txt "$GITHUB_SHA"
+          git push origin refs/tags/cne-voto-verificado-20261129-r2
       - name: Registrar un fallo de publicación
         if: ${{ failure() }}
         env:
