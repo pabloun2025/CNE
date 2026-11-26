@@ -62,6 +62,8 @@ const RUTAS: Record<string, Regla> = {
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
+  "GET /api/puesto-movil/[operacion]": "publica", // solo disponibilidad y cierre
+  "POST /api/puesto-movil/[operacion]": [], // credencial de enlace propia, independiente de las sesiones de CNE
   "GET /w/[token]": "publica", // enlace firmado por ficha; solo fichas reales activas (Google Wallet)
   "GET /s/[token]": "publica", // token cifrado por ficha, con caducidad y validación de revocación
   "POST /api/webhooks/evolution": [], // requiere la credencial de la línea de Evolution
@@ -188,7 +190,8 @@ describe("matriz de permisos", () => {
       const headers = new Headers(init.headers);
       if (token) headers.set("authorization", `Bearer ${token}`);
       try {
-        return (await modulo[r.metodo](new Request(url, { ...init, headers }), { params: Promise.resolve(PARAMS) })).status;
+        const operacion = r.metodo === "GET" ? "estado" : "consulta";
+        return (await modulo[r.metodo](new Request(url, { ...init, headers }), { params: Promise.resolve({ ...PARAMS, operacion }) })).status;
       } catch {
         return 500; // pasó la guarda y falló después por el cuerpo vacío: no es un rechazo de permisos
       }

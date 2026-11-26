@@ -18,7 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
     && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
-RUN groupadd --system cne && useradd --system --gid cne --home /app cne
+RUN groupadd --system cne && useradd --system --gid cne --home /app cne \
+    && install -d -m 700 -o cne -g cne /run/cne-padron-movil
 COPY --from=build --chown=cne:cne /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=cne:cne /app/node_modules ./node_modules
 COPY --from=build --chown=cne:cne /app/.next ./.next

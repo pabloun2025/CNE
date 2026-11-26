@@ -3,7 +3,8 @@ import { etiquetaEnvioBrevo } from "./brevo-webhook";
 import { pedirJson, type FetchLike, type Raw, type ResultadoProveedor } from "./http";
 
 // Correo por Brevo (copia adaptada de consulares/src/domain/providers.ts: BrevoHttpSender). La cuenta es la de consulares.
-export type Correo = { envioId?: number; para: string; asunto: string; texto: string; html?: string; remitente: { nombre: string; direccion: string }; responderA?: string; adjunto: { nombre: string; base64: string } };
+type Adjunto = { nombre: string; base64: string };
+export type Correo = { envioId?: number; para: string; asunto: string; texto: string; html?: string; remitente: { nombre: string; direccion: string }; responderA?: string; adjunto: Adjunto; adjuntos?: Adjunto[] };
 
 export interface ClienteCorreo {
   readonly simulado: boolean;
@@ -66,7 +67,7 @@ export class BrevoHttp implements ClienteCorreo {
         subject: c.asunto,
         textContent: c.texto,
         htmlContent: c.html ?? aHtml(c.texto),
-        attachment: [{ name: c.adjunto.nombre, content: c.adjunto.base64 }],
+        attachment: [c.adjunto, ...(c.adjuntos ?? [])].map(({ nombre, base64 }) => ({ name: nombre, content: base64 })),
         tags: c.envioId === undefined ? ["cne-madrid"] : ["cne-madrid", etiquetaEnvioBrevo(c.envioId)],
       },
     });

@@ -56,6 +56,8 @@ services:
     command: ["npm", "start"]
     depends_on:
       cne-migrate: {condition: service_completed_successfully}
+    volumes:
+      - cne_movil_privado:/run/cne-padron-movil
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:38473/api/salud').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -87,6 +89,7 @@ services:
 
 volumes:
   cne_pgdata:
+  cne_movil_privado:
 
 networks:
   cne_interna:
