@@ -8,7 +8,7 @@ vi.mock("@/server/puesto-movil/padron", () => ({
 }));
 vi.mock("@/server/db", () => ({ query: dependencias.query }));
 vi.mock("@/server/envios/brevo", () => ({
-  clienteCorreo: () => ({ simulado: false, enviar: dependencias.correo }),
+  clienteCorreo: () => ({ simulado: false, enviar: dependencias.correo, verificarRemitente: async (direccion: string) => direccion === "avisos@consulado.app" }),
 }));
 vi.mock("@/server/envios-config", () => ({
   leerConfigEnvios: dependencias.config, remitenteEfectivo: () => ({ direccion: "puesto@example.invalid", nombre: "Consulado" }),
@@ -89,6 +89,7 @@ describe("Puesto electoral móvil", () => {
     expect((await post("envio", { ...solicitud, correo: "otro@example.invalid" })).status).toBe(409);
     expect(dependencias.correo).toHaveBeenCalledTimes(1);
     const mensaje = dependencias.correo.mock.calls[0][0];
+    expect(mensaje.remitente.direccion).toBe("avisos@consulado.app");
     expect(mensaje.texto).toContain("Junta: 30M");
     expect(Buffer.from(mensaje.adjunto.base64, "base64").subarray(0, 5).toString()).toBe("%PDF-");
   });

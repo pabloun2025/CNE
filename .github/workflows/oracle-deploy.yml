@@ -14,6 +14,7 @@ on:
       - cne-zip-pos80c-20261126
       - cne-zip-produccion-20261126
       - cne-puesto-movil-20261126
+      - cne-puesto-movil-correo-20261126
   workflow_dispatch:
     inputs:
       accion:
