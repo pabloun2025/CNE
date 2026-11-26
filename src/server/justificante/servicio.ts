@@ -13,7 +13,7 @@ export class ErrorJustificante extends Error {
   constructor(readonly status: number, message: string) { super(message); }
 }
 
-function receptor() {
+export function receptor() {
   const maestra = masterKey();
   const semilla = Buffer.from(hkdfSync("sha256", maestra, "CNE-Madrid-2026-11-29", "justificante-laboral/receptor-x25519/v1", 32));
   const der = Buffer.concat([Buffer.from("302e020100300506032b656e04220420", "hex"), semilla]);

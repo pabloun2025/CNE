@@ -13,7 +13,7 @@ x-app: &app
   env_file:
     - path: .env.production
       required: false
-  environment:
+  environment: &app-environment
     NODE_ENV: production
     DATABASE_URL: postgres://cne_app:${CNE_APP_PASSWORD}@cne-postgres:5432/cne
     DATABASE_OWNER_URL: postgres://cne_owner:${POSTGRES_PASSWORD}@cne-postgres:5432/cne
@@ -52,6 +52,10 @@ services:
 
   cne-app:
     <<: *app
+    environment:
+      <<: *app-environment
+      CNE_MOVIL_PADRON_DIR: /run/cne-padron-movil
+      CNE_MOVIL_CORREO_ACTIVO: "1"
     mem_limit: 768m
     command: ["npm", "start"]
     depends_on:

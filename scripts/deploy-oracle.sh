@@ -175,6 +175,7 @@ if docker image inspect cne:local >/dev/null 2>&1; then
 fi
 
 dc build cne-app
+dc run --rm --no-deps --user root --entrypoint sh cne-app -ec 'chown cne:cne /run/cne-padron-movil && chmod 700 /run/cne-padron-movil'
 dc up -d cne-postgres
 dc run --rm cne-migrate
 dc up -d cne-app

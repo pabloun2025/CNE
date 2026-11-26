@@ -10,6 +10,7 @@ import { leerConfigEnvios, remitenteEfectivo } from "../envios-config";
 import { ErrorJustificante } from "../justificante/servicio";
 import { prepararDocumentoLaboral, validarDocumentoEspanol } from "../justificante/documento.mjs";
 import { consultarPadronMovil, estadoPadronMovil } from "./padron";
+import { credencialesMovil } from "./credenciales";
 
 const recursos = join(process.cwd(), "src/server/recursos-electorales");
 const formatoAcceso = /^[A-Za-z0-9_-]{43}$/;
@@ -32,14 +33,15 @@ function fallo(status: number, message: string): never {
 
 export function estadoMovil() {
   const estado = estadoPadronMovil();
-  return { ...estado, disponible: estado.disponible && formatoAcceso.test(process.env.CNE_MOVIL_ACCESO ?? "") };
+  return { ...estado, disponible: estado.disponible && formatoAcceso.test(credencialesMovil().acceso ?? "") };
 }
 
 export function verificarAcceso(request: Request, seguimiento = false) {
-  const config = seguimiento ? process.env.CNE_MOVIL_SEGUIMIENTO : process.env.CNE_MOVIL_ACCESO;
+  const credenciales = credencialesMovil();
+  const config = seguimiento ? credenciales.seguimiento : credenciales.acceso;
   const token = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
   if (!config || !formatoAcceso.test(config) || !token ||
-      (seguimiento && config === process.env.CNE_MOVIL_ACCESO) ||
+      (seguimiento && config === credenciales.acceso) ||
       !timingSafeEqual(createHash("sha256").update(token).digest(), createHash("sha256").update(config).digest())) {
     fallo(403, seguimiento ? "Abra el enlace de seguimiento." : "Abra el enlace para voluntarios.");
   }
@@ -146,6 +148,22 @@ async function cambiarEstado(id: string, estado: EstadoEnvio) {
   await query("UPDATE cne.puesto_movil_actividad SET estado=$2 WHERE id=$1 AND estado='enviando'", [id, estado]);
 }
 
+async function correoMovil() {
+  const config = await leerConfigEnvios();
+  const proveedor = clienteCorreo();
+  const remitente = remitenteEfectivo(config);
+  const habilitado = process.env.CNE_MOVIL_CORREO_ACTIVO === "1" && !config.correoPausa &&
+    !proveedor.simulado && email.safeParse(remitente.direccion).success;
+  return { proveedor, remitente, habilitado };
+}
+
+export async function diagnosticoCorreo() {
+  const { proveedor, remitente, habilitado } = await correoMovil();
+  if (!habilitado) return { configurado: false, remitenteVerificado: false };
+  try { return { configurado: true, remitenteVerificado: await proveedor.verificarRemitente(remitente.direccion) }; }
+  catch { return { configurado: true, remitenteVerificado: false }; }
+}
+
 export async function enviar(datos: Record<string, unknown>) {
   exigirPadron();
   const turno = leerTurno(datos.turno);
@@ -173,11 +191,8 @@ export async function enviar(datos: Record<string, unknown>) {
     fallo(400, "El nombre no coincide. Coteje los nombres y apellidos completos con la cédula.");
   }
 
-  const config = await leerConfigEnvios();
-  const proveedor = clienteCorreo();
-  const remitente = remitenteEfectivo(config);
-  if (process.env.CNE_MOVIL_CORREO_ACTIVO !== "1" || !config.correoReal || config.correoPausa ||
-      proveedor.simulado || !email.safeParse(remitente.direccion).success) fallo(503, "El correo del puesto aún no está habilitado.");
+  const { proveedor, remitente, habilitado } = await correoMovil();
+  if (!habilitado) fallo(503, "El correo del puesto aún no está habilitado.");
   let pdf: Uint8Array;
   let guia: Buffer | null = null;
   try {
