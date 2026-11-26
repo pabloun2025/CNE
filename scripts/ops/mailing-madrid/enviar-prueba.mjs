@@ -35,7 +35,7 @@ try {
     sender: { email: from, name: cfg.remitente },
     replyTo: { email: cfg.replyTo, name: cfg.remitente },
     to: [{ email: para }],
-    subject: `[PRUEBA] ${cfg.asunto}`,
+    subject: cfg.asunto,
     textContent: cfg.texto,
     htmlContent,
     tags: ["consulado-madrid-prueba"],
