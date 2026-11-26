@@ -4,9 +4,11 @@
   const mostrar = (id, visible) => { el(id).hidden = !visible; };
   const fragmento = location.hash.slice(1);
   const gestion = fragmento.startsWith("seguimiento=");
-  const acceso = gestion ? fragmento.slice("seguimiento=".length) : fragmento;
   const formatoPuesto = /^(?:[A-Za-z0-9_-]{18}|[A-Za-z0-9_-]{43})$/;
-  if (location.hash && (gestion || !formatoPuesto.test(acceso))) history.replaceState(null, "", location.pathname);
+  const acceso = gestion
+    ? fragmento.slice("seguimiento=".length)
+    : formatoPuesto.test(fragmento) ? fragmento : document.querySelector("main").dataset.accesoPuesto;
+  if (location.hash && (gestion || !formatoPuesto.test(fragmento))) history.replaceState(null, "", location.pathname);
   window.addEventListener("hashchange", () => location.reload());
 
   let abierto = false;

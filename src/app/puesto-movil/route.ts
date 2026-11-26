@@ -1,10 +1,12 @@
+import { credencialesMovil } from "@/server/puesto-movil/credenciales";
+
 const pagina = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive"><title>Puesto móvil de información electoral · Madrid</title>
-<link rel="stylesheet" href="/electoral/puesto-movil.css"><script defer src="/electoral/puesto-movil.js"></script></head>
+<link rel="stylesheet" href="/electoral/puesto-movil.css"><script defer src="/electoral/puesto-movil.js?v=portada"></script></head>
 <body>
 <header><div class="cabecera"><img src="/electoral/escudo.png" alt="República del Ecuador" width="82" height="43"><div><strong>Consulado General del Ecuador</strong><span>Madrid · España</span></div></div></header>
-<main>
+<main data-acceso-puesto="">
 <p class="jornada">29 de noviembre de 2026 · Madrid</p><h1 id="titulo">Puesto móvil de información electoral</h1>
 <noscript><p>Active JavaScript para utilizar el puesto móvil.</p></noscript>
 <p id="mensaje" role="status" aria-live="polite" hidden></p><button id="reintentar" type="button" class="secundario" hidden>Volver a conectar</button>
@@ -37,8 +39,13 @@ const pagina = `<!doctype html>
 <footer>La consulta cierra el 29 de noviembre a las 19:00, hora de Madrid.<p id="cuenta-cierre" hidden></p></footer>
 </main></body></html>`;
 
-export function GET() {
-  return new Response(pagina, {headers: {
+export function GET(request: Request) {
+  const host = request.headers.get("host")?.toLowerCase();
+  const acceso = host === "cne.consulado.app" ? credencialesMovil().acceso : undefined;
+  const html = acceso && /^[A-Za-z0-9_-]{43}$/.test(acceso)
+    ? pagina.replace('data-acceso-puesto=""', `data-acceso-puesto="${acceso.slice(0, 18)}"`)
+    : pagina;
+  return new Response(html, {headers: {
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-store, private",
     "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",

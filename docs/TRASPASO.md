@@ -499,3 +499,7 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - El PDF generado desde el puesto móvil y los QR usa «informa» y un recuadro cerrado para los datos, con espacio para dos líneas de nombre. Se verificó con y sin NIE, y se conservó la firma y el sello. El ZIP de Windows vuelve a incluir solamente el puesto de tickets, compatible con la térmica.
 - El título, el recuadro y el cuerpo del justificante se componen en Arial. La firma y el sello conservan el original. El servidor instala Arial desde el paquete Core Fonts comprobado por SHA-256 e incrusta las fuentes en los PDF.
 - Si la cédula no consta, el formulario informa del uso posterior y guarda nombre, cédula y correo cifrados al enviar una solicitud válida. El enlace privado de seguimiento permite exportar los contactos en XLSX incluso después del cierre. La exportación conserva los ceros iniciales. La entrega del correo electoral posterior es una acción separada.
+
+## 54. Acceso directo al puesto móvil (26-11)
+
+- La portada `https://cne.consulado.app/` abre la consulta sin exigir un fragmento. El HTML de ese dominio recibe únicamente el acceso abreviado del puesto. La dirección de Madrid sigue aceptando los enlaces existentes y el seguimiento requiere su credencial independiente. La portada sigue mostrando el cierre cuando vence el padrón.
