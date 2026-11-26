@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { setTimeout as esperar } from "node:timers/promises";
 
 const apiKey = process.env.BREVO_API_KEY?.trim();
-const para = "pabloun@gmail.com";
+const para = readFileSync(new URL("./individual.txt", import.meta.url), "utf8").trim();
+if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) process.exit(1);
 const cfg = JSON.parse(readFileSync(new URL("./mailing-madrid.json", import.meta.url), "utf8"));
 const htmlContent = readFileSync(new URL(cfg.html, import.meta.url), "utf8");
 if (!apiKey || cfg.replyTo !== "cecumadrid@cancilleria.gob.ec" ||
@@ -38,7 +39,7 @@ try {
     subject: cfg.asunto,
     textContent: cfg.texto,
     htmlContent,
-    tags: ["consulado-madrid-prueba"],
+    tags: ["consulado-madrid-copia-individual"],
   };
   iniciada = true;
   const envio = await api("/smtp/email", payload);
