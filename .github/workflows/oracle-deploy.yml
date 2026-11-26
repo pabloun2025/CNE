@@ -8,6 +8,7 @@ on:
     tags:
       - cne-voto-publicacion-20261129-r2
       - cne-zip-privado-20261126
+      - cne-zip-ventanilla-ajustes-20261126
   workflow_dispatch:
     inputs:
       accion:
