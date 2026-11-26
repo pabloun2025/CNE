@@ -134,13 +134,74 @@ async function verificarCampana(id,n) {
   return c;
 }
 
+function leerCsv(linea, separador) {
+  const celdas = [];
+  let valor = "", entreComillas = false;
+  for (let i = 0; i < linea.length; i++) {
+    const c = linea[i];
+    if (c === '"' && entreComillas && linea[i + 1] === '"') {
+      valor += '"';
+      i++;
+    } else if (c === '"') entreComillas = !entreComillas;
+    else if (c === separador && !entreComillas) {
+      celdas.push(valor);
+      valor = "";
+    } else valor += c;
+  }
+  celdas.push(valor);
+  return celdas;
+}
+
+async function auditar(id,n) {
+  const contactos = await contactosDeLista(id);
+  const esperados = new Set(contactos.map(x=>x.email));
+  exigir(esperados.size===enviadosEsperados && huella(contactos)===huellaEsperada, "La lista no coincide con la que se verificó antes del envío.");
+  const { processId } = await api(`/emailCampaigns/${n}/exportRecipients`,"POST",{recipientsType:"all"});
+  exigir(Number.isSafeInteger(processId) && processId>0,"No se confirmó la exportación.");
+  for(let i=0;i<15;i++){
+    const p=await api(`/processes/${processId}`);
+    if(p.status==="completed"){
+      if(!p.export_url){
+        salida({auditoria:"Brevo no devolvió el archivo",proceso:processId});
+        return;
+      }
+      const url=new URL(p.export_url);
+      const permitido=url.protocol==="https:" && !url.username && !url.password && (
+        /(^|\.)(brevo\.com|sendinblue\.com|sib\.(fr|com)|sendibm[0-9]*\.com|amazonaws\.com|cloudfront\.net|storage\.googleapis\.com)$/.test(url.hostname));
+      if(!permitido){
+        salida({auditoria:"Dominio del archivo pendiente de verificar",dominio:url.hostname});
+        return;
+      }
+      const archivo=await fetch(url,{redirect:"error",signal:AbortSignal.timeout(25000)});
+      exigir(archivo.ok,"Brevo no pudo entregar el archivo de destinatarios.");
+      const lineas=(await archivo.text()).replace(/^\uFEFF/,"").trimEnd().split(/\r?\n/);
+      const columnas=[",",";","	"].map(sep=>({sep,index:leerCsv(lineas[0],sep).findIndex(h=>/^(email|e-mail|email address|correo electr[oó]nico)$/i.test(h.trim()))})).find(x=>x.index>=0);
+      exigir(columnas,"No se identificó la columna de destinatarios.");
+      const correos=lineas.slice(1).filter(l=>l.trim()).map(l=>leerCsv(l,columnas.sep)[columnas.index]?.trim().toLowerCase());
+      exigir(correos.every(e=>typeof e==="string"&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)),"La exportación contiene filas no reconocidas.");
+      const unicos=new Set(correos);
+      salida({ auditoria:true, filas:correos.length, unicos:unicos.size, repetidos:correos.length-unicos.size,
+        fueraDeLaLista:[...unicos].filter(e=>!esperados.has(e)).length,
+        deLaLista:[...unicos].filter(e=>esperados.has(e)).length });
+      return;
+    }
+    if(!["queued","in_process","processing"].includes(p.status)){
+      salida({auditoria:"Exportación no disponible",estado:p.status});
+      return;
+    }
+    await esperar(3000);
+  }
+  salida({auditoria:"Exportación pendiente",proceso:processId});
+}
+
 try {
-  exigir(llave && ["importar","enviar","consultar"].includes(modo),"Modo o clave ausentes.");
+  exigir(llave && ["importar","enviar","consultar","auditar"].includes(modo),"Modo o clave ausentes.");
   const id = await lista(modo==="importar");
   if(modo==="importar") await importar(id);
   if(modo==="enviar") await verificarLista(id);
   const n = await campana(id,modo==="importar");
   const c=await verificarCampana(id,n);
+  if(modo==="auditar") await auditar(id,n);
   if(modo==="enviar"){
     exigir(c.status==="draft" && !c.scheduledAt,"La campaña ya salió o está programada.");
     await api(`/emailCampaigns/${n}/sendNow`,"POST");

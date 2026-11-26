@@ -4,7 +4,7 @@ on:
     inputs:
       modo:
         type: choice
-        options: [preparar, importar, enviar, consultar, limpiar]
+        options: [preparar, importar, enviar, consultar, auditar, limpiar]
         required: true
 permissions:
   contents: read
@@ -43,7 +43,7 @@ jobs:
               tar -C "$tmp/correo" -cf - campana.mjs mailing-madrid.html mailing-madrid.json destinos.cms |
                 "${oracle[@]}" 'set -eu; umask 077; directorio=$(mktemp -d); trap '\''rm -rf -- "$directorio"'\'' EXIT; cd "$directorio"; tar -xf -; openssl cms -decrypt -binary -inform DER -inkey /tmp/cne-madrid-campana-20261126/privada.pem -in destinos.cms | gzip -dc > destinos.json; tar -cf - campana.mjs mailing-madrid.html mailing-madrid.json destinos.json | sudo docker exec -i cne-prod-cne-app-1 sh -c "set -eu; umask 077; tmp=\$(mktemp -d); trap '\''rm -rf -- \"\$tmp\"'\'' EXIT; cd \"\$tmp\"; tar -xf -; node campana.mjs '"$MODO"'"'
               ;;
-            enviar|consultar)
+            enviar|consultar|auditar)
               [[ "$MODO" != enviar || "$GITHUB_RUN_ATTEMPT" == 1 ]]
               tar -C scripts/ops/mailing-madrid -cf - campana.mjs mailing-madrid.html mailing-madrid.json |
                 "${oracle[@]}" 'sudo docker exec -i cne-prod-cne-app-1 sh -c "set -eu; tmp=\$(mktemp -d); trap '\''rm -rf -- \"\$tmp\"'\'' EXIT; cd \"\$tmp\"; tar -xf -; node campana.mjs '"$MODO"'"'
