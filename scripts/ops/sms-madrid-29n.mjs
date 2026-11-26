@@ -4,7 +4,7 @@ import { setTimeout as esperar } from "node:timers/promises";
 
 const apiKey = process.env.API_SMSQUEENS?.trim();
 const modo = process.env.CNE_SMS_MODO;
-const total = 29784;
+const total = 29786;
 const texto = "Compatriota, este domingo 29 son las elecciones de Ecuador. Votemos en Madrid con el orgullo de ser ecuatorianos. Revisa donde votar: {LANDING}";
 const pruebas = [
   ["Justina", "62ba425a8e59413783d1dff8734f3930"],
@@ -50,7 +50,7 @@ async function ejecutar() {
   const lista = readFileSync("lista.txt", "utf8");
   const numeros = lista.trimEnd().split("\n");
   exigir(numeros.length === total && new Set(numeros).size === total && numeros.every(n => /^34[67]\d{8}$/.test(n)), "La lista no coincide con el recuento de móviles únicos.");
-  exigir(createHash("sha256").update(lista).digest("hex") === "HUELLA_LISTA", "La huella de la lista no coincide con el CSV validado.");
+  exigir(createHash("sha256").update(lista).digest("hex") === "d8142add27fef57f719f7e31eef8f71f5ce9c4857aed04d36a3aaa4c85a6f2c1", "La huella de la lista no coincide con el CSV validado.");
   let aceptados = 0, rechazados = 0;
   const causas = {};
   const limite = 1000;
