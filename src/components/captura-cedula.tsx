@@ -119,7 +119,7 @@ export function CapturaCedula({ rotulo, onUsar, documento = "cedula", onVolver }
             <div className="relative mx-auto w-full overflow-hidden rounded bg-black" style={{ aspectRatio: relacion, ...marco(relacion) }}>
               <video ref={video} playsInline muted className="h-full w-full object-cover"
                 onLoadedData={(e) => setDim({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })} />
-              {lista && <div aria-hidden className="absolute border-4 border-white shadow-[0_0_0_999px_rgba(0,0,0,0.45)]" style={{ left: `${x / dim.w * 100}%`, top: `${y / dim.h * 100}%`, width: `${ancho / dim.w * 100}%`, height: `${alto / dim.h * 100}%` }} />}
+              {lista && <div aria-hidden className="absolute border-4 border-[#f2b705] shadow-[0_0_0_999px_rgba(0,0,0,0.45)]" style={{ left: `${x / dim.w * 100}%`, top: `${y / dim.h * 100}%`, width: `${ancho / dim.w * 100}%`, height: `${alto / dim.h * 100}%` }} />}
             </div>
           )}
           {sinCamara
@@ -179,10 +179,11 @@ export function AvisoCambioDocumento({ tipo, fotos }: { tipo: TipoDocumento; fot
   return null;
 }
 
-export function CapturaDocumentosPuesto({ fotos, onUsar, seguirConReverso = false }: {
+export function CapturaDocumentosPuesto({ fotos, onUsar, seguirConReverso = false, capturaGuiada = false }: {
   fotos: EstadoFotos;
   onUsar: (lado: LadoDocumento, imagen: Blob) => Promise<boolean>;
   seguirConReverso?: boolean;
+  capturaGuiada?: boolean;
 }) {
   const [tipo, setTipo] = useState<TipoDocumento | null>(null);
   const [lado, setLado] = useState<LadoDocumento | null>(null);
@@ -190,6 +191,8 @@ export function CapturaDocumentosPuesto({ fotos, onUsar, seguirConReverso = fals
   if (!tipo) return <ElegirDocumento onElegir={(elegido) => {
     setTipo(elegido);
     if (elegido === "pasaporte") setLado("pasaporte");
+    else if (capturaGuiada && !fotos.anverso) setLado("anverso");
+    else if (capturaGuiada && !fotos.reverso) setLado("reverso");
   }} />;
 
   return (
@@ -202,7 +205,7 @@ export function CapturaDocumentosPuesto({ fotos, onUsar, seguirConReverso = fals
         }} onUsar={async (imagen) => {
           const guardada = await onUsar(lado, imagen);
           if (guardada) {
-            setLado(seguirConReverso && lado === "anverso" && !fotos.reverso ? "reverso" : null);
+            setLado((seguirConReverso || capturaGuiada) && lado === "anverso" && !fotos.reverso ? "reverso" : null);
             if (lado === "pasaporte") setTipo(null);
           }
           return guardada;

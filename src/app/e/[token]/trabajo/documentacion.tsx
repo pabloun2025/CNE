@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { CapturaDocumentosPuesto, type EstadoFotos } from "@/components/captura-cedula";
 import { LectorQr } from "@/components/lector-qr";
 import type { LadoDocumento } from "@/domain/documentos";
@@ -35,28 +35,30 @@ function FotoPuesto({ url, token, alt, onLoad, onError }: {
   return <img src={src} alt={alt} onLoad={onLoad} onError={onError} className="w-full rounded border object-contain" />;
 }
 
-export function Documentacion({ token, capturaMesas = false, validarPorEnlace = false, cedulaInicial = "" }: {
-  token?: string; capturaMesas?: boolean; validarPorEnlace?: boolean; cedulaInicial?: string;
+export function Documentacion({ token, capturaMesas = false, validarPorEnlace = false, cedulaInicial = "", juntaId, onFotosCambiadas }: {
+  token?: string; capturaMesas?: boolean; validarPorEnlace?: boolean; cedulaInicial?: string; juntaId?: number; onFotosCambiadas?: () => void;
 }) {
   const puestoDirecto = !!token && (capturaMesas || validarPorEnlace);
   const autenticada = token === undefined || puestoDirecto;
   const validacion = autenticada && !capturaMesas;
+  const verFotos = validacion || capturaMesas;
+  const alcance = juntaId ? `&juntaId=${juntaId}` : "";
   const rutaPuesto = "/api/e/documentacion/puesto";
   const cabeceras = token ? { authorization: `Bearer ${token}` } : new Headers();
   const [cedula, setCedula] = useState(cedulaInicial);
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [mensaje, setMensaje] = useState("");
-  const [ocupado, setOcupado] = useState(false);
+  const [ocupado, setOcupado] = useState(!!cedulaInicial);
   const [repetir, setRepetir] = useState(false);
   const [fotosCargadas, setFotosCargadas] = useState<string[]>([]);
   const lados = (["anverso", "reverso", "pasaporte"] as const).filter((lado) => ficha?.[lado]);
   const fotosVisibles = ficha?.version && lados.every((lado) => fotosCargadas.includes(`${ficha.version}:${lado}`));
 
-  async function consultar(c: string): Promise<Ficha | null> {
+  async function consultar(c: string, signal?: AbortSignal): Promise<Ficha | null> {
     const ruta = puestoDirecto ? rutaPuesto : autenticada ? "/api/admin/documentacion/buscar" : "/api/e/documentacion/buscar";
     const headers = new Headers(cabeceras);
     headers.set("content-type", "application/json");
-    const r = await fetch(ruta, { method: "POST", headers, body: JSON.stringify({ accion: "buscar", cedula: c }) });
+    const r = await fetch(ruta, { method: "POST", headers, body: JSON.stringify({ accion: "buscar", cedula: c, juntaId }), signal });
     if (r.status === 401 || r.status === 403) {
       throw new Error(!token ? "Vuelva a iniciar sesión." : "El enlace ya no está activo. Pida uno nuevo a la administración.");
     }
@@ -74,11 +76,27 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
     try {
       const actual = await consultar(c);
       setFicha(actual);
-      if (!actual) setMensaje("No encontramos ese número.");
+      if (!actual) setMensaje(juntaId ? "Esa cédula no figura en la junta seleccionada." : "No encontramos ese número.");
     } catch (e) {
       setMensaje(e instanceof Error ? e.message : "No hay conexión.");
     } finally { setOcupado(false); }
   };
+
+  const abrirInicial = useEffectEvent((signal: AbortSignal) => {
+    void consultar(cedulaInicial, signal).then((actual) => {
+      if (signal.aborted) return;
+      setFicha(actual);
+      if (!actual) setMensaje("Esa cédula no figura en la junta seleccionada.");
+    }).catch((e: unknown) => {
+      if (!signal.aborted) setMensaje(e instanceof Error ? e.message : "No hay conexión.");
+    }).finally(() => { if (!signal.aborted) setOcupado(false); });
+  });
+  useEffect(() => {
+    if (!cedulaInicial) return;
+    const controlador = new AbortController();
+    abrirInicial(controlador.signal);
+    return () => controlador.abort();
+  }, [cedulaInicial]);
 
   const subir = async (lado: LadoDocumento, imagen: Blob) => {
     if (!ficha) return false;
@@ -97,10 +115,11 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
       if (autenticada) {
         setFicha({ ...ficha, anverso: d.anverso, reverso: d.reverso, pasaporte: d.pasaporte, completos: d.completos, version: undefined, validada: false });
         try { setFicha(await consultar(ficha.cedula)); }
-        catch { setMensaje("La foto se guardó. Vuelva a buscar la ficha para validar."); }
+        catch { setMensaje("La foto se guardó. Vuelva a buscar la ficha para revisarla."); }
       } else {
         setFicha({ ...ficha, anverso: d.anverso, reverso: d.reverso, pasaporte: d.pasaporte, completos: d.completos });
       }
+      onFotosCambiadas?.();
       return true;
     } catch { setMensaje("No hay conexión."); return false; } finally { setOcupado(false); }
   };
@@ -135,7 +154,7 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
         <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Número de cédula" aria-label="Número de cédula" autoComplete="off" required disabled={ocupado} className="min-w-0 flex-1" />
         <button disabled={ocupado} className="bg-stone-900 px-4 text-white disabled:opacity-60">Buscar</button>
       </form>
-      {!ficha && <LectorQr pausado={ocupado} onCodigo={(c) => { setCedula(c); void buscar(c); }} />}
+      {!ficha && <LectorQr encuadre={capturaMesas} pausado={ocupado} onCodigo={(c) => { setCedula(c); void buscar(c); }} />}
       {mensaje && <p role="alert" className="font-semibold text-red-700">{mensaje}</p>}
       {ficha && (
         <section className="space-y-3 border-2 border-stone-900 p-3">
@@ -144,21 +163,22 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
           <p role="status" className={`font-bold ${ficha.completos ? "text-green-800" : "text-amber-800"}`}>
             {ficha.pasaporte ? "Página de datos del pasaporte guardada" : ficha.completos ? "Anverso y reverso de la cédula guardados" : ficha.anverso ? "Falta el reverso de la cédula" : ficha.reverso ? "Falta el anverso de la cédula" : "Sin fotos del documento"}
           </p>
-          {validacion && ficha.version && lados.map((lado) => (
+          {capturaMesas && ficha.completos && (!ficha.validada || fotosVisibles) && <p className="font-semibold">{ficha.validada ? "Documento validado" : "Fotos completas · Por validar"}</p>}
+          {verFotos && ficha.version && lados.map((lado) => (
             <FotoPuesto key={`${ficha.version}:${lado}`} token={puestoDirecto ? token : undefined}
               url={puestoDirecto
-                ? `${rutaPuesto}?id=${ficha.mjrvId}&lado=${lado}&modo=${ficha.modo}&version=${ficha.version}`
-                : `/api/admin/finanzas/cedula/${ficha.mjrvId}/${lado}?modo=${ficha.modo}&version=${ficha.version}`}
+                ? `${rutaPuesto}?id=${ficha.mjrvId}&lado=${lado}&modo=${ficha.modo}&version=${ficha.version}${alcance}`
+                : `/api/admin/finanzas/cedula/${ficha.mjrvId}/${lado}?modo=${ficha.modo}&version=${ficha.version}${alcance}`}
               onLoad={() => setFotosCargadas((actual) => [...actual, `${ficha.version}:${lado}`])}
               onError={() => setMensaje("No se pudo abrir una foto. Vuelva a buscar la ficha o repita la captura.")}
               alt={lado === "pasaporte" ? "Página de datos del pasaporte" : `Cédula · ${lado}`} />
           ))}
-          {validacion && ficha.completos && (
+          {verFotos && ficha.completos && (
             <button type="button" className="button-like secondary" disabled={ocupado} onClick={() => setRepetir(!repetir)}>
               {repetir ? "Cerrar captura" : "Volver a fotografiar el documento"}
             </button>
           )}
-          {(!validacion || !ficha.completos || repetir) && <CapturaDocumentosPuesto key={ficha.mjrvId} fotos={ficha} onUsar={subir} />}
+          {(!verFotos || !ficha.completos || repetir) && <CapturaDocumentosPuesto key={ficha.mjrvId} fotos={ficha} onUsar={subir} capturaGuiada={capturaMesas} />}
           {validacion && ficha.completos && !repetir && (
             ficha.validada
               ? (fotosVisibles && <p role="status" className="font-bold text-green-800">Documento validado</p>)

@@ -557,3 +557,9 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 ## 63. Cierre del lote de SMS de junta, zona y color (27-11)
 
 SMS Publi aceptó los 7.425 mensajes que quedaban del fichero aprobado. El diario conciliado registra 39.235 referencias únicas y cero pendientes de envío. La aceptación del proveedor es independiente del acuse de entrega. [Reanudación del lote](https://github.com/pabloun2025/CNE/actions/runs/45998547929)
+
+## 64. Vista documental en Verificación de mesas (27-11)
+
+- El puesto de mesa reutiliza el encuadre amarillo y la captura de cédula o pasaporte del formulario de los MJRV. Tras guardar el anverso, abre el reverso si falta. El personal puede ver las fotos vigentes de una ficha de la junta seleccionada y repetir la captura.
+- «Documentos de la junta» muestra pendientes de captura, por validar, validados y una vista de los enviados por los MJRV que esperan validación. Cada ficha indica si las fotos vigentes se enviaron desde el formulario del MJRV, las cargó el personal o las aportaron ambos. El estado se actualiza al guardar fotos y periódicamente con la pantalla activa.
+- La revisión de fotos se limita a la junta vigente y a la versión vigente de la imagen. La validación formal sigue en su propio puesto.

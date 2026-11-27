@@ -72,3 +72,26 @@ it("conserva el folio al reimprimir sin anexo si el cargo cambia y protege la ac
   expect((await fichaPago("0000000094"))?.actuacionRetirada).toBe(true);
   expect(await confirmarPago(finanzas, datosPago)).toMatchObject({ ok: false, mensaje: expect.stringContaining("retiró") });
 });
+
+it("distingue las fotos del MJRV, de la mesa y los documentos validados en la junta vigente", async () => {
+  const [{ id: junta }] = await consultarDueno<{ id: number }>("SELECT id::int FROM cne.juntas_madrid WHERE serie='H' AND numero=10");
+  const [{ id: otraJunta }] = await consultarDueno<{ id: number }>("SELECT id::int FROM cne.juntas_madrid WHERE serie='H' AND numero=11");
+  const fichas = await consultarDueno<{ id: number; cedula: string }>(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+    SELECT lpad(i::text,10,'0'), 'PERSONA PRUEBA', i::text, 'SUPLENTE', 'suplente', CASE WHEN i=110 THEN $2::bigint ELSE $1::bigint END
+    FROM generate_series(105, 110) i RETURNING id::int, cedula`, [junta, otraJunta]);
+  const documentos = [
+    [1, "anverso", "publico"], [2, "pasaporte", "publico"],
+    [3, "anverso", "publico"], [3, "reverso", "estacion"], [4, "pasaporte", "estacion"],
+  ] as const;
+  for (const [i,lado,origen] of documentos) await consultarDueno(
+    `INSERT INTO cne.documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, sha256, bytes, ancho, alto, origen)
+     VALUES ($1,$2,decode('00','hex'),decode('00','hex'),decode('00','hex'),30000,500,400,$3)`, [fichas[i].id, lado, origen],
+  );
+  const { validarCedula } = await import("@/server/mjrv");
+  await validarCedula({ tipo: "usuario", id: 1, nombre: "Validador Prueba", portal: "finanzas" }, fichas[4].id);
+  const mesa = await consultarJuntaVerificacion(junta);
+  expect(mesa?.documentacion).toEqual(fichas.slice(0,5).map(({ id, cedula }, i) => expect.objectContaining({
+    id, cedula, estado: ["sin_documento","incompleto","por_validar","por_validar","validado"][i],
+    origen: [null,"mjrv","mjrv","mixto","personal"][i],
+  })));
+});

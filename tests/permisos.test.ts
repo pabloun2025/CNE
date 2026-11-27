@@ -44,7 +44,7 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/admin/finanzas/recibos/descargar": FINANZAS,
   "POST /api/admin/finanzas/recibos/contingencia": FINANZAS,
   "POST /api/admin/finanzas/recibos/emitir": FINANZAS,
-  "GET /api/admin/finanzas/cedula/[id]/[lado]": DOCUMENTACION,
+  "GET /api/admin/finanzas/cedula/[id]/[lado]": CAPTURA,
   "POST /api/admin/finanzas/ficha": FINANZAS,
   "POST /api/admin/finanzas/confirmar": FINANZAS,
   "POST /api/admin/finanzas/nombres": FINANZAS,
@@ -65,7 +65,7 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/e/finanzas/escanear": ["e_finanzas"],
   "POST /api/e/mesas": ["e_mesas"],
   "POST /api/e/documentacion/puesto": ["e_mesas", "e_validacion_documental"],
-  "GET /api/e/documentacion/puesto": ["e_validacion_documental"],
+  "GET /api/e/documentacion/puesto": ["e_validacion_documental", "e_mesas"],
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
@@ -283,6 +283,40 @@ describe("matriz de permisos", () => {
     await consultarDueno("UPDATE cne.enlaces_estacion SET expira_en = now() - interval '1 second' WHERE funcion = 'mesas'");
     expect((await mesas(post(tokenMesa, { accion: "consultar" }))).status).toBe(401);
     await consultarDueno("UPDATE cne.enlaces_estacion SET expira_en = NULL WHERE funcion = 'mesas'");
+  });
+
+  it("el puesto de mesa solo previsualiza fotos vigentes de la junta seleccionada", async () => {
+    ponerSesion("ninguna");
+    const { GET, POST } = await import("@/app/api/e/documentacion/puesto/route");
+    const { encryptBuffer } = await import("@/server/crypto");
+    const [{ id: junta }, { id: otraJunta }] = await consultarDueno<{ id: number }>(
+      "SELECT id::int FROM cne.juntas_madrid WHERE serie='H' ORDER BY numero LIMIT 2",
+    );
+    const cedula = "0000000187";
+    const [{ id }] = await consultarDueno<{ id: number }>(
+      `INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+       VALUES ($1, 'APELLIDO DE PRUEBA', 'NOMBRE DE PRUEBA', 'VOCAL', 'vocal', $2) RETURNING id::int`, [cedula, junta],
+    );
+    const foto = Buffer.from("Solo bytes de prueba");
+    const { ciphertext, nonce } = encryptBuffer(foto);
+    await consultarDueno(
+      `INSERT INTO cne.documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, sha256, bytes, ancho, alto, origen)
+       VALUES ($1, 'pasaporte', $2, $3, decode('00','hex'), 30000, 500, 400, 'publico')`,
+      [id, ciphertext, nonce],
+    );
+    const base = "http://localhost/api/e/documentacion/puesto";
+    const headers = { authorization: `Bearer ${enlacesDirectos.e_mesas!}`, "content-type": "application/json" };
+    const consulta = await POST(new Request(base, { method: "POST", headers, body: JSON.stringify({ accion: "buscar", cedula, juntaId: junta }) }));
+    const { version } = await consulta.json() as { version: string };
+    const ver = (juntaId: number, v = version) => GET(new Request(
+      `${base}?id=${id}&lado=pasaporte&modo=prueba&version=${v}&juntaId=${juntaId}`, { headers },
+    ));
+    const imagen = await ver(junta);
+    expect(imagen.status).toBe(200);
+    expect(imagen.headers.get("cache-control")).toBe("private, no-store");
+    expect(Buffer.from(await imagen.arrayBuffer())).toEqual(foto);
+    expect((await ver(otraJunta)).status).toBe(404);
+    expect((await ver(junta, "a".repeat(64))).status).toBe(404);
   });
 
   describe("acciones de servidor", () => {
