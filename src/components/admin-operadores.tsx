@@ -52,9 +52,12 @@ export function FormEnlace() {
   );
 }
 
-export function AccionesEnlaceEstacion({ url, etiqueta, funcion }: { url: string; etiqueta: string; funcion: Funcion }) {
+export function AccionesEnlaceEstacion({ url, etiqueta, funcion, conTexto = false }: {
+  url: string; etiqueta?: string; funcion: Funcion; conTexto?: boolean;
+}) {
   const [copia, setCopia] = useState<"copiado" | "manual" | null>(null);
-  const mensaje = `CNE Madrid · ${FUNCION_NOMBRE[funcion]} · ${etiqueta}\n${url}${funcion === "mando" ? "\nAcceda con su PIN asignado." : ""}`;
+  const mensaje = `CNE Madrid · ${FUNCION_NOMBRE[funcion]}${etiqueta ? ` · ${etiqueta}` : ""}\n${url}${funcion === "mando" ? "\nAcceda con su PIN asignado." : ""}`;
+  const estilo = conTexto ? "button-like secondary gap-2 !px-3 text-sm" : "button-like secondary size-12 p-0!";
 
   async function copiar() {
     try {
@@ -68,17 +71,19 @@ export function AccionesEnlaceEstacion({ url, etiqueta, funcion }: { url: string
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="button-like secondary size-12 p-0!" aria-label="Copiar enlace" title="Copiar enlace" onClick={copiar}>
+        <button type="button" className={estilo} aria-label="Copiar enlace" title="Copiar enlace" onClick={copiar}>
           <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="8" y="8" width="12" height="12" rx="2" />
             <path d="M16 4H6a2 2 0 0 0-2 2v10" />
           </svg>
+          {conTexto && "Copiar enlace"}
         </button>
-        <a className="button-like secondary size-12 p-0!" aria-label="Compartir por WhatsApp" title="Compartir por WhatsApp" href={`https://wa.me/?text=${encodeURIComponent(mensaje)}`} target="_blank" rel="noreferrer">
+        <a className={estilo} aria-label="Compartir por WhatsApp" title="Compartir por WhatsApp" href={`https://wa.me/?text=${encodeURIComponent(mensaje)}`} target="_blank" rel="noreferrer">
           <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20.5 11.7a8.5 8.5 0 0 1-12.6 7.4L3.5 20.5l1.4-4.3A8.5 8.5 0 1 1 20.5 11.7Z" />
             <path d="M8.3 8.4c-.8 1.9 1.6 5.6 4.4 6.7 1.4.5 2.4.2 3-.6l-2-1.4-1.1 1c-1.3-.6-2.3-1.6-2.9-2.9l.8-1.2-1.3-2.2c-.4.1-.7.3-.9.6Z" />
           </svg>
+          {conTexto && "WhatsApp"}
         </a>
       </div>
       {copia && <p role="status" className="text-sm">{copia === "copiado" ? "Enlace copiado." : "Toque el enlace para seleccionarlo y copiarlo."}</p>}
