@@ -146,7 +146,7 @@ describe("documentos de identidad", () => {
     expect(await documentosParaRecibo(ficha)).toEqual({ anverso: await leerDocumento(ficha, "anverso") });
   });
 
-  it("lista documento completo, parcial y ausente sin mezclar modos", async () => {
+  it("lista origen, validación y fotos pendientes sin mezclar modos", async () => {
     const [{ id: falta }] = await consultarDueno<{ id: number }>(
       `INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
        SELECT '0000000003', 'APELLIDO PRUEBA 003', 'NOMBRE PRUEBA', 'VOCAL', 'vocal', id FROM cne.juntas_madrid
@@ -154,11 +154,18 @@ describe("documentos de identidad", () => {
     expect(await guardarDocumento({ mjrvId: id, lado: "pasaporte", imagen: await imagen(), origen: "estacion" })).toMatchObject({ ok: true });
     const listado = await listarDocumentosFinanzas();
     expect(listado.modo).toBe("prueba");
+    const { buscarParaValidacion } = await import("@/server/documentos");
+    expect(listado.fichas.find((f) => f.id === id)?.version).toBe((await buscarParaValidacion("0000000001"))?.version);
     expect(listado.fichas).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id, completos: true, pasaporte: true }),
-      expect.objectContaining({ cedula: "0000000002", completos: false, anverso: true }),
-      expect.objectContaining({ id: falta, completos: false, anverso: false, reverso: false }),
+      expect.objectContaining({ id, completos: true, pasaporte: true, estado: "por_validar", origen: "personal" }),
+      expect.objectContaining({ cedula: "0000000002", completos: false, anverso: true, estado: "incompleto", origen: "mjrv" }),
+      expect.objectContaining({ id: falta, completos: false, anverso: false, reverso: false, estado: "sin_documento", origen: null }),
     ]));
+    const { validarCedula } = await import("@/server/mjrv");
+    expect(await validarCedula({ tipo: "usuario", id: 1, nombre: "Prueba documental", portal: "finanzas" }, id)).toMatchObject({ ok: true });
+    expect((await listarDocumentosFinanzas()).fichas.find((f) => f.id === id)?.estado).toBe("validado");
+    await guardarDocumento({ mjrvId: id, lado: "pasaporte", imagen: await imagen(), origen: "publico" });
+    expect((await listarDocumentosFinanzas()).fichas.find((f) => f.id === id)).toMatchObject({ estado: "por_validar", origen: "mjrv" });
     await consultarDueno("UPDATE cne.configuracion SET modo = 'eleccion'");
     const eleccion = await listarDocumentosFinanzas();
     expect(eleccion.modo).toBe("eleccion");

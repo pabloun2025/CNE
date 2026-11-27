@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import type { PoolClient } from "pg";
 import { sha256Bytes, sha256Hex } from "../domain/text";
-import type { EstadoDocs, LadoDocumento } from "../domain/documentos";
+import type { EstadoDocs, EstadoSeguimientoDocumento, LadoDocumento, OrigenFotosDocumento } from "../domain/documentos";
 import { decryptBuffer, encryptBuffer } from "./crypto";
 import { normalizarFrase } from "../domain/limpieza";
 import type { Sesion } from "./auth";
@@ -36,22 +36,48 @@ export async function estadoDocumentos(mjrvId: number, client?: PoolClient): Pro
   return estadoDeLados(filas.map((f) => f.lado));
 }
 
-export type FichaDocumentosFinanzas = { id: number; nombre: string; cedula: string; junta: string } & EstadoDocs;
+export type FichaDocumentosFinanzas = {
+  id: number; nombre: string; cedula: string; junta: string;
+  estado: EstadoSeguimientoDocumento; origen: OrigenFotosDocumento | null; version: string;
+} & EstadoDocs;
+
+type FotoVersion = { lado: Lado; capturado: string; hash: string };
+const huellaFotos = (fotos: FotoVersion[]) => sha256Hex(JSON.stringify(fotos));
+
+export async function consultarSeguimientoDocumental(client: PoolClient, juntaVigente?: number): Promise<FichaDocumentosFinanzas[]> {
+  type Fila = Omit<FichaDocumentosFinanzas, keyof EstadoDocs | "estado" | "origen" | "version"> & {
+    fotos: FotoVersion[]; validada: boolean; publico: boolean | null; personal: boolean | null;
+  };
+  const { rows } = await client.query<Fila>(
+    `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, ${juntaPublicaSql("j")} AS junta,
+            coalesce(d.fotos, '[]'::json) AS fotos, v.mjrv_id IS NOT NULL AS validada, d.publico, d.personal
+       FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
+       LEFT JOIN v_cedulas_validadas v ON v.mjrv_id = m.id
+       CROSS JOIN LATERAL (
+         SELECT json_agg(json_build_object('lado', f.lado, 'capturado', f.creado_en::text, 'hash', encode(f.sha256, 'hex')) ORDER BY f.lado) AS fotos,
+                bool_or(f.origen = 'publico') AS publico,
+                bool_or(f.origen = 'estacion') AS personal
+           FROM documentos_mjrv f WHERE f.mjrv_id = m.id AND f.es_prueba = cne.en_prueba()
+       ) d
+      WHERE m.activo AND (cne.en_prueba() OR NOT m.es_prueba)
+        AND ($1::bigint IS NULL OR EXISTS (
+          SELECT 1 FROM v_mjrv_asignacion a WHERE a.mjrv_id = m.id AND a.junta_actual_id = $1
+        ))
+      ORDER BY CASE WHEN $1::bigint IS NULL THEN j.serie END,
+               CASE WHEN $1::bigint IS NULL THEN j.numero END, m.apellidos, m.nombres, m.id`, [juntaVigente ?? null],
+  );
+  return rows.map(({ fotos, validada, publico, personal, ...ficha }) => {
+    const detalles = estadoDeLados(fotos.map((f) => f.lado));
+    const estado = detalles.completos ? (validada ? "validado" : "por_validar") : (fotos.length ? "incompleto" : "sin_documento");
+    const origen = publico && personal ? "mixto" : publico ? "mjrv" : personal ? "personal" : null;
+    return { ...ficha, ...detalles, estado, origen, version: huellaFotos(fotos) };
+  });
+}
 
 export async function listarDocumentosFinanzas(): Promise<{ modo: Modo; fichas: FichaDocumentosFinanzas[] }> {
   return withTx(async (client) => {
     const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
-    const { rows } = await client.query<Omit<FichaDocumentosFinanzas, keyof EstadoDocs> & { lados: Lado[] }>(
-      `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, ${juntaPublicaSql("j")} AS junta,
-              coalesce(d.lados, ARRAY[]::text[]) AS lados
-         FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
-         LEFT JOIN LATERAL (
-           SELECT array_agg(f.lado) AS lados FROM documentos_mjrv f
-           WHERE f.mjrv_id = m.id AND f.es_prueba = cne.en_prueba()
-         ) d ON true
-        WHERE m.activo AND (cne.en_prueba() OR NOT m.es_prueba)
-        ORDER BY j.serie, j.numero, m.apellidos, m.nombres, m.id`);
-    return { modo, fichas: rows.map(({ lados, ...ficha }) => ({ ...ficha, ...estadoDeLados(lados) })) };
+    return { modo, fichas: await consultarSeguimientoDocumental(client) };
   });
 }
 
@@ -69,12 +95,12 @@ export async function buscarPorCedula(cedulaBruta: string, client?: PoolClient):
 }
 
 export async function versionDocumentos(mjrvId: number, client: PoolClient): Promise<string> {
-  const { rows } = await client.query<{ lado: Lado; capturado: string; hash: string }>(
+  const { rows } = await client.query<FotoVersion>(
     `SELECT lado, creado_en::text AS capturado, encode(sha256, 'hex') AS hash FROM documentos_mjrv
        WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() ORDER BY lado`,
     [mjrvId],
   );
-  return sha256Hex(JSON.stringify(rows));
+  return huellaFotos(rows);
 }
 
 export async function buscarParaValidacion(cedula: string, juntaId?: number) {

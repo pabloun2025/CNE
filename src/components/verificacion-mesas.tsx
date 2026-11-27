@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Documentacion } from "@/app/e/[token]/trabajo/documentacion";
 import { LectorQr } from "@/components/lector-qr";
 import { CARGOS, type Cargo } from "@/domain/cargos";
+import { ESTADOS_DOCUMENTO, ORIGEN_DOCUMENTOS } from "@/domain/documentos";
 import type { consultarJuntaVerificacion, DocumentoEnMesa, listarJuntasVerificacion } from "@/server/verificacion-mesas";
 
 type Consulta = NonNullable<Awaited<ReturnType<typeof consultarJuntaVerificacion>>>;
@@ -179,22 +180,13 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
         <section className="card stack" id="fotos-mesa">
           <h2>Revisar o fotografiar cédula o pasaporte</h2>
           <Documentacion key={`${juntaId}:${capturar.revision}`} token={token} capturaMesas cedulaInicial={capturar.cedula}
-            juntaId={juntaId} onFotosCambiadas={refrescarDocumentos} />
+            juntaId={juntaId} onDocumentoCambiado={refrescarDocumentos} />
         </section>
       )}
     </div>
   );
 }
 
-
-const ESTADOS_DOCUMENTO = {
-  sin_documento: "Sin fotos",
-  incompleto: "Faltan fotos",
-  por_validar: "Por validar",
-  validado: "Validado",
-};
-
-const ORIGEN_DOCUMENTOS = { mjrv: "Enviado por el MJRV", personal: "Cargado por el personal", mixto: "Cargado por el MJRV y el personal" };
 
 const FILTROS_DOCUMENTO = {
   todos: "Todos",

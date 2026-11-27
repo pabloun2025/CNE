@@ -563,3 +563,9 @@ SMS Publi aceptó los 7.425 mensajes que quedaban del fichero aprobado. El diari
 - El puesto de mesa reutiliza el encuadre amarillo y la captura de cédula o pasaporte del formulario de los MJRV. Tras guardar el anverso, abre el reverso si falta. El personal puede ver las fotos vigentes de una ficha de la junta seleccionada y repetir la captura.
 - «Documentos de la junta» muestra pendientes de captura, por validar, validados y una vista de los enviados por los MJRV que esperan validación. Cada ficha indica si las fotos vigentes se enviaron desde el formulario del MJRV, las cargó el personal o las aportaron ambos. El estado se actualiza al guardar fotos y periódicamente con la pantalla activa.
 - La revisión de fotos se limita a la junta vigente y a la versión vigente de la imagen. La validación formal sigue en su propio puesto.
+
+## 65. Seguimiento documental en Validación y Finanzas (27-11)
+
+- El enlace directo de Validación y su acceso de administración muestran el seguimiento de documentos junto al buscador y el escáner. Puede abrir una ficha desde los resultados para revisar y validar fotos.
+- En Finanzas, la pestaña «Seguimiento documental» conserva su URL y ofrece los mismos filtros. Cada lista separa «Pendientes de captura», «Por validar», «Del MJRV sin validar» y «Validados». La vista del MJRV incluye las cargas parciales y mixtas pendientes. Las fichas se pueden buscar por nombre, apellido o cédula y filtrar por junta de origen.
+- El estado y el origen de las imágenes vigentes se calculan en una consulta común con Verificación de mesas. La lista se actualiza después de capturar o validar y se puede volver a consultar desde «Actualizar lista».

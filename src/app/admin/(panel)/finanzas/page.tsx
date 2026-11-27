@@ -12,7 +12,7 @@ export default async function Finanzas() {
       <PestanasFinanzas />
       <ol className="home-cards">
         <li className="home-card"><h2>Escanear</h2><p>Use en el móvil el enlace de Escaneo de Finanzas que le entregue el cónsul.</p></li>
-        <li className="home-card"><h2><Link href="/admin/finanzas/documentos">Documentos de identidad</Link></h2><p>Vea las fotos cargadas y capture las que falten.</p></li>
+        <li className="home-card"><h2><Link href="/admin/finanzas/documentos">Seguimiento documental</Link></h2><p>Consulte los documentos pendientes de captura, por validar y validados.</p></li>
         <li className="home-card"><h2><Link href="/admin/finanzas/pagar">Revisar e imprimir</Link></h2><p>Valide el documento de identidad, imprima el recibo y entréguelo a Caja.</p></li>
         <li className="home-card"><h2><Link href="/admin/finanzas/caja">Caja</Link></h2><p>Recoja la firma en papel, entregue el efectivo y confirme el pago.</p></li>
       </ol>

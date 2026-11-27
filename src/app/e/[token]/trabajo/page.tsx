@@ -10,6 +10,8 @@ import { Mando } from "./mando";
 import { Puerta } from "./puerta";
 import { VerificacionMesas } from "@/components/verificacion-mesas";
 import { listarJuntasVerificacion } from "@/server/verificacion-mesas";
+import { SeguimientoDocumental } from "@/components/documentos-finanzas";
+import { listarDocumentosFinanzas } from "@/server/documentos";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export default async function Trabajo({ params }: { params: Promise<{ token: str
   const enlace = await enlacePorToken(token);
   if (!enlace) redirect(`/e/${token}`);
   const operador = enlace.funcion === "mando" ? (await requireEstacion(token, enlace.id)).operadorNombre : undefined;
+  const seguimiento = enlace.funcion === "validacion_documental" ? await listarDocumentosFinanzas() : null;
   return (
     <div className="funcionario">
       <CabeceraEstacion token={token} funcion={FUNCION_NOMBRE[enlace.funcion]} etiqueta={enlace.etiqueta} operador={operador} />
@@ -27,7 +30,7 @@ export default async function Trabajo({ params }: { params: Promise<{ token: str
         {enlace.funcion === "mando" && <Mando />}
         {enlace.funcion === "documentacion" && <Documentacion token={token} />}
         {enlace.funcion === "mesas" && <VerificacionMesas juntas={await listarJuntasVerificacion()} token={token} />}
-        {enlace.funcion === "validacion_documental" && <Documentacion token={token} validarPorEnlace />}
+        {seguimiento && <SeguimientoDocumental key={seguimiento.modo} {...seguimiento} token={token} validacion />}
         {enlace.funcion === "finanzas" && <Finanzas token={token} />}
       </main>
     </div>

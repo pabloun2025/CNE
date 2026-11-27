@@ -35,8 +35,8 @@ function FotoPuesto({ url, token, alt, onLoad, onError }: {
   return <img src={src} alt={alt} onLoad={onLoad} onError={onError} className="w-full rounded border object-contain" />;
 }
 
-export function Documentacion({ token, capturaMesas = false, validarPorEnlace = false, cedulaInicial = "", juntaId, onFotosCambiadas }: {
-  token?: string; capturaMesas?: boolean; validarPorEnlace?: boolean; cedulaInicial?: string; juntaId?: number; onFotosCambiadas?: () => void;
+export function Documentacion({ token, capturaMesas = false, validarPorEnlace = false, cedulaInicial = "", juntaId, onDocumentoCambiado, onTerminarFicha }: {
+  token?: string; capturaMesas?: boolean; validarPorEnlace?: boolean; cedulaInicial?: string; juntaId?: number; onDocumentoCambiado?: () => void; onTerminarFicha?: () => void;
 }) {
   const puestoDirecto = !!token && (capturaMesas || validarPorEnlace);
   const autenticada = token === undefined || puestoDirecto;
@@ -86,7 +86,7 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
     void consultar(cedulaInicial, signal).then((actual) => {
       if (signal.aborted) return;
       setFicha(actual);
-      if (!actual) setMensaje("Esa cédula no figura en la junta seleccionada.");
+      if (!actual) setMensaje(juntaId ? "Esa cédula no figura en la junta seleccionada." : "No encontramos ese número.");
     }).catch((e: unknown) => {
       if (!signal.aborted) setMensaje(e instanceof Error ? e.message : "No hay conexión.");
     }).finally(() => { if (!signal.aborted) setOcupado(false); });
@@ -119,7 +119,7 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
       } else {
         setFicha({ ...ficha, anverso: d.anverso, reverso: d.reverso, pasaporte: d.pasaporte, completos: d.completos });
       }
-      onFotosCambiadas?.();
+      onDocumentoCambiado?.();
       return true;
     } catch { setMensaje("No hay conexión."); return false; } finally { setOcupado(false); }
   };
@@ -144,17 +144,19 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
       }
       setFicha({ ...ficha, validada: true });
       setRepetir(false);
+      onDocumentoCambiado?.();
     } catch { setMensaje("No se pudo confirmar la validación. Vuelva a buscar la ficha."); }
     finally { setOcupado(false); }
   };
 
   return (
     <div className="mx-auto max-w-md space-y-3">
-      <form onSubmit={(e) => { e.preventDefault(); void buscar(cedula); }} className="flex gap-2">
+      {!onTerminarFicha && <form onSubmit={(e) => { e.preventDefault(); void buscar(cedula); }} className="flex gap-2">
         <input value={cedula} onChange={(e) => setCedula(e.target.value)} placeholder="Número de cédula" aria-label="Número de cédula" autoComplete="off" required disabled={ocupado} className="min-w-0 flex-1" />
         <button disabled={ocupado} className="bg-stone-900 px-4 text-white disabled:opacity-60">Buscar</button>
-      </form>
-      {!ficha && <LectorQr encuadre={capturaMesas} pausado={ocupado} onCodigo={(c) => { setCedula(c); void buscar(c); }} />}
+      </form>}
+      {!onTerminarFicha && !ficha && <LectorQr encuadre={capturaMesas} pausado={ocupado} onCodigo={(c) => { setCedula(c); void buscar(c); }} />}
+      {onTerminarFicha && !ficha && !ocupado && <button type="button" className="button-like secondary" onClick={onTerminarFicha}>Otra persona</button>}
       {mensaje && <p role="alert" className="font-semibold text-red-700">{mensaje}</p>}
       {ficha && (
         <section className="space-y-3 border-2 border-stone-900 p-3">
@@ -184,7 +186,7 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
               ? (fotosVisibles && <p role="status" className="font-bold text-green-800">Documento validado</p>)
               : <button type="button" className="button-like w-full" disabled={ocupado || !fotosVisibles} onClick={() => void validar()}>Validar documento</button>
           )}
-          <button disabled={ocupado} onClick={() => { setFicha(null); setCedula(""); setMensaje(""); setRepetir(false); }} className="border-2 border-stone-900 px-4 py-3 disabled:opacity-60">Otra persona</button>
+          <button disabled={ocupado} onClick={onTerminarFicha ?? (() => { setFicha(null); setCedula(""); setMensaje(""); setRepetir(false); })} className="border-2 border-stone-900 px-4 py-3 disabled:opacity-60">Otra persona</button>
         </section>
       )}
     </div>
