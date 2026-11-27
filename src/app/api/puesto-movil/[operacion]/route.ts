@@ -1,4 +1,5 @@
 import { privado, peticion } from "@/server/justificante/http";
+import { recuentoOffline } from "@/server/puesto-movil/recuento-offline";
 import { exportarContactos } from "@/server/puesto-movil/contactos";
 import { ErrorJustificante } from "@/server/justificante/servicio";
 import { consultar, diagnosticoCorreo, enviar, estadoMovil, limitar, origenMovilValido, seguimiento, verificarAcceso } from "@/server/puesto-movil/servicio";
@@ -17,9 +18,11 @@ export async function POST(request: Request, { params }: Contexto) {
   const response = await peticion(request, async (datos) => {
     const origen = request.headers.get("origin");
     if (origen && !origenMovilValido(origen)) throw new ErrorJustificante(403, "Abra el enlace en su navegador.");
-    if (!["consulta", "envio", "seguimiento", "diagnostico-correo", "contactos"].includes(operacion)) throw new ErrorJustificante(404, "Página no encontrada.");
-    verificarAcceso(request, operacion === "seguimiento" || operacion === "diagnostico-correo" || operacion === "contactos");
+    if (!["consulta", "envio", "seguimiento", "diagnostico-correo", "contactos", "recuento-offline"].includes(operacion)) throw new ErrorJustificante(404, "Página no encontrada.");
+    verificarAcceso(request, ["seguimiento", "diagnostico-correo", "contactos", "recuento-offline"].includes(operacion));
     limitar(request, operacion);
+    if (operacion === "recuento-offline")
+      return Response.json(await recuentoOffline(datos.codigo), { headers: privado });
     if (operacion === "contactos") {
       return new Response(await exportarContactos(), { headers: {
         ...privado,

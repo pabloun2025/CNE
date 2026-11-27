@@ -169,6 +169,12 @@ if [ -n "$(dc ps -q --status running cne-postgres 2>/dev/null || true)" ]; then
   ls -t backups/pre-despliegue/cne-*.dump | tail -n +6 | xargs -r rm -f
 fi
 
+# El ZIP cifrado anterior vivía en /tmp y se perdería al recrear cne-app.
+if [ -n "$(dc ps -q --status running cne-app 2>/dev/null || true)" ]; then
+  manifiesto=$(dc exec -T cne-app cat src/server/entrega-puesto-config.json)
+  dc exec -T cne-app node - "$manifiesto" < scripts/conservar-entrega-puesto.cjs
+fi
+
 # Imagen anterior para poder revertir.
 if docker image inspect cne:local >/dev/null 2>&1; then
   docker tag cne:local cne:anterior

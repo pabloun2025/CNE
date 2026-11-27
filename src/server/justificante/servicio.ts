@@ -31,17 +31,17 @@ export function clavePublicaReceptor() {
   return createPublicKey(receptor()).export({ format: "pem", type: "spki" });
 }
 
-export async function registrarApertura(id: string, solicitud: string) {
-  // El conflicto bloquea la fila. Un reintento recupera el mismo vencimiento sin gastar otro uso.
-  const [fila] = await query<{ restantes: number; vence: Date }>(`
+async function reservarTurnoCorreo(id: string, solicitud: string, vence: number) {
+  // Cada ticket conserva hasta tres turnos de correo, incluso si se abre más veces.
+  const [fila] = await query<{ vence: Date }>(`
     INSERT INTO cne.aperturas_justificante AS a (documento,solicitudes,vencimientos)
-    VALUES ($1,ARRAY[$2::uuid],ARRAY[now()+interval '1 hour'])
+    VALUES ($1,ARRAY[$2::uuid],ARRAY[to_timestamp($3::double precision / 1000)])
     ON CONFLICT (documento) DO UPDATE SET
       solicitudes = CASE WHEN $2::uuid=ANY(a.solicitudes) THEN a.solicitudes ELSE a.solicitudes || EXCLUDED.solicitudes END,
       vencimientos = CASE WHEN $2::uuid=ANY(a.solicitudes) THEN a.vencimientos ELSE a.vencimientos || EXCLUDED.vencimientos END
     WHERE $2::uuid=ANY(a.solicitudes) OR cardinality(a.solicitudes)<3
-    RETURNING 3-cardinality(solicitudes) AS restantes, vencimientos[array_position(solicitudes,$2::uuid)] AS vence
-  `, [id, solicitud]);
+    RETURNING vencimientos[array_position(solicitudes,$2::uuid)] AS vence
+  `, [id, solicitud, vence]);
   return fila;
 }
 
@@ -53,14 +53,11 @@ export async function abrirJustificante(token: unknown, solicitud: unknown) {
   let doc;
   try { doc = canjearEmision(token, { clavesPuestos: { [puesto]: emisor }, clavePrivada: privada }); }
   catch { throw new ErrorJustificante(403, "El código de su ticket no es válido."); }
-  const uso = await registrarApertura(doc.id, solicitud);
-  if (!uso || uso.vence.getTime() <= Date.now())
-    throw new ErrorJustificante(410, "El ticket ha agotado sus aperturas o esta sesión ha caducado.");
-  const plain = Buffer.from(JSON.stringify({ contexto, vence: uso.vence.getTime(), nombre: doc.nombre, cedula: doc.cedula,
+  const plain = Buffer.from(JSON.stringify({ contexto, vence: Date.now() + 3_600_000, nombre: doc.nombre, cedula: doc.cedula,
     ticket: doc.id, solicitud }));
   try {
     const { nonce, ciphertext } = encryptBuffer(plain);
-    return { sesion: Buffer.concat([nonce,ciphertext]).toString("base64url"), restantes: uso.restantes, nombre: doc.nombre, cedula: doc.cedula };
+    return { sesion: Buffer.concat([nonce,ciphertext]).toString("base64url"), nombre: doc.nombre, cedula: doc.cedula };
   } finally { plain.fill(0); }
 }
 
@@ -105,7 +102,11 @@ export async function enviarJustificante(sesion: unknown, numero: unknown, corre
   if (Date.now() >= titular.vence)
     throw new ErrorJustificante(403, "Su sesión ha caducado. Escanee de nuevo el ticket.");
 
-  // Solo una solicitud por apertura puede reservar el envío, incluso desde varias pestañas.
+  const turno = await reservarTurnoCorreo(ticket, solicitud, titular.vence);
+  if (!turno)
+    throw new ErrorJustificante(429, "Ya se solicitaron tres envíos para este ticket. Todavía puede descargar el PDF.");
+
+  // Solo una solicitud por turno puede reservar el envío, incluso desde varias pestañas.
   const [reserva] = await query(`
     INSERT INTO cne.envios_justificante AS envio (documento, solicitud, estado)
     SELECT documento, $2::uuid, 'enviando' FROM cne.aperturas_justificante

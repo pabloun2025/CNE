@@ -40,7 +40,6 @@
       sesion = datos.sesion;
       el("nombre").textContent = datos.nombre;
       el("cedula").textContent = datos.cedula;
-      el("restantes").textContent = "Aperturas restantes en este ticket: " + datos.restantes + ".";
       el("entrada").hidden = true;
       el("formulario").hidden = false;
       el("envio-correo").hidden = false;

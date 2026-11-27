@@ -57,17 +57,17 @@ describe("Canje del ticket electoral", () => {
     expect((await pdf(post({ sesion:"inventada", documento:"" }))).status).toBe(403);
   });
 
-  it("mantiene tres aperturas tras el cierre, deduplica reintentos y entrega el PDF firmado", async () => {
+  it("admite más de tres aperturas tras el cierre, conserva el límite de correo y entrega el PDF firmado", async () => {
     const token=ejemplo.token, repetida=solicitud();
     const confirmar=(s:string)=>abrir(post({token,solicitud:s}));
     const primera=await confirmar(repetida);
     expect(primera.status).toBe(200);
     const datos=await primera.json();
-    expect(datos).toMatchObject({ nombre:"ÁNGELA ŁUKASZ DE PRUEBA",cedula:"0000000001",restantes:2 });
+    expect(datos).toMatchObject({ nombre:"ÁNGELA ŁUKASZ DE PRUEBA",cedula:"0000000001" });
     const mismoQr = compactarQr(token);
-    expect((await (await abrir(post({token:mismoQr,solicitud:repetida}))).json()).restantes).toBe(2);
+    expect((await abrir(post({token:mismoQr,solicitud:repetida}))).status).toBe(200);
     const varias=await Promise.all([confirmar(solicitud()),confirmar(solicitud()),confirmar(solicitud())]);
-    expect(varias.map(r=>r.status).sort()).toEqual([200,200,410]);
+    expect(varias.map(r=>r.status).sort()).toEqual([200,200,200]);
     expect((await pdf(post({sesion:datos.sesion,documento:"X1234567A"}))).status).toBe(400);
     for (const documento of ["", "x1234567l"]) {
       const response=await pdf(post({sesion:datos.sesion,documento,nombre:"SUSTITUCIÓN DE PRUEBA",cedula:"0000000002"}));
@@ -97,6 +97,13 @@ describe("Canje del ticket electoral", () => {
     expect(rows).toHaveLength(1);
     expect(JSON.stringify(rows)).not.toContain(datos.nombre);
     expect(JSON.stringify(rows)).not.toContain(datos.cedula);
+    for (const respuesta of varias.slice(0, 2)) {
+      const { sesion } = await respuesta.json();
+      expect((await correo(post({sesion,correo:"persona@prueba.invalid",documento:""}))).status).toBe(200);
+    }
+    const cuarta = await varias[2].json();
+    expect((await correo(post({sesion:cuarta.sesion,correo:"persona@prueba.invalid",documento:""}))).status).toBe(429);
+    expect((await pdf(post({sesion:cuarta.sesion,documento:""}))).status).toBe(200);
     const reloj=vi.spyOn(Date,"now").mockReturnValue(Date.now()+3600001);
     try { expect((await pdf(post({sesion:datos.sesion}))).status).toBe(403); } finally { reloj.mockRestore(); }
   });

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recuento sin conexión · CNE Madrid</title>
+<style>
+* {box-sizing:border-box} body {margin:0;background:#f1f4f5;color:#162d3d;font:16px system-ui,sans-serif}
+main {max-width:45rem;padding:1.5rem;margin:auto} header {border-bottom:4px solid #edbd45;padding-bottom:1rem}
+h1 {margin:.25rem 0} h2 {font-size:1.25rem} p {line-height:1.5} section {background:white;border:1px solid #cbd6dc;border-radius:.8rem;padding:1rem;margin-top:1rem}
+button,input {padding:.65rem;font:inherit;border-radius:.35rem;border:1px solid #587387}
+button {background:#114760;color:#fff;cursor:pointer;margin:.2rem .2rem .2rem 0}
+button.secundario {background:white;color:#114760} button:disabled {opacity:.5;cursor:default}
+input {max-width:100%} #qr {display:block;max-width:100%;height:auto;margin:.75rem 0}
+.contadores {display:grid;gap:.4rem;margin-bottom:1rem}
+.contadores button {text-align:left} .contadores strong {float:right;margin-left:1rem}
+</style>
+<script src="recuento.js" defer></script>
+</head><body><main>
+<header><strong>Consulado General del Ecuador · Madrid</strong><h1>Recuento sin conexión</h1><span>Caja Mágica · 29 de noviembre de 2026</span></header>
+<noscript>Active JavaScript para usar el recuento.</noscript>
+<section id="alta"><form><label for="terminal">Número asignado por coordinación</label>
+<input id="terminal" type="number" inputmode="numeric" min="1" max="99" required><button>Iniciar puesto</button></form></section>
+<section id="atencion" hidden>
+<h2 id="puesto"></h2>
+<p>Pulse una vez al terminar cada atención.</p>
+<div class="contadores">
+<button data-categoria="con">Información · En el padrón <strong id="con">0</strong></button>
+<button data-categoria="sin">Información · No consta en el padrón <strong id="sin">0</strong></button>
+<button data-categoria="otra">Otra información <strong id="otra">0</strong></button>
+</div>
+<p><b>Total de atenciones</b> <strong id="total">0</strong></p>
+<button id="deshacer" class="secundario">Deshacer última atención</button>
+<button id="cierre">Generar corte</button>
+</section>
+<section id="entrega" hidden><h2>QR para coordinación</h2>
+<p>Escanéelo con un móvil con internet. Guarde también una copia para el cierre.</p>
+<canvas id="qr"></canvas>
+<label for="codigo">Código de respaldo</label>
+<input id="codigo" readonly size="38">
+<button id="archivo" class="secundario">Guardar archivo de cierre</button>
+</section>
+<p id="estado" role="status" aria-live="polite"></p>
+</main></body></html>

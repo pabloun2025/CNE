@@ -7,7 +7,7 @@ import configuracion from "./entrega-puesto-config.json";
 const privado = { "cache-control": "private, no-store", "referrer-policy": "no-referrer", "x-robots-tag": "noindex, nofollow" };
 const hash = (value: string | Buffer) => createHash("sha256").update(value).digest();
 
-export async function atenderEntrega(request: Request, config = configuracion, carpeta = join(tmpdir(), `entrega-cne-${config.id}`)) {
+export async function atenderEntrega(request: Request, config = configuracion, carpeta = join(process.env.CNE_ENTREGA_PUESTO_DIR ?? tmpdir(), `entrega-cne-${config.id}`)) {
   const respuesta = (status: number) => new Response(null, { status, headers: privado });
   const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get("authorization") ?? "")?.[1];
   const subida = request.method === "POST";
