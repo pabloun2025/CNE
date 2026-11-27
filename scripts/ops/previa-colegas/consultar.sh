@@ -18,8 +18,16 @@ sudo docker exec -i cne-prod-cne-app-1 node --import tsx -e '
     const nombres = peticiones.map(([nombre]) => normalizar(nombre));
     const coincidencias = nombres.map(() => []);
     for (const [cedula,fila] of filas) {
-      const i = nombres.indexOf(normalizar(fila.nombre));
-      if (i !== -1) {
+      const nombre = normalizar(fila.nombre);
+      const i = nombres.indexOf(nombre);
+      const base = nombres[0].split(" ");
+      const compatible = base.filter(p => p !== "PIEDAD").every(p => nombre.split(" ").includes(p));
+      if (i === 0 || compatible) {
+        coincidencias[0].push({
+          exacto: i === 0, mascara: cedula.slice(0,5) + "****" + cedula.slice(-1),
+          junta: fila.junta, zona: fila.zona, recinto: fila.recinto,
+        });
+      } else if (i > 0) {
         const [, junta, zona] = peticiones[i];
         const encaja = fila.junta?.replace(/^([MF])(\d+)$/,"$2$1") === junta && normalizar(fila.zona ?? "") === normalizar(zona)
           && normalizar(fila.recinto) === normalizar("Caja Mágica");
@@ -27,7 +35,7 @@ sudo docker exec -i cne-prod-cne-app-1 node --import tsx -e '
       }
     }
     filas.clear();
-    process.stdout.write(JSON.stringify(coincidencias.map(r => r.length === 1 ? r[0] : null)));
+    process.stdout.write(JSON.stringify(coincidencias.map((r,i) => i === 0 ? (r.length <= 2 ? r : []) : r.length === 1 ? r[0] : null)));
   } catch {
     process.stderr.write("No se pudo verificar la vista previa.\n");
     process.exitCode = 1;
