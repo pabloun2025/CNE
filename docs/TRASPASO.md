@@ -546,3 +546,8 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Se restauró la casilla «Imprimir automáticamente al buscar», marcada al iniciar. Con la casilla desmarcada, una coincidencia muestra «Imprimir ticket». Se conserva el flujo de confirmación para quien no consta en el padrón.
 - La búsqueda actual muestra la junta y la zona en grande. La última atención impresa conserva su junta, zona y recinto, y las anteriores quedan en una lista de la sesión sin nombres ni cédulas.
 - Se probaron ambos modos con la red externa bloqueada, el regreso del foco al buscador y los tres niveles visuales del historial. El servidor local, el recuento, el padrón cifrado y el puente de impresión conservan los mismos componentes.
+
+## 62. Cierre de los SMS de juntas del Padrón Electoral 3 (27-11)
+
+- La primera tanda dejó 31.810 SMS aceptados por SMS Publi y 7.425 sin intentar, todos de Madrid. La consulta previa a la reanudación confirmó saldo para el resto y verificó el diario persistente. [Primera tanda](https://github.com/pabloun2025/CNE/actions/runs/45984851068) · [Comprobación previa](https://github.com/pabloun2025/CNE/actions/runs/45998455835)
+- El flujo de Oracle `a667cdb` reanudó los 7.425 SMS con el remitente y el texto aprobados. El diario conserva 39.235 referencias de aceptación únicas: 38.684 de Madrid, 524 de Toledo y 27 de Zaragoza. Quedaron cero mensajes sin intentar, rechazados o inciertos y cero intentos repetidos. La entrega al móvil se consulta por separado. [Reanudación](https://github.com/pabloun2025/CNE/actions/runs/45998547929) · [Retiro de la llave temporal](https://github.com/pabloun2025/CNE/actions/runs/45998760742)
