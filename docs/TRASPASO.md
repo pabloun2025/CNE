@@ -601,3 +601,9 @@ SMS Publi aceptó los 7.425 mensajes que quedaban del fichero aprobado. El diari
 - Impresión conserva el folio y el importe en reimpresiones. Cuando sale el papel, el operador remite a Caja ese recibo y su versión. Caja muestra persona e importe y permite confirmar la entrega en una sola acción después de recoger la firma. Cambios posteriores de identidad, actuación o fotos obligan a revisar la versión antes de cobrar.
 - El circuito usa los enlaces y cuentas existentes. La guía de Finanzas distingue los puestos y la revisión itinerante. Los recibos de contingencia se siguen gestionando en Recibos.
 - El documento de F44 comunicado por el cónsul quedó marcado «Necesita repetir», con el motivo «Fotos borrosas» y las imágenes conservadas. [Comprobación del caso](https://github.com/pabloun2025/CNE/actions/runs/46065005445)
+
+## 71. Enlaces de estación por equipo (27-11)
+
+- «Enlaces de estación» del cónsul identifica a la persona que usa cada puesto y su tarea. Agrupa Puerta y Centro de mando, los dos puestos itinerantes y Finanzas. El acceso de captura sin validación está en «Otros accesos».
+- Finanzas enlaza a la tarjeta de Ingreso. Los botones de Revisión, Impresión y Caja abren los puestos que requieren cuenta. Cada enlace de estación activo conserva sus acciones de copia, WhatsApp y QR. Si hay varios enlaces para el mismo puesto, se muestran sus etiquetas para elegir.
+- La organización se verificó en navegador a 375 y 1440 píxeles con enlaces de prueba, incluidos dos para un mismo puesto. La gestión de altas y revocaciones sigue en Superadministración.

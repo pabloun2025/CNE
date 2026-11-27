@@ -16,7 +16,7 @@ export default async function Finanzas() {
           <p><strong>1–2 personas</strong></p>
           <p>Abra el enlace de estación. Escanee la credencial o introduzca la cédula. CNE indica el siguiente puesto.</p>
           {cuenta.rol === "consul"
-            ? <p><Link href="/admin/operadores">Ver enlaces de estación</Link></p>
+            ? <p><Link href="/admin/operadores#finanzas">Enlace de Ingreso a Finanzas</Link></p>
             : <p>Use el enlace de Ingreso a Finanzas que le entregue el cónsul.</p>}
         </li>
         <li className="home-card">
