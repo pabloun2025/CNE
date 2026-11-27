@@ -9,7 +9,7 @@ import { Finanzas } from "./finanzas";
 import { Mando } from "./mando";
 import { Puerta } from "./puerta";
 import { VerificacionMesas } from "@/components/verificacion-mesas";
-import { listarJuntasVerificacion } from "@/server/verificacion-mesas";
+import { listarPanoramaJuntas } from "@/server/verificacion-mesas";
 import { SeguimientoDocumental } from "@/components/documentos-finanzas";
 import { listarDocumentosFinanzas } from "@/server/documentos";
 
@@ -29,7 +29,7 @@ export default async function Trabajo({ params }: { params: Promise<{ token: str
         {enlace.funcion === "puerta" && <Puerta token={token} medidas={await medidasCredencial()} />}
         {enlace.funcion === "mando" && <Mando />}
         {enlace.funcion === "documentacion" && <Documentacion token={token} />}
-        {enlace.funcion === "mesas" && <VerificacionMesas juntas={await listarJuntasVerificacion()} token={token} />}
+        {enlace.funcion === "mesas" && <VerificacionMesas juntas={await listarPanoramaJuntas()} token={token} />}
         {seguimiento && <SeguimientoDocumental key={seguimiento.modo} {...seguimiento} token={token} validacion />}
         {enlace.funcion === "finanzas" && <Finanzas token={token} />}
       </main>

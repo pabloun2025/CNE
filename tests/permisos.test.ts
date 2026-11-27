@@ -280,6 +280,11 @@ describe("matriz de permisos", () => {
     expect((await POST(post(tokenMesa, { accion: "validar" }))).status).toBe(403);
     expect((await POST(post(tokenValidacion, { accion: "validar" }))).status).toBe(400);
     expect((await mesas(post(tokenValidacion, { accion: "consultar" }))).status).toBe(403);
+    expect((await mesas(post(tokenValidacion, { accion: "panorama" }))).status).toBe(403);
+    const panorama = await mesas(post(tokenMesa, { accion: "panorama" }));
+    expect(panorama.status).toBe(200);
+    expect(panorama.headers.get("cache-control")).toBe("private, no-store");
+    expect(await panorama.json()).toHaveLength(95);
     await consultarDueno("UPDATE cne.enlaces_estacion SET expira_en = now() - interval '1 second' WHERE funcion = 'mesas'");
     expect((await mesas(post(tokenMesa, { accion: "consultar" }))).status).toBe(401);
     await consultarDueno("UPDATE cne.enlaces_estacion SET expira_en = NULL WHERE funcion = 'mesas'");

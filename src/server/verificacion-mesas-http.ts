@@ -1,8 +1,11 @@
 import type { Actor } from "./movimientos";
-import { consultarJuntaVerificacion, verificarActuacion } from "./verificacion-mesas";
+import { consultarJuntaVerificacion, listarPanoramaJuntas, verificarActuacion } from "./verificacion-mesas";
 
 export async function procesarSolicitudMesa(request: Request, actor: Actor) {
   const datos = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (datos?.accion === "panorama") {
+    return Response.json(await listarPanoramaJuntas(), { headers: { "cache-control": "private, no-store" } });
+  }
   const juntaId = datos?.juntaId;
   if (typeof juntaId !== "number" || !Number.isSafeInteger(juntaId) || juntaId < 1) {
     return Response.json({ error: "Elija una junta." }, { status: 400 });
