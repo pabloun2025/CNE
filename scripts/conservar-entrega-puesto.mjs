@@ -1,6 +1,6 @@
-const { createHash } = require("node:crypto");
-const { copyFileSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } = require("node:fs");
-const { join } = require("node:path");
+import { createHash } from "node:crypto";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { join } from "node:path";
 
 const { id, vence, partes } = JSON.parse(process.argv[2]);
 if (!/^[a-f0-9]{20}$/.test(id)) process.exit(1);

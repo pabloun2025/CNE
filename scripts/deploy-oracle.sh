@@ -172,7 +172,7 @@ fi
 # El ZIP cifrado anterior vivía en /tmp y se perdería al recrear cne-app.
 if [ -n "$(dc ps -q --status running cne-app 2>/dev/null || true)" ]; then
   manifiesto=$(dc exec -T cne-app cat src/server/entrega-puesto-config.json)
-  dc exec -T cne-app node - "$manifiesto" < scripts/conservar-entrega-puesto.cjs
+  dc exec -T cne-app node --input-type=module - "$manifiesto" < scripts/conservar-entrega-puesto.mjs
 fi
 
 # Imagen anterior para poder revertir.
