@@ -28,7 +28,7 @@ export async function POST(request: Request, { params }: Contexto) {
         "x-content-type-options": "nosniff",
       } });
     }
-    const resultado = operacion === "consulta" ? await consultar(datos.cedula) :
+    const resultado = operacion === "consulta" ? await consultar(datos.cedula, datos.equipo, datos.solicitud) :
       operacion === "envio" ? await enviar(datos) : operacion === "diagnostico-correo" ? await diagnosticoCorreo() : await seguimiento();
     return Response.json(resultado, { headers: privado });
   });

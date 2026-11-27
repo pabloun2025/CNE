@@ -5,6 +5,7 @@ import { z } from "zod";
 import { decryptBuffer, encryptBuffer, masterKey } from "../crypto";
 import { query } from "../db";
 import { correoElectoral } from "../envios/correo-electoral";
+import { guardarCorteWindows } from "../recuento-electoral";
 import { canjearEmision } from "./emision.mjs";
 import { prepararDocumentoLaboral, validarDocumentoEspanol } from "./documento.mjs";
 
@@ -31,36 +32,29 @@ export function clavePublicaReceptor() {
   return createPublicKey(receptor()).export({ format: "pem", type: "spki" });
 }
 
-export async function registrarApertura(id: string, solicitud: string) {
-  // El conflicto bloquea la fila. Un reintento recupera el mismo vencimiento sin gastar otro uso.
-  const [fila] = await query<{ restantes: number; vence: Date }>(`
-    INSERT INTO cne.aperturas_justificante AS a (documento,solicitudes,vencimientos)
-    VALUES ($1,ARRAY[$2::uuid],ARRAY[now()+interval '1 hour'])
-    ON CONFLICT (documento) DO UPDATE SET
-      solicitudes = CASE WHEN $2::uuid=ANY(a.solicitudes) THEN a.solicitudes ELSE a.solicitudes || EXCLUDED.solicitudes END,
-      vencimientos = CASE WHEN $2::uuid=ANY(a.solicitudes) THEN a.vencimientos ELSE a.vencimientos || EXCLUDED.vencimientos END
-    WHERE $2::uuid=ANY(a.solicitudes) OR cardinality(a.solicitudes)<3
-    RETURNING 3-cardinality(solicitudes) AS restantes, vencimientos[array_position(solicitudes,$2::uuid)] AS vence
-  `, [id, solicitud]);
-  return fila;
+function leerTicket(token: unknown) {
+  const privada = receptor();
+  const emisor = createPublicKey(readFileSync(join(recursos, "emisor-ventanilla-public.pem")));
+  try { return canjearEmision(token, { clavesPuestos: { [puesto]: emisor }, clavePrivada: privada }); }
+  catch { throw new ErrorJustificante(403, "El código de su ticket no es válido."); }
+}
+
+export async function registrarCorteJustificante(token: unknown) {
+  const { corte } = leerTicket(token);
+  if (corte) await guardarCorteWindows(corte);
 }
 
 export async function abrirJustificante(token: unknown, solicitud: unknown) {
   if (typeof solicitud !== "string" || !idSolicitud.test(solicitud))
     throw new ErrorJustificante(400, "Vuelva a abrir el formulario desde su ticket.");
-  const privada = receptor();
-  const emisor = createPublicKey(readFileSync(join(recursos, "emisor-ventanilla-public.pem")));
-  let doc;
-  try { doc = canjearEmision(token, { clavesPuestos: { [puesto]: emisor }, clavePrivada: privada }); }
-  catch { throw new ErrorJustificante(403, "El código de su ticket no es válido."); }
-  const uso = await registrarApertura(doc.id, solicitud);
-  if (!uso || uso.vence.getTime() <= Date.now())
-    throw new ErrorJustificante(410, "El ticket ha agotado sus aperturas o esta sesión ha caducado.");
-  const plain = Buffer.from(JSON.stringify({ contexto, vence: uso.vence.getTime(), nombre: doc.nombre, cedula: doc.cedula,
+  const doc = leerTicket(token);
+  // Vuelve a intentar el corte si la conexión se interrumpió al escanear.
+  if (doc.corte) await guardarCorteWindows(doc.corte).catch(() => {});
+  const plain = Buffer.from(JSON.stringify({ contexto, vence: Date.now() + 3_600_000, nombre: doc.nombre, cedula: doc.cedula,
     ticket: doc.id, solicitud }));
   try {
     const { nonce, ciphertext } = encryptBuffer(plain);
-    return { sesion: Buffer.concat([nonce,ciphertext]).toString("base64url"), restantes: uso.restantes, nombre: doc.nombre, cedula: doc.cedula };
+    return { sesion: Buffer.concat([nonce,ciphertext]).toString("base64url"), nombre: doc.nombre, cedula: doc.cedula };
   } finally { plain.fill(0); }
 }
 
@@ -108,11 +102,11 @@ export async function enviarJustificante(sesion: unknown, numero: unknown, corre
   // Solo una solicitud por apertura puede reservar el envío, incluso desde varias pestañas.
   const [reserva] = await query(`
     INSERT INTO cne.envios_justificante AS envio (documento, solicitud, estado)
-    SELECT documento, $2::uuid, 'enviando' FROM cne.aperturas_justificante
-    WHERE documento=$1 AND vencimientos[array_position(solicitudes,$2::uuid)] > clock_timestamp()
+    SELECT $1, $2::uuid, 'enviando'
+    WHERE to_timestamp($3::double precision / 1000) > clock_timestamp()
     ON CONFLICT (documento, solicitud) DO UPDATE SET estado='enviando'
     WHERE envio.estado='disponible' RETURNING documento
-  `, [ticket, solicitud]);
+  `, [ticket, solicitud, titular.vence]);
   if (!reserva)
     throw new ErrorJustificante(409, "El envío ya se solicitó o la sesión caducó. Revise su bandeja de entrada.");
 

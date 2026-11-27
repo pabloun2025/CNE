@@ -1,0 +1,11 @@
+:root{font:16px/1.45 "Helvetica Neue",Arial,sans-serif;color:#162f44;background:#f1f4f6}
+*{box-sizing:border-box}body{margin:0}header{background:#fff;border-top:4px solid #edbc20;border-bottom:1px solid #cbd6de}
+.ancho{width:min(100% - 32px, 920px);margin-inline:auto}
+header .ancho{display:flex;align-items:center;gap:14px;min-height:65px}header img{object-fit:contain}header p{margin:10px 0;font-weight:700}
+main{padding:24px 0 42px}h1,h2{line-height:1.15;margin:0 0 10px}h1{font-size:clamp(1.85rem,6vw,2.6rem)}h2{font-size:1.27rem}
+p{margin:0 0 14px}section{padding:clamp(14px,3vw,22px);margin-top:14px;border:1px solid #cbd6de;border-radius:8px;background:#fff}
+section p,#estado{color:#465e70;font-size:.92rem}dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0;gap:10px}
+dl div{background:#edf3f8;border-radius:5px;padding:10px 12px}dt{font-size:.86rem;font-weight:650}dd{font-size:clamp(1.25rem,4vw,1.8rem);font-weight:750;margin:0;font-variant-numeric:tabular-nums}
+.tabla{overflow-x:auto;margin-top:14px}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.88rem}
+th,td{text-align:right;padding:8px 6px;border-bottom:1px solid #dce3e9}th:first-child,td:first-child{text-align:left}thead th{color:#42596a}
+@media(max-width:520px){dl{grid-template-columns:repeat(2,minmax(0,1fr))}th,td{padding-inline:3px}}

@@ -4,4 +4,4 @@ export function canjearEmision(token: unknown, opciones: {
   clavePrivada: KeyObject;
   now?: () => number;
   vigenciaMs?: number;
-}): { cedula: string; nombre: string; puesto: string; tipo: "con" | "sin"; emitidoMs: number; id: string };
+}): { cedula: string; nombre: string; puesto: string; tipo: "con" | "sin"; emitidoMs: number; id: string; corte?: { equipo: number; total: number; sin: number } };

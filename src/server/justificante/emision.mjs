@@ -24,6 +24,18 @@ function sharedKey(privateKey,publicKey,nonce){
   try{return Buffer.from(hkdfSync('sha256',shared,nonce,issueContext,32));}
   finally{shared.fill(0);}
 }
+function validarCorte(corte){
+  if(!corte || !Number.isInteger(corte.equipo) || corte.equipo<1 || corte.equipo>999999999999
+    || !Number.isInteger(corte.total) || corte.total<1 || corte.total>0xffffff
+    || !Number.isInteger(corte.sin) || corte.sin<0 || corte.sin>corte.total)throw invalid();
+  return corte;
+}
+
+function leerCorte(id){
+  const bytes=Buffer.from(id,'base64url');
+  return validarCorte({equipo:bytes.readUIntBE(0,6),total:bytes.readUIntBE(6,3),sin:bytes.readUIntBE(9,3)});
+}
+
 function checkData(cedula,nombre,tipo,issued,id){
   if(typeof cedula!=='string'||!/^\d{10}$/.test(cedula)
     ||!nombreImprimible(nombre)||!['con','sin'].includes(tipo)||!Number.isSafeInteger(issued)||issued<INICIO_EMISION_MS||issued>=CIERRE_MS
@@ -35,7 +47,8 @@ export function canjearEmision(token,{clavesPuestos,clavePrivada,now=Date.now,vi
     token=normalizarTokenQr(token);
     if(!/^[A-Za-z0-9_-]{165,825}$/.test(token))throw invalid();
     const data=Buffer.from(token,'base64url');
-    if(data.toString('base64url')!==token||data[0]!==1)throw invalid();
+    const version=data[0];
+    if(data.toString('base64url')!==token||(version!==1 && version!==2))throw invalid();
     const len=data[1];
     if(len<1||len>32)throw invalid();
     const stationEnd=2+len;
@@ -65,7 +78,9 @@ export function canjearEmision(token,{clavesPuestos,clavePrivada,now=Date.now,vi
             checkData(cedula,nombre,tipo,emitidoMs,id);
             const current=now();
             if(!Number.isFinite(current)||emitidoMs>current+120000||current-emitidoMs>vigenciaMs)throw invalid();
-            return {cedula,nombre,puesto,tipo,emitidoMs,id};
+            const emision={cedula,nombre,puesto,tipo,emitidoMs,id};
+            if(version===2)emision.corte=leerCorte(id);
+            return emision;
           }finally{plain.fill(0);}
         }finally{final.fill(0);}
       }finally{pending.fill(0);}

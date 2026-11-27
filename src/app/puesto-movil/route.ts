@@ -3,7 +3,7 @@ import { credencialesMovil } from "@/server/puesto-movil/credenciales";
 const pagina = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive"><title>Puesto móvil de información electoral · Madrid</title>
-<link rel="stylesheet" href="/electoral/puesto-movil.css"><script defer src="/electoral/puesto-movil.js?v=zona-unica"></script></head>
+<link rel="stylesheet" href="/electoral/puesto-movil.css"><script defer src="/electoral/puesto-movil.js?v=equipo"></script></head>
 <body>
 <header><div class="cabecera"><img src="/electoral/escudo.png" alt="República del Ecuador" width="82" height="43"><div><strong>Consulado General del Ecuador</strong><span>Madrid · España</span></div></div></header>
 <main data-acceso-puesto="">

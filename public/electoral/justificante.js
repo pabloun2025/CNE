@@ -16,7 +16,7 @@
   async function post(ruta, datos) {
     let response;
     try {
-      response = await fetch("/api/voto/" + ruta, { method: "POST", credentials: "omit", cache: "no-store",
+      response = await fetch("/api/voto/" + ruta, { method: "POST", credentials: "omit", cache: "no-store", keepalive: ruta === "corte",
         headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) });
     } catch { throw Error("Compruebe su conexión a internet y vuelva a intentarlo."); }
     if (!response.ok) {
@@ -30,6 +30,7 @@
     mensaje("Escanee el código QR de justificante laboral de su ticket para continuar.");
     return;
   }
+  void post("corte", { token }).catch(() => {});
   el("abrir").disabled = false;
   el("abrir").addEventListener("click", async () => {
     el("abrir").disabled = true;
@@ -40,7 +41,6 @@
       sesion = datos.sesion;
       el("nombre").textContent = datos.nombre;
       el("cedula").textContent = datos.cedula;
-      el("restantes").textContent = "Aperturas restantes en este ticket: " + datos.restantes + ".";
       el("entrada").hidden = true;
       el("formulario").hidden = false;
       el("envio-correo").hidden = false;

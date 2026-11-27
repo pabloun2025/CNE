@@ -533,3 +533,10 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Se comprobaron las 95 juntas de Caja Mágica y los rangos del catálogo de colores. Toledo y Zaragoza tienen 1M y 1F, ambas con «Zona Única».
 - El reemplazo móvil recibe el sobre cifrado, valida el padrón antes de publicarlo y sustituye el archivo mediante renombrado atómico. Mantiene los accesos del puesto y de coordinación. La carga se cierra después de aplicarse y el cierre electoral retira el padrón vigente.
 - El móvil quedó verificado en Oracle con el despliegue `45896771971` y siete consultas en las tres ciudades. Para Windows se verificaron las 99 combinaciones de recinto y junta en el padrón cifrado y siete consultas con generación de ticket sin salida de red. El ZIP privado usa el manifiesto nuevo y conserva la descarga habitual.
+
+## 60. Recuento por equipo y ZIP definitivo (27-11)
+
+- Windows imprime las coincidencias al buscar y cuenta cada búsqueda al generar su primer ticket. Para ausencias se mantienen la verificación de cédula y el nombre. El identificador se deriva automáticamente de Windows y el recuento se conserva en el equipo. Reintentos y reimpresiones reutilizan el mismo ticket.
+- El QR laboral firmado transporta el número y el acumulado sin aumentar el identificador del sobre. El portal acepta también los códigos previos. Al abrir el enlace se registra el corte, y solo un total mayor sustituye el corte del equipo. El justificante sigue disponible tras la tercera apertura.
+- El tablero de solo lectura está en `/recuento-electoral`. Actualiza los datos en línea cada diez segundos y advierte que los datos offline dependen del último ticket escaneado. La respuesta contiene únicamente números de equipo y cifras. Las consultas anteriores sin número siguen sumando al total.
+- El ZIP se prueba y publica sin volver a empaquetarlo. Conserva el padrón cifrado de la revisión 3 y el enlace privado de entrega.

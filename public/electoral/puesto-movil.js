@@ -14,6 +14,33 @@
   let abierto = false;
   let cerrado = false;
   let turno = "";
+  let equipo;
+  let pendiente;
+  const claveEquipo = "cne.puesto-movil.equipo";
+  function nuevoEquipo() {
+    let n;
+    do {
+      n = crypto.getRandomValues(new Uint8Array(5)).reduce((total, byte) => total * 256 + byte, 0);
+    } while (n < 1 || n > 999999999999);
+    return n;
+  }
+  function leerEquipo() {
+    try {
+      const guardado = localStorage.getItem(claveEquipo);
+      if (/^[1-9]\d{0,11}$/.test(guardado)) return Number(guardado);
+      const n = nuevoEquipo();
+      localStorage.setItem(claveEquipo, String(n));
+      return n;
+    } catch { return nuevoEquipo(); }
+  }
+  async function equipoLocal() {
+    if (!equipo) {
+      // Dos pestañas abiertas por primera vez deben compartir el mismo número.
+      try { equipo = navigator.locks ? await navigator.locks.request(claveEquipo, leerEquipo) : leerEquipo(); }
+      catch { equipo = leerEquipo(); }
+    }
+    return equipo;
+  }
   let generacion = 0;
   let revision = 0;
   let limite = Infinity;
@@ -93,6 +120,7 @@
   }
   function cerrar() {
     cerrado = true;
+    pendiente = undefined;
     revision++;
     clearTimeout(temporizador);
     retirarPuesto();
@@ -184,9 +212,14 @@
     mensaje("mensaje");
     mensaje("consulta-estado", "Consultando…");
     try {
-      const data = await api("consulta", { cedula:el("cedula").value });
+      const cedula = el("cedula").value;
+      const numero = await equipoLocal();
+      if (actual !== generacion || !permitido()) return;
+      if (pendiente?.cedula !== cedula) pendiente = { cedula, solicitud:crypto.randomUUID() };
+      const data = await api("consulta", { ...pendiente, equipo:numero });
       if (actual !== generacion || !permitido()) return;
       if (typeof data.turno !== "string" || !data.turno) throw Error("No se pudo iniciar la atención. Repita la consulta.");
+      pendiente = undefined;
       const r = data.resultado;
       turno = data.turno;
       el("resultado-titulo").textContent = r ? "Asignación electoral" : "No consta en este padrón";
@@ -280,7 +313,7 @@
       if (document.hidden) { revision++; mostrar("puesto", false); }
       else void estado();
     });
-    window.addEventListener("pagehide", retirarPuesto);
+    window.addEventListener("pagehide", () => { pendiente = undefined; retirarPuesto(); });
     window.addEventListener("pageshow", event => { if (event.persisted) void estado(); });
     window.addEventListener("online", estado);
     window.addEventListener("offline", () => {

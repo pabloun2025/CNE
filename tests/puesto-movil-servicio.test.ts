@@ -29,7 +29,7 @@ const gestion = "B".repeat(43);
 const presente = "0000000001";
 const ausente = "0000000002";
 type Estado = "pendiente" | "aceptado" | "incierto" | "enviando";
-let actividad: Map<string, { tipo: "con" | "sin"; estado: Estado; huella_peticion: string | null }>;
+let actividad: Map<string, { tipo: "con" | "sin"; estado: Estado; huella_peticion: string | null; equipo?: number; solicitud?: string }>;
 
 let contactos: Map<string, { huella_cedula: Buffer; nonce: Buffer; cifrado: Buffer }>;
 
@@ -61,10 +61,16 @@ beforeEach(() => {
       return [{}];
     }
     if (sql.includes("FROM cne.puesto_movil_contactos")) return [...contactos.values()];
+    if (sql.startsWith("SELECT id,tipo FROM cne.puesto_movil_actividad")) {
+      const anterior = [...actividad].find(([,fila]) => fila.equipo === args[0] && fila.solicitud === args[1]);
+      return anterior ? [{ id:anterior[0], tipo:anterior[1].tipo }] : [];
+    }
     const [id, param] = args as string[];
     if (sql.startsWith("INSERT")) {
-      actividad.set(id, { tipo: param as "con" | "sin", estado: "pendiente", huella_peticion: null });
-      return [];
+      const [,,equipo,solicitud] = args as [string,string,number?,string?];
+      if (equipo !== undefined && [...actividad.values()].some(fila => fila.equipo === equipo && fila.solicitud === solicitud)) return [];
+      actividad.set(id, { tipo: param as "con" | "sin", estado: "pendiente", huella_peticion: null, equipo, solicitud });
+      return [{ id }];
     }
     if (sql.trim().startsWith("SELECT count")) {
       const rows = [...actividad.values()];
@@ -96,6 +102,36 @@ describe("Puesto electoral móvil", () => {
     expect(datos.turno).not.toContain(presente);
     expect((await post("consulta", { cedula: presente }, acceso.slice(0,18), "https://cne.consulado.app")).status).toBe(200);
     expect((await post("seguimiento", {}, gestion.slice(0,18), "https://cne.consulado.app")).status).toBe(403);
+  });
+
+  it("deduplica por equipo y solicitud, conserva el envío y cuenta búsquedas nuevas y antiguas", async () => {
+    const equipo = 999999999999, solicitud = "338b0327-9165-47de-93c2-b3d9b2884ae8";
+    const datos = { cedula:presente, equipo, solicitud };
+    const [uno, dos] = await Promise.all([post("consulta",datos), post("consulta",datos)]);
+    expect([uno.status,dos.status]).toEqual([200,200]);
+    expect(actividad.size).toBe(1);
+    for (const consulta of [uno,dos]) {
+      const { turno } = await consulta.json();
+      expect((await post("envio",{ turno,correo:"prueba@example.invalid" })).status).toBe(200);
+    }
+    expect(dependencias.correo).toHaveBeenCalledTimes(1);
+    expect((await post("consulta",{ ...datos,cedula:ausente })).status).toBe(409);
+    dependencias.consultar.mockReturnValueOnce({ nombre:"OTRA PERSONA FICTICIA", junta:"M1", recinto:"Toledo", zona:"Zona Única", verificarWeb:false });
+    expect((await post("consulta",{ ...datos,cedula:"0000000003" })).status).toBe(409);
+    expect(actividad.size).toBe(1);
+    expect((await post("consulta",{ ...datos,solicitud:"08f84a74-ef7b-4358-9392-dd0778e25a0a" })).status).toBe(200);
+    expect((await post("consulta",{ ...datos,equipo:1 })).status).toBe(200);
+    expect((await post("consulta",{ cedula:presente })).status).toBe(200);
+    expect([...actividad.values()].map(fila=>fila.equipo)).toEqual([equipo,equipo,1,undefined]);
+  });
+
+  it("rechaza identificadores incompletos o fuera del rango", async () => {
+    const solicitud="338b0327-9165-47de-93c2-b3d9b2884ae8";
+    for (const ids of [{equipo:0,solicitud},{equipo:1e12,solicitud},{equipo:0.5,solicitud},
+      {equipo:"12",solicitud},{equipo:1},{solicitud},{equipo:1,solicitud:"incorrecta"}]) {
+      expect((await post("consulta",{ cedula:presente,...ids })).status).toBe(400);
+    }
+    expect(actividad.size).toBe(0);
   });
 
   it("usa el nombre del padrón, valida el DNI y envía el PDF una sola vez", async () => {

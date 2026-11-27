@@ -101,14 +101,46 @@ function leerTurno(valor: unknown): Turno {
   } catch { fallo(409, "La consulta ha caducado. Vuelva a buscar la cédula."); }
 }
 
-export async function consultar(cedula: unknown) {
+// El mismo intento recupera su actividad. La clave impide deducir la cédula a partir de su UUID.
+function idDeConsulta(equipo: number, solicitud: string, cedula: string) {
+  const clave = masterKey();
+  try {
+    const bytes = createHmac("sha256", clave).update(JSON.stringify(["puesto-movil/actividad/v1", equipo, solicitud, cedula])).digest();
+    bytes[6] = (bytes[6] & 15) | 128;
+    bytes[8] = (bytes[8] & 63) | 128;
+    const hex = bytes.subarray(0, 16).toString("hex");
+    return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join("-");
+  } finally { clave.fill(0); }
+}
+
+function identificacionConsulta(equipo: unknown, solicitud: unknown) {
+  if (equipo === undefined && solicitud === undefined) return null;
+  if (typeof equipo !== "number" || !Number.isSafeInteger(equipo) || equipo < 1 || equipo > 999999999999 ||
+      typeof solicitud !== "string" || !formatoUuid.test(solicitud)) fallo(400, "La identificación de la consulta no es válida.");
+  return { equipo, solicitud };
+}
+
+export async function consultar(cedula: unknown, equipo?: unknown, solicitud?: unknown) {
   if (typeof cedula !== "string" || !formatoCedula.test(cedula)) fallo(400, "Ingrese los 10 dígitos de la cédula.");
+  const identificacion = identificacionConsulta(equipo, solicitud);
   const elector = buscar(cedula);
   const { cierreMs } = exigirPadron();
   const tipo = elector ? "con" : "sin";
-  const id = randomUUID();
+  let id: string;
+  if (!identificacion) {
+    id = randomUUID();
+    await query("INSERT INTO cne.puesto_movil_actividad (id,tipo) VALUES ($1,$2)", [id, tipo]);
+  } else {
+    id = idDeConsulta(identificacion.equipo, identificacion.solicitud, cedula);
+    const insertadas = await query(`INSERT INTO cne.puesto_movil_actividad (id,tipo,equipo,solicitud)
+      VALUES ($1,$2,$3,$4) ON CONFLICT (equipo,solicitud) DO NOTHING RETURNING id`, [id,tipo,equipo,solicitud]);
+    if (!insertadas.length) {
+      // Otra transacción puede haber confirmado la fila durante el INSERT.
+      const [previa] = await query<{ id: string; tipo: Tipo }>("SELECT id,tipo FROM cne.puesto_movil_actividad WHERE equipo=$1 AND solicitud=$2", [equipo,solicitud]);
+      if (previa?.id !== id || previa.tipo !== tipo) fallo(409, "La solicitud ya corresponde a otra consulta.");
+    }
+  }
   const turno = generarTurno({ contexto, id, cedula, vence: Math.min(cierreMs, Date.now() + 10 * 60_000), tipo });
-  await query("INSERT INTO cne.puesto_movil_actividad (id,tipo) VALUES ($1,$2)", [id, tipo]);
   exigirPadron();
   return {
     resultado: elector ? { junta: elector.junta, zona: elector.zona, recinto: elector.recinto, verificarWeb: elector.verificarWeb } : null,
