@@ -23,6 +23,7 @@ const POR_MODO = [
   ["fichas_abiertas_finanzas", "Fichas abiertas en Finanzas"],
   ["escaneos_finanzas", "Escaneos de Finanzas"],
   ["asignaciones_cargo", "Asignaciones de cargos"],
+  ["ausencias_mesa", "Ausencias en mesas"],
   ["decisiones_movimiento", "Movimientos entre juntas"],
   ["excepciones_disponibilidad", "Excepciones de disponibilidad"],
   ["lecturas_puerta", "Registros de ingreso"],

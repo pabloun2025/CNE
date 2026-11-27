@@ -12,7 +12,7 @@ import { bloquearJuntas, insertarAsignacion, insertarMovimiento, type Actor, typ
 
 export type JuntaPanorama = {
   id: number; junta: string; zona: ZonaColor;
-  cargosPendientes: number; capturaPendiente: number; porValidar: number; delMjrv: number; validados: number;
+  cargosPendientes: number; capturaPendiente: number; porValidar: number; delMjrv: number; validados: number; ausentes: number;
 };
 
 export async function listarPanoramaJuntas(): Promise<JuntaPanorama[]> {
@@ -25,14 +25,18 @@ export async function listarPanoramaJuntas(): Promise<JuntaPanorama[]> {
     const { rows: actuaciones } = await client.query<{ junta_id: number; mjrv_id: number }>(
       "SELECT junta_id, mjrv_id FROM v_actuacion_mesa",
     );
+    const { rows: ausencias } = await client.query<{ id: number; junta_id: number }>("SELECT id, junta_id FROM v_titular_mesa WHERE ausente");
     const documentos = await consultarSeguimientoDocumental(client);
     return juntas.map((junta) => {
       const confirmados = new Set(actuaciones.filter((a) => a.junta_id === junta.id).map((a) => a.mjrv_id));
       const cargosPendientes = CARGOS.length - confirmados.size;
-      const fichas = documentos.filter((f) => f.juntaActualId === junta.id && (cargosPendientes > 0 || confirmados.has(f.id)));
+      const ausentes = new Set(ausencias.filter((a) => a.junta_id === junta.id).map((a) => a.id));
+      const fichas = documentos.filter((f) => f.juntaActualId === junta.id
+        && (confirmados.has(f.id) || (cargosPendientes > 0 && !ausentes.has(f.id))));
       return {
         ...junta,
         cargosPendientes,
+        ausentes: ausentes.size,
         capturaPendiente: fichas.filter((f) => !f.completos).length,
         porValidar: fichas.filter((f) => f.estado === "por_validar").length,
         delMjrv: fichas.filter((f) => f.estado !== "validado" && (f.origen === "mjrv" || f.origen === "mixto")).length,
@@ -59,10 +63,8 @@ export async function consultarJuntaVerificacion(juntaId: number, cedula?: strin
     const { rows: puestos } = await client.query<{ id: number; mjrvId: number; cargo: Cargo; nombre: string }>(
       `SELECT v.id, v.mjrv_id AS "mjrvId", v.cargo, m.apellidos || ', ' || m.nombres AS nombre
          FROM v_actuacion_mesa v JOIN mjrv m ON m.id = v.mjrv_id WHERE v.junta_id = $1`, [juntaId]);
-    const { rows: titulares } = await client.query<{ cargo: Cargo; nombre: string }>(
-      `SELECT DISTINCT ON (rol) rol AS cargo, apellidos || ', ' || nombres AS nombre
-         FROM mjrv WHERE junta_origen_id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba)
-           AND rol IN ('presidente','secretario','vocal') ORDER BY rol, fila_origen, id`, [juntaId]);
+    const { rows: titulares } = await client.query<{ id: number; cargo: Cargo; nombre: string; ausente: boolean }>(
+      "SELECT id, cargo, nombre, ausente FROM v_titular_mesa WHERE junta_id = $1", [juntaId]);
     const persona = cedula ? (await client.query<PersonaMesa>(PERSONA, [normalizarCedula(cedula)])).rows[0] : null;
     const documentacion = (await consultarSeguimientoDocumental(client, juntaId))
       .map(({ id, cedula, nombre, estado, origen }) => ({ id, cedula, nombre, estado, origen }));
@@ -78,6 +80,37 @@ type DatosActuacion = {
 };
 const fuera = (mensaje: string) => ({ ok: false as const, mensaje });
 const cambio = () => ({ ok: false as const, cambio: true, mensaje: "La junta cambió. Vuelva a consultar antes de confirmar." });
+
+export async function cambiarAusenciaMesa(actor: Actor, d: {
+  juntaId: number; cargo: string; titularId: number; ausente: boolean; modo: Modo;
+}): Promise<Resultado> {
+  if (!CARGOS.includes(d.cargo as Cargo)) return fuera("Elija un cargo.");
+  return withTx(async (client) => {
+    const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
+    if (modo !== d.modo) return fuera("El modo cambió. Vuelva a abrir el puesto.");
+    await bloquearJuntas(client, [d.juntaId]);
+    await client.query("SELECT id FROM mjrv WHERE id = $1 FOR UPDATE", [d.titularId]);
+    const { rows: [titular] } = await client.query<{ id: number; ausente: boolean }>(
+      "SELECT id, ausente FROM v_titular_mesa WHERE junta_id = $1 AND cargo = $2", [d.juntaId, d.cargo]);
+    if (titular?.id !== d.titularId) return cambio();
+    if (d.ausente && (await client.query("SELECT 1 FROM v_actuacion_mesa WHERE mjrv_id = $1", [titular.id])).rowCount) {
+      return fuera("La persona ya tiene una actuación confirmada. Revise quién ejerció el cargo.");
+    }
+    const mensaje = d.ausente ? "Ausencia registrada." : "Ausencia retirada.";
+    if (titular.ausente === d.ausente) return { ok: true, mensaje };
+    await client.query(
+      `INSERT INTO ausencias_mesa (junta_id, cargo, mjrv_id, activa) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (junta_id, cargo, mjrv_id, es_prueba) DO UPDATE SET activa = excluded.activa`,
+      [d.juntaId, d.cargo, titular.id, d.ausente],
+    );
+    await registrarAuditoria({
+      portal: "mando", actorTipo: actor.tipo === "operador" ? "operador" : "usuario",
+      actorId: actor.id, actorNombre: actor.nombre, accion: d.ausente ? "ausencia_mesa_registrada" : "ausencia_mesa_retirada",
+      entidad: "mjrv", entidadId: titular.id, datos: { modo, junta: d.juntaId, cargo: d.cargo },
+    }, client);
+    return { ok: true, mensaje };
+  });
+}
 
 async function registrarIncorporacion(client: PoolClient, actor: Actor, d: DatosActuacion, cedula: string) {
   const { rows: [persona] } = await client.query<{ id: number }>(
@@ -132,6 +165,7 @@ export async function verificarActuacion(actor: Actor, d: DatosActuacion): Promi
     await insertarAsignacion(client, actor, {
       mjrvId, juntaId: d.juntaId, cargo, origen: traslado ? "traslado" : vigente ? "manual" : "incorporado", verificada: true,
     });
+    await client.query("UPDATE ausencias_mesa SET activa = false WHERE mjrv_id = $1 AND activa AND es_prueba = cne.en_prueba()", [mjrvId]);
     await registrarAuditoria({
       portal: "mando", actorTipo: actor.tipo === "operador" ? "operador" : "usuario", actorId: actor.id, actorNombre: actor.nombre, accion: "actuacion_mesa_verificada",
       entidad: "mjrv", entidadId: mjrvId,
