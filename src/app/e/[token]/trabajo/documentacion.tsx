@@ -7,8 +7,9 @@ import type { LadoDocumento } from "@/domain/documentos";
 
 type Ficha = EstadoFotos & {
   mjrvId: number; nombre: string; cedula: string; junta: string; completos: boolean;
-  modo?: "prueba" | "eleccion"; validada?: boolean; version?: string;
+  modo?: "prueba" | "eleccion"; validada?: boolean; version?: string; necesitaRepetir?: boolean; motivoRepetir?: string | null;
 };
+const LADO_TEXTO: Record<LadoDocumento, string> = { anverso: "anverso", reverso: "reverso", pasaporte: "pasaporte" };
 
 function FotoPuesto({ url, token, alt, onLoad, onError }: {
   url: string; token?: string; alt: string; onLoad: () => void; onError: () => void;
@@ -50,6 +51,7 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
   const [mensaje, setMensaje] = useState("");
   const [ocupado, setOcupado] = useState(!!cedulaInicial);
   const [repetir, setRepetir] = useState(false);
+  const [borrarLado, setBorrarLado] = useState<LadoDocumento | null>(null);
   const [fotosCargadas, setFotosCargadas] = useState<string[]>([]);
   const lados = (["anverso", "reverso", "pasaporte"] as const).filter((lado) => ficha?.[lado]);
   const fotosVisibles = ficha?.version && lados.every((lado) => fotosCargadas.includes(`${ficha.version}:${lado}`));
@@ -71,6 +73,7 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
     setMensaje("");
     setFicha(null);
     setRepetir(false);
+    setBorrarLado(null);
     setFotosCargadas([]);
     setOcupado(true);
     try {
@@ -149,6 +152,31 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
     finally { setOcupado(false); }
   };
 
+  const borrar = async (lado: LadoDocumento) => {
+    if (!ficha?.version || !ficha.modo || ocupado) return;
+    setOcupado(true);
+    setMensaje("");
+    try {
+      const headers = new Headers(cabeceras);
+      headers.set("content-type", "application/json");
+      const r = await fetch(puestoDirecto ? rutaPuesto : "/api/admin/finanzas/foto", {
+        method: puestoDirecto ? "POST" : "DELETE", headers,
+        body: JSON.stringify({ accion: "borrar_foto", mjrvId: ficha.mjrvId, lado, modo: ficha.modo, version: ficha.version, juntaId }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) { setMensaje(d.error ?? "No se pudo borrar la foto."); return; }
+      setBorrarLado(null);
+      setRepetir(false);
+      setFotosCargadas([]);
+      setFicha({ ...ficha, anverso: d.anverso, reverso: d.reverso, pasaporte: d.pasaporte, completos: d.completos, version: undefined });
+      setMensaje("Foto borrada. Puede volver a tomarla.");
+      try { setFicha(await consultar(ficha.cedula)); }
+      catch { setMensaje("Foto borrada. Vuelva a buscar la ficha antes de seguir."); }
+      onDocumentoCambiado?.();
+    } catch { setMensaje("No se pudo confirmar el borrado. Vuelva a buscar la ficha."); }
+    finally { setOcupado(false); }
+  };
+
   return (
     <div className="mx-auto max-w-md space-y-3">
       {!onTerminarFicha && <form onSubmit={(e) => { e.preventDefault(); void buscar(cedula); }} className="flex gap-2">
@@ -165,15 +193,33 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
           <p role="status" className={`font-bold ${ficha.completos ? "text-green-800" : "text-amber-800"}`}>
             {ficha.pasaporte ? "Página de datos del pasaporte guardada" : ficha.completos ? "Anverso y reverso de la cédula guardados" : ficha.anverso ? "Falta el reverso de la cédula" : ficha.reverso ? "Falta el anverso de la cédula" : "Sin fotos del documento"}
           </p>
-          {capturaMesas && ficha.completos && (!ficha.validada || fotosVisibles) && <p className="font-semibold">{ficha.validada ? "Documento validado" : "Fotos completas · Por validar"}</p>}
+          {ficha.necesitaRepetir && <p role="status" className="banner warn"><strong>Necesita repetir</strong>{ficha.motivoRepetir ? ` · ${ficha.motivoRepetir}` : ""}</p>}
+          {capturaMesas && !ficha.necesitaRepetir && ficha.completos && (!ficha.validada || fotosVisibles) && <p className="font-semibold">{ficha.validada ? "Documento validado" : "Fotos completas · Por validar"}</p>}
           {verFotos && ficha.version && lados.map((lado) => (
-            <FotoPuesto key={`${ficha.version}:${lado}`} token={puestoDirecto ? token : undefined}
+            <figure key={`${ficha.version}:${lado}`} className="space-y-2">
+            <FotoPuesto token={puestoDirecto ? token : undefined}
               url={puestoDirecto
                 ? `${rutaPuesto}?id=${ficha.mjrvId}&lado=${lado}&modo=${ficha.modo}&version=${ficha.version}${alcance}`
                 : `/api/admin/finanzas/cedula/${ficha.mjrvId}/${lado}?modo=${ficha.modo}&version=${ficha.version}${alcance}`}
               onLoad={() => setFotosCargadas((actual) => [...actual, `${ficha.version}:${lado}`])}
               onError={() => setMensaje("No se pudo abrir una foto. Vuelva a buscar la ficha o repita la captura.")}
               alt={lado === "pasaporte" ? "Página de datos del pasaporte" : `Cédula · ${lado}`} />
+              {!ficha.validada && (
+                borrarLado === lado ? (
+                  <div className="banner warn space-y-2">
+                    <p>¿Borrar la foto del {LADO_TEXTO[lado]}?</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="button-like danger" disabled={ocupado} onClick={() => void borrar(lado)}>Confirmar borrado</button>
+                      <button type="button" className="button-like secondary" disabled={ocupado} onClick={() => setBorrarLado(null)}>Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="button-like secondary !text-red-800" disabled={ocupado} onClick={() => setBorrarLado(lado)}>
+                    Borrar foto del {LADO_TEXTO[lado]}
+                  </button>
+                )
+              )}
+            </figure>
           ))}
           {verFotos && ficha.completos && (
             <button type="button" className="button-like secondary" disabled={ocupado} onClick={() => setRepetir(!repetir)}>
@@ -181,12 +227,12 @@ export function Documentacion({ token, capturaMesas = false, validarPorEnlace = 
             </button>
           )}
           {(!verFotos || !ficha.completos || repetir) && <CapturaDocumentosPuesto key={ficha.mjrvId} fotos={ficha} onUsar={subir} capturaGuiada={capturaMesas} />}
-          {validacion && ficha.completos && !repetir && (
+          {validacion && ficha.completos && !repetir && !ficha.necesitaRepetir && (
             ficha.validada
               ? (fotosVisibles && <p role="status" className="font-bold text-green-800">Documento validado</p>)
-              : <button type="button" className="button-like w-full" disabled={ocupado || !fotosVisibles} onClick={() => void validar()}>Validar documento</button>
+              : <button type="button" className="button-like w-full" disabled={ocupado || !fotosVisibles} onClick={() => void validar()}>Marcar como validado</button>
           )}
-          <button disabled={ocupado} onClick={onTerminarFicha ?? (() => { setFicha(null); setCedula(""); setMensaje(""); setRepetir(false); })} className="border-2 border-stone-900 px-4 py-3 disabled:opacity-60">Otra persona</button>
+          <button disabled={ocupado} onClick={onTerminarFicha ?? (() => { setFicha(null); setCedula(""); setMensaje(""); setRepetir(false); setBorrarLado(null); })} className="border-2 border-stone-900 px-4 py-3 disabled:opacity-60">Otra persona</button>
         </section>
       )}
     </div>

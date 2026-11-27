@@ -587,3 +587,9 @@ SMS Publi aceptó los 7.425 mensajes que quedaban del fichero aprobado. El diari
 - Se cotejó la revisión de la hoja oficial de las 14:51, hora de Madrid. Se dio de alta la Secretaría de F14 y de baja la Presidencia de M19 y la Secretaría de M39, con sus historiales. CNE confirmó los tres cambios y 274 fichas activas del padrón de Madrid. [Operación](https://github.com/pabloun2025/CNE/actions/runs/46058207662)
 - La hoja indica 12 vacantes, cinco presidencias, cuatro secretarías y tres vocalías. CNE indica 11 vacantes, con una secretaría menos porque la de F23 sigue activa. CNE registra cero suplentes. No se cambió F23.
 - Se generó la credencial de F14. SMS Publi aceptó el SMS con el enlace. Brevo aceptó el correo con el PDF adjunto y luego registró un rebote permanente. El correo queda pendiente de una dirección confirmada. El enlace del SMS tiene seguimiento en Credenciales. [Comprobación posterior](https://github.com/pabloun2025/CNE/actions/runs/46058286665)
+
+## 69. Revisión documental desde Finanzas y puestos de captura (27-11)
+
+- El resumen de Finanzas abre una vista previa ampliable desde cada fila. En Seguimiento documental se puede marcar como validado o indicar «Necesita repetir» con un motivo. El enlace y la cuenta de Validación muestran ese estado. Al guardar una nueva toma distinta, el expediente vuelve a revisión.
+- Finanzas puede deshacer una validación o una marca de repetición. La operación se audita y comprueba la versión, el modo y que el pago siga pendiente. Deshacer conserva la documentación y los recibos. Un pago pendiente vuelve a requerir la revisión de la identidad.
+- El puesto de mesa y el de Validación permiten borrar una toma concreta, previa confirmación. El servidor limita al puesto de mesa a la junta vigente, exige la versión abierta y protege las fotos de documentos validados y pagos confirmados.
