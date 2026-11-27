@@ -297,7 +297,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     firmaReceptor: firma, contingencia: guardados.contingencia, reconstruido: !!existente && !guardados.persona_recibo,
   };
   const pdf = await actaPago({ ...datos, anexo });
-  if (acta && (!existente || actualizarDocumento || firma)) {
+  if (acta && (!existente || actualizarDocumento || firma || paraImprimir)) {
     const recibo = anexo ? await actaPago({ ...datos, impresionN: 1 }) : pdf;
     const { ciphertext, nonce } = encryptBuffer(Buffer.from(recibo));
     await client.query(

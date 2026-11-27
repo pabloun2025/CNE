@@ -9,7 +9,7 @@ export default async function Documentos({ searchParams }: { searchParams: Promi
   const [{ fichas, modo }, { cedula }] = await Promise.all([listarDocumentosFinanzas(), searchParams]);
   return (
     <main className="stack-lg">
-      <h1>Revisión de documentos</h1>
+      <h1>2. Revisión de documentos</h1>
       <PestanasFinanzas />
       <p>Revise primero la cola de ventanilla. Cuando valide el documento, la ficha aparecerá en Impresión.</p>
       <RevisionVentanilla key={modo} fichas={fichas} modo={modo} cedulaInicial={cedula} />

@@ -189,17 +189,17 @@ function DetalleDocumento({ ficha, modo, onGuardar, siguiente }: {
         <p>Junta {ficha.junta} · {rotulo(ficha)}</p>
       </div>
       <RevisionDocumentoFinanzas key={`${ficha.version}:${ficha.revisionEn}`} id={ficha.id} modo={modo} version={ficha.version}
-        fotos={ficha} estado={ficha.estado} revisionEn={ficha.revisionEn} motivoRepetir={ficha.motivoRepetir}
+        fotos={ficha} estado={ficha.estado} revisionEn={ficha.revisionEn} motivoRepetir={ficha.motivoRepetir} soloLectura={ficha.pagoConfirmado}
         onGuardar={(aviso) => { setMensaje(aviso); onGuardar(); }} />
       {mensaje && <p role="status">{mensaje}</p>}
-      {ficha.estado === "necesita_repetir" && ficha.completos ? (
+      {ficha.pagoConfirmado ? <p>Pago confirmado.</p> : ficha.estado === "necesita_repetir" && ficha.completos ? (
         <button className="button-like secondary" type="button" onClick={() => setCaptura(!captura)}>
           {captura ? "Cerrar captura" : "Volver a fotografiar el documento"}
         </button>
       ) : ficha.estado === "validado" ? (
         <Link className="button-like secondary" href={{ pathname: "/admin/finanzas/pagar", query: { cedula: ficha.cedula } }}>Ir a Impresión</Link>
       ) : null}
-      {(!ficha.completos || captura) && <CapturaDocumentosPuesto fotos={ficha} onUsar={subir} seguirConReverso />}
+      {!ficha.pagoConfirmado && (!ficha.completos || captura) && <CapturaDocumentosPuesto fotos={ficha} onUsar={subir} seguirConReverso />}
     </>
   );
 }

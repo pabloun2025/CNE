@@ -39,7 +39,7 @@ export async function estadoDocumentos(mjrvId: number, client?: PoolClient): Pro
 export type FichaDocumentosFinanzas = {
   id: number; nombre: string; cedula: string; junta: string; juntaActualId: number;
   estado: EstadoSeguimientoDocumento; origen: OrigenFotosDocumento | null; version: string;
-  revisionEn: string | null; motivoRepetir: string | null;
+  revisionEn: string | null; motivoRepetir: string | null; pagoConfirmado: boolean;
 } & EstadoDocs;
 
 type FotoVersion = { lado: Lado; capturado: string; hash: string };
@@ -53,7 +53,8 @@ export async function consultarSeguimientoDocumental(client: PoolClient, juntaVi
     `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, ${juntaPublicaSql("j")} AS junta, a.junta_actual_id AS "juntaActualId",
             coalesce(d.fotos, '[]'::json) AS fotos, v.mjrv_id IS NOT NULL AS validada, d.publico, d.personal,
             r.mjrv_id IS NOT NULL AS "necesitaRepetir", r.motivo_repetir AS "motivoRepetir",
-            coalesce(r.repetir_en, v.validada_en)::text AS "revisionEn"
+            coalesce(r.repetir_en, v.validada_en)::text AS "revisionEn",
+            EXISTS (SELECT 1 FROM pagos_confirmados p WHERE p.mjrv_id=m.id AND p.es_prueba=cne.en_prueba()) AS "pagoConfirmado"
        FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
        JOIN v_mjrv_asignacion a ON a.mjrv_id = m.id
        LEFT JOIN v_cedulas_validadas v ON v.mjrv_id = m.id
