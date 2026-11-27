@@ -569,3 +569,9 @@ SMS Publi aceptó los 7.425 mensajes que quedaban del fichero aprobado. El diari
 - El enlace directo de Validación y su acceso de administración muestran el seguimiento de documentos junto al buscador y el escáner. Puede abrir una ficha desde los resultados para revisar y validar fotos.
 - En Finanzas, la pestaña «Seguimiento documental» conserva su URL y ofrece los mismos filtros. Cada lista separa «Pendientes de captura», «Por validar», «Del MJRV sin validar» y «Validados». La vista del MJRV incluye las cargas parciales y mixtas pendientes. Las fichas se pueden buscar por nombre, apellido o cédula y filtrar por junta de origen.
 - El estado y el origen de las imágenes vigentes se calculan en una consulta común con Verificación de mesas. La lista se actualiza después de capturar o validar y se puede volver a consultar desde «Actualizar lista».
+
+## 66. Recorrido por juntas desde el puesto de mesa (27-11)
+
+- Al abrir el enlace de Verificación de mesas aparece «Recorrido por juntas». Muestra las juntas por zona de color y vial, permite buscarlas por número y separa las que requieren visita de las que tienen documentos por validar o validados. Cada fila abre el detalle de la junta.
+- «Por recorrer» incluye cargos sin confirmar y documentos por completar. Cuando se confirman los tres cargos, el resumen documental cuenta a quienes ejercieron en la junta. La pantalla se actualiza cada 15 segundos mientras está activa y conserva el filtro al volver del detalle.
+- La vista general contiene solo totales por junta. La consulta y el detalle conservan las guardas del enlace de mesa y de su usuario administrativo.

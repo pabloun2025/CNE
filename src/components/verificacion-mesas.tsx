@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Documentacion } from "@/app/e/[token]/trabajo/documentacion";
 import { LectorQr } from "@/components/lector-qr";
 import { CARGOS, type Cargo } from "@/domain/cargos";
 import { ESTADOS_DOCUMENTO, ORIGEN_DOCUMENTOS } from "@/domain/documentos";
-import type { consultarJuntaVerificacion, DocumentoEnMesa, listarJuntasVerificacion } from "@/server/verificacion-mesas";
+import { PanoramaJuntas } from "./panorama-juntas";
+import type { consultarJuntaVerificacion, DocumentoEnMesa, JuntaPanorama } from "@/server/verificacion-mesas";
 
 type Consulta = NonNullable<Awaited<ReturnType<typeof consultarJuntaVerificacion>>>;
-type Junta = Awaited<ReturnType<typeof listarJuntasVerificacion>>[number];
 
 async function solicitar<T>(datos: object, token?: string, signal?: AbortSignal): Promise<T> {
   const headers = new Headers({ "content-type": "application/json" });
@@ -21,7 +21,7 @@ async function solicitar<T>(datos: object, token?: string, signal?: AbortSignal)
   return d;
 }
 
-export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: string }) {
+export function VerificacionMesas({ juntas, token }: { juntas: JuntaPanorama[]; token?: string }) {
   const [juntaId, setJunta] = useState(0);
   const [consulta, setConsulta] = useState<Consulta | null>(null);
   const [cargo, setCargo] = useState<Cargo | "">("");
@@ -37,6 +37,8 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
   const refrescarDocumentos = () => setRefresco((n) => n + 1);
   const abrirFotos = (cedula: string) => setCapturar((actual) => ({ cedula, revision: actual.revision + 1 }));
   const modoConsulta = consulta?.modo;
+  const cargarPanorama = useCallback((signal: AbortSignal) =>
+    solicitar<JuntaPanorama[]>({ accion: "panorama" }, token, signal), [token]);
 
   useEffect(() => {
     if (!juntaId || !modoConsulta) return;
@@ -49,7 +51,7 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
         const datos = await solicitar<Consulta>({ accion: "consultar", juntaId }, token, controlador.signal);
         if (!controlador.signal.aborted) {
           if (modoConsulta === datos.modo) {
-            setConsulta((actual) => actual?.modo === datos.modo ? { ...actual, documentacion: datos.documentacion } : actual);
+            setConsulta((actual) => actual?.modo === datos.modo ? { ...actual, documentacion: datos.documentacion, actuantes: datos.actuantes } : actual);
           } else {
             setConsulta(datos);
             setCedula(""); setConsultada(""); setCargo(""); setAviso(false); setLector(false);
@@ -78,6 +80,12 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
       setConsulta(null);
       setMensaje(e instanceof Error ? e.message : "No se pudo consultar la junta.");
     } finally { setOcupado(false); }
+  }
+
+  function elegirJunta(id: number) {
+    setJunta(id); setConsulta(null); setCargo(""); setCedula(""); setConsultada(""); abrirFotos(""); setFallaDocumentos(false); setLector(false);
+    void cargarJunta(id);
+    window.scrollTo(0, 0);
   }
 
   const actual = consulta?.puestos.find((p) => p.cargo === cargo);
@@ -112,14 +120,13 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <section className="card stack">
+      <PanoramaJuntas inicial={juntas} activo={!juntaId} cargar={cargarPanorama} abrir={elegirJunta} />
+      {juntaId > 0 && <section className="card stack">
+        <button type="button" className="button-like secondary self-start" disabled={ocupado} onClick={() => elegirJunta(0)}>
+          Volver al recorrido
+        </button>
         <label>Junta
-          <select value={juntaId} disabled={ocupado} onChange={(e) => {
-            const id = Number(e.target.value);
-            setJunta(id); setConsulta(null); setCargo(""); setCedula(""); setConsultada(""); abrirFotos(""); setFallaDocumentos(false); setLector(false);
-            void cargarJunta(id);
-          }}>
-            <option value={0}>Seleccione la junta</option>
+          <select value={juntaId} disabled={ocupado} onChange={(e) => elegirJunta(Number(e.target.value))}>
             {juntas.map((j) => <option key={j.id} value={j.id}>{j.junta} · {j.zona}</option>)}
           </select>
         </label>
@@ -135,9 +142,9 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
             })}
           </ul>
         )}
-      </section>
+      </section>}
       {consulta && (
-        <DocumentosMesa key={juntaId} fichas={consulta.documentacion} abrir={abrirFotos} actualizar={refrescarDocumentos} falla={fallaDocumentos} />
+        <DocumentosMesa key={juntaId} fichas={consulta.documentacion} actuantes={consulta.actuantes} abrir={abrirFotos} actualizar={refrescarDocumentos} falla={fallaDocumentos} />
       )}
       {consulta && (
         <section className="card stack">
@@ -191,7 +198,7 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
 const FILTROS_DOCUMENTO = {
   todos: "Todos",
   captura: "Pendientes de captura",
-  mjrv: "Del MJRV por validar",
+  mjrv: "Del MJRV sin validar",
   por_validar: "Por validar",
   validado: "Validados",
 } as const;
@@ -201,15 +208,18 @@ type Filtro = keyof typeof FILTROS_DOCUMENTO;
 function coincide(ficha: DocumentoEnMesa, filtro: Filtro) {
   if (filtro === "todos") return true;
   if (filtro === "captura") return ficha.estado === "sin_documento" || ficha.estado === "incompleto";
-  if (filtro === "mjrv") return ficha.estado === "por_validar" && (ficha.origen === "mjrv" || ficha.origen === "mixto");
+  if (filtro === "mjrv") return ficha.estado !== "validado" && (ficha.origen === "mjrv" || ficha.origen === "mixto");
   return ficha.estado === filtro;
 }
 
-function DocumentosMesa({ fichas, abrir, actualizar, falla }: {
-  fichas: DocumentoEnMesa[]; abrir: (cedula: string) => void; actualizar: () => void; falla: boolean;
+function DocumentosMesa({ fichas, actuantes, abrir, actualizar, falla }: {
+  fichas: DocumentoEnMesa[]; actuantes: number[]; abrir: (cedula: string) => void; actualizar: () => void; falla: boolean;
 }) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
-  const visibles = fichas.filter((ficha) => coincide(ficha, filtro));
+  const [todas, setTodas] = useState(false);
+  const tresConfirmados = actuantes.length === CARGOS.length;
+  const lista = tresConfirmados && !todas ? fichas.filter((ficha) => actuantes.includes(ficha.id)) : fichas;
+  const visibles = lista.filter((ficha) => coincide(ficha, filtro));
   return (
     <section className="card stack">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -220,10 +230,13 @@ function DocumentosMesa({ fichas, abrir, actualizar, falla }: {
       <label>Estado del documento
         <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)}>
           {(Object.keys(FILTROS_DOCUMENTO) as Filtro[]).map((opcion) => (
-            <option key={opcion} value={opcion}>{FILTROS_DOCUMENTO[opcion]} ({fichas.filter((ficha) => coincide(ficha, opcion)).length})</option>
+            <option key={opcion} value={opcion}>{FILTROS_DOCUMENTO[opcion]} ({lista.filter((ficha) => coincide(ficha, opcion)).length})</option>
           ))}
         </select>
       </label>
+      {tresConfirmados && <label className="flex items-center gap-2">
+        <input type="checkbox" checked={todas} onChange={(e) => setTodas(e.target.checked)} /> Mostrar todas las fichas de la junta
+      </label>}
       {visibles.length === 0 ? <p>No hay fichas en esta vista.</p> : (
         <ul className="divide-y">
           {visibles.map((ficha) => (

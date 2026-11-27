@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { consultarJuntaVerificacion, verificarActuacion as verificar } from "@/server/verificacion-mesas";
+import { consultarJuntaVerificacion, listarPanoramaJuntas, verificarActuacion as verificar } from "@/server/verificacion-mesas";
 import { fichaPago } from "@/server/finanzas";
 import { closePools } from "@/server/db";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
@@ -30,6 +30,9 @@ it("traslada un suplente y rechaza una segunda confirmación que ignora la susti
   expect((await verificarActuacion(actor, anterior)).ok).toBe(true);
   expect((await verificar(actor, { ...anterior, cargo: "secretario", personaAnterior: consultaAnterior })).ok).toBe(false);
   expect(await fichaPago(anterior.cedula)).toMatchObject({ cargo: "VOCAL", juntaOrigen: "H6", juntaVigente: "H7", actuacionVerificada: true });
+  const recorrido = await listarPanoramaJuntas();
+  expect(recorrido.find((j) => j.junta === "M6")).toMatchObject({ capturaPendiente: 0 });
+  expect(recorrido.find((j) => j.junta === "M7")).toMatchObject({ cargosPendientes: 2, capturaPendiente: 1 });
   expect((await verificarActuacion(actor, { ...anterior, cedula, nombres: "PERSONA", apellidos: "PRUEBA" })).ok).toBe(false);
   expect(await consultarDueno("SELECT cargo FROM cne.asignaciones_cargo WHERE mjrv_id=$1 AND activa", [suplente])).toEqual([{ cargo: "vocal" }]);
 });
@@ -94,4 +97,27 @@ it("distingue las fotos del MJRV, de la mesa y los documentos validados en la ju
     id, cedula, estado: ["sin_documento","incompleto","por_validar","por_validar","validado"][i],
     origen: [null,"mjrv","mjrv","mixto","personal"][i],
   })));
+});
+
+it("resume las juntas por recorrer y deja de contar al titular sustituido al confirmar los tres cargos", async () => {
+  const [{ id: junta }] = await consultarDueno<{ id: number }>("SELECT id::int FROM cne.juntas_madrid WHERE serie='H' AND numero=17");
+  const fichas = await consultarDueno<{ id: number; cedula: string }>(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+    SELECT lpad(i::text,10,'0'), 'PERSONA PRUEBA', i::text, 'VOCAL', 'vocal', $1
+      FROM generate_series(217, 220) i RETURNING id::int, cedula`, [junta]);
+  for (const [i, cargo] of ["presidente", "secretario", "vocal"].entries()) {
+    expect(await verificarActuacion(actor, { cedula: fichas[i].cedula, cargo, juntaId: junta, modo: "prueba", verificacionAnterior: null })).toMatchObject({ ok: true });
+    await consultarDueno(`INSERT INTO cne.documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, sha256, bytes, ancho, alto, origen)
+      VALUES ($1, 'pasaporte', decode('00','hex'), decode('00','hex'), decode('00','hex'), 30000, 500, 400, 'publico')`, [fichas[i].id]);
+  }
+  const panorama = await listarPanoramaJuntas();
+  expect(panorama).toHaveLength(95);
+  expect(panorama.find((j) => j.id === junta)).toMatchObject({
+    junta: "M17", zona: "amarillo", cargosPendientes: 0, capturaPendiente: 0, porValidar: 3, delMjrv: 3, validados: 0,
+  });
+  expect(panorama.find((j) => j.junta === "M18")).toMatchObject({ cargosPendientes: 3, capturaPendiente: 0 });
+  expect(panorama.find((j) => j.id === junta)).not.toHaveProperty("cedula");
+  const detalle = await consultarJuntaVerificacion(junta);
+  expect(detalle?.actuantes).toEqual(expect.arrayContaining(fichas.slice(0, 3).map((f) => f.id)));
+  expect(detalle?.actuantes).toHaveLength(3);
+  expect(detalle?.documentacion).toHaveLength(4);
 });

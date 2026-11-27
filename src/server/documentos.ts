@@ -37,7 +37,7 @@ export async function estadoDocumentos(mjrvId: number, client?: PoolClient): Pro
 }
 
 export type FichaDocumentosFinanzas = {
-  id: number; nombre: string; cedula: string; junta: string;
+  id: number; nombre: string; cedula: string; junta: string; juntaActualId: number;
   estado: EstadoSeguimientoDocumento; origen: OrigenFotosDocumento | null; version: string;
 } & EstadoDocs;
 
@@ -49,9 +49,10 @@ export async function consultarSeguimientoDocumental(client: PoolClient, juntaVi
     fotos: FotoVersion[]; validada: boolean; publico: boolean | null; personal: boolean | null;
   };
   const { rows } = await client.query<Fila>(
-    `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, ${juntaPublicaSql("j")} AS junta,
+    `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, ${juntaPublicaSql("j")} AS junta, a.junta_actual_id AS "juntaActualId",
             coalesce(d.fotos, '[]'::json) AS fotos, v.mjrv_id IS NOT NULL AS validada, d.publico, d.personal
        FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
+       JOIN v_mjrv_asignacion a ON a.mjrv_id = m.id
        LEFT JOIN v_cedulas_validadas v ON v.mjrv_id = m.id
        CROSS JOIN LATERAL (
          SELECT json_agg(json_build_object('lado', f.lado, 'capturado', f.creado_en::text, 'hash', encode(f.sha256, 'hex')) ORDER BY f.lado) AS fotos,
@@ -60,9 +61,7 @@ export async function consultarSeguimientoDocumental(client: PoolClient, juntaVi
            FROM documentos_mjrv f WHERE f.mjrv_id = m.id AND f.es_prueba = cne.en_prueba()
        ) d
       WHERE m.activo AND (cne.en_prueba() OR NOT m.es_prueba)
-        AND ($1::bigint IS NULL OR EXISTS (
-          SELECT 1 FROM v_mjrv_asignacion a WHERE a.mjrv_id = m.id AND a.junta_actual_id = $1
-        ))
+        AND ($1::bigint IS NULL OR a.junta_actual_id = $1)
       ORDER BY CASE WHEN $1::bigint IS NULL THEN j.serie END,
                CASE WHEN $1::bigint IS NULL THEN j.numero END, m.apellidos, m.nombres, m.id`, [juntaVigente ?? null],
   );

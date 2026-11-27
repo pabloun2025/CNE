@@ -1,18 +1,46 @@
 import type { PoolClient } from "pg";
 import { CARGOS, type Cargo } from "../domain/cargos";
+import type { ZonaColor } from "../domain/juntas";
 import { validarCedula } from "../domain/ingreso";
 import { registrarAuditoria } from "./auditoria";
 import type { Modo } from "./config";
-import { query, withTx } from "./db";
+import { withTx } from "./db";
 import { consultarSeguimientoDocumental, type FichaDocumentosFinanzas } from "./documentos";
 import { normalizarCedula } from "./incorporar";
 import { juntaPublicaSql } from "./junta-sql";
 import { bloquearJuntas, insertarAsignacion, insertarMovimiento, type Actor, type Resultado } from "./movimientos";
 
-export const listarJuntasVerificacion = () =>
-  query<{ id: number; junta: string; zona: string }>(
-    `SELECT id, ${juntaPublicaSql("juntas_madrid")} AS junta, zona_color AS zona FROM juntas_madrid ORDER BY serie, numero`,
-  );
+export type JuntaPanorama = {
+  id: number; junta: string; zona: ZonaColor;
+  cargosPendientes: number; capturaPendiente: number; porValidar: number; delMjrv: number; validados: number;
+};
+
+export async function listarPanoramaJuntas(): Promise<JuntaPanorama[]> {
+  return withTx(async (client) => {
+    await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const { rows: juntas } = await client.query<Pick<JuntaPanorama, "id" | "junta" | "zona">>(
+      `SELECT id, ${juntaPublicaSql("juntas_madrid")} AS junta, zona_color AS zona
+         FROM juntas_madrid ORDER BY orden_cercania, serie, numero`,
+    );
+    const { rows: actuaciones } = await client.query<{ junta_id: number; mjrv_id: number }>(
+      "SELECT junta_id, mjrv_id FROM v_actuacion_mesa",
+    );
+    const documentos = await consultarSeguimientoDocumental(client);
+    return juntas.map((junta) => {
+      const confirmados = new Set(actuaciones.filter((a) => a.junta_id === junta.id).map((a) => a.mjrv_id));
+      const cargosPendientes = CARGOS.length - confirmados.size;
+      const fichas = documentos.filter((f) => f.juntaActualId === junta.id && (cargosPendientes > 0 || confirmados.has(f.id)));
+      return {
+        ...junta,
+        cargosPendientes,
+        capturaPendiente: fichas.filter((f) => !f.completos).length,
+        porValidar: fichas.filter((f) => f.estado === "por_validar").length,
+        delMjrv: fichas.filter((f) => f.estado !== "validado" && (f.origen === "mjrv" || f.origen === "mixto")).length,
+        validados: fichas.filter((f) => f.estado === "validado").length,
+      };
+    });
+  });
+}
 
 type PersonaMesa = { id: number; activo: boolean; cedula: string; nombre: string; juntaId: number; junta: string; actuacionId: number | null; actuacionCargo: Cargo | null };
 const PERSONA = `SELECT m.id, m.activo, m.cedula, m.apellidos || ', ' || m.nombres AS nombre,
@@ -28,8 +56,8 @@ export async function consultarJuntaVerificacion(juntaId: number, cedula?: strin
     const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
     const junta = await client.query("SELECT 1 FROM juntas_madrid WHERE id = $1", [juntaId]);
     if (!junta.rowCount) return null;
-    const { rows: puestos } = await client.query<{ id: number; cargo: Cargo; nombre: string }>(
-      `SELECT v.id, v.cargo, m.apellidos || ', ' || m.nombres AS nombre
+    const { rows: puestos } = await client.query<{ id: number; mjrvId: number; cargo: Cargo; nombre: string }>(
+      `SELECT v.id, v.mjrv_id AS "mjrvId", v.cargo, m.apellidos || ', ' || m.nombres AS nombre
          FROM v_actuacion_mesa v JOIN mjrv m ON m.id = v.mjrv_id WHERE v.junta_id = $1`, [juntaId]);
     const { rows: titulares } = await client.query<{ cargo: Cargo; nombre: string }>(
       `SELECT DISTINCT ON (rol) rol AS cargo, apellidos || ', ' || nombres AS nombre
@@ -38,7 +66,7 @@ export async function consultarJuntaVerificacion(juntaId: number, cedula?: strin
     const persona = cedula ? (await client.query<PersonaMesa>(PERSONA, [normalizarCedula(cedula)])).rows[0] : null;
     const documentacion = (await consultarSeguimientoDocumental(client, juntaId))
       .map(({ id, cedula, nombre, estado, origen }) => ({ id, cedula, nombre, estado, origen }));
-    return { modo, puestos, titulares, documentacion, persona: persona ?? null };
+    return { modo, puestos, titulares, documentacion, actuantes: puestos.map((p) => p.mjrvId), persona: persona ?? null };
   });
 }
 
