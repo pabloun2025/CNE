@@ -540,3 +540,9 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - El QR laboral firmado transporta el número y el acumulado sin aumentar el identificador del sobre. El portal acepta también los códigos previos. Al abrir el enlace se registra el corte, y solo un total mayor sustituye el corte del equipo. El justificante sigue disponible tras la tercera apertura.
 - El tablero de solo lectura está en `/recuento-electoral`. Actualiza los datos en línea cada diez segundos y advierte que los datos offline dependen del último ticket escaneado. La respuesta contiene únicamente números de equipo y cifras. Las consultas anteriores sin número siguen sumando al total.
 - El ZIP se prueba y publica sin volver a empaquetarlo. Conserva el padrón cifrado de la revisión 3 y el enlace privado de entrega.
+
+## 61. Impresión opcional e historial visible en Windows (27-11)
+
+- Se restauró la casilla «Imprimir automáticamente al buscar», marcada al iniciar. Con la casilla desmarcada, una coincidencia muestra «Imprimir ticket». Se conserva el flujo de confirmación para quien no consta en el padrón.
+- La búsqueda actual muestra la junta y la zona en grande. La última atención impresa conserva su junta, zona y recinto, y las anteriores quedan en una lista de la sesión sin nombres ni cédulas.
+- Se probaron ambos modos con la red externa bloqueada, el regreso del foco al buscador y los tres niveles visuales del historial. El servidor local, el recuento, el padrón cifrado y el puente de impresión conservan los mismos componentes.
