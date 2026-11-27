@@ -62,6 +62,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
+  "GET /api/recuento-electoral": "publica", // cifras agregadas y números de equipo
   "GET /api/puesto-movil/[operacion]": "publica", // solo disponibilidad y cierre
   "POST /api/puesto-movil/[operacion]": [], // credencial de enlace propia, independiente de las sesiones de CNE
   "GET /w/[token]": "publica", // enlace firmado por ficha; solo fichas reales activas (Google Wallet)
