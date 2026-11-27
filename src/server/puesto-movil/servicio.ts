@@ -10,6 +10,7 @@ import { ErrorJustificante } from "../justificante/servicio";
 import { prepararDocumentoLaboral, validarDocumentoEspanol } from "../justificante/documento.mjs";
 import { consultarPadronMovil, estadoPadronMovil } from "./padron";
 import { credencialesMovil } from "./credenciales";
+import { registrarConsultaMovil } from "./terminal-online";
 import { guardarContactoAusente } from "./contactos";
 
 const recursos = join(process.cwd(), "src/server/recursos-electorales");
@@ -101,14 +102,14 @@ function leerTurno(valor: unknown): Turno {
   } catch { fallo(409, "La consulta ha caducado. Vuelva a buscar la cédula."); }
 }
 
-export async function consultar(cedula: unknown) {
+export async function consultar(cedula: unknown, enlace?: unknown, instalacion?: unknown) {
   if (typeof cedula !== "string" || !formatoCedula.test(cedula)) fallo(400, "Ingrese los 10 dígitos de la cédula.");
   const elector = buscar(cedula);
   const { cierreMs } = exigirPadron();
   const tipo = elector ? "con" : "sin";
   const id = randomUUID();
   const turno = generarTurno({ contexto, id, cedula, vence: Math.min(cierreMs, Date.now() + 10 * 60_000), tipo });
-  await query("INSERT INTO cne.puesto_movil_actividad (id,tipo) VALUES ($1,$2)", [id, tipo]);
+  await registrarConsultaMovil(id, tipo, enlace, instalacion);
   exigirPadron();
   return {
     resultado: elector ? { junta: elector.junta, zona: elector.zona, recinto: elector.recinto, verificarWeb: elector.verificarWeb } : null,

@@ -4,12 +4,27 @@
   const mostrar = (id, visible) => { el(id).hidden = !visible; };
   const fragmento = location.hash.slice(1);
   const gestion = fragmento.startsWith("seguimiento=");
+  const terminal = /^terminal=([1-9]\d?)\.[A-Za-z0-9_-]{22}$/.exec(fragmento);
   const formatoPuesto = /^(?:[A-Za-z0-9_-]{18}|[A-Za-z0-9_-]{43})$/;
   const acceso = gestion
     ? fragmento.slice("seguimiento=".length)
     : formatoPuesto.test(fragmento) ? fragmento : document.querySelector("main").dataset.accesoPuesto;
-  if (location.hash && (gestion || !formatoPuesto.test(fragmento))) history.replaceState(null, "", location.pathname);
+  if (location.hash && (gestion || (!terminal && !formatoPuesto.test(fragmento)))) history.replaceState(null, "", location.pathname);
   window.addEventListener("hashchange", () => location.reload());
+
+  const claveInstalacion = "cne-madrid-terminal-online-29n";
+  let instalacion;
+  if (terminal) {
+    el("terminal-online").textContent = "Terminal en línea " + terminal[1].padStart(2, "0");
+    mostrar("terminal-online", true);
+    try {
+      instalacion = localStorage.getItem(claveInstalacion);
+      if (!/^[a-f0-9]{16}$/.test(instalacion ?? "")) {
+        instalacion = Array.from(crypto.getRandomValues(new Uint8Array(8)), n => n.toString(16).padStart(2, "0")).join("");
+        localStorage.setItem(claveInstalacion, instalacion);
+      }
+    } catch { instalacion = undefined; }
+  }
 
   let abierto = false;
   let cerrado = false;
@@ -184,7 +199,11 @@
     mensaje("mensaje");
     mensaje("consulta-estado", "Consultando…");
     try {
-      const data = await api("consulta", { cedula:el("cedula").value });
+      if (terminal && !instalacion) throw Error("Permita guardar datos en el navegador para usar este puesto numerado.");
+      const data = await api("consulta", {
+        cedula: el("cedula").value,
+        ...(terminal && { terminal: fragmento.slice("terminal=".length), instalacion }),
+      });
       if (actual !== generacion || !permitido()) return;
       if (typeof data.turno !== "string" || !data.turno) throw Error("No se pudo iniciar la atención. Repita la consulta.");
       const r = data.resultado;
@@ -272,6 +291,7 @@
     mensaje("mensaje", "Para consultar, abra el enlace completo que compartió la coordinación electoral, incluido el código después del #.");
   } else if (gestion) {
     el("titulo").textContent = "Seguimiento del puesto móvil";
+    el("recuento-terminales").href = "/recuento-offline#seguimiento=" + acceso;
     mostrar("seguimiento", true);
     void actualizar();
   } else {

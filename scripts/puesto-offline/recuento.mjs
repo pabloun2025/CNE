@@ -18,7 +18,7 @@ function mostrar() {
   el("alta").hidden = true;
   el("atencion").hidden = false;
   el("entrega").hidden = true;
-  el("puesto").textContent = "Puesto " + datos.terminal;
+  el("puesto").textContent = "Terminal sin conexión " + String(datos.terminal).padStart(2, "0");
   for (const campo of categorias) el(campo).textContent = datos[campo];
   el("total").textContent = datos.con + datos.sin + datos.otra;
   el("deshacer").disabled = !datos.ultima;

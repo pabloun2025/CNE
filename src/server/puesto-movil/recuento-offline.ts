@@ -41,6 +41,13 @@ export async function recuentoOffline(codigo?: unknown) {
     }
     const { rows } = await client.query<Omit<Fila, "instalacion">>(
       "SELECT terminal,revision,con_padron,sin_padron,otra,recibido FROM cne.recuento_puesto_offline ORDER BY terminal");
-    return { estado, terminales: rows };
+    const { rows: enLinea } = await client.query<{ terminal: number; con: number; sin: number }>(`
+      SELECT terminal, count(a.id) FILTER (WHERE a.tipo='con') AS con, count(a.id) FILTER (WHERE a.tipo='sin') AS sin
+      FROM cne.puesto_terminal_online t LEFT JOIN cne.puesto_movil_actividad a ON a.terminal_online=t.terminal
+      GROUP BY t.terminal ORDER BY t.terminal
+    `);
+    const { rows: [sinTerminal] } = await client.query<{ consultas: number }>(
+      "SELECT count(*) AS consultas FROM cne.puesto_movil_actividad WHERE terminal_online IS NULL");
+    return { estado, terminales: rows, enLinea, sinTerminal: sinTerminal.consultas };
   });
 }

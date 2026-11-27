@@ -541,3 +541,5 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - El ZIP auxiliar se construye desde `scripts/puesto-offline`. El generador térmico Windows y el padrón permanecen fuera de Git. Para automatizar el recuento y quitar el texto del límite de los próximos tickets impresos, queda pendiente integrar el contador en el generador original.
 - El canje web del justificante admite más de tres aperturas con el mismo QR. Cada sesión dura una hora y la descarga es independiente de los turnos de correo. Conserva un máximo de tres turnos de correo por ticket.
 - El despliegue valida y conserva cifrada en el volumen privado la descarga Windows original antes de recrear el contenedor. El carril de prueba del contador usa datos ficticios.
+
+- Tablero de terminales con números separados por modalidad. Coordinación genera un enlace numerado para cada terminal en línea. El primer uso asocia el número a un navegador y la actividad se registra junto al resultado de la consulta. Las consultas sin enlace asignado quedan visibles como un total separado. Un puesto sin conexión aparece como reportado al importar su corte, incluso con cero atenciones.

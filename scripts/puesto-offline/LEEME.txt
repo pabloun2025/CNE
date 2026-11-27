@@ -1,7 +1,7 @@
 CNE Madrid · Recuento de prueba sin conexión
 
 1. Extraiga todo el ZIP a una carpeta fija y abra recuento.html con Edge o Chrome.
-2. Use un número distinto para cada puesto. Mantenga una sola pestaña abierta
+2. Use un número del 01 al 99 distinto para cada puesto sin conexión. Mantenga una sola pestaña abierta
    por equipo. Abra siempre el mismo archivo con el mismo perfil de navegador.
 3. Marque una categoría por atención. El total se guarda sin conexión.
 4. Al cierre, pulse Generar corte. Coordinación escanea el QR, se identifica
