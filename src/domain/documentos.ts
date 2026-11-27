@@ -11,6 +11,7 @@ export const ESTADOS_DOCUMENTO = {
   incompleto: "Faltan fotos",
   por_validar: "Por validar",
   validado: "Validado",
+  necesita_repetir: "Necesita repetir",
 } as const;
 
 export const ORIGEN_DOCUMENTOS = {

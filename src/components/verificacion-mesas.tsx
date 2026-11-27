@@ -311,7 +311,7 @@ const FILTROS_DOCUMENTO = {
 
 function coincide(ficha: DocumentoEnMesa, filtro: FiltroDocumentosMesa) {
   if (filtro === "todos") return true;
-  if (filtro === "captura") return ficha.estado === "sin_documento" || ficha.estado === "incompleto";
+  if (filtro === "captura") return ficha.estado === "sin_documento" || ficha.estado === "incompleto" || ficha.estado === "necesita_repetir";
   if (filtro === "mjrv") return ficha.estado !== "validado" && (ficha.origen === "mjrv" || ficha.origen === "mixto");
   return ficha.estado === filtro;
 }

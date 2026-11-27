@@ -37,7 +37,7 @@ export async function listarPanoramaJuntas(): Promise<JuntaPanorama[]> {
         ...junta,
         cargosPendientes,
         ausentes: ausentes.size,
-        capturaPendiente: fichas.filter((f) => !f.completos).length,
+        capturaPendiente: fichas.filter((f) => !f.completos || f.estado === "necesita_repetir").length,
         porValidar: fichas.filter((f) => f.estado === "por_validar").length,
         delMjrv: fichas.filter((f) => f.estado !== "validado" && (f.origen === "mjrv" || f.origen === "mixto")).length,
         validados: fichas.filter((f) => f.estado === "validado").length,

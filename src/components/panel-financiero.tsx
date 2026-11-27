@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FilaFinanzas, ResumenFinanzas } from "@/server/finanzas-resumen";
-import { corregirNombresAccion, validarCedulaAccion } from "@/server/finanzas-nombres-actions";
+import { corregirNombresAccion } from "@/server/finanzas-nombres-actions";
 import { horaCorta, useSondeo } from "./sondeo";
+import { RevisionDocumentoFinanzas } from "./revision-documento-finanzas";
+import { ESTADOS_DOCUMENTO, type EstadoDocs } from "@/domain/documentos";
+import type { Modo } from "@/server/config";
 
 const ESTADO: Record<string, string> = { pagada: "Pagada", acta_preparada: "Acta preparada", lista: "Lista", documentacion_incompleta: "Documentación incompleta" };
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
@@ -19,6 +22,7 @@ export function PanelFinanciero() {
   const [nombres, setNombres] = useState("");
   const [aviso, setAviso] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [vista, setVista] = useState<{ fila: FilaFinanzas; modo: Modo; deshacer: boolean } | null>(null);
   const [seleccion, setSeleccion] = useState<{ modoPrueba: boolean; ids: number[] } | null>(null);
   if (!datos) return <p>{falla ? "No se pudo cargar el panel. Reintentando…" : "Cargando…"}</p>;
   const filas = datos.filas.filter((f) => (!filtro || f.estado === filtro) && (!soloSinValidar || !f.cedulaValidada) && (!q.trim() || `${f.nombre} ${f.cedula}`.toLowerCase().includes(q.trim().toLowerCase())));
@@ -36,14 +40,9 @@ export function PanelFinanciero() {
     setOcupado(false);
     refrescar();
   };
-  const validar = async (id: number) => {
-    setOcupado(true);
-    const f = new FormData();
-    f.set("id", String(id));
-    const r = await validarCedulaAccion(f);
-    setAviso(r.ok ? "Documento validado." : r.mensaje ?? "No se pudo validar.");
-    setOcupado(false);
-    refrescar();
+  const abrirDocumento = (fila: FilaFinanzas, deshacer: boolean) => {
+    setAviso("");
+    setVista({ fila, modo: datos.modoPrueba ? "prueba" : "eleccion", deshacer });
   };
   return (
     <div className="space-y-3">
@@ -63,6 +62,8 @@ export function PanelFinanciero() {
         <label className="flex items-center gap-2 px-2 py-2 text-sm font-medium"><input type="checkbox" checked={soloSinValidar} onChange={(e) => setSoloSinValidar(e.target.checked)} /> Solo sin documento validado</label>
       </div>
       {aviso && <p role="status" className="font-semibold">{aviso}</p>}
+      {vista && <VistaDocumento {...vista} cerrar={() => setVista(null)}
+        onGuardar={(mensaje) => { setVista(null); setAviso(mensaje); refrescar(); }} />}
       {!!elegibles.length && (
         <form method="post" action="/api/admin/finanzas/recibos/emitir" target="_blank" className="flex flex-wrap items-center gap-3">
           <input type="hidden" name="modo" value={datos.modoPrueba ? "prueba" : "eleccion"} />
@@ -81,7 +82,7 @@ export function PanelFinanciero() {
               <tr key={f.id} className="border-b">
                 <td className="p-2">{f.estado !== "pagada" && <input type="checkbox" aria-label={`Seleccionar a ${f.nombre}`} checked={ids.includes(f.id)}
                   onChange={(e) => elegir(e.target.checked ? [...ids, f.id] : ids.filter((id) => id !== f.id))} />}</td>
-                <td className="p-2"><PersonaFila f={f} editando={editando === f.id} apellidos={apellidos} nombres={nombres} ocupado={ocupado} onApellidos={setApellidos} onNombres={setNombres} onEditar={() => { setEditando(f.id); setApellidos(f.apellidos); setNombres(f.nombres); setAviso(""); }} onCancelar={() => setEditando(null)} onGuardar={() => void guardarNombre(f.id)} onValidar={() => void validar(f.id)} /></td>
+                <td className="p-2"><PersonaFila f={f} editando={editando === f.id} apellidos={apellidos} nombres={nombres} ocupado={ocupado} onApellidos={setApellidos} onNombres={setNombres} onEditar={() => { setEditando(f.id); setApellidos(f.apellidos); setNombres(f.nombres); setAviso(""); }} onCancelar={() => setEditando(null)} onGuardar={() => void guardarNombre(f.id)} onVer={() => abrirDocumento(f, false)} onDeshacer={() => abrirDocumento(f, true)} /></td>
                 <td className="p-2">{f.junta}</td>
                 <td className="p-2">{ESTADO[f.estado]}{f.simulado ? " (simulado)" : ""}</td>
                 <td className="cifra p-2">{f.eur ?? "—"}</td>
@@ -94,10 +95,10 @@ export function PanelFinanciero() {
   );
 }
 
-function PersonaFila({ f, editando, apellidos, nombres, ocupado, onApellidos, onNombres, onEditar, onCancelar, onGuardar, onValidar }: {
+function PersonaFila({ f, editando, apellidos, nombres, ocupado, onApellidos, onNombres, onEditar, onCancelar, onGuardar, onVer, onDeshacer }: {
   f: FilaFinanzas; editando: boolean; apellidos: string; nombres: string; ocupado: boolean;
   onApellidos: (v: string) => void; onNombres: (v: string) => void;
-  onEditar: () => void; onCancelar: () => void; onGuardar: () => void; onValidar: () => void;
+  onEditar: () => void; onCancelar: () => void; onGuardar: () => void; onVer: () => void; onDeshacer: () => void;
 }) {
   return (
     <div className="space-y-1">
@@ -114,13 +115,67 @@ function PersonaFila({ f, editando, apellidos, nombres, ocupado, onApellidos, on
         <>
           <div>{f.nombre}</div>
           <div className="text-slate-600">{f.cedula}</div>
-          <p className={f.cedulaValidada ? "text-green-800" : "font-semibold text-red-700"}>{f.cedulaValidada ? "Documento validado" : f.fotosCompletas ? "Documento sin validar" : "Documento sin validar · faltan fotos"}</p>
+          <p className={f.cedulaValidada ? "text-green-800" : "font-semibold text-red-700"}>{f.necesitaRepetir ? `Necesita repetir${f.motivoRepetir ? ` · ${f.motivoRepetir}` : ""}` : f.cedulaValidada ? "Validado" : f.fotosCompletas ? "Por validar" : "Faltan fotos"}</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={onEditar} className="border border-stone-900 px-2 py-1">Corregir nombre</button>
-            {!f.cedulaValidada && <button type="button" disabled={ocupado || !f.fotosCompletas} onClick={onValidar} className="border border-stone-900 px-2 py-1 disabled:opacity-50">Validar documento</button>}
+            {f.tieneFotos && <button type="button" onClick={onVer} className="border border-stone-900 px-2 py-1">Ver documento</button>}
+            {f.cedulaValidada && f.estado !== "pagada" && <button type="button" onClick={onDeshacer} className="border border-stone-900 px-2 py-1">Deshacer validación</button>}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+type VistaFotos = EstadoDocs & {
+  encontrada: true; mjrvId: number; modo: Modo; version: string; validada: boolean;
+  necesitaRepetir: boolean; motivoRepetir: string | null; revisionEn: string | null;
+};
+
+function VistaDocumento({ fila, modo, deshacer, cerrar, onGuardar }: {
+  fila: FilaFinanzas; modo: Modo; deshacer: boolean; cerrar: () => void; onGuardar: (mensaje: string) => void;
+}) {
+  const dialogo = useRef<HTMLDialogElement>(null);
+  const [fotos, setFotos] = useState<VistaFotos | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => { dialogo.current?.showModal(); }, []);
+  useEffect(() => {
+    if (!fila.tieneFotos) return;
+    const control = new AbortController();
+    void fetch("/api/admin/documentacion/buscar", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ cedula: fila.cedula }), signal: control.signal,
+    }).then(async (r) => {
+      if (!r.ok) throw new Error();
+      const d = await r.json() as VistaFotos | { encontrada: false };
+      if (!d.encontrada || d.mjrvId !== fila.id || d.modo !== modo) throw new Error();
+      if (!control.signal.aborted) setFotos(d);
+    }).catch(() => { if (!control.signal.aborted) setError("No se pudo cargar la vista previa. Actualice la lista."); });
+    return () => control.abort();
+  }, [fila.cedula, fila.id, fila.tieneFotos, modo]);
+
+  const estado = fotos?.necesitaRepetir ? "necesita_repetir" : (fotos?.validada || (!fila.tieneFotos && fila.cedulaValidada))
+    ? "validado" : fotos?.completos ? "por_validar" : fotos?.anverso || fotos?.reverso ? "incompleto" : "sin_documento";
+  const autorizarDeshacer = deshacer && estado === "validado" && (fotos?.revisionEn ?? fila.validacionEn) === fila.validacionEn;
+  return (
+    <dialog ref={dialogo} onClose={cerrar} aria-labelledby="titulo-vista-documento"
+      className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-xl backdrop:bg-slate-900/50 sm:p-5">
+      <div className="stack">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="titulo-vista-documento">Vista previa del documento</h2>
+            <p className="mt-2 font-semibold">{fila.nombre}</p>
+            <p className="text-sm">Junta {fila.junta}{fotos || !fila.tieneFotos ? ` · ${ESTADOS_DOCUMENTO[estado]}` : ""}</p>
+          </div>
+          <button type="button" className="button-like secondary" onClick={() => dialogo.current?.close()}>Cerrar</button>
+        </div>
+        {error ? <p role="alert">{error}</p> : !fotos && fila.tieneFotos ? <p role="status">Cargando fotos…</p> : (
+          <RevisionDocumentoFinanzas id={fila.id} modo={modo} version={fotos?.version ?? ""}
+            fotos={fotos ?? { anverso: false, reverso: false, completos: false }} estado={estado}
+            revisionEn={fila.tieneFotos ? fotos?.revisionEn ?? null : fila.validacionEn} motivoRepetir={fotos?.motivoRepetir}
+            soloLectura={fila.estado === "pagada"} iniciarDeshacer={autorizarDeshacer} onGuardar={(mensaje) => { dialogo.current?.close(); onGuardar(mensaje); }} />
+        )}
+      </div>
+    </dialog>
   );
 }

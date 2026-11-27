@@ -233,4 +233,74 @@ describe("finanzas: acta y confirmación", () => {
     expect(await consultarDueno("SELECT parametros #>> '{persona_recibo,cedula}' AS cedula FROM cne.actas_pago WHERE id = $1", [original.actaId])).toEqual([{ cedula }]);
     expect(await confirmarPago(s, { mjrvId, actaId: original.actaId, verificado: true })).toMatchObject({ ok: true, importeEur: "58.82" });
   });
+  it("deshace una validación en Finanzas, conserva fotos y recibo y vuelve a requerir revisión para pagar", async () => {
+    const { desvalidarCedula } = await import("@/server/mjrv");
+    expect(typeof desvalidarCedula).toBe("function");
+    const cedula = "0000000197";
+    const id = await persona(cedula);
+    const actor = { portal: "finanzas", tipo: "operador", id: s.operadorId, nombre: s.operadorNombre } as const;
+    await completarParametros();
+    await conFotos(id);
+    expect(await validar(id)).toMatchObject({ ok: true });
+    const acta = await generarActa(s, id, true);
+    if (!acta.ok || acta.actaId === null) throw new Error("Falta el recibo de prueba");
+    const validacion = async () => (await resumenFinanzas()).filas.find((fila) => fila.id === id)?.validacionEn;
+    const anterior = (await validacion())!;
+    expect(anterior).toBeTruthy();
+    expect(await desvalidarCedula(actor,id,"eleccion",anterior)).toMatchObject({ ok: false });
+    expect(await desvalidarCedula(actor,id,"prueba",anterior)).toMatchObject({ ok: true });
+    expect(await fichaPago(cedula)).toMatchObject({ cedulaValidada: false, documentosCompletos: true, acta: { id: acta.actaId } });
+    expect(await confirmarPago(s,{ mjrvId: id, actaId: acta.actaId, verificado: true })).toMatchObject({ ok: false, mensaje: expect.stringContaining("validar") });
+    expect(await validar(id)).toMatchObject({ ok: true });
+    const actual = (await validacion())!;
+    expect(actual).not.toBe(anterior);
+    expect(await desvalidarCedula(actor,id,"prueba",anterior)).toMatchObject({ ok: false });
+    expect(await confirmarPago(s,{ mjrvId: id, actaId: acta.actaId, verificado: true })).toMatchObject({ ok: true });
+    expect(await desvalidarCedula(actor,id,"prueba",actual)).toMatchObject({ ok: false, mensaje: expect.stringContaining("pago") });
+    expect(await validacion()).toBe(actual);
+  });
+
+
+  it("comparte la marca de repetir con Validación y vuelve a pedir revisión tras renovar las fotos", async () => {
+    const { marcarDocumentoParaRepetir } = await import("@/server/mjrv");
+    const { buscarParaValidacion, listarDocumentosFinanzas } = await import("@/server/documentos");
+    expect(typeof marcarDocumentoParaRepetir).toBe("function");
+    const cedula = "0000000198";
+    const id = await persona(cedula);
+    const actor = { portal: "finanzas", tipo: "operador", id: s.operadorId, nombre: s.operadorNombre } as const;
+    await conFotos(id);
+    const anterior = (await buscarParaValidacion(cedula))!;
+    expect(await marcarDocumentoParaRepetir(actor, id, "prueba", "0".repeat(64))).toMatchObject({ ok: false });
+    expect(await marcarDocumentoParaRepetir(actor, id, "prueba", anterior.version)).toMatchObject({ ok: true });
+    const estado = async () => (await listarDocumentosFinanzas()).fichas.find((f) => f.id === id)?.estado;
+    expect(await estado()).toBe("necesita_repetir");
+    expect(await buscarParaValidacion(cedula)).toMatchObject({ necesitaRepetir: true, validada: false });
+    expect(await validar(id)).toMatchObject({ ok: false });
+    expect(await guardarDocumento({ mjrvId: id, lado: "reverso", imagen: await foto(), origen: "estacion" })).toMatchObject({ ok: true });
+    expect(await estado()).toBe("por_validar");
+    expect(await buscarParaValidacion(cedula)).toMatchObject({ necesitaRepetir: false, validada: false });
+    expect(await validar(id)).toMatchObject({ ok: true });
+    expect(await estado()).toBe("validado");
+  });
+  it("borra solo la toma indicada de la versión vigente y limita la operación a la junta", async () => {
+    const { borrarFotoDocumento, buscarParaValidacion, estadoDocumentos } = await import("@/server/documentos");
+    expect(typeof borrarFotoDocumento).toBe("function");
+    const cedula = "0000000199";
+    const id = await persona(cedula);
+    await conFotos(id);
+    const ficha = (await buscarParaValidacion(cedula))!;
+    const d = { id, lado: "anverso", modo: "prueba", version: ficha.version } as const;
+    const actor = { tipo: "operador", id: s.operadorId, nombre: s.operadorNombre } as const;
+    expect(await borrarFotoDocumento(actor, { ...d, juntaId: 99999 })).toMatchObject({ ok: false, status: 404 });
+    expect(await borrarFotoDocumento(actor, { ...d, version: "0".repeat(64) })).toMatchObject({ ok: false, status: 409 });
+    expect(await validar(id)).toMatchObject({ ok: true });
+    expect(await borrarFotoDocumento(actor, d)).toMatchObject({ ok: false, status: 409 });
+    const { marcarDocumentoParaRepetir } = await import("@/server/mjrv");
+    const revision = (await buscarParaValidacion(cedula))!;
+    expect(await marcarDocumentoParaRepetir({ ...actor, portal: "finanzas" }, id, "prueba", revision.version, revision.revisionEn, "Foto borrosa")).toMatchObject({ ok: true });
+    expect(await borrarFotoDocumento(actor, d)).toMatchObject({ ok: true });
+    expect(await estadoDocumentos(id)).toMatchObject({ anverso: false, reverso: true, completos: false });
+    expect(await buscarParaValidacion(cedula)).toMatchObject({ necesitaRepetir: true, motivoRepetir: "Foto borrosa" });
+  });
+
 });

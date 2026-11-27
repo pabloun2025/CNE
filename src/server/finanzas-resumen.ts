@@ -5,7 +5,7 @@ import type { EstadoPago } from "./finanzas";
 
 export type FilaFinanzas = FilaInforme & {
   id: number; apellidos: string; nombres: string; estado: EstadoPago;
-  cedulaValidada: boolean; fotosCompletas: boolean;
+  cedulaValidada: boolean; fotosCompletas: boolean; tieneFotos: boolean; motivoRepetir: string | null; necesitaRepetir: boolean;
 };
 export type ResumenFinanzas = {
   generado_en: string; modoPrueba: boolean;
@@ -29,11 +29,14 @@ export async function resumenFinanzas(): Promise<ResumenFinanzas> {
                  WHEN EXISTS (SELECT 1 FROM actas_pago a WHERE a.mjrv_id = m.id) THEN 'acta_preparada'
                  ELSE 'lista' END AS estado,
             p.importe_eur::text AS eur, p.confirmado_en::text AS hora, coalesce(nullif(btrim(o.nombre || ' ' || o.apellido), ''), u.nombre) AS operador, coalesce(p.es_prueba, false) AS simulado,
-            (v.validada_en IS NOT NULL) AS "cedulaValidada", (d.mjrv_id IS NOT NULL) AS "fotosCompletas"
+            (v.validada_en IS NOT NULL) AS "cedulaValidada", (d.mjrv_id IS NOT NULL) AS "fotosCompletas",
+            EXISTS (SELECT 1 FROM documentos_mjrv fm WHERE fm.mjrv_id=m.id AND fm.es_prueba=en_prueba()) AS "tieneFotos",
+            r.mjrv_id IS NOT NULL AS "necesitaRepetir", r.motivo_repetir AS "motivoRepetir"
        FROM mjrv m
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT x.junta_destino_id FROM decisiones_movimiento x WHERE x.mjrv_id = m.id AND x.decision = 'aceptada' ORDER BY x.creado_en DESC, x.id DESC LIMIT 1), m.junta_origen_id)
        LEFT JOIN v_documentos_completos d ON d.mjrv_id = m.id
        LEFT JOIN v_cedulas_validadas v ON v.mjrv_id = m.id
+       LEFT JOIN v_documentos_por_repetir r ON r.mjrv_id = m.id
        LEFT JOIN lecturas_puerta l ON l.mjrv_id = m.id AND l.resultado = 'valido'
        LEFT JOIN operadores_madrid i ON i.id = l.operador_id
        LEFT JOIN pagos_confirmados p ON p.mjrv_id = m.id

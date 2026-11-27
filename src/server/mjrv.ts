@@ -157,13 +157,26 @@ export async function corregirNombres(actor: ActorFicha, id: number, apellidosBr
   });
 }
 
+async function bloquearRevision(client: PoolClient, id: number, modoEsperado?: Modo) {
+  const [{ modo }] = (await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id=1 FOR SHARE")).rows;
+  if (modoEsperado && modo !== modoEsperado) return { ok: false as const, mensaje: "El modo cambió. Vuelva a abrir la ficha." };
+  if (!(await client.query("SELECT 1 FROM mjrv WHERE id=$1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [id])).rowCount) {
+    return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
+  }
+  return { ok: true as const, modo };
+}
+
+const pagoConfirmado = async (client: PoolClient, id: number) =>
+  Boolean((await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id=$1 AND es_prueba=cne.en_prueba()", [id])).rowCount);
+
 // La validación corresponde a las fotos vigentes de ese modo.
 export async function validarCedula(actor: ActorFicha, id: number, modoEsperado?: Modo, versionEsperada?: string): Promise<Resultado> {
   return withTx(async (client) => {
-    const [{ modo }] = (await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE")).rows;
-    if (modoEsperado && modo !== modoEsperado) return { ok: false as const, mensaje: "El modo cambió. Vuelva a abrir la ficha antes de validar." };
-    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [id])).rows[0]) {
-      return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
+    const contexto = await bloquearRevision(client, id, modoEsperado);
+    if (!contexto.ok) return contexto;
+    const { modo } = contexto;
+    if ((await client.query("SELECT 1 FROM v_documentos_por_repetir WHERE mjrv_id=$1", [id])).rowCount) {
+      return { ok: false as const, mensaje: "El documento necesita repetir fotos antes de validarse." };
     }
     await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() FOR SHARE", [id]);
     const documentos = await estadoDocumentos(id, client);
@@ -173,10 +186,59 @@ export async function validarCedula(actor: ActorFicha, id: number, modoEsperado?
     }
     await client.query(
       `INSERT INTO cedulas_validadas (mjrv_id, validada_en) VALUES ($1, clock_timestamp())
-       ON CONFLICT (mjrv_id, es_prueba) DO UPDATE SET validada_en = EXCLUDED.validada_en`, [id]);
+       ON CONFLICT (mjrv_id, es_prueba) DO UPDATE SET validada_en = EXCLUDED.validada_en,
+         retirada_en = NULL, repetir_en = NULL, motivo_repetir = NULL`, [id]);
     await client.query("UPDATE mjrv SET cedula_validada_en = coalesce(cedula_validada_en, clock_timestamp()), actualizado_en = clock_timestamp() WHERE id = $1", [id]);
     await registrarAuditoria({ portal: actor.portal, actorTipo: actor.tipo, actorId: actor.id, actorNombre: actor.nombre, accion: "cedula_validada", entidad: "mjrv", entidadId: id, datos: { modo, tipoDocumento: documentos.pasaporte ? "pasaporte" : "cedula" } }, client);
     return { ok: true as const, id };
+  });
+}
+
+export async function desvalidarCedula(actor: ActorFicha, id: number, modo: Modo, revisionEn: string, repetir = false): Promise<Resultado> {
+  return withTx(async (client) => {
+    const contexto = await bloquearRevision(client, id, modo);
+    if (!contexto.ok) return contexto;
+    if (await pagoConfirmado(client, id)) return { ok: false, mensaje: "El pago ya está confirmado. Consulte a Finanzas." };
+    const vigencia = repetir
+      ? "SELECT 1 FROM v_documentos_por_repetir WHERE mjrv_id=$1 AND repetir_en::text=$2"
+      : "SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id=$1 AND validada_en::text=$2";
+    if (!(await client.query(vigencia, [id, revisionEn])).rowCount) {
+      return { ok: false, mensaje: "El estado cambió. Actualice la lista y revise las fotos." };
+    }
+    await client.query(`UPDATE cedulas_validadas SET retirada_en=clock_timestamp(), repetir_en=NULL, motivo_repetir=NULL
+      WHERE mjrv_id=$1 AND es_prueba=cne.en_prueba()`, [id]);
+    await registrarAuditoria({ portal: actor.portal, actorTipo: actor.tipo, actorId: actor.id, actorNombre: actor.nombre,
+      accion: repetir ? "repeticion_documental_retirada" : "cedula_desvalidada", entidad: "mjrv", entidadId: id, datos: { modo, revisionEn } }, client);
+    return { ok: true, id };
+  });
+}
+
+export async function marcarDocumentoParaRepetir(
+  actor: ActorFicha, id: number, modo: Modo, version: string, validacionEn: string | null = null, motivo = "",
+): Promise<Resultado> {
+  return withTx(async (client) => {
+    const contexto = await bloquearRevision(client, id, modo);
+    if (!contexto.ok) return contexto;
+    if (await pagoConfirmado(client, id)) return { ok: false, mensaje: "El pago ya está confirmado. Consulte a Finanzas." };
+    await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id=$1 AND es_prueba=cne.en_prueba() FOR SHARE", [id]);
+    const fotos = await estadoDocumentos(id, client);
+    const { rows: [validacion] } = await client.query<{ fecha: string }>(
+      "SELECT validada_en::text AS fecha FROM v_cedulas_validadas WHERE mjrv_id=$1", [id]);
+    if ((validacion?.fecha ?? null) !== validacionEn || await versionDocumentos(id, client) !== version) {
+      return { ok: false, mensaje: "El estado o las fotos cambiaron. Actualice la lista." };
+    }
+    if (!fotos.anverso && !fotos.reverso && !fotos.pasaporte) return { ok: false, mensaje: "Faltan las fotos que se quiere marcar." };
+    if ((await client.query("SELECT 1 FROM v_documentos_por_repetir WHERE mjrv_id=$1", [id])).rowCount) {
+      return { ok: false, mensaje: "El documento ya está marcado. Actualice la lista." };
+    }
+    const nota = nombreLimpio(motivo).slice(0, 160) || null;
+    await client.query(`INSERT INTO cedulas_validadas (mjrv_id, retirada_en, repetir_en, motivo_repetir)
+      VALUES ($1, clock_timestamp(), clock_timestamp(), $2)
+      ON CONFLICT (mjrv_id, es_prueba) DO UPDATE SET retirada_en=EXCLUDED.retirada_en,
+        repetir_en=EXCLUDED.repetir_en, motivo_repetir=EXCLUDED.motivo_repetir`, [id, nota]);
+    await registrarAuditoria({ portal: actor.portal, actorTipo: actor.tipo, actorId: actor.id, actorNombre: actor.nombre,
+      accion: "documento_necesita_repetir", entidad: "mjrv", entidadId: id, datos: { modo, motivo: nota, validacionEn } }, client);
+    return { ok: true, id };
   });
 }
 

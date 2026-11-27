@@ -39,6 +39,7 @@ export async function estadoDocumentos(mjrvId: number, client?: PoolClient): Pro
 export type FichaDocumentosFinanzas = {
   id: number; nombre: string; cedula: string; junta: string; juntaActualId: number;
   estado: EstadoSeguimientoDocumento; origen: OrigenFotosDocumento | null; version: string;
+  revisionEn: string | null; motivoRepetir: string | null;
 } & EstadoDocs;
 
 type FotoVersion = { lado: Lado; capturado: string; hash: string };
@@ -46,14 +47,17 @@ const huellaFotos = (fotos: FotoVersion[]) => sha256Hex(JSON.stringify(fotos));
 
 export async function consultarSeguimientoDocumental(client: PoolClient, juntaVigente?: number): Promise<FichaDocumentosFinanzas[]> {
   type Fila = Omit<FichaDocumentosFinanzas, keyof EstadoDocs | "estado" | "origen" | "version"> & {
-    fotos: FotoVersion[]; validada: boolean; publico: boolean | null; personal: boolean | null;
+    fotos: FotoVersion[]; validada: boolean; necesitaRepetir: boolean; publico: boolean | null; personal: boolean | null;
   };
   const { rows } = await client.query<Fila>(
     `SELECT m.id, m.apellidos || ', ' || m.nombres AS nombre, m.cedula, ${juntaPublicaSql("j")} AS junta, a.junta_actual_id AS "juntaActualId",
-            coalesce(d.fotos, '[]'::json) AS fotos, v.mjrv_id IS NOT NULL AS validada, d.publico, d.personal
+            coalesce(d.fotos, '[]'::json) AS fotos, v.mjrv_id IS NOT NULL AS validada, d.publico, d.personal,
+            r.mjrv_id IS NOT NULL AS "necesitaRepetir", r.motivo_repetir AS "motivoRepetir",
+            coalesce(r.repetir_en, v.validada_en)::text AS "revisionEn"
        FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id
        JOIN v_mjrv_asignacion a ON a.mjrv_id = m.id
        LEFT JOIN v_cedulas_validadas v ON v.mjrv_id = m.id
+       LEFT JOIN v_documentos_por_repetir r ON r.mjrv_id = m.id
        CROSS JOIN LATERAL (
          SELECT json_agg(json_build_object('lado', f.lado, 'capturado', f.creado_en::text, 'hash', encode(f.sha256, 'hex')) ORDER BY f.lado) AS fotos,
                 bool_or(f.origen = 'publico') AS publico,
@@ -65,9 +69,9 @@ export async function consultarSeguimientoDocumental(client: PoolClient, juntaVi
       ORDER BY CASE WHEN $1::bigint IS NULL THEN j.serie END,
                CASE WHEN $1::bigint IS NULL THEN j.numero END, m.apellidos, m.nombres, m.id`, [juntaVigente ?? null],
   );
-  return rows.map(({ fotos, validada, publico, personal, ...ficha }) => {
+  return rows.map(({ fotos, validada, necesitaRepetir, publico, personal, ...ficha }) => {
     const detalles = estadoDeLados(fotos.map((f) => f.lado));
-    const estado = detalles.completos ? (validada ? "validado" : "por_validar") : (fotos.length ? "incompleto" : "sin_documento");
+    const estado = necesitaRepetir ? "necesita_repetir" : detalles.completos ? (validada ? "validado" : "por_validar") : (fotos.length ? "incompleto" : "sin_documento");
     const origen = publico && personal ? "mixto" : publico ? "mjrv" : personal ? "personal" : null;
     return { ...ficha, ...detalles, estado, origen, version: huellaFotos(fotos) };
   });
@@ -107,16 +111,49 @@ export async function buscarParaValidacion(cedula: string, juntaId?: number) {
     const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
     const ficha = await buscarPorCedula(cedula, client);
     if (!ficha) return null;
-    const { rowCount } = await client.query("SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id = $1", [ficha.mjrvId]);
+    const { rows: [validada] } = await client.query<{ fecha: string }>(
+      "SELECT validada_en::text AS fecha FROM v_cedulas_validadas WHERE mjrv_id=$1", [ficha.mjrvId]);
+    const { rows: [repetir] } = await client.query<{ fecha: string; motivo: string | null }>(
+      "SELECT repetir_en::text AS fecha, motivo_repetir AS motivo FROM v_documentos_por_repetir WHERE mjrv_id=$1", [ficha.mjrvId]);
     const { rows: [asignacion] } = await client.query<{ id: number; junta: string }>(
       `SELECT j.id, j.serie || j.numero AS junta FROM v_mjrv_asignacion a
          JOIN juntas_madrid j ON j.id = a.junta_actual_id WHERE a.mjrv_id = $1`, [ficha.mjrvId]);
     if (juntaId !== undefined && asignacion?.id !== juntaId) return null;
-    return { ...ficha, junta: asignacion?.junta ?? ficha.junta, modo, validada: ficha.completos && !!rowCount, version: await versionDocumentos(ficha.mjrvId, client) };
+    return { ...ficha, junta: asignacion?.junta ?? ficha.junta, modo, validada: ficha.completos && !!validada,
+      revisionEn: repetir?.fecha ?? validada?.fecha ?? null,
+      necesitaRepetir: !!repetir, motivoRepetir: repetir?.motivo ?? null, version: await versionDocumentos(ficha.mjrvId, client) };
   });
 }
 
 export type ResultadoFoto = { ok: true; estado: EstadoDocs } | { ok: false; status: 400 | 404 | 409; mensaje: string };
+
+export async function borrarFotoDocumento(
+  actor: { tipo: "usuario" | "operador"; id: number; nombre: string },
+  datos: { id: number; lado: Lado; modo: Modo; version: string; juntaId?: number },
+): Promise<ResultadoFoto> {
+  const { id, lado, modo, version, juntaId } = datos;
+  return withTx(async (client) => {
+    const actual = (await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id=1 FOR SHARE")).rows[0].modo;
+    if (actual !== modo) return { ok: false, status: 409, mensaje: "El modo cambió. Vuelva a abrir la ficha." };
+    const ficha = await client.query("SELECT 1 FROM mjrv WHERE id=$1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [id]);
+    if (!ficha.rowCount || (juntaId !== undefined && !(await client.query(
+      "SELECT 1 FROM v_mjrv_asignacion WHERE mjrv_id=$1 AND junta_actual_id=$2", [id, juntaId],
+    )).rowCount)) return { ok: false, status: 404, mensaje: "La ficha no está disponible en esta junta." };
+    await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id=$1 AND es_prueba=cne.en_prueba() FOR UPDATE", [id]);
+    if (await versionDocumentos(id, client) !== version) return { ok: false, status: 409, mensaje: "Las fotos cambiaron. Vuelva a abrir la ficha." };
+    if ((await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id=$1 AND es_prueba=cne.en_prueba()", [id])).rowCount) {
+      return { ok: false, status: 409, mensaje: "El pago ya está confirmado. Consulte a Finanzas." };
+    }
+    if ((await client.query("SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id=$1", [id])).rowCount) {
+      return { ok: false, status: 409, mensaje: "El documento está validado. Pida a Finanzas que lo devuelva a revisión." };
+    }
+    const borrada = await client.query("DELETE FROM documentos_mjrv WHERE mjrv_id=$1 AND lado=$2 AND es_prueba=cne.en_prueba()", [id, lado]);
+    if (!borrada.rowCount) return { ok: false, status: 404, mensaje: "La foto ya no está en la ficha." };
+    await registrarAuditoria({ portal: "finanzas", actorTipo: actor.tipo, actorId: actor.id, actorNombre: actor.nombre,
+      accion: "foto_documento_borrada", entidad: "mjrv", entidadId: id, datos: { modo, lado, junta: juntaId ?? null } }, client);
+    return { ok: true, estado: await estadoDocumentos(id, client) };
+  });
+}
 
 // Re-codifica con sharp (aplica la orientación y quita EXIF), cifra y guarda. Repetir una foto la sustituye.
 export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: Buffer; origen: "publico" | "estacion"; operadorId?: number; enlaceId?: number; modoEsperado?: Modo }): Promise<ResultadoFoto> {
@@ -136,6 +173,8 @@ export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: 
     const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
     if (d.modoEsperado && d.modoEsperado !== modo) return { ok: false as const, status: 409 as const, mensaje: "El modo cambió. Actualice la página antes de guardar la foto." };
     if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [d.mjrvId])).rows[0]) return { ok: false as const, status: 404 as const, mensaje: "No se encontró la ficha." };
+    const { rows: [previa] } = await client.query<{ sha256: Buffer }>(
+      "SELECT sha256 FROM documentos_mjrv WHERE mjrv_id=$1 AND lado=$2 AND es_prueba=cne.en_prueba() FOR UPDATE", [d.mjrvId, d.lado]);
     if (!esPasaporte) {
       // El reverso no puede ser la misma foto que el anverso (ni al revés).
       const otro = (await client.query<{ sha256: Buffer }>(
@@ -154,6 +193,10 @@ export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: 
          ancho = EXCLUDED.ancho, alto = EXCLUDED.alto, sha256 = EXCLUDED.sha256, origen = EXCLUDED.origen, operador_id = EXCLUDED.operador_id,
          enlace_id = EXCLUDED.enlace_id, creado_en = EXCLUDED.creado_en`,
       [d.mjrvId, d.lado, ciphertext, nonce, procesada.length, ancho, alto, hash, d.origen, d.operadorId ?? null, d.enlaceId ?? null]);
+    if (!previa || !previa.sha256.equals(hash)) {
+      await client.query(`UPDATE cedulas_validadas SET repetir_en=NULL, motivo_repetir=NULL
+        WHERE mjrv_id=$1 AND es_prueba=cne.en_prueba() AND repetir_en IS NOT NULL`, [d.mjrvId]);
+    }
     return { ok: true as const, estado: await estadoDocumentos(d.mjrvId, client) };
   });
 }

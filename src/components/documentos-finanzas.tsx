@@ -8,22 +8,18 @@ import { Documentacion } from "@/app/e/[token]/trabajo/documentacion";
 import type { Modo } from "@/server/config";
 import type { FichaDocumentosFinanzas } from "@/server/documentos";
 import { CapturaDocumentosPuesto } from "./captura-cedula";
+import { RevisionDocumentoFinanzas } from "./revision-documento-finanzas";
 
 const FILTROS = [
   { id: "pendientes", etiqueta: "Pendientes de captura" },
   { id: "por_validar", etiqueta: "Por validar" },
   { id: "del_mjrv", etiqueta: "Del MJRV sin validar" },
   { id: "validado", etiqueta: "Validados" },
+  { id: "necesita_repetir", etiqueta: "Necesita repetir" },
   { id: "completos", etiqueta: "Fotos completas" },
   { id: "todos", etiqueta: "Todos" },
 ] as const;
 type Filtro = typeof FILTROS[number]["id"];
-
-const FOTOS = [
-  { lado: "anverso", texto: "Cédula · Anverso" },
-  { lado: "reverso", texto: "Cédula · Reverso" },
-  { lado: "pasaporte", texto: "Pasaporte · Página de datos" },
-] as const;
 
 const normalizar = (texto: string) => texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
 function coincide(ficha: FichaDocumentosFinanzas, filtro: Filtro) {
@@ -54,6 +50,8 @@ export function SeguimientoDocumental({ fichas, modo, validacion = false, token 
     (!junta || junta === f.junta) && terminos.every((parte) => normalizar(`${f.nombre} ${f.cedula}`).includes(parte)));
   const visibles = coincidentes.filter((f) => coincide(f, filtro));
   const elegida = fichas.find((f) => f.id === seleccion?.id);
+  const siguientes = visibles.filter((f) => f.id !== elegida?.id);
+  const siguiente = siguientes.find((f) => elegida && fichas.indexOf(f) > fichas.indexOf(elegida)) ?? siguientes[0];
 
   function actualizarLista() {
     refrescar(() => router.refresh());
@@ -112,11 +110,12 @@ export function SeguimientoDocumental({ fichas, modo, validacion = false, token 
         </section>
         <section className="card stack min-w-0" ref={panel} tabIndex={-1} aria-label="Vista previa y captura">
           {validacion ? (
-            <Documentacion key={elegida ? `${elegida.id}:${seleccion?.revision}` : "busqueda"} token={token} validarPorEnlace={!!token}
+            <Documentacion key={elegida ? `${elegida.id}:${elegida.revisionEn}:${elegida.version}:${seleccion?.revision}` : "busqueda"} token={token} validarPorEnlace={!!token}
               cedulaInicial={elegida?.cedula} onDocumentoCambiado={actualizarLista}
               onTerminarFicha={elegida ? () => setSeleccion(null) : undefined} />
           ) : elegida ? (
-            <DetalleDocumento key={seleccion?.revision} ficha={elegida} modo={modo} onGuardar={actualizarLista} />
+            <DetalleDocumento key={`${elegida.id}:${seleccion?.revision}`} ficha={elegida} modo={modo} onGuardar={actualizarLista}
+              siguiente={siguiente ? () => abrir(siguiente.id) : undefined} />
           ) : <p>Seleccione a un MJRV para ver sus fotos o completar la captura.</p>}
         </section>
       </div>
@@ -124,10 +123,11 @@ export function SeguimientoDocumental({ fichas, modo, validacion = false, token 
   );
 }
 
-function DetalleDocumento({ ficha, modo, onGuardar }: { ficha: FichaDocumentosFinanzas; modo: Modo; onGuardar: () => void }) {
+function DetalleDocumento({ ficha, modo, onGuardar, siguiente }: {
+  ficha: FichaDocumentosFinanzas; modo: Modo; onGuardar: () => void; siguiente?: () => void;
+}) {
   const [mensaje, setMensaje] = useState("");
-  const [versionConError, setVersionConError] = useState("");
-  const errorFoto = versionConError === ficha.version;
+  const [captura, setCaptura] = useState(false);
 
   async function subir(lado: LadoDocumento, imagen: Blob): Promise<boolean> {
     const datos = new FormData();
@@ -149,36 +149,27 @@ function DetalleDocumento({ ficha, modo, onGuardar }: { ficha: FichaDocumentosFi
     }
   }
 
-  const fotos = FOTOS.filter(({ lado }) => ficha[lado]);
   return (
     <>
       <div>
-        <h2>{ficha.nombre}</h2>
-        <p>Junta {ficha.junta}{errorFoto ? "" : ` · ${rotulo(ficha)}`}</p>
-      </div>
-      {fotos.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {fotos.map(({ lado, texto }) => {
-            const url = `/api/admin/finanzas/cedula/${ficha.id}/${lado}?modo=${modo}&version=${ficha.version}`;
-            return (
-              <figure key={lado}>
-                <a href={url} target="_blank" rel="noreferrer" aria-label={`Ampliar ${texto}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={texto} onError={() => setVersionConError(ficha.version)} className="max-h-64 w-full rounded border bg-slate-50 object-contain" />
-                </a>
-                <figcaption className="text-sm">{texto}</figcaption>
-              </figure>
-            );
-          })}
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h2>{ficha.nombre}</h2>
+          {siguiente && <button type="button" className="button-like secondary" onClick={siguiente}>Siguiente ficha</button>}
         </div>
-      )}
-      {errorFoto && <p role="alert">No se pudo abrir una foto. Pulse «Actualizar lista» para cargar la versión vigente.</p>}
+        <p>Junta {ficha.junta} · {rotulo(ficha)}</p>
+      </div>
+      <RevisionDocumentoFinanzas key={`${ficha.version}:${ficha.revisionEn}`} id={ficha.id} modo={modo} version={ficha.version}
+        fotos={ficha} estado={ficha.estado} revisionEn={ficha.revisionEn} motivoRepetir={ficha.motivoRepetir}
+        onGuardar={(aviso) => { setMensaje(aviso); onGuardar(); }} />
       {mensaje && <p role="status">{mensaje}</p>}
-      {ficha.completos ? (
+      {ficha.estado === "necesita_repetir" && ficha.completos ? (
+        <button className="button-like secondary" type="button" onClick={() => setCaptura(!captura)}>
+          {captura ? "Cerrar captura" : "Volver a fotografiar el documento"}
+        </button>
+      ) : ficha.completos ? (
         <Link className="button-like secondary" href={{ pathname: "/admin/finanzas/pagar", query: { cedula: ficha.cedula } }}>Ir a Revisar e imprimir</Link>
-      ) : (
-        <CapturaDocumentosPuesto fotos={ficha} onUsar={subir} seguirConReverso />
-      )}
+      ) : null}
+      {(!ficha.completos || captura) && <CapturaDocumentosPuesto fotos={ficha} onUsar={subir} seguirConReverso />}
     </>
   );
 }

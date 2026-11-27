@@ -1,6 +1,6 @@
 import { esLadoDocumento } from "@/domain/documentos";
 import { formatoPublicoJunta } from "@/domain/juntas";
-import { buscarParaValidacion, guardarDocumento, leerDocumentoEnRevision, MAX_BYTES } from "@/server/documentos";
+import { borrarFotoDocumento, buscarParaValidacion, guardarDocumento, leerDocumentoEnRevision, MAX_BYTES } from "@/server/documentos";
 import { accesoDirectoEstacion } from "@/server/estaciones";
 import { validarCedula } from "@/server/mjrv";
 
@@ -50,6 +50,18 @@ export async function POST(request: Request) {
       encontrada: true, ...ficha, junta: formatoPublicoJunta(ficha.junta),
       ...(e.enlace.funcion === "validacion_documental" || juntaId !== undefined ? { version } : {}),
     }, { headers: PRIVADO });
+  }
+  if (c?.accion === "borrar_foto") {
+    const { mjrvId, lado, modo, version, juntaId } = c;
+    if (typeof mjrvId !== "number" || !idValido(mjrvId) || !esLadoDocumento(lado)
+      || !modoValido(modo) || typeof version !== "string" || !versionValida(version)) {
+      return incorrecto("Vuelva a abrir la ficha antes de borrar.");
+    }
+    const mesas = e.enlace.funcion === "mesas";
+    if (mesas && !idValido(juntaId)) return incorrecto("Seleccione la junta antes de borrar.");
+    const r = await borrarFotoDocumento({ tipo: "operador", id: e.enlace.id, nombre: e.enlace.etiqueta },
+      { id: mjrvId, lado, modo, version, juntaId: mesas && typeof juntaId === "number" ? juntaId : undefined });
+    return r.ok ? Response.json({ ok: true, ...r.estado }, { headers: PRIVADO }) : Response.json({ error: r.mensaje }, { status: r.status });
   }
   if (c?.accion !== "validar") return incorrecto("Elija una operación.");
   if (e.enlace.funcion !== "validacion_documental") return noAutorizado(403);
