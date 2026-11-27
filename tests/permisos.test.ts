@@ -47,6 +47,7 @@ const RUTAS: Record<string, Regla> = {
   "GET /api/admin/finanzas/cedula/[id]/[lado]": CAPTURA,
   "POST /api/admin/finanzas/ficha": FINANZAS,
   "POST /api/admin/finanzas/confirmar": FINANZAS,
+  "POST /api/admin/finanzas/impreso": FINANZAS,
   "POST /api/admin/finanzas/nombres": FINANZAS,
   "POST /api/admin/finanzas/validar-cedula": DOCUMENTACION,
   "POST /api/admin/documentacion/buscar": CAPTURA,
