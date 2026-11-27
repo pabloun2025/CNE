@@ -13,14 +13,16 @@ const versionValida = (valor: unknown) => typeof valor === "string" && /^[0-9a-f
 const idValido = (id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0;
 
 export async function GET(request: Request) {
-  const e = await accesoDirectoEstacion(request, "validacion_documental");
+  const e = await accesoDirectoEstacion(request, "validacion_documental", "mesas");
   if (!e.ok) return noAutorizado(e.status);
   const q = new URL(request.url).searchParams;
   const id = Number(q.get("id")), lado = q.get("lado"), modo = q.get("modo"), version = q.get("version");
   if (!idValido(id) || !esLadoDocumento(lado) || !modoValido(modo) || !versionValida(version) || !version) {
     return incorrecto("Vuelva a abrir la ficha.");
   }
-  const imagen = await leerDocumentoEnRevision(id, lado, modo, version);
+  const juntaId = Number(q.get("juntaId"));
+  if (e.enlace.funcion === "mesas" && !idValido(juntaId)) return incorrecto("Seleccione la junta antes de revisar las fotos.");
+  const imagen = await leerDocumentoEnRevision(id, lado, modo, version, e.enlace.funcion === "mesas" ? juntaId : undefined);
   return imagen ? new Response(new Uint8Array(imagen), { headers: { ...PRIVADO, "content-type": "image/jpeg" } })
     : new Response(null, { status: 404, headers: PRIVADO });
 }
@@ -40,12 +42,13 @@ export async function POST(request: Request) {
 
   const c = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (c?.accion === "buscar" && typeof c.cedula === "string") {
-    const m = await buscarParaValidacion(c.cedula);
+    const juntaId = e.enlace.funcion === "mesas" && idValido(c.juntaId) && typeof c.juntaId === "number" ? c.juntaId : undefined;
+    const m = await buscarParaValidacion(c.cedula, juntaId);
     if (!m) return Response.json({ encontrada: false }, { headers: PRIVADO });
     const { version, ...ficha } = m;
     return Response.json({
       encontrada: true, ...ficha, junta: formatoPublicoJunta(ficha.junta),
-      ...(e.enlace.funcion === "validacion_documental" ? { version } : {}),
+      ...(e.enlace.funcion === "validacion_documental" || juntaId !== undefined ? { version } : {}),
     }, { headers: PRIVADO });
   }
   if (c?.accion !== "validar") return incorrecto("Elija una operación.");

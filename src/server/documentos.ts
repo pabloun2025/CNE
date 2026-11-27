@@ -77,15 +77,16 @@ export async function versionDocumentos(mjrvId: number, client: PoolClient): Pro
   return sha256Hex(JSON.stringify(rows));
 }
 
-export async function buscarParaValidacion(cedula: string) {
+export async function buscarParaValidacion(cedula: string, juntaId?: number) {
   return withTx(async (client) => {
     const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
     const ficha = await buscarPorCedula(cedula, client);
     if (!ficha) return null;
     const { rowCount } = await client.query("SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id = $1", [ficha.mjrvId]);
-    const { rows: [asignacion] } = await client.query<{ junta: string }>(
-      `SELECT j.serie || j.numero AS junta FROM v_mjrv_asignacion a
+    const { rows: [asignacion] } = await client.query<{ id: number; junta: string }>(
+      `SELECT j.id, j.serie || j.numero AS junta FROM v_mjrv_asignacion a
          JOIN juntas_madrid j ON j.id = a.junta_actual_id WHERE a.mjrv_id = $1`, [ficha.mjrvId]);
+    if (juntaId !== undefined && asignacion?.id !== juntaId) return null;
     return { ...ficha, junta: asignacion?.junta ?? ficha.junta, modo, validada: ficha.completos && !!rowCount, version: await versionDocumentos(ficha.mjrvId, client) };
   });
 }
@@ -141,12 +142,15 @@ export async function leerDocumento(mjrvId: number, lado: Lado, client?: PoolCli
   return f ? decryptBuffer(f.imagen_cifrada, f.nonce) : null;
 }
 
-export async function leerDocumentoEnRevision(mjrvId: number, lado: Lado, modoEsperado: Modo, version: string): Promise<Buffer | null> {
+export async function leerDocumentoEnRevision(mjrvId: number, lado: Lado, modoEsperado: Modo, version: string, juntaId?: number): Promise<Buffer | null> {
   return withTx(async (client) => {
     const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
     if (modo !== modoEsperado) return null;
     const ficha = await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR SHARE", [mjrvId]);
     if (!ficha.rowCount) return null;
+    if (juntaId !== undefined && !(await client.query(
+      "SELECT 1 FROM v_mjrv_asignacion WHERE mjrv_id = $1 AND junta_actual_id = $2", [mjrvId, juntaId],
+    )).rowCount) return null;
     await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() FOR SHARE", [mjrvId]);
     if (await versionDocumentos(mjrvId, client) !== version) return null;
     return leerDocumento(mjrvId, lado, client, modoEsperado);
