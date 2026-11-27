@@ -1,4 +1,4 @@
-import { DocumentosFinanzas } from "@/components/documentos-finanzas";
+import { SeguimientoDocumental } from "@/components/documentos-finanzas";
 import { PestanasFinanzas } from "@/components/pestanas-finanzas";
 import { CONSUL_Y_FINANCIERO } from "@/domain/roles";
 import { listarDocumentosFinanzas } from "@/server/documentos";
@@ -9,9 +9,9 @@ export default async function Documentos() {
   const { fichas, modo } = await listarDocumentosFinanzas();
   return (
     <main className="stack-lg">
-      <h1>Documentos de identidad</h1>
+      <h1>Seguimiento documental</h1>
       <PestanasFinanzas />
-      <DocumentosFinanzas key={modo} fichas={fichas} modo={modo} />
+      <SeguimientoDocumental key={modo} fichas={fichas} modo={modo} />
     </main>
   );
 }

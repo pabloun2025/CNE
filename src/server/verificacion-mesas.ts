@@ -4,6 +4,7 @@ import { validarCedula } from "../domain/ingreso";
 import { registrarAuditoria } from "./auditoria";
 import type { Modo } from "./config";
 import { query, withTx } from "./db";
+import { consultarSeguimientoDocumental, type FichaDocumentosFinanzas } from "./documentos";
 import { normalizarCedula } from "./incorporar";
 import { juntaPublicaSql } from "./junta-sql";
 import { bloquearJuntas, insertarAsignacion, insertarMovimiento, type Actor, type Resultado } from "./movimientos";
@@ -35,33 +36,13 @@ export async function consultarJuntaVerificacion(juntaId: number, cedula?: strin
          FROM mjrv WHERE junta_origen_id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba)
            AND rol IN ('presidente','secretario','vocal') ORDER BY rol, fila_origen, id`, [juntaId]);
     const persona = cedula ? (await client.query<PersonaMesa>(PERSONA, [normalizarCedula(cedula)])).rows[0] : null;
-    const { rows: documentacion } = await client.query<DocumentoEnMesa>(
-      `SELECT m.id, m.cedula, m.apellidos || ', ' || m.nombres AS nombre,
-              CASE WHEN f.total = 0 THEN 'sin_documento'
-                   WHEN NOT (f.pasaporte OR (f.anverso AND f.reverso)) THEN 'incompleto'
-                   WHEN v.mjrv_id IS NOT NULL THEN 'validado' ELSE 'por_validar' END AS estado,
-              CASE WHEN f.publico AND f.personal THEN 'mixto'
-                   WHEN f.publico THEN 'mjrv' WHEN f.personal THEN 'personal' END AS origen
-         FROM v_mjrv_asignacion a JOIN mjrv m ON m.id = a.mjrv_id
-         LEFT JOIN v_cedulas_validadas v ON v.mjrv_id = m.id
-         CROSS JOIN LATERAL (
-           SELECT count(*) AS total, bool_or(lado = 'pasaporte') AS pasaporte,
-                  bool_or(lado = 'anverso') AS anverso, bool_or(lado = 'reverso') AS reverso,
-                  bool_or(origen = 'publico') AS publico, bool_or(origen = 'estacion') AS personal
-             FROM documentos_mjrv WHERE mjrv_id=m.id AND es_prueba=cne.en_prueba()
-         ) f
-        WHERE a.junta_actual_id=$1 AND (cne.en_prueba() OR NOT m.es_prueba)
-        ORDER BY m.apellidos, m.nombres, m.id`, [juntaId],
-    );
+    const documentacion = (await consultarSeguimientoDocumental(client, juntaId))
+      .map(({ id, cedula, nombre, estado, origen }) => ({ id, cedula, nombre, estado, origen }));
     return { modo, puestos, titulares, documentacion, persona: persona ?? null };
   });
 }
 
-export type DocumentoEnMesa = {
-  id: number; cedula: string; nombre: string;
-  estado: "sin_documento" | "incompleto" | "por_validar" | "validado";
-  origen: "mjrv" | "personal" | "mixto" | null;
-};
+export type DocumentoEnMesa = Pick<FichaDocumentosFinanzas, "id" | "cedula" | "nombre" | "estado" | "origen">;
 
 type DatosActuacion = {
   cedula: string; nombres?: string; apellidos?: string; juntaId: number; cargo: string;
