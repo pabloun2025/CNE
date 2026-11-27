@@ -83,7 +83,10 @@ export async function buscarParaValidacion(cedula: string) {
     const ficha = await buscarPorCedula(cedula, client);
     if (!ficha) return null;
     const { rowCount } = await client.query("SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id = $1", [ficha.mjrvId]);
-    return { ...ficha, modo, validada: ficha.completos && !!rowCount, version: await versionDocumentos(ficha.mjrvId, client) };
+    const { rows: [asignacion] } = await client.query<{ junta: string }>(
+      `SELECT j.serie || j.numero AS junta FROM v_mjrv_asignacion a
+         JOIN juntas_madrid j ON j.id = a.junta_actual_id WHERE a.mjrv_id = $1`, [ficha.mjrvId]);
+    return { ...ficha, junta: asignacion?.junta ?? ficha.junta, modo, validada: ficha.completos && !!rowCount, version: await versionDocumentos(ficha.mjrvId, client) };
   });
 }
 

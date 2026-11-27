@@ -6,7 +6,7 @@ import { query } from "./db";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
 
 export type PortalSesion = "admin" | "superadmin";
-export const TIPOS_MADRID = ["madrid_admin", "madrid_documentacion"];
+export const TIPOS_MADRID = ["madrid_admin", "madrid_documentacion", "madrid_mesas"];
 const TIPOS_DEL_PORTAL: Record<PortalSesion, string[]> = { admin: TIPOS_MADRID, superadmin: ["superadmin"] };
 const HORAS_SESION = 16;
 export const GENERICO = "Correo o contraseña incorrectos.";

@@ -1,4 +1,4 @@
-import { DOCUMENTACION_ADMIN } from "@/domain/roles";
+import { CAPTURA_ADMIN } from "@/domain/roles";
 import { rechazoAdminApi, sesionApi } from "@/server/guard";
 import { esLadoDocumento } from "@/domain/documentos";
 import { guardarDocumento } from "@/server/documentos";
@@ -7,7 +7,7 @@ import { origenFormularioFinanzasPermitido } from "@/server/finanzas-cuenta";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  if (!await sesionApi("admin", DOCUMENTACION_ADMIN)) return rechazoAdminApi();
+  if (!await sesionApi("admin", CAPTURA_ADMIN)) return rechazoAdminApi();
   if (!await origenFormularioFinanzasPermitido(request)) return Response.json({ error: "Origen no autorizado." }, { status: 403 });
   const f = await request.formData().catch(() => null);
   const lado = f?.get("lado"), id = Number(f?.get("mjrvId")), imagen = f?.get("imagen");

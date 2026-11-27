@@ -12,6 +12,8 @@ function exigirSuperadmin(sesion: Sesion): void {
   if (sesion.tipo !== "superadmin") throw new Error("Solo la superadministración puede hacer esto.");
 }
 
+const tipoCuenta = (rol: RolAdmin) => rol === "validador" ? "madrid_documentacion" : rol === "verificador_mesas" ? "madrid_mesas" : "madrid_admin";
+
 export type CuentaAdmin = { id: number; correo: string; rol: RolAdmin; nombre: string; activo: boolean; debe_cambiar: boolean; ultimo_acceso_en: string | null };
 
 export async function listarAdmins(sesion: Sesion): Promise<CuentaAdmin[]> {
@@ -39,7 +41,7 @@ export async function crearAdmin(sesion: Sesion, correo: string, nombre: string,
   if (problema) return { ok: false, mensaje: problema };
   const f = await query<{ id: number }>(
     "INSERT INTO usuarios (tipo, correo, nombre, password_hash, debe_cambiar, rol) VALUES ($5, $1, $2, $3, false, $4) ON CONFLICT (correo) DO NOTHING RETURNING id",
-    [c, n, await hashPassword(password), rol, rol === "validador" ? "madrid_documentacion" : "madrid_admin"],
+    [c, n, await hashPassword(password), rol, tipoCuenta(rol)],
   );
   if (!f[0]) return { ok: false, mensaje: "Ya existe una cuenta con ese correo o usuario." };
   await registrarAuditoria({ portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "admin_creado", entidad: "usuarios", entidadId: f[0].id, datos: { rol } });
@@ -52,7 +54,7 @@ export async function cambiarRolAdmin(sesion: Sesion, usuarioId: number, rol: st
   const antes = (await query<{ rol: string }>("SELECT rol FROM usuarios WHERE id = $1 AND tipo = ANY($2)", [usuarioId, TIPOS_MADRID]))[0];
   if (!antes) return { ok: false, mensaje: "La cuenta no existe." };
   if (antes.rol === rol) return { ok: true };
-  await query("UPDATE usuarios SET rol = $1, tipo = $3 WHERE id = $2 AND tipo = ANY($4)", [rol, usuarioId, rol === "validador" ? "madrid_documentacion" : "madrid_admin", TIPOS_MADRID]);
+  await query("UPDATE usuarios SET rol = $1, tipo = $3 WHERE id = $2 AND tipo = ANY($4)", [rol, usuarioId, tipoCuenta(rol), TIPOS_MADRID]);
   await registrarAuditoria({ portal: "superadmin", actorTipo: "usuario", actorId: sesion.usuarioId, actorNombre: sesion.nombre, accion: "admin_rol_cambiado", entidad: "usuarios", entidadId: usuarioId, datos: { de: antes.rol, a: rol } });
   return { ok: true };
 }

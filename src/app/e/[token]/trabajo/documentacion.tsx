@@ -10,10 +10,11 @@ type Ficha = EstadoFotos & {
   modo?: "prueba" | "eleccion"; validada?: boolean; version?: string;
 };
 
-export function Documentacion({ token }: { token?: string }) {
-  const validacion = token === undefined;
+export function Documentacion({ token, capturaMesas = false, cedulaInicial = "" }: { token?: string; capturaMesas?: boolean; cedulaInicial?: string }) {
+  const autenticada = token === undefined;
+  const validacion = autenticada && !capturaMesas;
   const cabeceras = token ? { authorization: `Bearer ${token}` } : new Headers();
-  const [cedula, setCedula] = useState("");
+  const [cedula, setCedula] = useState(cedulaInicial);
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [mensaje, setMensaje] = useState("");
   const [ocupado, setOcupado] = useState(false);
@@ -23,12 +24,12 @@ export function Documentacion({ token }: { token?: string }) {
   const fotosVisibles = ficha?.version && lados.every((lado) => fotosCargadas.includes(`${ficha.version}:${lado}`));
 
   async function consultar(c: string): Promise<Ficha | null> {
-    const ruta = validacion ? "/api/admin/documentacion/buscar" : "/api/e/documentacion/buscar";
+    const ruta = autenticada ? "/api/admin/documentacion/buscar" : "/api/e/documentacion/buscar";
     const headers = new Headers(cabeceras);
     headers.set("content-type", "application/json");
     const r = await fetch(ruta, { method: "POST", headers, body: JSON.stringify({ cedula: c }) });
     if (r.status === 401 || r.status === 403) {
-      throw new Error(validacion ? "Vuelva a iniciar sesión." : "El enlace ya no está activo. Pida uno nuevo a la administración.");
+      throw new Error(autenticada ? "Vuelva a iniciar sesión." : "El enlace ya no está activo. Pida uno nuevo a la administración.");
     }
     if (!r.ok) throw new Error("No se pudo consultar. Revise la conexión.");
     const d = await r.json();
@@ -60,11 +61,11 @@ export function Documentacion({ token }: { token?: string }) {
     f.set("imagen", imagen, `${lado}.jpg`);
     if (ficha.modo) f.set("modo", ficha.modo);
     try {
-      const ruta = validacion ? "/api/admin/finanzas/foto" : "/api/e/documentacion/foto";
+      const ruta = autenticada ? "/api/admin/finanzas/foto" : "/api/e/documentacion/foto";
       const r = await fetch(ruta, { method: "POST", headers: cabeceras, body: f });
       const d = await r.json();
       if (!r.ok) { setMensaje(d.error ?? "No se pudo guardar."); return false; }
-      if (validacion) {
+      if (autenticada) {
         setFicha({ ...ficha, anverso: d.anverso, reverso: d.reverso, pasaporte: d.pasaporte, completos: d.completos, version: undefined, validada: false });
         try { setFicha(await consultar(ficha.cedula)); }
         catch { setMensaje("La foto se guardó. Vuelva a buscar la ficha para validar."); }

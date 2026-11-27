@@ -1,7 +1,7 @@
 // Roles de la administración de Madrid (C2). La superadmin no usa rol: tiene su propio portal.
-export type RolAdmin = "consul" | "coordinador" | "financiero" | "validador";
-export const ROLES_ADMIN: RolAdmin[] = ["consul", "coordinador", "financiero", "validador"];
-export const ETIQUETA_ROL: Record<RolAdmin, string> = { consul: "Cónsul", coordinador: "Coordinador (centro de mando)", financiero: "Financiero (finanzas e informes)", validador: "Validación de documentos" };
+export type RolAdmin = "consul" | "coordinador" | "financiero" | "validador" | "verificador_mesas";
+export const ROLES_ADMIN: RolAdmin[] = ["consul", "coordinador", "financiero", "validador", "verificador_mesas"];
+export const ETIQUETA_ROL: Record<RolAdmin, string> = { consul: "Cónsul", coordinador: "Coordinador (centro de mando)", financiero: "Financiero (finanzas e informes)", validador: "Validación de documentos", verificador_mesas: "Verificación de mesas" };
 
 export const esRolAdmin = (v: unknown): v is RolAdmin => typeof v === "string" && (ROLES_ADMIN as string[]).includes(v);
 
@@ -10,10 +10,12 @@ export const SOLO_CONSUL: RolAdmin[] = ["consul"];
 export const CONSUL_Y_COORDINADOR: RolAdmin[] = ["consul", "coordinador"];
 export const CONSUL_Y_FINANCIERO: RolAdmin[] = ["consul", "financiero"];
 export const DOCUMENTACION_ADMIN: RolAdmin[] = ["consul", "financiero", "validador"];
+export const MESAS_ADMIN: RolAdmin[] = ["consul", "verificador_mesas"];
+export const CAPTURA_ADMIN: RolAdmin[] = [...DOCUMENTACION_ADMIN, "verificador_mesas"];
 export const TODOS_LOS_ROLES = ROLES_ADMIN;
 
 // A dónde se lleva a quien entra en algo que no le corresponde. Siempre una pantalla que su rol sí puede ver.
-export const INICIO_DE_ROL: Record<RolAdmin, string> = { consul: "/admin", coordinador: "/admin/mando", financiero: "/admin/finanzas", validador: "/admin/validacion-documental" };
+export const INICIO_DE_ROL: Record<RolAdmin, string> = { consul: "/admin", coordinador: "/admin/mando", financiero: "/admin/finanzas", validador: "/admin/validacion-documental", verificador_mesas: "/admin/verificacion-mesas" };
 
 // Orden del funcionario: credencial antes del día; el día, puerta, foto, pago y constitución.
 export const ENLACES_ADMIN: { href: string; texto: string; roles: RolAdmin[] }[] = [
@@ -23,6 +25,7 @@ export const ENLACES_ADMIN: { href: string; texto: string; roles: RolAdmin[] }[]
   { href: "/admin/revocar", texto: "Revocar acceso", roles: SOLO_CONSUL },
   { href: "/admin/operadores", texto: "Enlaces de estación", roles: SOLO_CONSUL },
   { href: "/admin/documentos", texto: "Documentos (QR)", roles: SOLO_CONSUL },
+  { href: "/admin/verificacion-mesas", texto: "Verificación de mesas", roles: MESAS_ADMIN },
   { href: "/admin/validacion-documental", texto: "Validación de documentos", roles: ["consul", "validador"] },
   { href: "/admin/finanzas", texto: "Finanzas", roles: CONSUL_Y_FINANCIERO },
   { href: "/admin/finanzas/pagar", texto: "Revisar e imprimir", roles: CONSUL_Y_FINANCIERO },

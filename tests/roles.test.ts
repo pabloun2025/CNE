@@ -20,6 +20,7 @@ describe("roles de administración", () => {
     expect(de("consul")).toHaveLength(ENLACES_ADMIN.length);
     expect(de("coordinador")).toEqual(["/admin/mando"]);
     expect(de("financiero")).toEqual(["/admin", "/admin/finanzas", "/admin/finanzas/pagar", "/admin/finanzas/caja", "/admin/informes"]);
+    expect(de("verificador_mesas")).toEqual(["/admin/verificacion-mesas"]);
     expect(de("validador")).toEqual(["/admin/validacion-documental"]);
     expect(de("consul")).not.toContain("/admin/configuracion");
   });

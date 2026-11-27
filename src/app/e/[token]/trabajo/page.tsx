@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CabeceraEstacion } from "@/components/cabecera-estacion";
 import { FUNCION_NOMBRE } from "@/domain/estaciones";
 import { medidasCredencial } from "@/server/credencial-config";
@@ -23,7 +24,12 @@ export default async function Trabajo({ params }: { params: Promise<{ token: str
       <main className="mx-auto max-w-7xl p-3">
         {enlace.funcion === "puerta" && <Puerta token={token} medidas={await medidasCredencial()} />}
         {enlace.funcion === "mando" && <Mando />}
-        {enlace.funcion === "documentacion" && <Documentacion token={token} />}
+        {enlace.funcion === "documentacion" && (
+          <div className="stack">
+            <Documentacion token={token} />
+            <Link href="/admin/verificacion-mesas" className="button-like secondary mx-auto">Registrar quién ejerció en la junta</Link>
+          </div>
+        )}
         {enlace.funcion === "finanzas" && <Finanzas token={token} />}
       </main>
     </div>

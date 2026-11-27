@@ -36,7 +36,7 @@ function puestoDe(s: SesionEstacion | ActorPago): { enlaceId: number | null; usu
 export type EstadoPago = "documentacion_incompleta" | "lista" | "acta_preparada" | "pagada";
 
 export type FichaPago = {
-  mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean;
+  mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean; actuacionVerificada: boolean;
   anverso: boolean; reverso: boolean; pasaporte?: true; documentosCompletos: boolean; cedulaValidada: boolean;
   parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null; tipoCambio: string | null;
   acta: { id: number; impresionN: number; importePendiente: boolean; documentoPendiente?: true; numero: string; ordinalRecibo: number | null } | null;
@@ -97,11 +97,13 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
 }
 
 async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: SesionEstacion | ActorPago): Promise<FichaPago | null> {
-  const { rows: [m] } = await client.query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string }>(
-    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.cargo_original, m.activo, jo.serie || jo.numero AS origen,
-            jv.serie || jv.numero AS vigente
+  const { rows: [m] } = await client.query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string; actuacion_verificada: boolean }>(
+    `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.activo, jo.serie || jo.numero AS origen,
+            coalesce(v.junta, jv.serie || jv.numero) AS vigente,
+            coalesce(upper(v.cargo), m.cargo_original) AS cargo_original, v.id IS NOT NULL AS actuacion_verificada
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id)
+       LEFT JOIN v_actuacion_mesa v ON v.mjrv_id = m.id
       WHERE m.cedula = $1 FOR KEY SHARE OF m`, [cedulaNorm(cedulaBruta)]);
   if (!m) return null;
   const { anverso, reverso, pasaporte, completos: documentosCompletos } = await estadoDocumentos(m.id, client);
@@ -132,7 +134,7 @@ async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: Sesion
       .rows.map((x) => ({ etiqueta: x.etiqueta, operador: x.operador, haceMin: x.hace_min }));
   }
   return {
-    mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo,
+    mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo, actuacionVerificada: m.actuacion_verificada,
     anverso, reverso, ...(pasaporte ? { pasaporte } : {}), documentosCompletos, cedulaValidada: !!documentosValidados,
     parametrosCompletos: faltan.length === 0, faltanParametros: faltan,
     importeUsd: acta ? acta.importe_usd : RECIBOS_IMPORTE_USD,
@@ -217,12 +219,15 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     if (firmado) return { ok: true, pdf: await normalizarFechaRecibo(firmado.pdf, existente.parametros.contingencia), borrador: false, numero, actaId: existente.id };
   }
 
-  const [j] = (await client.query<{ vigente: string }>(
-    `SELECT jv.serie || jv.numero AS vigente FROM mjrv m JOIN juntas_madrid jv ON jv.id = coalesce((
+  const [j] = (await client.query<{ vigente: string; cargo: string | null }>(
+    `SELECT coalesce(v.junta, jv.serie || jv.numero) AS vigente, upper(v.cargo) AS cargo
+       FROM mjrv m JOIN juntas_madrid jv ON jv.id = coalesce((
        SELECT d.junta_destino_id FROM decisiones_movimiento d
         WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' AND ($2::timestamptz IS NULL OR d.creado_en <= $2)
-        ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id) WHERE m.id = $1`, [mjrvId, existente?.creado_en ?? null])).rows;
-  const personaActual = { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: m.cargo_original, juntaVigente: j.vigente,
+        ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id)
+       LEFT JOIN v_actuacion_mesa v ON v.mjrv_id = m.id
+      WHERE m.id = $1`, [mjrvId, existente?.creado_en ?? null])).rows;
+  const personaActual = { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: j.cargo ?? m.cargo_original, juntaVigente: j.vigente,
     telefono: m.telefono_e164 ?? undefined, correo: m.correo ?? undefined };
   const persona: DatosActa["persona"] = { ...(existente?.parametros.persona_recibo ?? personaActual) };
   if (!existente || actualizarDocumento) {
@@ -231,6 +236,10 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     else if (documento?.anverso && documento.reverso) persona.tipoDocumento = "cedula";
   }
   if (actualizarDocumento || persona.tipoDocumento === "pasaporte") persona.cedula = m.cedula;
+  if (actualizarDocumento && j.cargo) {
+    persona.cargo = j.cargo;
+    persona.juntaVigente = j.vigente;
+  }
   const anexo = anexoDeRecibo(persona, fotos);
   if (contingencia && !sinAnexo && !anexo && existente?.recibo_cifrado && existente.recibo_nonce) {
     const pdf = await normalizarFechaRecibo(decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), existente.parametros.contingencia);
@@ -363,7 +372,7 @@ export async function confirmarPago(s: SesionEstacion | ActorPago, d: { mjrvId: 
     const [validada] = (await client.query("SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id = $1", [d.mjrvId])).rows;
     if (!validada) return { ok: false as const, mensaje: "Falta validar el documento de identidad en el modo actual." };
     if ((await client.query(SQL_IDENTIDAD_PENDIENTE, [d.actaId])).rowCount) {
-      return { ok: false as const, mensaje: "Reimprima el recibo con el documento vigente antes de confirmar el pago." };
+      return { ok: false as const, mensaje: "Reimprima el recibo con los datos vigentes antes de confirmar el pago." };
     }
     const r = await client.query<{ id: number; confirmado_en: string; es_prueba: boolean; importe_usd: string | null; importe_eur: string | null }>(
       `INSERT INTO pagos_confirmados (mjrv_id, acta_id, importe_usd, tipo_cambio, importe_eur, funciones_verificadas, operador_id, enlace_id, usuario_id)
