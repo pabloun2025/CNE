@@ -3,7 +3,7 @@ import { CARGOS, type Cargo } from "../domain/cargos";
 import { registrarAuditoria } from "./auditoria";
 import { withTx } from "./db";
 import { juntaPublicaSql } from "./junta-sql";
-import { coberturaEnTx, insertarAsignacion, type Actor, type Resultado } from "./movimientos";
+import { afectaActuacionVerificada, coberturaEnTx, insertarAsignacion, MENSAJE_ACTUACION, type Actor, type Resultado } from "./movimientos";
 
 export type DatosIncorporar = { nombres: string; apellidos: string; cedula: string; juntaId: number; cargo: string; telefono?: string; correo?: string };
 
@@ -38,6 +38,7 @@ export async function incorporarVotante(a: Actor, d: DatosIncorporar): Promise<R
     const previa = (await client.query<{ activo: boolean; junta: string }>(
       `SELECT m.activo, ${juntaPublicaSql("jo")} AS junta FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id WHERE m.cedula = $1`, [cedula])).rows[0];
     if (previa) return { ok: false as const, mensaje: `Ya existe una ficha con esa cédula (junta ${previa.junta}, estado ${previa.activo ? "activa" : "de baja"}). No se creó otra.` };
+    if (await afectaActuacionVerificada(client, d.juntaId, cargo)) return { ok: false, mensaje: MENSAJE_ACTUACION };
     if (!(await coberturaEnTx(client, d.juntaId)).vacantes.includes(cargo)) return { ok: false as const, cambio: true, mensaje: `La situación cambió: el cargo de ${cargo} de ${junta.e} ya no está vacante. No se creó la ficha.` };
     const m = (await client.query<{ id: number }>(
       `INSERT INTO mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id, correo, telefono_e164, fuente_archivo, incorporado_en, incorporado_por, es_prueba)

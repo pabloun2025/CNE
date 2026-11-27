@@ -6,7 +6,8 @@ import { query } from "./db";
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from "./passwords";
 
 export type PortalSesion = "admin" | "superadmin";
-const TIPO_DE_PORTAL: Record<PortalSesion, string> = { admin: "madrid_admin", superadmin: "superadmin" };
+export const TIPOS_MADRID = ["madrid_admin", "madrid_documentacion", "madrid_mesas"];
+const TIPOS_DEL_PORTAL: Record<PortalSesion, string[]> = { admin: TIPOS_MADRID, superadmin: ["superadmin"] };
 const HORAS_SESION = 16;
 export const GENERICO = "Correo o contraseña incorrectos.";
 
@@ -38,8 +39,8 @@ export async function login(entrada: { correo: string; password: string; portal:
     return { ok: false, mensaje: GENERICO };
   }
   const filas = await query<{ id: number; password_hash: string; activo: boolean; debe_cambiar: boolean }>(
-    "SELECT id, password_hash, activo, debe_cambiar FROM usuarios WHERE correo = $1 AND tipo = $2",
-    [correo, TIPO_DE_PORTAL[entrada.portal]],
+    "SELECT id, password_hash, activo, debe_cambiar FROM usuarios WHERE correo = $1 AND tipo = ANY($2)",
+    [correo, TIPOS_DEL_PORTAL[entrada.portal]],
   );
   const usuario = filas[0];
   const coincide = await verifyPassword(usuario?.password_hash ?? DUMMY_PASSWORD_HASH, entrada.password);
@@ -72,7 +73,7 @@ async function bloqueado(claveCorreo: string, ip: string | null): Promise<boolea
 export async function pideDefinirContrasena(correoCrudo: string, ip: string | null, portal: PortalSesion): Promise<boolean> {
   const correo = correoCrudo.trim().toLowerCase();
   if (await bloqueado(`correo:${sha256Hex(correo)}`, ip)) return false;
-  const f = await query("SELECT 1 FROM usuarios WHERE correo = $1 AND tipo = $2 AND activo AND password_pendiente AND password_hash IS NULL", [correo, TIPO_DE_PORTAL[portal]]);
+  const f = await query("SELECT 1 FROM usuarios WHERE correo = $1 AND tipo = ANY($2) AND activo AND password_pendiente AND password_hash IS NULL", [correo, TIPOS_DEL_PORTAL[portal]]);
   return f.length > 0;
 }
 
@@ -93,8 +94,8 @@ export async function definirContrasenaInicial(entrada: { correo: string; nueva:
   // La condición va en el UPDATE: si dos personas llegan a la vez, solo una gana.
   const f = await query<{ id: number }>(
     `UPDATE usuarios SET password_hash = $1, password_pendiente = false, debe_cambiar = false
-      WHERE correo = $2 AND tipo = $3 AND activo AND password_pendiente AND password_hash IS NULL RETURNING id`,
-    [await hashPassword(entrada.nueva), correo, TIPO_DE_PORTAL[entrada.portal]],
+      WHERE correo = $2 AND tipo = ANY($3) AND activo AND password_pendiente AND password_hash IS NULL RETURNING id`,
+    [await hashPassword(entrada.nueva), correo, TIPOS_DEL_PORTAL[entrada.portal]],
   );
   if (!f[0]) return fallar(GENERICO);
   const token = await abrirSesion(f[0].id, entrada.portal, entrada.ip, entrada.agente);
@@ -108,12 +109,13 @@ export async function leerSesion(token: string | undefined, portal: PortalSesion
   const f = await query<{ id: string; usuario_id: number; correo: string; nombre: string; tipo: string; rol: string; debe_cambiar: boolean }>(
     `SELECT s.id, u.id AS usuario_id, u.correo, u.nombre, u.tipo, u.rol, u.debe_cambiar
        FROM sesiones s JOIN usuarios u ON u.id = s.usuario_id
-      WHERE s.token_hash = $1 AND s.portal = $2 AND u.tipo = $3 AND u.activo
+      WHERE s.token_hash = $1 AND s.portal = $2 AND u.tipo = ANY($3) AND u.activo
         AND s.revocada_en IS NULL AND s.expira_en > now()`,
-    [sha256Bytes(token), portal, TIPO_DE_PORTAL[portal]],
+    [sha256Bytes(token), portal, TIPOS_DEL_PORTAL[portal]],
   );
   const r = f[0];
-  return r ? { sesionId: r.id, usuarioId: r.usuario_id, correo: r.correo, nombre: r.nombre, tipo: r.tipo, rol: esRolAdmin(r.rol) ? r.rol : "consul", debeCambiar: r.debe_cambiar } : null;
+  if (!r || !esRolAdmin(r.rol)) return null;
+  return { sesionId: r.id, usuarioId: r.usuario_id, correo: r.correo, nombre: r.nombre, tipo: r.tipo, rol: r.rol, debeCambiar: r.debe_cambiar };
 }
 
 export async function cerrarSesion(token: string | undefined): Promise<void> {

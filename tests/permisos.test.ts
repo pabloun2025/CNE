@@ -18,13 +18,15 @@ vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
 // «admin» es la cuenta con rol consul; admin_coord y admin_fin, las de rol coordinador y financiero (C2).
-type Tipo = "ninguna" | "admin" | "admin_coord" | "admin_fin" | "superadmin" | "e_puerta" | "e_documentacion" | "e_finanzas" | "e_mando";
-const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "superadmin", "e_puerta", "e_documentacion", "e_finanzas", "e_mando"];
+type Tipo = "ninguna" | "admin" | "admin_coord" | "admin_fin" | "admin_docs" | "admin_mesas" | "superadmin" | "e_puerta" | "e_documentacion" | "e_finanzas" | "e_mando" | "e_mesas" | "e_validacion_documental";
+const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "admin_docs", "admin_mesas", "superadmin", "e_puerta", "e_documentacion", "e_finanzas", "e_mando", "e_mesas", "e_validacion_documental"];
 type Regla = Tipo[] | "publica";
 const SOLO_ADMIN: Regla = ["admin"];
 const SOLO_SUPER: Regla = ["superadmin"];
 const MANDO: Regla = ["admin", "admin_coord", "e_mando"];
 const FINANZAS: Regla = ["admin", "admin_fin"];
+const DOCUMENTACION: Tipo[] = ["admin", "admin_fin", "admin_docs"];
+const CAPTURA: Regla = [...DOCUMENTACION, "admin_mesas"];
 
 // ─── Rutas API: «METODO /url» ───
 const RUTAS: Record<string, Regla> = {
@@ -42,13 +44,15 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/admin/finanzas/recibos/descargar": FINANZAS,
   "POST /api/admin/finanzas/recibos/contingencia": FINANZAS,
   "POST /api/admin/finanzas/recibos/emitir": FINANZAS,
-  "GET /api/admin/finanzas/cedula/[id]/[lado]": FINANZAS,
+  "GET /api/admin/finanzas/cedula/[id]/[lado]": DOCUMENTACION,
   "POST /api/admin/finanzas/ficha": FINANZAS,
   "POST /api/admin/finanzas/confirmar": FINANZAS,
   "POST /api/admin/finanzas/nombres": FINANZAS,
-  "POST /api/admin/finanzas/validar-cedula": FINANZAS,
+  "POST /api/admin/finanzas/validar-cedula": DOCUMENTACION,
+  "POST /api/admin/documentacion/buscar": CAPTURA,
+  "POST /api/admin/verificacion-mesas": ["admin", "admin_mesas"],
   "POST /api/admin/finanzas/acta/[mjrvId]": FINANZAS,
-  "POST /api/admin/finanzas/foto": FINANZAS,
+  "POST /api/admin/finanzas/foto": CAPTURA,
   "GET /api/mando/junta": MANDO,
   "GET /api/mando/propuesta": MANDO,
   "GET /api/mando/estado": MANDO,
@@ -59,6 +63,9 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/e/documentacion/foto": ["e_documentacion"],
   "POST /api/e/documentacion/buscar": ["e_documentacion"],
   "POST /api/e/finanzas/escanear": ["e_finanzas"],
+  "POST /api/e/mesas": ["e_mesas"],
+  "POST /api/e/documentacion/puesto": ["e_mesas", "e_validacion_documental"],
+  "GET /api/e/documentacion/puesto": ["e_validacion_documental"],
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
@@ -139,6 +146,18 @@ describe("matriz de permisos", () => {
     await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar) SELECT 'madrid_admin','admin@prueba.cne','Admin Prueba', password_hash, false FROM cne.usuarios WHERE tipo = 'superadmin'");
     await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar, rol) SELECT 'madrid_admin','coord@prueba.cne','Coordinador Prueba', password_hash, false, 'coordinador' FROM cne.usuarios WHERE tipo = 'superadmin'");
     await consultarDueno("INSERT INTO cne.usuarios (tipo, correo, nombre, password_hash, debe_cambiar, rol) SELECT 'madrid_admin','fin@prueba.cne','Financiero Prueba', password_hash, false, 'financiero' FROM cne.usuarios WHERE tipo = 'superadmin'");
+    const { crearAdmin } = await import("@/server/superadmin");
+    const superId = (await consultarDueno<{ id: number }>("SELECT id FROM cne.usuarios WHERE tipo = 'superadmin'"))[0].id;
+    const creada = await crearAdmin({
+      sesionId: "x", usuarioId: superId, correo: "super@prueba.cne", nombre: "Superadmin Prueba",
+      tipo: "superadmin", rol: "consul", debeCambiar: false,
+    }, "documentacion-prueba", "Documentación Prueba", "validador", "clave-super-1", "clave-super-1");
+    expect(creada).toEqual({ ok: true });
+    const mesas = await crearAdmin({
+      sesionId: "x", usuarioId: superId, correo: "super@prueba.cne", nombre: "Superadmin Prueba",
+      tipo: "superadmin", rol: "consul", debeCambiar: false,
+    }, "mesa-prueba", "Mesa Prueba", "verificador_mesas", "clave-super-1", "clave-super-1");
+    expect(mesas).toEqual({ ok: true });
     const entrar = async (correo: string, portal: "admin" | "superadmin") => {
       const r = await login({ correo, password: "clave-super-1", portal, ip: "10.9.9.9", agente: "prueba" });
       if (!r.ok) throw new Error("login");
@@ -148,9 +167,11 @@ describe("matriz de permisos", () => {
     sesionesHechas.admin = { cne_admin: await entrar("admin@prueba.cne", "admin") };
     sesionesHechas.admin_coord = { cne_admin: await entrar("coord@prueba.cne", "admin") };
     sesionesHechas.admin_fin = { cne_admin: await entrar("fin@prueba.cne", "admin") };
+    sesionesHechas.admin_docs = { cne_admin: await entrar("documentacion-prueba", "admin") };
+    sesionesHechas.admin_mesas = { cne_admin: await entrar("mesa-prueba", "admin") };
     sesionesHechas.superadmin = { cne_super: await entrar("super@prueba.cne", "superadmin") };
     const admin = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul" as const, debeCambiar: false };
-    for (const f of ["puerta", "documentacion", "finanzas", "mando"] as const) {
+    for (const f of ["puerta", "documentacion", "finanzas", "mando", "mesas", "validacion_documental"] as const) {
       const e = await crearEnlace(admin, f, `${f} prueba`);
       if (!e.ok) throw new Error("estación");
       if (f !== "mando") {
@@ -179,6 +200,31 @@ describe("matriz de permisos", () => {
     ponerSesion("admin_coord");
     const { default: AdminInicio } = await import("@/app/admin/(panel)/page");
     await expect(AdminInicio()).rejects.toThrow("REDIRECT:/admin/mando");
+  });
+
+  it("el validador marca la ficha sin emitir un recibo y detecta una foto sustituida", async () => {
+    ponerSesion("admin_docs");
+    const { POST: buscar } = await import("@/app/api/admin/documentacion/buscar/route");
+    const { POST: validar } = await import("@/app/api/admin/finanzas/validar-cedula/route");
+    const post = (ruta: string, datos: unknown) => new Request(`http://localhost${ruta}`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(datos),
+    });
+    await consultarDueno(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+      SELECT '0000000042', 'PRUEBA', 'PERSONA', 'VOCAL', 'vocal', id FROM cne.juntas_madrid WHERE serie='H' AND numero=12`);
+    const ficha = async () => (await buscar(post("/api/admin/documentacion/buscar", { cedula: "0000000042" }))).json();
+    const previa = await ficha();
+    await consultarDueno(`INSERT INTO cne.documentos_mjrv (mjrv_id, lado, imagen_cifrada, nonce, bytes, ancho, alto, sha256, origen, es_prueba)
+      VALUES ($1, 'pasaporte', decode('00','hex'), decode('00','hex'), 30000, 10, 10, decode(md5('pasaporte-prueba'),'hex'), 'estacion', true)`, [previa.mjrvId]);
+    const abierta = await ficha();
+    expect(abierta).toMatchObject({ pasaporte: true, completos: true, validada: false, modo: "prueba" });
+    await consultarDueno("UPDATE cne.documentos_mjrv SET creado_en = clock_timestamp() WHERE mjrv_id = $1", [abierta.mjrvId]);
+    const envio = (version: string) => validar(post("/api/admin/finanzas/validar-cedula", { mjrvId: abierta.mjrvId, modo: abierta.modo, version }));
+    expect(await (await envio(abierta.version)).json()).toMatchObject({ ok: false, mensaje: expect.stringContaining("cambiaron") });
+    expect(await (await envio((await ficha()).version)).json()).toEqual({ ok: true });
+    expect((await ficha()).validada).toBe(true);
+    expect(await consultarDueno("SELECT id FROM cne.actas_pago WHERE mjrv_id = $1", [abierta.mjrvId])).toEqual([]);
+    expect(await consultarDueno("SELECT id FROM cne.pendientes_impresion WHERE mjrv_id = $1", [abierta.mjrvId])).toEqual([]);
+    expect(await consultarDueno("SELECT mjrv_id FROM cne.pagos_confirmados WHERE mjrv_id = $1", [abierta.mjrvId])).toEqual([]);
   });
 
   describe("rutas API", () => {
@@ -222,9 +268,26 @@ describe("matriz de permisos", () => {
 
   });
 
+  it("el enlace de mesa puede capturar, pero no validar y caduca", async () => {
+    ponerSesion("ninguna");
+    const { POST } = await import("@/app/api/e/documentacion/puesto/route");
+    const { POST: mesas } = await import("@/app/api/e/mesas/route");
+    const post = (token: string, data: object) => new Request("http://localhost/api/e/documentacion/puesto", {
+      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(data),
+    });
+    const tokenMesa = enlacesDirectos.e_mesas!;
+    const tokenValidacion = enlacesDirectos.e_validacion_documental!;
+    expect((await POST(post(tokenMesa, { accion: "validar" }))).status).toBe(403);
+    expect((await POST(post(tokenValidacion, { accion: "validar" }))).status).toBe(400);
+    expect((await mesas(post(tokenValidacion, { accion: "consultar" }))).status).toBe(403);
+    await consultarDueno("UPDATE cne.enlaces_estacion SET expira_en = now() - interval '1 second' WHERE funcion = 'mesas'");
+    expect((await mesas(post(tokenMesa, { accion: "consultar" }))).status).toBe(401);
+    await consultarDueno("UPDATE cne.enlaces_estacion SET expira_en = NULL WHERE funcion = 'mesas'");
+  });
+
   describe("acciones de servidor", () => {
     // Denegada = redirección al acceso/verificación, «Solo la …» o «su sesión ya no es válida».
-    const DENEGADA = /^REDIRECT:\/(admin\/(acceso|cambiar-contrasena|mando|finanzas)|superadmin\/(acceso|cambiar-contrasena))$|^Solo la /;
+    const DENEGADA = /^REDIRECT:\/(admin\/(acceso|cambiar-contrasena|mando|finanzas|validacion-documental|verificacion-mesas)|superadmin\/(acceso|cambiar-contrasena))$|^Solo la /;
     async function denegada(a: (typeof accionesDescubiertas)[number]): Promise<boolean> {
       const fn = (await import(/* @vite-ignore */ a.archivo))[a.nombre] as (...args: unknown[]) => Promise<unknown>;
       const f = new FormData();
@@ -259,20 +322,22 @@ describe("matriz de permisos", () => {
     // Roles que puede usar cada página de /admin (sin entrada aquí, la prueba falla) y a dónde redirige a los demás.
     const ROLES_PAGINA: Record<string, string[]> = {
       "": ["consul", "financiero"],
+      "validacion-documental": ["consul", "financiero", "validador"],
+      "verificacion-mesas": ["consul", "verificador_mesas"],
       mando: ["consul", "coordinador"], finanzas: ["consul", "financiero"], "finanzas/pagar": ["consul", "financiero"], "finanzas/documentos": ["consul", "financiero"], "finanzas/caja": ["consul", "financiero"], "finanzas/recibos": ["consul", "financiero"], "finanzas/recibos/emitir": ["consul", "financiero"], informes: ["consul", "financiero"],
       credenciales: ["consul"], "credenciales/envios": ["consul"], "credenciales/sms": ["consul"], "credenciales/whatsapp": ["consul"], "credenciales/whatsapp/bandeja": ["consul"], "credenciales/imprimir": ["consul"], revocar: ["consul"], documentos: ["consul"], operadores: ["consul"], "operadores/guias": ["consul"], mjrv: ["consul"], "mjrv/importar": ["consul"], "mjrv/nueva": ["consul"], "mjrv/[id]": ["consul"],
     };
-    const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero": "TODOS_LOS_ROLES", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
+    const NOMBRE_CONJUNTO: Record<string, string> = { "consul,coordinador,financiero,validador,verificador_mesas": "TODOS_LOS_ROLES", "consul,verificador_mesas": "MESAS_ADMIN", "consul,financiero,validador": "DOCUMENTACION_ADMIN", "consul,coordinador": "CONSUL_Y_COORDINADOR", "consul,financiero": "CONSUL_Y_FINANCIERO", consul: "SOLO_CONSUL" };
     const clavePagina = (f: string) => path.relative(path.join(SRC, "app/admin/(panel)"), path.dirname(f)).split(path.sep).join("/");
     it("cada página de /admin con menú declara sus roles y coinciden con la matriz", () => {
       const delPanel = paginas("admin").filter((f) => f.includes(`${path.sep}(panel)${path.sep}`));
       expect(delPanel.map(clavePagina).sort()).toEqual(Object.keys(ROLES_PAGINA).sort());
       for (const f of delPanel) expect(leer(f), f).toContain(`roles: ${NOMBRE_CONJUNTO[ROLES_PAGINA[clavePagina(f)].join(",")]} }`);
     });
-    for (const rol of ["consul", "coordinador", "financiero"]) {
+    for (const rol of ["consul", "coordinador", "financiero", "validador", "verificador_mesas"]) {
       it(`el rol ${rol} entra solo a sus pantallas; el resto lo redirige a la suya`, async () => {
-        ponerSesion(rol === "consul" ? "admin" : rol === "coordinador" ? "admin_coord" : "admin_fin");
-        const inicio = { consul: "/admin", coordinador: "/admin/mando", financiero: "/admin/finanzas" }[rol];
+        ponerSesion(rol === "consul" ? "admin" : rol === "coordinador" ? "admin_coord" : rol === "financiero" ? "admin_fin" : rol === "validador" ? "admin_docs" : "admin_mesas");
+        const inicio = { consul: "/admin", coordinador: "/admin/mando", financiero: "/admin/finanzas", validador: "/admin/validacion-documental", verificador_mesas: "/admin/verificacion-mesas" }[rol];
         for (const f of paginas("admin").filter((f) => f.includes(`${path.sep}(panel)${path.sep}`))) {
           const permitido = ROLES_PAGINA[clavePagina(f)].includes(rol);
           const pagina = (await import(/* @vite-ignore */ f)).default as (p: unknown) => Promise<unknown>;

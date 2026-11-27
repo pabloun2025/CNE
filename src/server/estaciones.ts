@@ -1,4 +1,4 @@
-import { FUNCIONES, MAX_FALLOS_ENLACE, MAX_FALLOS_OPERADOR, MINUTOS_BLOQUEO, PIN_VALIDO, type Funcion } from "../domain/estaciones";
+import { FUNCIONES, FUNCIONES_OPERADOR, MAX_FALLOS_ENLACE, MAX_FALLOS_OPERADOR, MINUTOS_BLOQUEO, PIN_VALIDO, type Funcion } from "../domain/estaciones";
 import { sha256Bytes } from "../domain/text";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
@@ -23,7 +23,7 @@ function validarOperador(nombre: string, apellido: string, funciones: string[], 
   const a = limpio(apellido);
   if (n.length < 2 || n.length > 80) return "Escriba el nombre (2 a 80 caracteres).";
   if (a.length < 2 || a.length > 80) return "Escriba el apellido (2 a 80 caracteres).";
-  if (funciones.length === 0 || !funciones.every((f) => (FUNCIONES as string[]).includes(f))) return "Elija al menos una función.";
+  if (funciones.length === 0 || !funciones.every((f) => (FUNCIONES_OPERADOR as readonly string[]).includes(f))) return "Elija al menos una función.";
   if (!PIN_VALIDO(pin)) return "El PIN debe tener exactamente 4 dígitos.";
   return null;
 }
@@ -67,20 +67,25 @@ export async function activarOperador(sesion: Sesion, id: number, activo: boolea
 
 export type Enlace = { id: number; funcion: Funcion; etiqueta: string; activo: boolean; creado_en: string; token: string | null };
 
-export async function crearEnlace(sesion: Sesion, funcion: string, etiqueta: string): Promise<{ ok: true; id: number; token: string } | { ok: false; mensaje: string }> {
+export async function crearEnlace(sesion: Sesion, funcion: string, etiqueta: string, caducidad?: Date): Promise<{ ok: true; id: number; token: string } | { ok: false; mensaje: string }> {
   if (!(FUNCIONES as string[]).includes(funcion)) return { ok: false, mensaje: "Elija una función." };
   const e = etiqueta.trim();
   if (e.length < 2 || e.length > 60) return { ok: false, mensaje: "Escriba una etiqueta (por ejemplo «Puerta 1»)." };
   // Token de 32 bytes: solo se guarda su hash y una copia cifrada para volver a mostrar el QR.
   const token = randomToken(32);
   const { ciphertext, nonce } = encryptBuffer(Buffer.from(token));
-  const f = await query<{ id: number }>("INSERT INTO enlaces_estacion (funcion, etiqueta, token_hash, token_cifrado, token_nonce, creado_por) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id", [funcion, e, sha256Bytes(token), ciphertext, nonce, sesion.usuarioId]);
+  const f = await query<{ id: number }>(
+    "INSERT INTO enlaces_estacion (funcion, etiqueta, token_hash, token_cifrado, token_nonce, creado_por, expira_en) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+    [funcion, e, sha256Bytes(token), ciphertext, nonce, sesion.usuarioId, caducidad ?? null],
+  );
   await registrarAuditoria({ ...auditoriaAdmin(sesion), accion: "enlace_creado", entidad: "enlaces_estacion", entidadId: f[0].id, datos: { funcion } });
   return { ok: true, id: f[0].id, token };
 }
 
 export async function listarEnlaces(): Promise<Enlace[]> {
-  const f = await query<Omit<Enlace, "token"> & { token_cifrado: Buffer | null; token_nonce: Buffer | null }>("SELECT id, funcion, etiqueta, activo, creado_en::text, token_cifrado, token_nonce FROM enlaces_estacion ORDER BY activo DESC, id DESC");
+  const f = await query<Omit<Enlace, "token"> & { token_cifrado: Buffer | null; token_nonce: Buffer | null }>(`SELECT id, funcion, etiqueta,
+      activo AND coalesce(expira_en, CASE WHEN funcion IN ('mesas','validacion_documental') THEN creado_en + interval '72 hours' END, 'infinity') > now() AS activo,
+      creado_en::text, token_cifrado, token_nonce FROM enlaces_estacion ORDER BY activo DESC, id DESC`);
   return f.map(({ token_cifrado, token_nonce, ...e }) => ({ ...e, token: e.activo && token_cifrado && token_nonce ? decryptBuffer(token_cifrado, token_nonce).toString() : null }));
 }
 
@@ -95,15 +100,17 @@ export type EnlaceActivo = { id: number; funcion: Funcion; etiqueta: string };
 
 export async function enlacePorToken(token: string): Promise<EnlaceActivo | null> {
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
-  const f = await query<EnlaceActivo>("SELECT id, funcion, etiqueta FROM enlaces_estacion WHERE token_hash = $1 AND activo AND revocado_en IS NULL", [sha256Bytes(token)]);
+  const f = await query<EnlaceActivo>(
+    `SELECT id, funcion, etiqueta FROM enlaces_estacion WHERE token_hash = $1 AND activo AND revocado_en IS NULL
+       AND coalesce(expira_en, CASE WHEN funcion IN ('mesas','validacion_documental') THEN creado_en + interval '72 hours' END, 'infinity') > now()`, [sha256Bytes(token)]);
   return f[0] ?? null;
 }
 
-export async function accesoDirectoEstacion(request: Request, funcion: Exclude<Funcion, "mando">) {
+export async function accesoDirectoEstacion(request: Request, ...funciones: Exclude<Funcion, "mando">[]) {
   const token = /^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1];
   const enlace = token ? await enlacePorToken(token) : null;
   if (!enlace) return { ok: false as const, status: 401 };
-  if (enlace.funcion !== funcion) return { ok: false as const, status: 403 };
+  if (!funciones.some((funcion) => funcion === enlace.funcion)) return { ok: false as const, status: 403 };
   return { ok: true as const, enlace };
 }
 

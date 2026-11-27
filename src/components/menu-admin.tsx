@@ -12,7 +12,7 @@ const EN_PESTANA = new Set(["/admin/finanzas/pagar", "/admin/finanzas/caja"]);
 
 const GRUPOS: { id: string; etiqueta: string; hrefs: string[] }[] = [
   { id: "preparacion", etiqueta: "Preparación", hrefs: ["/admin/mjrv", "/admin/credenciales", "/admin/revocar", "/admin/operadores"] },
-  { id: "jornada", etiqueta: "Jornada", hrefs: ["/admin/documentos", "/admin/finanzas", "/admin/mando"] },
+  { id: "jornada", etiqueta: "Jornada", hrefs: ["/admin/documentos", "/admin/verificacion-mesas", "/admin/validacion-documental", "/admin/finanzas", "/admin/mando"] },
   { id: "cierre", etiqueta: "Cierre", hrefs: ["/admin/informes"] },
 ];
 
@@ -23,6 +23,8 @@ const ICONO: Record<string, ReactNode> = {
   "/admin/revocar": <Icono d="M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM8 8l8 8" />,
   "/admin/operadores": <Icono d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM3 19c.5-3 2.6-4.5 5-4.5S12.5 16 13 19M14 14.6c1.6-.2 3.2.4 4 1.6.6 1 1 1.8 1.2 2.8" />,
   "/admin/documentos": <Icono d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5" />,
+  "/admin/verificacion-mesas": <Icono d="M3 5h18v13H3zM3 9h18M9 9v9M15 9v9" />,
+  "/admin/validacion-documental": <Icono d="M7 3h7l5 5v13H5V3zM8 13l2.5 2.5L16 10" />,
   "/admin/finanzas": <Icono d="M4 7h16v10H4zM4 11h16M8 15h3" />,
   "/admin/mando": <Icono d="M4 5h7v7H4zM13 5h7v4h-7zM13 12h7v7h-7zM4 15h7v4H4z" />,
   "/admin/informes": <Icono d="M5 19V9M12 19V5M19 19v-7" />,

@@ -546,3 +546,14 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Se restauró la casilla «Imprimir automáticamente al buscar», marcada al iniciar. Con la casilla desmarcada, una coincidencia muestra «Imprimir ticket». Se conserva el flujo de confirmación para quien no consta en el padrón.
 - La búsqueda actual muestra la junta y la zona en grande. La última atención impresa conserva su junta, zona y recinto, y las anteriores quedan en una lista de la sesión sin nombres ni cédulas.
 - Se probaron ambos modos con la red externa bloqueada, el regreso del foco al buscador y los tres niveles visuales del historial. El servidor local, el recuento, el padrón cifrado y el puente de impresión conservan los mismos componentes.
+
+## 62. Captura en mesas y validación documental (27-11)
+
+- «Verificación de mesas» permite seleccionar la junta y el cargo, identificar a quien lo ejerció, incorporar a una persona sin ficha, confirmar un traslado o sustitución y fotografiar la cédula o el pasaporte. La confirmación registra el puesto y el reemplazo. Los cambios que afectarían un recibo firmado digitalmente o un pago confirmado requieren intervención de Finanzas.
+- «Validación de documentos» permite buscar, tomar fotos, revisar las imágenes guardadas y validar. La validación corresponde a la versión de las fotos y al modo vigente. Una sustitución de imágenes obliga a revisar de nuevo.
+- Los dos puestos disponen de enlaces independientes. Superadministración los emite y puede revocarlos desde Operadores. Los dos enlaces del operativo caducan al terminar el lunes 30 de noviembre, hora de Madrid. El enlace de captura que ya existía conserva su función. Los nuevos enlaces carecen de acceso administrativo o financiero.
+- Finanzas ve la junta y cargo confirmados. Si nunca se confirmó la actuación, Finanzas verifica el caso en su circuito habitual. Si una actuación confirmada se retira, queda pendiente hasta resolver quién ejerció. Si un recibo pendiente conserva la junta o el cargo anterior, Finanzas lo reimprime manteniendo el folio. Validar la identidad y confirmar la actuación son operaciones independientes de emitir, imprimir y pagar.
+
+## 63. Cierre del lote de SMS de junta, zona y color (27-11)
+
+SMS Publi aceptó los 7.425 mensajes que quedaban del fichero aprobado. El diario conciliado registra 39.235 referencias únicas y cero pendientes de envío. La aceptación del proveedor es independiente del acuse de entrega. [Reanudación del lote](https://github.com/pabloun2025/CNE/actions/runs/45998547929)

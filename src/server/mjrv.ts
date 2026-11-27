@@ -8,7 +8,7 @@ import { registrarAuditoria } from "./auditoria";
 import type { Modo } from "./config";
 import { query, withTx } from "./db";
 import { juntaPublicaSql } from "./junta-sql";
-import { estadoDocumentos, type EstadoDocs } from "./documentos";
+import { estadoDocumentos, versionDocumentos, type EstadoDocs } from "./documentos";
 import { PERSONAS_CARGO } from "./mando";
 
 export type FiltrosMjrv = { junta?: string; rol?: string; estado?: string; q?: string };
@@ -158,16 +158,19 @@ export async function corregirNombres(actor: ActorFicha, id: number, apellidosBr
 }
 
 // La validación corresponde a las fotos vigentes de ese modo.
-export async function validarCedula(actor: ActorFicha, id: number, modoEsperado?: Modo): Promise<Resultado> {
+export async function validarCedula(actor: ActorFicha, id: number, modoEsperado?: Modo, versionEsperada?: string): Promise<Resultado> {
   return withTx(async (client) => {
     const [{ modo }] = (await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE")).rows;
     if (modoEsperado && modo !== modoEsperado) return { ok: false as const, mensaje: "El modo cambió. Vuelva a abrir la ficha antes de validar." };
-    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [id])).rows[0]) {
+    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [id])).rows[0]) {
       return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
     }
     await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() FOR SHARE", [id]);
     const documentos = await estadoDocumentos(id, client);
     if (!documentos.completos) return { ok: false as const, mensaje: "Faltan fotos del documento de identidad. No se puede validar." };
+    if (versionEsperada !== undefined && await versionDocumentos(id, client) !== versionEsperada) {
+      return { ok: false as const, mensaje: "Las fotos cambiaron. Vuelva a abrir la ficha y revíselas." };
+    }
     await client.query(
       `INSERT INTO cedulas_validadas (mjrv_id, validada_en) VALUES ($1, clock_timestamp())
        ON CONFLICT (mjrv_id, es_prueba) DO UPDATE SET validada_en = EXCLUDED.validada_en`, [id]);
