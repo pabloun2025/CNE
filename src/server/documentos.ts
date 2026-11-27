@@ -106,7 +106,7 @@ export async function guardarDocumento(d: { mjrvId: number; lado: Lado; imagen: 
   return withTx(async (client) => {
     const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
     if (d.modoEsperado && d.modoEsperado !== modo) return { ok: false as const, status: 409 as const, mensaje: "El modo cambió. Actualice la página antes de guardar la foto." };
-    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [d.mjrvId])).rows[0]) return { ok: false as const, status: 404 as const, mensaje: "No se encontró la ficha." };
+    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [d.mjrvId])).rows[0]) return { ok: false as const, status: 404 as const, mensaje: "No se encontró la ficha." };
     if (!esPasaporte) {
       // El reverso no puede ser la misma foto que el anverso (ni al revés).
       const otro = (await client.query<{ sha256: Buffer }>(
@@ -136,6 +136,18 @@ export async function leerDocumento(mjrvId: number, lado: Lado, client?: PoolCli
   const params = [mjrvId, lado, modoEsperado ?? null];
   const [f] = client ? (await client.query<DocumentoCifrado>(sql, params)).rows : await query<DocumentoCifrado>(sql, params);
   return f ? decryptBuffer(f.imagen_cifrada, f.nonce) : null;
+}
+
+export async function leerDocumentoEnRevision(mjrvId: number, lado: Lado, modoEsperado: Modo, version: string): Promise<Buffer | null> {
+  return withTx(async (client) => {
+    const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
+    if (modo !== modoEsperado) return null;
+    const ficha = await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR SHARE", [mjrvId]);
+    if (!ficha.rowCount) return null;
+    await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() FOR SHARE", [mjrvId]);
+    if (await versionDocumentos(mjrvId, client) !== version) return null;
+    return leerDocumento(mjrvId, lado, client, modoEsperado);
+  });
 }
 
 export async function documentosParaRecibo(mjrvId: number, client?: PoolClient): Promise<Partial<Record<Lado, Buffer>> | undefined> {

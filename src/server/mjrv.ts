@@ -162,7 +162,7 @@ export async function validarCedula(actor: ActorFicha, id: number, modoEsperado?
   return withTx(async (client) => {
     const [{ modo }] = (await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE")).rows;
     if (modoEsperado && modo !== modoEsperado) return { ok: false as const, mensaje: "El modo cambió. Vuelva a abrir la ficha antes de validar." };
-    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [id])).rows[0]) {
+    if (!(await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [id])).rows[0]) {
       return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
     }
     await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() FOR SHARE", [id]);

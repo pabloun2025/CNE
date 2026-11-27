@@ -114,7 +114,7 @@ export function Documentacion({ token }: { token?: string }) {
           </p>
           {validacion && ficha.version && lados.map((lado) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={`${ficha.version}:${lado}`} src={`/api/admin/finanzas/cedula/${ficha.mjrvId}/${lado}?modo=${ficha.modo}&v=${ficha.version}`}
+            <img key={`${ficha.version}:${lado}`} src={`/api/admin/finanzas/cedula/${ficha.mjrvId}/${lado}?modo=${ficha.modo}&version=${ficha.version}`}
               onLoad={() => setFotosCargadas((actual) => [...actual, `${ficha.version}:${lado}`])}
               onError={() => setMensaje("No se pudo abrir una foto. Vuelva a buscar la ficha o repita la captura.")}
               alt={lado === "pasaporte" ? "Página de datos del pasaporte" : `Cédula · ${lado}`} className="w-full rounded border object-contain" />
@@ -127,7 +127,7 @@ export function Documentacion({ token }: { token?: string }) {
           {(!validacion || !ficha.completos || repetir) && <CapturaDocumentosPuesto key={ficha.mjrvId} fotos={ficha} onUsar={subir} />}
           {validacion && ficha.completos && !repetir && (
             ficha.validada
-              ? <p role="status" className="font-bold text-green-800">Documento validado</p>
+              ? (fotosVisibles && <p role="status" className="font-bold text-green-800">Documento validado</p>)
               : <button type="button" className="button-like w-full" disabled={ocupado || !fotosVisibles} onClick={() => void validar()}>Validar documento</button>
           )}
           <button disabled={ocupado} onClick={() => { setFicha(null); setCedula(""); setMensaje(""); setRepetir(false); }} className="border-2 border-stone-900 px-4 py-3 disabled:opacity-60">Otra persona</button>
