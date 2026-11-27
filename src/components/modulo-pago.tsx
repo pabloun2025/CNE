@@ -100,7 +100,7 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
     setMensaje("Pago confirmado.");
   });
 
-  const listaCaja = !!ficha?.acta && !ficha.acta.importePendiente && !ficha.acta.documentoPendiente && ficha.cedulaValidada && ficha.documentosCompletos;
+  const listaCaja = !!ficha?.acta && !ficha.actuacionRetirada && !ficha.acta.importePendiente && !ficha.acta.documentoPendiente && ficha.cedulaValidada && ficha.documentosCompletos;
   return (
     <section className="card stack">
       <h2>{caja ? "Confirmar pago" : "Revisar ficha"}</h2>
@@ -113,20 +113,21 @@ export function ModuloPago({ cedulaInicial = "", caja = false }: { cedulaInicial
       {ficha && (
         <div className="stack">
           <div><h3>{ficha.nombre}</h3><p>{ficha.cedula} · Junta {formatoPublicoJunta(ficha.juntaVigente)} · {ficha.cargo}</p></div>
-          {!ficha.pago && ficha.activo && <p role="status">{ficha.actuacionVerificada
+          {!ficha.pago && ficha.activo && !ficha.actuacionRetirada && <p role="status">{ficha.actuacionVerificada
             ? "Junta y cargo confirmados por el personal de mesa."
             : "Actuación pendiente de confirmar en mesa. Finanzas debe verificar el caso."}</p>}
           {ficha.modoPrueba && <p role="status">Modo prueba</p>}
           {ficha.acta && <p>Recibo <strong>{ficha.acta.numero}</strong>{ficha.importeEur ? ` · ${moneda.format(Number(ficha.importeEur))}` : ""}</p>}
           {!ficha.activo && <p role="alert">Ficha de baja.</p>}
           {ficha.pago && <p role="alert" className="banner bad">Pago ya confirmado por {ficha.pago.operador}.</p>}
-          {!ficha.pago && ficha.activo && (caja ? (
+          {!ficha.pago && ficha.activo && ficha.actuacionRetirada && <p role="alert">La actuación fue sustituida. Compruebe con el puesto de mesa quién ejerció el cargo.</p>}
+          {!ficha.pago && ficha.activo && !ficha.actuacionRetirada && (caja ? (
             listaCaja ? (
               <>
                 <label className="flex items-start gap-2"><input type="checkbox" checked={verificado} onChange={(e) => verificar(e.target.checked)} />
                   {ficha.actuacionVerificada
-                    ? "Verifiqué que el recibo está firmado en papel y que el efectivo fue entregado."
-                    : "Verifiqué quién ejerció el cargo, la firma en papel y la entrega del efectivo."}
+                    ? "Cotejé la junta y el cargo del recibo firmado y entregué el efectivo."
+                    : "Verifiqué quién ejerció el cargo, cotejé el recibo firmado y entregué el efectivo."}
                 </label>
                 <button className="button-like w-full sm:w-auto" disabled={!verificado || ocupado} onClick={confirmar}>Confirmar pago entregado</button>
               </>

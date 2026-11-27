@@ -1,11 +1,15 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { verificarActuacion } from "@/server/verificacion-mesas";
+import { consultarJuntaVerificacion, verificarActuacion as verificar } from "@/server/verificacion-mesas";
 import { fichaPago } from "@/server/finanzas";
 import { closePools } from "@/server/db";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 const actor = { tipo: "madrid_admin" as const, id: 1, nombre: "Verificador Prueba" };
 const cedula = "0000000092";
+async function verificarActuacion(actor: Parameters<typeof verificar>[0], datos: Omit<Parameters<typeof verificar>[1], "personaAnterior">) {
+  const persona = (await consultarJuntaVerificacion(datos.juntaId, datos.cedula))?.persona ?? null;
+  return verificar(actor, { ...datos, personaAnterior: persona });
+}
 beforeAll(async () => { await reiniciarBase(); });
 afterAll(closePools);
 
@@ -28,8 +32,8 @@ it("traslada un suplente y rechaza una segunda confirmación que ignora la susti
   expect(await consultarDueno("SELECT cargo FROM cne.asignaciones_cargo WHERE mjrv_id=$1 AND activa", [suplente])).toEqual([{ cargo: "vocal" }]);
 });
 
-it("conserva el folio cuando el cargo confirmado cambia después de emitir", async () => {
-  const { generarActa, generarRecibosContingencia, confirmarPago } = await import("@/server/finanzas");
+it("conserva el folio al reimprimir sin anexo si el cargo cambia y protege la actuación sustituida", async () => {
+  const { generarRecibosContingencia, confirmarPago } = await import("@/server/finanzas");
   const { guardarDocumento } = await import("@/server/documentos");
   const { validarCedula } = await import("@/server/mjrv");
   const { default: sharp } = await import("sharp");
@@ -53,8 +57,14 @@ it("conserva el folio cuando el cargo confirmado cambia después de emitir", asy
   expect((await fichaPago("0000000094"))?.acta?.documentoPendiente).toBe(true);
   const datosPago = { mjrvId: id, actaId: acta.id, verificado: true };
   expect(await confirmarPago(finanzas, datosPago)).toMatchObject({ ok: false, mensaje: expect.stringContaining("Reimprima") });
-  expect(await generarActa(finanzas, id, true)).toMatchObject({ ok: true, numero: acta.numero, actaId: acta.id });
+  expect(await generarRecibosContingencia(finanzas, [id], "prueba", true)).toMatchObject({ ok: true, numeros: [acta.numero] });
   expect(await consultarDueno("SELECT parametros #>> '{persona_recibo,cargo}' AS cargo FROM cne.actas_pago WHERE id = $1", [acta.id]))
     .toEqual([{ cargo: "PRESIDENTE" }]);
-  expect(await confirmarPago(finanzas, datosPago)).toMatchObject({ ok: true });
+  const puesto = (await consultarJuntaVerificacion(junta))?.puestos.find((x) => x.cargo === "presidente");
+  expect(await verificarActuacion(actor, {
+    cedula: "0000000095", nombres: "OTRA", apellidos: "PERSONA PRUEBA",
+    cargo: "presidente", juntaId: junta, modo: "prueba", verificacionAnterior: puesto?.id ?? null,
+  })).toMatchObject({ ok: true });
+  expect((await fichaPago("0000000094"))?.actuacionRetirada).toBe(true);
+  expect(await confirmarPago(finanzas, datosPago)).toMatchObject({ ok: false, mensaje: expect.stringContaining("retiró") });
 });

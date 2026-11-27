@@ -9,16 +9,18 @@ import type { consultarJuntaVerificacion, listarJuntasVerificacion } from "@/ser
 type Consulta = NonNullable<Awaited<ReturnType<typeof consultarJuntaVerificacion>>>;
 type Junta = Awaited<ReturnType<typeof listarJuntasVerificacion>>[number];
 
-async function solicitar<T>(datos: object): Promise<T> {
-  const r = await fetch("/api/admin/verificacion-mesas", {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(datos),
+async function solicitar<T>(datos: object, token?: string): Promise<T> {
+  const headers = new Headers({ "content-type": "application/json" });
+  if (token) headers.set("authorization", `Bearer ${token}`);
+  const r = await fetch(token ? "/api/e/mesas" : "/api/admin/verificacion-mesas", {
+    method: "POST", headers, body: JSON.stringify(datos),
   });
   const d = await r.json();
   if (!r.ok) throw new Error(d.mensaje ?? d.error ?? "No se pudo completar la operación.");
   return d;
 }
 
-export function VerificacionMesas({ juntas }: { juntas: Junta[] }) {
+export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: string }) {
   const [juntaId, setJunta] = useState(0);
   const [consulta, setConsulta] = useState<Consulta | null>(null);
   const [cargo, setCargo] = useState<Cargo | "">("");
@@ -36,7 +38,7 @@ export function VerificacionMesas({ juntas }: { juntas: Junta[] }) {
     setAviso(false);
     if (texto) setConsultada("");
     try {
-      setConsulta(id ? await solicitar<Consulta>({ accion: "consultar", juntaId: id, cedula: texto }) : null);
+      setConsulta(id ? await solicitar<Consulta>({ accion: "consultar", juntaId: id, cedula: texto }, token) : null);
       setConsultada(texto);
     } catch (e) {
       setConsulta(null);
@@ -58,9 +60,10 @@ export function VerificacionMesas({ juntas }: { juntas: Junta[] }) {
       const posicion = persona?.cedula ?? consultada;
       const { mensaje } = await solicitar<{ mensaje: string }>({
         accion: "confirmar", juntaId, cedula: posicion, cargo, modo: consulta.modo,
+        personaAnterior: persona ? { id: persona.id, juntaId: persona.juntaId } : null,
         nombres: datos.get("nombres"), apellidos: datos.get("apellidos"), verificacionAnterior: actual?.id ?? null,
-      });
-      setConsulta(await solicitar<Consulta>({ accion: "consultar", juntaId }));
+      }, token);
+      setConsulta(await solicitar<Consulta>({ accion: "consultar", juntaId }, token));
       setCapturar(posicion);
       setConsultada("");
       setCedula("");
@@ -137,7 +140,7 @@ export function VerificacionMesas({ juntas }: { juntas: Junta[] }) {
       {mensaje && <p role="status">{mensaje} {capturar && <a href="#fotos-mesa">Ir a las fotos</a>}</p>}
       <section className="card stack" id="fotos-mesa">
         <h2>Fotografiar cédula o pasaporte</h2>
-        <Documentacion key={capturar} capturaMesas cedulaInicial={capturar} />
+        <Documentacion key={capturar} token={token} capturaMesas cedulaInicial={capturar} />
       </section>
     </div>
   );

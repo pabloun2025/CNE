@@ -39,7 +39,7 @@ export async function consultarJuntaVerificacion(juntaId: number, cedula?: strin
 
 type DatosActuacion = {
   cedula: string; nombres?: string; apellidos?: string; juntaId: number; cargo: string;
-  modo: Modo; verificacionAnterior: number | null;
+  modo: Modo; verificacionAnterior: number | null; personaAnterior: { id: number; juntaId: number } | null;
 };
 const fuera = (mensaje: string) => ({ ok: false as const, mensaje });
 const cambio = () => ({ ok: false as const, cambio: true, mensaje: "La junta cambió. Vuelva a consultar antes de confirmar." });
@@ -65,6 +65,7 @@ export async function verificarActuacion(actor: Actor, d: DatosActuacion): Promi
     if (modo !== d.modo) return fuera("El modo cambió. Vuelva a abrir el puesto.");
     if (!(await client.query("SELECT 1 FROM juntas_madrid WHERE id = $1", [d.juntaId])).rowCount) return fuera("La junta no existe.");
     const { rows: [previa] } = await client.query<PersonaMesa>(PERSONA, [cedula]);
+    if (previa?.id !== d.personaAnterior?.id || previa?.juntaId !== d.personaAnterior?.juntaId) return cambio();
     if (previa && !previa.activo) return fuera("La ficha está de baja. Consulte al responsable.");
     await bloquearJuntas(client, [previa?.juntaId ?? d.juntaId, d.juntaId]);
     const { rows: [ocupante] } = await client.query<{ id: number; mjrv_id: number; confirmada: boolean }>(
@@ -97,7 +98,7 @@ export async function verificarActuacion(actor: Actor, d: DatosActuacion): Promi
       mjrvId, juntaId: d.juntaId, cargo, origen: traslado ? "traslado" : vigente ? "manual" : "incorporado", verificada: true,
     });
     await registrarAuditoria({
-      portal: "mando", actorTipo: "usuario", actorId: actor.id, actorNombre: actor.nombre, accion: "actuacion_mesa_verificada",
+      portal: "mando", actorTipo: actor.tipo === "operador" ? "operador" : "usuario", actorId: actor.id, actorNombre: actor.nombre, accion: "actuacion_mesa_verificada",
       entidad: "mjrv", entidadId: mjrvId,
       datos: { modo, junta: d.juntaId, cargo, incorporada: !vigente, desde: traslado ? vigente.juntaId : null, reemplazo: ocupante?.mjrv_id ?? null },
     }, client);

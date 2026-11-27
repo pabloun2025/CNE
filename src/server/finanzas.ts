@@ -36,7 +36,7 @@ function puestoDe(s: SesionEstacion | ActorPago): { enlaceId: number | null; usu
 export type EstadoPago = "documentacion_incompleta" | "lista" | "acta_preparada" | "pagada";
 
 export type FichaPago = {
-  mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean; actuacionVerificada: boolean;
+  mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean; actuacionVerificada: boolean; actuacionRetirada: boolean;
   anverso: boolean; reverso: boolean; pasaporte?: true; documentosCompletos: boolean; cedulaValidada: boolean;
   parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null; tipoCambio: string | null;
   acta: { id: number; impresionN: number; importePendiente: boolean; documentoPendiente?: true; numero: string; ordinalRecibo: number | null } | null;
@@ -97,10 +97,11 @@ export async function fichaPago(cedulaBruta: string, s?: SesionEstacion | ActorP
 }
 
 async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: SesionEstacion | ActorPago): Promise<FichaPago | null> {
-  const { rows: [m] } = await client.query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string; actuacion_verificada: boolean }>(
+  const { rows: [m] } = await client.query<{ id: number; cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; origen: string; vigente: string; actuacion_verificada: boolean; actuacion_retirada: boolean }>(
     `SELECT m.id, m.cedula, m.apellidos, m.nombres, m.activo, jo.serie || jo.numero AS origen,
             coalesce(v.junta, jv.serie || jv.numero) AS vigente,
-            coalesce(upper(v.cargo), m.cargo_original) AS cargo_original, v.id IS NOT NULL AS actuacion_verificada
+            coalesce(upper(v.cargo), m.cargo_original) AS cargo_original, v.id IS NOT NULL AS actuacion_verificada,
+            EXISTS (SELECT 1 FROM v_actuacion_retirada r WHERE r.mjrv_id = m.id) AS actuacion_retirada
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id)
        LEFT JOIN v_actuacion_mesa v ON v.mjrv_id = m.id
@@ -134,7 +135,7 @@ async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: Sesion
       .rows.map((x) => ({ etiqueta: x.etiqueta, operador: x.operador, haceMin: x.hace_min }));
   }
   return {
-    mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo, actuacionVerificada: m.actuacion_verificada,
+    mjrvId: m.id, cedula: m.cedula, apellidos: m.apellidos, nombres: m.nombres, nombre: `${m.apellidos}, ${m.nombres}`, cargo: m.cargo_original, juntaOrigen: m.origen, juntaVigente: m.vigente, activo: m.activo, actuacionVerificada: m.actuacion_verificada, actuacionRetirada: m.actuacion_retirada,
     anverso, reverso, ...(pasaporte ? { pasaporte } : {}), documentosCompletos, cedulaValidada: !!documentosValidados,
     parametrosCompletos: faltan.length === 0, faltanParametros: faltan,
     importeUsd: acta ? acta.importe_usd : RECIBOS_IMPORTE_USD,
@@ -187,6 +188,9 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
   const pagado = (!contingencia || borradorLegado) && (await client.query("SELECT 1 FROM pagos_confirmados WHERE mjrv_id = $1", [mjrvId])).rows[0];
   const sustituirBorrador = borradorLegado && !pagado;
   const existente = sustituirBorrador ? undefined : principal;
+  if ((await client.query("SELECT 1 FROM v_actuacion_retirada WHERE mjrv_id = $1", [mjrvId])).rowCount) {
+    return { ok: false, status: 409, mensaje: "La actuación se retiró. Verifique el cargo antes de emitir otro recibo." };
+  }
   if (!contingencia) {
     if (pagado) return { ok: false, status: 409, mensaje: "Esta persona ya tiene el pago confirmado. Busque su recibo para reimprimirlo." };
     if (existente?.ordinal_recibo == null && await otroPagoEnCurso(client, mjrvId, quien)) {
@@ -205,13 +209,16 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
   }
   if (firma && existente && !existente.importe_eur) return { ok: false, status: 409, mensaje: "El recibo histórico carece de importe en EUR." };
 
-  const actualizarDocumento = !!(existente && !contingencia && (await client.query(SQL_IDENTIDAD_PENDIENTE, [existente.id])).rowCount);
+  const cambioRecibo = existente && (await client.query<{ cambio_actuacion: boolean }>(
+    "SELECT cambio_actuacion FROM v_identidad_recibo_pendiente WHERE acta_id = $1", [existente.id],
+  )).rows[0];
+  const actualizarDocumento = !!cambioRecibo && (!contingencia || cambioRecibo.cambio_actuacion);
   if (existente) {
     const numero = numeroActa(existente.id, modo.prueba, existente.ordinal_recibo);
-    const firmado = !contingencia
+    const firmado = !contingencia || actualizarDocumento
       ? (await client.query<{ pdf: Buffer }>("SELECT pdf FROM firmas_recibo WHERE acta_id = $1", [existente.id])).rows[0]
       : undefined;
-    if (firmado && actualizarDocumento) return { ok: false, status: 409, mensaje: "El recibo firmado corresponde a otro documento. Revise el caso antes de pagar." };
+    if (firmado && actualizarDocumento) return { ok: false, status: 409, mensaje: "El recibo firmado tiene datos anteriores. Revise el caso antes de pagar." };
     await client.query("UPDATE actas_pago SET impresion_n = impresion_n + 1 WHERE id = $1", [existente.id]);
     await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
       actorNombre: quien.nombre, accion: "acta_reimpresa", entidad: "actas_pago", entidadId: existente.id,
@@ -241,7 +248,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     persona.juntaVigente = j.vigente;
   }
   const anexo = anexoDeRecibo(persona, fotos);
-  if (contingencia && !sinAnexo && !anexo && existente?.recibo_cifrado && existente.recibo_nonce) {
+  if (contingencia && !actualizarDocumento && !sinAnexo && !anexo && existente?.recibo_cifrado && existente.recibo_nonce) {
     const pdf = await normalizarFechaRecibo(decryptBuffer(existente.recibo_cifrado, existente.recibo_nonce), existente.parametros.contingencia);
     return { ok: true, pdf, borrador: !existente.importe_eur,
       numero: numeroActa(existente.id, modo.prueba, existente.ordinal_recibo), actaId: existente.id };
@@ -362,6 +369,9 @@ export async function confirmarPago(s: SesionEstacion | ActorPago, d: { mjrvId: 
     if (!m) return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
     const previo = (await client.query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null }>(SQL_PAGO_PREVIO, [d.mjrvId])).rows[0];
     if (previo) return { ok: false as const, yaPagado: { en: previo.en, operador: previo.operador, importeUsd: previo.importe_usd ?? "", importeEur: previo.importe_eur }, mensaje: "Ya pagado. No vuelva a pagar." };
+    if ((await client.query("SELECT 1 FROM v_actuacion_retirada WHERE mjrv_id = $1", [d.mjrvId])).rowCount) {
+      return { ok: false as const, mensaje: "La actuación se retiró. Confirme el cargo ejercido antes de pagar." };
+    }
     const [acta] = (await client.query(
       "SELECT 1 FROM actas_pago WHERE id = $1 AND mjrv_id = $2 AND recibo_principal AND importe_eur > 0", [d.actaId, d.mjrvId])).rows;
     if (!acta) return { ok: false as const, mensaje: "El acta no corresponde a esta persona o carece de importe en EUR. Genere el acta de nuevo." };

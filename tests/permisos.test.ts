@@ -18,8 +18,8 @@ vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
 // «admin» es la cuenta con rol consul; admin_coord y admin_fin, las de rol coordinador y financiero (C2).
-type Tipo = "ninguna" | "admin" | "admin_coord" | "admin_fin" | "admin_docs" | "admin_mesas" | "superadmin" | "e_puerta" | "e_documentacion" | "e_finanzas" | "e_mando";
-const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "admin_docs", "admin_mesas", "superadmin", "e_puerta", "e_documentacion", "e_finanzas", "e_mando"];
+type Tipo = "ninguna" | "admin" | "admin_coord" | "admin_fin" | "admin_docs" | "admin_mesas" | "superadmin" | "e_puerta" | "e_documentacion" | "e_finanzas" | "e_mando" | "e_mesas" | "e_validacion_documental";
+const TIPOS: Tipo[] = ["ninguna", "admin", "admin_coord", "admin_fin", "admin_docs", "admin_mesas", "superadmin", "e_puerta", "e_documentacion", "e_finanzas", "e_mando", "e_mesas", "e_validacion_documental"];
 type Regla = Tipo[] | "publica";
 const SOLO_ADMIN: Regla = ["admin"];
 const SOLO_SUPER: Regla = ["superadmin"];
@@ -63,6 +63,9 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/e/documentacion/foto": ["e_documentacion"],
   "POST /api/e/documentacion/buscar": ["e_documentacion"],
   "POST /api/e/finanzas/escanear": ["e_finanzas"],
+  "POST /api/e/mesas": ["e_mesas"],
+  "POST /api/e/documentacion/puesto": ["e_mesas", "e_validacion_documental"],
+  "GET /api/e/documentacion/puesto": ["e_validacion_documental"],
   "GET /superadmin/respaldo/[archivo]": SOLO_SUPER,
   "GET /api/superadmin/whatsapp/estado": SOLO_SUPER,
   "GET /api/salud": "publica",
@@ -168,7 +171,7 @@ describe("matriz de permisos", () => {
     sesionesHechas.admin_mesas = { cne_admin: await entrar("mesa-prueba", "admin") };
     sesionesHechas.superadmin = { cne_super: await entrar("super@prueba.cne", "superadmin") };
     const admin = { sesionId: "x", usuarioId: 1, correo: "a@x.y", nombre: "Admin", tipo: "madrid_admin", rol: "consul" as const, debeCambiar: false };
-    for (const f of ["puerta", "documentacion", "finanzas", "mando"] as const) {
+    for (const f of ["puerta", "documentacion", "finanzas", "mando", "mesas", "validacion_documental"] as const) {
       const e = await crearEnlace(admin, f, `${f} prueba`);
       if (!e.ok) throw new Error("estación");
       if (f !== "mando") {
@@ -263,6 +266,23 @@ describe("matriz de permisos", () => {
       expect((await enviar("cross-site")).status).toBe(403);
     });
 
+  });
+
+  it("el enlace de mesa puede capturar, pero no validar y caduca", async () => {
+    ponerSesion("ninguna");
+    const { POST } = await import("@/app/api/e/documentacion/puesto/route");
+    const { POST: mesas } = await import("@/app/api/e/mesas/route");
+    const post = (token: string, data: object) => new Request("http://localhost/api/e/documentacion/puesto", {
+      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(data),
+    });
+    const tokenMesa = enlacesDirectos.e_mesas!;
+    const tokenValidacion = enlacesDirectos.e_validacion_documental!;
+    expect((await POST(post(tokenMesa, { accion: "validar" }))).status).toBe(403);
+    expect((await POST(post(tokenValidacion, { accion: "validar" }))).status).toBe(400);
+    expect((await mesas(post(tokenValidacion, { accion: "consultar" }))).status).toBe(403);
+    await consultarDueno("UPDATE cne.enlaces_estacion SET creado_en = now() - interval '4 days' WHERE funcion = 'mesas'");
+    expect((await mesas(post(tokenMesa, { accion: "consultar" }))).status).toBe(401);
+    await consultarDueno("UPDATE cne.enlaces_estacion SET creado_en = now() WHERE funcion = 'mesas'");
   });
 
   describe("acciones de servidor", () => {

@@ -43,7 +43,9 @@ export async function listarEscaneadosFinanzas(caja: boolean) {
                a.id IS NOT NULL AS emitido, false AS pagado,
                EXISTS (SELECT 1 FROM v_cedulas_validadas v WHERE v.mjrv_id = m.id)
                  AND EXISTS (SELECT 1 FROM v_documentos_completos d WHERE d.mjrv_id = m.id)
-                 AND (NOT $1 OR NOT EXISTS (SELECT 1 FROM v_identidad_recibo_pendiente i WHERE i.acta_id = a.id)) AS documentado
+                 AND (NOT $1 OR (
+                   NOT EXISTS (SELECT 1 FROM v_identidad_recibo_pendiente i WHERE i.acta_id = a.id)
+                   AND NOT EXISTS (SELECT 1 FROM v_actuacion_retirada r WHERE r.mjrv_id = m.id))) AS documentado
           FROM mjrv m
           LEFT JOIN escaneos_finanzas e ON e.mjrv_id = m.id
           LEFT JOIN actas_pago a ON a.mjrv_id = m.id AND a.recibo_principal AND a.importe_eur > 0

@@ -17,23 +17,29 @@ SELECT a.id, a.mjrv_id, a.junta_id, a.cargo, j.serie || j.numero AS junta
   JOIN cne.v_mjrv_asignacion m ON m.mjrv_id = a.mjrv_id AND m.junta_actual_id = a.junta_id
  WHERE a.activa AND a.es_prueba = cne.en_prueba() AND a.verificada_en IS NOT NULL;
 
+CREATE VIEW cne.v_actuacion_retirada WITH (security_invoker = true) AS
+SELECT DISTINCT a.mjrv_id
+  FROM cne.asignaciones_cargo a
+ WHERE a.es_prueba = cne.en_prueba() AND a.verificada_en IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM cne.v_actuacion_mesa v WHERE v.mjrv_id = a.mjrv_id);
+
 CREATE OR REPLACE VIEW cne.v_identidad_recibo_pendiente WITH (security_invoker = true) AS
-SELECT a.id AS acta_id
+SELECT a.id AS acta_id, cambio.actuacion AS cambio_actuacion
   FROM cne.actas_pago a
   JOIN cne.mjrv m ON m.id = a.mjrv_id
-  JOIN cne.v_documentos_completos d ON d.mjrv_id = a.mjrv_id
+  LEFT JOIN cne.v_documentos_completos d ON d.mjrv_id = a.mjrv_id
   LEFT JOIN cne.documentos_mjrv pp ON pp.mjrv_id = a.mjrv_id AND pp.es_prueba = a.es_prueba AND pp.lado = 'pasaporte'
   LEFT JOIN cne.v_actuacion_mesa v ON v.mjrv_id = m.id
+  CROSS JOIN LATERAL (SELECT v.id IS NOT NULL AND (
+    a.parametros #>> '{persona_recibo,cargo}' IS DISTINCT FROM upper(v.cargo)
+    OR a.parametros #>> '{persona_recibo,juntaVigente}' IS DISTINCT FROM v.junta
+  ) AS actuacion) cambio
  WHERE a.es_prueba = cne.en_prueba() AND a.recibo_principal AND a.importe_eur > 0
    AND NOT EXISTS (SELECT 1 FROM cne.pagos_confirmados p WHERE p.mjrv_id = a.mjrv_id AND p.es_prueba = a.es_prueba)
-   AND (
+   AND (cambio.actuacion OR (d.mjrv_id IS NOT NULL AND (
      (pp.id IS NOT NULL) IS DISTINCT FROM coalesce(a.parametros #>> '{persona_recibo,tipoDocumento}' = 'pasaporte', false)
      OR (pp.id IS NOT NULL AND a.parametros #>> '{persona_recibo,cedula}' IS DISTINCT FROM m.cedula)
-     OR (v.id IS NOT NULL AND (
-       a.parametros #>> '{persona_recibo,cargo}' IS DISTINCT FROM upper(v.cargo)
-       OR a.parametros #>> '{persona_recibo,juntaVigente}' IS DISTINCT FROM v.junta
-     ))
-   );
+   )));
 
 -- La constatación presencial en mesa acredita presencia aunque no conste un paso por Puerta.
 CREATE OR REPLACE VIEW cne.v_mjrv_asignacion WITH (security_invoker = true) AS

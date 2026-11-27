@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CapturaDocumentosPuesto, type EstadoFotos } from "@/components/captura-cedula";
 import { LectorQr } from "@/components/lector-qr";
 import type { LadoDocumento } from "@/domain/documentos";
@@ -10,9 +10,38 @@ type Ficha = EstadoFotos & {
   modo?: "prueba" | "eleccion"; validada?: boolean; version?: string;
 };
 
-export function Documentacion({ token, capturaMesas = false, cedulaInicial = "" }: { token?: string; capturaMesas?: boolean; cedulaInicial?: string }) {
-  const autenticada = token === undefined;
+function FotoPuesto({ url, token, alt, onLoad, onError }: {
+  url: string; token?: string; alt: string; onLoad: () => void; onError: () => void;
+}) {
+  const [src, setSrc] = useState(token ? "" : url);
+  const [fallo, setFallo] = useState(false);
+  useEffect(() => {
+    if (!token) return;
+    const controlador = new AbortController();
+    let objeto = "";
+    void fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: controlador.signal }).then(async (respuesta) => {
+      if (!respuesta.ok) throw Error("Foto no disponible");
+      const foto = await respuesta.blob();
+      if (controlador.signal.aborted) return;
+      objeto = URL.createObjectURL(foto);
+      setSrc(objeto);
+    }).catch(() => { if (!controlador.signal.aborted) setFallo(true); });
+    return () => { controlador.abort(); if (objeto) URL.revokeObjectURL(objeto); };
+  }, [url, token]);
+
+  if (fallo) return <p role="alert">No se pudo abrir una foto. Vuelva a buscar la ficha o repita la captura.</p>;
+  if (!src) return <p role="status">Cargando foto…</p>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} onLoad={onLoad} onError={onError} className="w-full rounded border object-contain" />;
+}
+
+export function Documentacion({ token, capturaMesas = false, validarPorEnlace = false, cedulaInicial = "" }: {
+  token?: string; capturaMesas?: boolean; validarPorEnlace?: boolean; cedulaInicial?: string;
+}) {
+  const puestoDirecto = !!token && (capturaMesas || validarPorEnlace);
+  const autenticada = token === undefined || puestoDirecto;
   const validacion = autenticada && !capturaMesas;
+  const rutaPuesto = "/api/e/documentacion/puesto";
   const cabeceras = token ? { authorization: `Bearer ${token}` } : new Headers();
   const [cedula, setCedula] = useState(cedulaInicial);
   const [ficha, setFicha] = useState<Ficha | null>(null);
@@ -24,12 +53,12 @@ export function Documentacion({ token, capturaMesas = false, cedulaInicial = "" 
   const fotosVisibles = ficha?.version && lados.every((lado) => fotosCargadas.includes(`${ficha.version}:${lado}`));
 
   async function consultar(c: string): Promise<Ficha | null> {
-    const ruta = autenticada ? "/api/admin/documentacion/buscar" : "/api/e/documentacion/buscar";
+    const ruta = puestoDirecto ? rutaPuesto : autenticada ? "/api/admin/documentacion/buscar" : "/api/e/documentacion/buscar";
     const headers = new Headers(cabeceras);
     headers.set("content-type", "application/json");
-    const r = await fetch(ruta, { method: "POST", headers, body: JSON.stringify({ cedula: c }) });
+    const r = await fetch(ruta, { method: "POST", headers, body: JSON.stringify({ accion: "buscar", cedula: c }) });
     if (r.status === 401 || r.status === 403) {
-      throw new Error(autenticada ? "Vuelva a iniciar sesión." : "El enlace ya no está activo. Pida uno nuevo a la administración.");
+      throw new Error(!token ? "Vuelva a iniciar sesión." : "El enlace ya no está activo. Pida uno nuevo a la administración.");
     }
     if (!r.ok) throw new Error("No se pudo consultar. Revise la conexión.");
     const d = await r.json();
@@ -61,7 +90,7 @@ export function Documentacion({ token, capturaMesas = false, cedulaInicial = "" 
     f.set("imagen", imagen, `${lado}.jpg`);
     if (ficha.modo) f.set("modo", ficha.modo);
     try {
-      const ruta = autenticada ? "/api/admin/finanzas/foto" : "/api/e/documentacion/foto";
+      const ruta = puestoDirecto ? rutaPuesto : autenticada ? "/api/admin/finanzas/foto" : "/api/e/documentacion/foto";
       const r = await fetch(ruta, { method: "POST", headers: cabeceras, body: f });
       const d = await r.json();
       if (!r.ok) { setMensaje(d.error ?? "No se pudo guardar."); return false; }
@@ -82,10 +111,12 @@ export function Documentacion({ token, capturaMesas = false, cedulaInicial = "" 
     setOcupado(true);
     try {
       const { mjrvId, modo, version } = ficha;
-      const r = await fetch("/api/admin/finanzas/validar-cedula", {
+      const headers = new Headers(cabeceras);
+      headers.set("content-type", "application/json");
+      const r = await fetch(puestoDirecto ? rutaPuesto : "/api/admin/finanzas/validar-cedula", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mjrvId, modo, version }),
+        headers,
+        body: JSON.stringify({ accion: "validar", mjrvId, modo, version }),
       });
       const d = await r.json();
       if (!r.ok || !d.ok) {
@@ -114,11 +145,13 @@ export function Documentacion({ token, capturaMesas = false, cedulaInicial = "" 
             {ficha.pasaporte ? "Página de datos del pasaporte guardada" : ficha.completos ? "Anverso y reverso de la cédula guardados" : ficha.anverso ? "Falta el reverso de la cédula" : ficha.reverso ? "Falta el anverso de la cédula" : "Sin fotos del documento"}
           </p>
           {validacion && ficha.version && lados.map((lado) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={`${ficha.version}:${lado}`} src={`/api/admin/finanzas/cedula/${ficha.mjrvId}/${lado}?modo=${ficha.modo}&version=${ficha.version}`}
+            <FotoPuesto key={`${ficha.version}:${lado}`} token={puestoDirecto ? token : undefined}
+              url={puestoDirecto
+                ? `${rutaPuesto}?id=${ficha.mjrvId}&lado=${lado}&modo=${ficha.modo}&version=${ficha.version}`
+                : `/api/admin/finanzas/cedula/${ficha.mjrvId}/${lado}?modo=${ficha.modo}&version=${ficha.version}`}
               onLoad={() => setFotosCargadas((actual) => [...actual, `${ficha.version}:${lado}`])}
               onError={() => setMensaje("No se pudo abrir una foto. Vuelva a buscar la ficha o repita la captura.")}
-              alt={lado === "pasaporte" ? "Página de datos del pasaporte" : `Cédula · ${lado}`} className="w-full rounded border object-contain" />
+              alt={lado === "pasaporte" ? "Página de datos del pasaporte" : `Cédula · ${lado}`} />
           ))}
           {validacion && ficha.completos && (
             <button type="button" className="button-like secondary" disabled={ocupado} onClick={() => setRepetir(!repetir)}>

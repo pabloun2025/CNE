@@ -1,4 +1,4 @@
-import { FUNCIONES, MAX_FALLOS_ENLACE, MAX_FALLOS_OPERADOR, MINUTOS_BLOQUEO, PIN_VALIDO, type Funcion } from "../domain/estaciones";
+import { FUNCIONES, FUNCIONES_OPERADOR, MAX_FALLOS_ENLACE, MAX_FALLOS_OPERADOR, MINUTOS_BLOQUEO, PIN_VALIDO, type Funcion } from "../domain/estaciones";
 import { sha256Bytes } from "../domain/text";
 import type { Sesion } from "./auth";
 import { registrarAuditoria } from "./auditoria";
@@ -23,7 +23,7 @@ function validarOperador(nombre: string, apellido: string, funciones: string[], 
   const a = limpio(apellido);
   if (n.length < 2 || n.length > 80) return "Escriba el nombre (2 a 80 caracteres).";
   if (a.length < 2 || a.length > 80) return "Escriba el apellido (2 a 80 caracteres).";
-  if (funciones.length === 0 || !funciones.every((f) => (FUNCIONES as string[]).includes(f))) return "Elija al menos una función.";
+  if (funciones.length === 0 || !funciones.every((f) => (FUNCIONES_OPERADOR as readonly string[]).includes(f))) return "Elija al menos una función.";
   if (!PIN_VALIDO(pin)) return "El PIN debe tener exactamente 4 dígitos.";
   return null;
 }
@@ -95,15 +95,17 @@ export type EnlaceActivo = { id: number; funcion: Funcion; etiqueta: string };
 
 export async function enlacePorToken(token: string): Promise<EnlaceActivo | null> {
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
-  const f = await query<EnlaceActivo>("SELECT id, funcion, etiqueta FROM enlaces_estacion WHERE token_hash = $1 AND activo AND revocado_en IS NULL", [sha256Bytes(token)]);
+  const f = await query<EnlaceActivo>(
+    `SELECT id, funcion, etiqueta FROM enlaces_estacion WHERE token_hash = $1 AND activo AND revocado_en IS NULL
+       AND (funcion NOT IN ('mesas','validacion_documental') OR creado_en + interval '72 hours' > now())`, [sha256Bytes(token)]);
   return f[0] ?? null;
 }
 
-export async function accesoDirectoEstacion(request: Request, funcion: Exclude<Funcion, "mando">) {
+export async function accesoDirectoEstacion(request: Request, ...funciones: Exclude<Funcion, "mando">[]) {
   const token = /^Bearer (\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1];
   const enlace = token ? await enlacePorToken(token) : null;
   if (!enlace) return { ok: false as const, status: 401 };
-  if (enlace.funcion !== funcion) return { ok: false as const, status: 403 };
+  if (!funciones.some((funcion) => funcion === enlace.funcion)) return { ok: false as const, status: 403 };
   return { ok: true as const, enlace };
 }
 
