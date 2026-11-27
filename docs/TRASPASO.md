@@ -593,3 +593,11 @@ SMS Publi aceptó los 7.425 mensajes que quedaban del fichero aprobado. El diari
 - El resumen de Finanzas abre una vista previa ampliable desde cada fila. En Seguimiento documental se puede marcar como validado o indicar «Necesita repetir» con un motivo. El enlace y la cuenta de Validación muestran ese estado. Al guardar una nueva toma distinta, el expediente vuelve a revisión.
 - Finanzas puede deshacer una validación o una marca de repetición. La operación se audita y comprueba la versión, el modo y que el pago siga pendiente. Deshacer conserva la documentación y los recibos. Un pago pendiente vuelve a requerir la revisión de la identidad.
 - El puesto de mesa y el de Validación permiten borrar una toma concreta, previa confirmación. El servidor limita al puesto de mesa a la junta vigente, exige la versión abierta y protege las fotos de documentos validados y pagos confirmados.
+
+## 70. Circuito de Finanzas para la jornada (27-11)
+
+- Ingreso recibe la credencial por QR o la cédula escrita. Devuelve el puesto siguiente y conserva el primer registro para las colas del mismo modo. La documentación revisada antes en mesas permite ir a Impresión al ingresar.
+- Revisión abre por defecto las fichas de ventanilla. Conserva los filtros para revisión anticipada y recaptura. Validar una ficha en ventanilla la hace aparecer en Impresión.
+- Impresión conserva el folio y el importe en reimpresiones. Cuando sale el papel, el operador remite a Caja ese recibo y su versión. Caja muestra persona e importe y permite confirmar la entrega en una sola acción después de recoger la firma. Cambios posteriores de identidad, actuación o fotos obligan a revisar la versión antes de cobrar.
+- El circuito usa los enlaces y cuentas existentes. La guía de Finanzas distingue los puestos y la revisión itinerante. Los recibos de contingencia se siguen gestionando en Recibos.
+- El documento de F44 comunicado por el cónsul quedó marcado «Necesita repetir», con el motivo «Fotos borrosas» y las imágenes conservadas. [Comprobación del caso](https://github.com/pabloun2025/CNE/actions/runs/46065005445)

@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 
 const PESTANAS = [
   { href: "/admin/finanzas", texto: "Resumen" },
-  { href: "/admin/finanzas/documentos", texto: "Seguimiento documental" },
-  { href: "/admin/finanzas/pagar", texto: "Revisar e imprimir" },
-  { href: "/admin/finanzas/caja", texto: "Caja" },
+  { href: "/admin/finanzas/documentos", texto: "2. Revisión" },
+  { href: "/admin/finanzas/pagar", texto: "3. Impresión" },
+  { href: "/admin/finanzas/caja", texto: "4. Caja" },
   { href: "/admin/finanzas/recibos", texto: "Recibos" },
 ];
 

@@ -28,7 +28,7 @@ export const ENLACES_ADMIN: { href: string; texto: string; roles: RolAdmin[] }[]
   { href: "/admin/verificacion-mesas", texto: "Verificación de mesas", roles: MESAS_ADMIN },
   { href: "/admin/validacion-documental", texto: "Validación de documentos", roles: ["consul", "validador"] },
   { href: "/admin/finanzas", texto: "Finanzas", roles: CONSUL_Y_FINANCIERO },
-  { href: "/admin/finanzas/pagar", texto: "Revisar e imprimir", roles: CONSUL_Y_FINANCIERO },
+  { href: "/admin/finanzas/pagar", texto: "Impresión", roles: CONSUL_Y_FINANCIERO },
   { href: "/admin/finanzas/caja", texto: "Caja", roles: CONSUL_Y_FINANCIERO },
   { href: "/admin/mando", texto: "Centro de mando", roles: CONSUL_Y_COORDINADOR },
   { href: "/admin/informes", texto: "Informes", roles: CONSUL_Y_FINANCIERO },

@@ -52,7 +52,7 @@ const abrir = async (n: number, c: ContextoGuias) => { const pdf = await PDFDocu
 
 const PUESTO: Record<number, string[]> = { 2: ["finanzas"], 3: ["puerta"], 4: ["documentacion"], 5: ["mando"], 6: ["puerta", "documentacion", "finanzas", "mando"] };
 const URLS_ADMIN: Record<number, string[]> = {
-  1: ["/admin/mjrv", "/admin/credenciales"], 2: ["/admin/finanzas/pagar", "/admin/finanzas/caja"], 4: ["/d"], 7: ["/admin/finanzas", "/admin/informes"],
+  1: ["/admin/mjrv", "/admin/credenciales"], 2: ["/admin/finanzas/documentos", "/admin/finanzas/pagar", "/admin/finanzas/caja"], 4: ["/d"], 7: ["/admin/finanzas", "/admin/informes"],
 };
 
 describe("guías rápidas generadas por el sistema", () => {
@@ -96,6 +96,14 @@ describe("guías rápidas generadas por el sistema", () => {
       expect(t).toContain("pida un enlace a Superadministración.");
       expect(t).not.toContain("Si se revoca el enlace");
     }
+  });
+
+  it("la guía de Finanzas indica el atajo tras revisión itinerante y el pase de papel a Caja", async () => {
+    const { pdf, page } = await abrir(2, completo);
+    const t = texto(page, pdf);
+    expect(t).toContain("equipo itinerante");
+    expect(t).toContain("pase directo a Impresión");
+    expect(t).toContain("Papel listo · Enviar a Caja");
   });
 
   it("la guía 1 conserva solo la regla de letras de la junta", async () => {

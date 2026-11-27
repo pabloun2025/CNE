@@ -39,7 +39,7 @@ export type FichaPago = {
   mjrvId: number; cedula: string; apellidos: string; nombres: string; nombre: string; cargo: string; juntaOrigen: string; juntaVigente: string; activo: boolean; actuacionVerificada: boolean; actuacionRetirada: boolean;
   anverso: boolean; reverso: boolean; pasaporte?: true; documentosCompletos: boolean; cedulaValidada: boolean;
   parametrosCompletos: boolean; faltanParametros: string[]; importeUsd: string | null; importeEur: string | null; tipoCambio: string | null;
-  acta: { id: number; impresionN: number; importePendiente: boolean; documentoPendiente?: true; numero: string; ordinalRecibo: number | null } | null;
+  acta: { id: number; impresionN: number; importePendiente: boolean; documentoPendiente?: true; impreso: boolean; numero: string; ordinalRecibo: number | null } | null;
   pago: { en: string; operador: string; importeUsd: string; importeEur: string | null; simulado: boolean } | null;
   estado: EstadoPago; modoPrueba: boolean; serieAgotada: boolean;
   // Otros puestos con esta ficha abierta hace menos de 5 minutos.
@@ -105,17 +105,18 @@ async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: Sesion
        FROM mjrv m JOIN juntas_madrid jo ON jo.id = m.junta_origen_id
        JOIN juntas_madrid jv ON jv.id = coalesce((SELECT d.junta_destino_id FROM decisiones_movimiento d WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id)
        LEFT JOIN v_actuacion_mesa v ON v.mjrv_id = m.id
-      WHERE m.cedula = $1 FOR KEY SHARE OF m`, [cedulaNorm(cedulaBruta)]);
+      WHERE m.cedula = $1 AND (cne.en_prueba() OR NOT m.es_prueba) FOR KEY SHARE OF m`, [cedulaNorm(cedulaBruta)]);
   if (!m) return null;
   const { anverso, reverso, pasaporte, completos: documentosCompletos } = await estadoDocumentos(m.id, client);
   const { rowCount: documentosValidados } = await client.query("SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id = $1", [m.id]);
   const params = await leerParametros(client);
   const { rows: [serie] } = await client.query<{ es_prueba: boolean; ultimo_ordinal: number }>(
     "SELECT es_prueba, ultimo_ordinal FROM secuencia_recibos WHERE es_prueba = cne.en_prueba()");
-  const { rows: [acta] } = await client.query<{ id: number; impresion_n: number; ordinal_recibo: number | null; importe_usd: string | null; importe_eur: string | null; tipo_cambio: string | null; documento_pendiente: boolean }>(
+  const { rows: [acta] } = await client.query<{ id: number; impresion_n: number; ordinal_recibo: number | null; importe_usd: string | null; importe_eur: string | null; tipo_cambio: string | null; documento_pendiente: boolean; impreso: boolean }>(
     `SELECT a.id, a.impresion_n, a.ordinal_recibo, a.importe_usd::text, a.importe_eur::text, a.tipo_cambio::text,
-            EXISTS (SELECT 1 FROM v_identidad_recibo_pendiente i WHERE i.acta_id = a.id) AS documento_pendiente
-       FROM actas_pago a WHERE a.mjrv_id = $1 AND a.recibo_principal`, [m.id]);
+            EXISTS (SELECT 1 FROM v_identidad_recibo_pendiente i WHERE i.acta_id = a.id) AS documento_pendiente,
+            coalesce(c.etapa = 'caja', false) AS impreso
+       FROM actas_pago a LEFT JOIN v_circuito_finanzas c ON c.acta_id = a.id WHERE a.mjrv_id = $1 AND a.recibo_principal`, [m.id]);
   const { rows: [pago] } = await client.query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null; es_prueba: boolean }>(
     `SELECT p.confirmado_en::text AS en, ${SQL_QUIEN} AS operador, p.importe_usd::text, p.importe_eur::text, p.es_prueba FROM pagos_confirmados p ${JOIN_QUIEN} WHERE p.mjrv_id = $1`, [m.id]);
   const estado: EstadoPago = pago ? "pagada" : !documentosCompletos ? "documentacion_incompleta" : acta ? "acta_preparada" : "lista";
@@ -141,7 +142,7 @@ async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: Sesion
     importeUsd: acta ? acta.importe_usd : RECIBOS_IMPORTE_USD,
     importeEur: acta?.importe_eur ?? null,
     tipoCambio: !acta || acta.ordinal_recibo !== null ? RECIBOS_TIPO_CAMBIO : acta.tipo_cambio,
-    acta: acta ? { id: acta.id, impresionN: acta.impresion_n, importePendiente: !acta.importe_eur,
+    acta: acta ? { id: acta.id, impresionN: acta.impresion_n, impreso: acta.impreso, importePendiente: !acta.importe_eur,
       ...(acta.documento_pendiente ? { documentoPendiente: true } : {}),
       numero: numeroActa(acta.id, serie.es_prueba, acta.ordinal_recibo), ordinalRecibo: acta.ordinal_recibo } : null,
     pago: pago ? { en: pago.en, operador: pago.operador, importeUsd: pago.importe_usd ?? "", importeEur: pago.importe_eur, simulado: pago.es_prueba } : null,
@@ -149,7 +150,7 @@ async function leerFichaPago(client: PoolClient, cedulaBruta: string, s?: Sesion
   };
 }
 
-export type ResultadoActa = { ok: true; pdf: Uint8Array; borrador: boolean; numero: string; actaId: number | null } | { ok: false; status: 400 | 404 | 409; mensaje: string };
+export type ResultadoActa = { ok: true; pdf: Uint8Array; borrador: boolean; numero: string; actaId: number | null; version?: string } | { ok: false; status: 400 | 404 | 409; mensaje: string };
 
 type DatosGuardados = ParametrosPago & { persona_recibo?: DatosActa["persona"]; contingencia?: boolean };
 type ActaEmitida = {
@@ -173,12 +174,12 @@ async function bloquearSerie(client: PoolClient) {
 }
 
 async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjrvId: number, params: ParametrosPago,
-  modo: Awaited<ReturnType<typeof contextoEmision>>, opciones: { contingencia?: boolean; firma?: Buffer; sinAnexo?: boolean }): Promise<ResultadoActa> {
-  const { contingencia = false, firma, sinAnexo = false } = opciones;
+  modo: Awaited<ReturnType<typeof contextoEmision>>, opciones: { contingencia?: boolean; firma?: Buffer; sinAnexo?: boolean; paraImprimir?: boolean }): Promise<ResultadoActa> {
+  const { contingencia = false, firma, sinAnexo = false, paraImprimir = false } = opciones;
   if (firma && modo.modo_recibo !== "digital") return { ok: false, status: 409, mensaje: "El modo digital no está activado." };
   const quien = puestoDe(s);
   const [m] = (await client.query<{ cedula: string; apellidos: string; nombres: string; cargo_original: string; activo: boolean; telefono_e164: string | null; correo: string | null }>(
-    "SELECT cedula, apellidos, nombres, cargo_original, activo, telefono_e164, correo FROM mjrv WHERE id = $1 FOR UPDATE", [mjrvId])).rows;
+    "SELECT cedula, apellidos, nombres, cargo_original, activo, telefono_e164, correo FROM mjrv WHERE id = $1 AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [mjrvId])).rows;
   if (!m) return { ok: false, status: 404, mensaje: "La ficha no existe." };
 
   const [principal] = (await client.query<ActaEmitida>(`SELECT ${CAMPOS_ACTA} FROM actas_pago WHERE mjrv_id = $1 AND recibo_principal`, [mjrvId])).rows;
@@ -199,6 +200,10 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     await client.query("SELECT 1 FROM documentos_mjrv WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() FOR SHARE", [mjrvId]);
   }
 
+  const version = paraImprimir ? (await client.query<{ version: string | null }>(
+    "SELECT version FROM v_circuito_finanzas WHERE mjrv_id = $1", [mjrvId])).rows[0]?.version : undefined;
+  if (paraImprimir && !version) return { ok: false, status: 409, mensaje: "Valide el documento de identidad antes de imprimir." };
+
   const fotos = sinAnexo ? undefined : await documentosParaRecibo(mjrvId, client);
   if (!contingencia && !fotos?.pasaporte && !(fotos?.anverso && fotos.reverso)) {
     return { ok: false, status: 409, mensaje: "Faltan fotos del documento de identidad. No se puede generar el acta." };
@@ -212,20 +217,6 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
   const cambioRecibo = existente && (await client.query<{ cambio_actuacion: boolean }>(
     "SELECT cambio_actuacion FROM v_identidad_recibo_pendiente WHERE acta_id = $1", [existente.id],
   )).rows[0];
-  const actualizarDocumento = !!cambioRecibo && (!contingencia || cambioRecibo.cambio_actuacion);
-  if (existente) {
-    const numero = numeroActa(existente.id, modo.prueba, existente.ordinal_recibo);
-    const firmado = !contingencia || actualizarDocumento
-      ? (await client.query<{ pdf: Buffer }>("SELECT pdf FROM firmas_recibo WHERE acta_id = $1", [existente.id])).rows[0]
-      : undefined;
-    if (firmado && actualizarDocumento) return { ok: false, status: 409, mensaje: "El recibo firmado tiene datos anteriores. Revise el caso antes de pagar." };
-    await client.query("UPDATE actas_pago SET impresion_n = impresion_n + 1 WHERE id = $1", [existente.id]);
-    await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
-      actorNombre: quien.nombre, accion: "acta_reimpresa", entidad: "actas_pago", entidadId: existente.id,
-      datos: actualizarDocumento ? { contingencia, documentoActualizado: true } : { contingencia } }, client);
-    if (firmado) return { ok: true, pdf: await normalizarFechaRecibo(firmado.pdf, existente.parametros.contingencia), borrador: false, numero, actaId: existente.id };
-  }
-
   const [j] = (await client.query<{ vigente: string; cargo: string | null }>(
     `SELECT coalesce(v.junta, jv.serie || jv.numero) AS vigente, upper(v.cargo) AS cargo
        FROM mjrv m JOIN juntas_madrid jv ON jv.id = coalesce((
@@ -233,9 +224,28 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
         WHERE d.mjrv_id = m.id AND d.decision = 'aceptada' AND ($2::timestamptz IS NULL OR d.creado_en <= $2)
         ORDER BY d.creado_en DESC, d.id DESC LIMIT 1), m.junta_origen_id)
        LEFT JOIN v_actuacion_mesa v ON v.mjrv_id = m.id
-      WHERE m.id = $1`, [mjrvId, existente?.creado_en ?? null])).rows;
+      WHERE m.id = $1`, [mjrvId, paraImprimir ? null : existente?.creado_en ?? null])).rows;
   const personaActual = { apellidos: m.apellidos, nombres: m.nombres, cedula: m.cedula, cargo: j.cargo ?? m.cargo_original, juntaVigente: j.vigente,
     telefono: m.telefono_e164 ?? undefined, correo: m.correo ?? undefined };
+  const identidad = existente?.parametros.persona_recibo;
+  const cambioIdentidad = !!(paraImprimir && identidad && (
+    identidad.cedula !== personaActual.cedula || identidad.apellidos !== personaActual.apellidos || identidad.nombres !== personaActual.nombres
+    || identidad.cargo !== personaActual.cargo || identidad.juntaVigente !== personaActual.juntaVigente));
+  const actualizarDocumento = cambioIdentidad || !!cambioRecibo && (!contingencia || cambioRecibo.cambio_actuacion);
+  if (existente) {
+    const numero = numeroActa(existente.id, modo.prueba, existente.ordinal_recibo);
+    const firmado = !contingencia || actualizarDocumento
+      ? (await client.query<{ pdf: Buffer }>("SELECT pdf FROM firmas_recibo WHERE acta_id = $1", [existente.id])).rows[0]
+      : undefined;
+    if (firmado && actualizarDocumento) return { ok: false, status: 409, mensaje: "El recibo firmado tiene datos anteriores. Revise el caso antes de pagar." };
+    if (firmado && paraImprimir) return { ok: false, status: 409, mensaje: "El recibo tiene una firma digital. Revise el caso antes de imprimir." };
+    await client.query("UPDATE actas_pago SET impresion_n = impresion_n + 1 WHERE id = $1", [existente.id]);
+    await registrarAuditoria({ portal: "finanzas", actorTipo: quien.usuarioId ? "usuario" : "operador", actorId: quien.usuarioId ?? quien.operadorId,
+      actorNombre: quien.nombre, accion: "acta_reimpresa", entidad: "actas_pago", entidadId: existente.id,
+      datos: actualizarDocumento ? { contingencia, documentoActualizado: true } : { contingencia } }, client);
+    if (firmado) return { ok: true, pdf: await normalizarFechaRecibo(firmado.pdf, existente.parametros.contingencia), borrador: false, numero, actaId: existente.id };
+  }
+
   const persona: DatosActa["persona"] = { ...(existente?.parametros.persona_recibo ?? personaActual) };
   if (!existente || actualizarDocumento) {
     const documento = sinAnexo ? await estadoDocumentos(mjrvId, client) : fotos;
@@ -243,9 +253,13 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     else if (documento?.anverso && documento.reverso) persona.tipoDocumento = "cedula";
   }
   if (actualizarDocumento || persona.tipoDocumento === "pasaporte") persona.cedula = m.cedula;
-  if (actualizarDocumento && j.cargo) {
-    persona.cargo = j.cargo;
-    persona.juntaVigente = j.vigente;
+  if (cambioIdentidad) {
+    persona.apellidos = personaActual.apellidos;
+    persona.nombres = personaActual.nombres;
+  }
+  if (actualizarDocumento && (paraImprimir || j.cargo)) {
+    persona.cargo = personaActual.cargo;
+    persona.juntaVigente = personaActual.juntaVigente;
   }
   const anexo = anexoDeRecibo(persona, fotos);
   if (contingencia && !actualizarDocumento && !sinAnexo && !anexo && existente?.recibo_cifrado && existente.recibo_nonce) {
@@ -283,7 +297,7 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     firmaReceptor: firma, contingencia: guardados.contingencia, reconstruido: !!existente && !guardados.persona_recibo,
   };
   const pdf = await actaPago({ ...datos, anexo });
-  if (acta && (!existente || actualizarDocumento || firma)) {
+  if (acta && (!existente || actualizarDocumento || firma || paraImprimir)) {
     const recibo = anexo ? await actaPago({ ...datos, impresionN: 1 }) : pdf;
     const { ciphertext, nonce } = encryptBuffer(Buffer.from(recibo));
     await client.query(
@@ -295,11 +309,14 @@ async function emitirActa(client: PoolClient, s: SesionEstacion | ActorPago, mjr
     await client.query("INSERT INTO firmas_recibo (mjrv_id, usuario_id, pdf, acta_id, es_prueba) VALUES ($1,$2,$3,$4,$5)",
       [mjrvId, quien.usuarioId, Buffer.from(pdf), acta.id, modo.prueba]);
   }
-  return { ok: true, pdf, borrador: !importe, numero, actaId: acta?.id ?? null };
+  if (acta && version) {
+    await client.query("UPDATE actas_pago SET version_papel_generado = $2 WHERE id = $1", [acta.id, version]);
+  }
+  return { ok: true, pdf, borrador: !importe, numero, actaId: acta?.id ?? null, version: acta && importe ? version ?? undefined : undefined };
 }
 
 export async function generarActa(s: SesionEstacion | ActorPago, mjrvId: number, verificado: boolean,
-  opciones: { firma?: Buffer; modoEsperado?: Modo } = {}): Promise<ResultadoActa> {
+  opciones: { firma?: Buffer; modoEsperado?: Modo; paraImprimir?: boolean } = {}): Promise<ResultadoActa> {
   if (!verificado) return { ok: false, status: 400, mensaje: "Marque «He verificado que cumplió sus funciones»." };
   if (!Number.isSafeInteger(mjrvId) || mjrvId < 1) return { ok: false, status: 400, mensaje: "Elija una ficha válida." };
   const params = await leerParametros();
@@ -357,15 +374,29 @@ export type ResultadoPago =
 // Confirmación atómica (01 §5): bloqueo de la ficha + índice único (mjrv_id, es_prueba). Dos puestos a la vez: solo uno inserta.
 const SQL_PAGO_PREVIO = `SELECT p.confirmado_en::text AS en, ${SQL_QUIEN} AS operador, p.importe_usd::text, p.importe_eur::text FROM pagos_confirmados p ${JOIN_QUIEN} WHERE p.mjrv_id = $1`;
 
-export async function confirmarPago(s: SesionEstacion | ActorPago, d: { mjrvId: number; actaId: number; verificado: boolean }): Promise<ResultadoPago> {
+type DatosConfirmacion = { mjrvId: number; actaId: number; verificado: boolean; modo?: Modo };
+
+// La confirmación legada permanece disponible para los llamadores internos.
+export function confirmarPago(s: SesionEstacion | ActorPago, d: DatosConfirmacion): Promise<ResultadoPago> {
+  return registrarPago(s, d, false);
+}
+
+export function confirmarPagoImpreso(s: ActorPago, d: DatosConfirmacion): Promise<ResultadoPago> {
+  return registrarPago(s, d, true);
+}
+
+async function registrarPago(s: SesionEstacion | ActorPago, d: DatosConfirmacion, exigirImpresion: boolean): Promise<ResultadoPago> {
   if (!d.verificado) return { ok: false, mensaje: "Marque «He verificado que cumplió sus funciones»." };
   if (!Number.isSafeInteger(d.mjrvId) || d.mjrvId < 1 || !Number.isSafeInteger(d.actaId) || d.actaId < 1) {
     return { ok: false, mensaje: "Elija una ficha con un recibo emitido." };
   }
   const quien = puestoDe(s);
   return withTx(async (client) => {
-    await contextoEmision(client);
-    const [m] = (await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo FOR UPDATE", [d.mjrvId])).rows;
+    const modo = await contextoEmision(client);
+    if (d.modo && d.modo !== (modo.prueba ? "prueba" : "eleccion")) {
+      return { ok: false, mensaje: "El modo cambió. Vuelva a abrir la ficha." };
+    }
+    const [m] = (await client.query("SELECT 1 FROM mjrv WHERE id = $1 AND activo AND (cne.en_prueba() OR NOT es_prueba) FOR UPDATE", [d.mjrvId])).rows;
     if (!m) return { ok: false as const, mensaje: "La ficha no existe o está de baja." };
     const previo = (await client.query<{ en: string; operador: string; importe_usd: string | null; importe_eur: string | null }>(SQL_PAGO_PREVIO, [d.mjrvId])).rows[0];
     if (previo) return { ok: false as const, yaPagado: { en: previo.en, operador: previo.operador, importeUsd: previo.importe_usd ?? "", importeEur: previo.importe_eur }, mensaje: "Ya pagado. No vuelva a pagar." };
@@ -383,6 +414,10 @@ export async function confirmarPago(s: SesionEstacion | ActorPago, d: { mjrvId: 
     if (!validada) return { ok: false as const, mensaje: "Falta validar el documento de identidad en el modo actual." };
     if ((await client.query(SQL_IDENTIDAD_PENDIENTE, [d.actaId])).rowCount) {
       return { ok: false as const, mensaje: "Reimprima el recibo con los datos vigentes antes de confirmar el pago." };
+    }
+    if (exigirImpresion && !(await client.query(
+      "SELECT 1 FROM v_circuito_finanzas WHERE mjrv_id = $1 AND acta_id = $2 AND etapa = 'caja'", [d.mjrvId, d.actaId])).rowCount) {
+      return { ok: false, mensaje: "Impresión debe confirmar el recibo vigente antes de pasar a Caja." };
     }
     const r = await client.query<{ id: number; confirmado_en: string; es_prueba: boolean; importe_usd: string | null; importe_eur: string | null }>(
       `INSERT INTO pagos_confirmados (mjrv_id, acta_id, importe_usd, tipo_cambio, importe_eur, funciones_verificadas, operador_id, enlace_id, usuario_id)

@@ -9,20 +9,25 @@ import type { Modo } from "@/server/config";
 import type { FichaDocumentosFinanzas } from "@/server/documentos";
 import { CapturaDocumentosPuesto } from "./captura-cedula";
 import { RevisionDocumentoFinanzas } from "./revision-documento-finanzas";
+import { useSondeo } from "./sondeo";
 
 const FILTROS = [
-  { id: "pendientes", etiqueta: "Pendientes de captura" },
+  { id: "en_ventanilla", etiqueta: "En ventanilla" },
   { id: "por_validar", etiqueta: "Por validar" },
-  { id: "del_mjrv", etiqueta: "Del MJRV sin validar" },
-  { id: "validado", etiqueta: "Validados" },
   { id: "necesita_repetir", etiqueta: "Necesita repetir" },
+  { id: "validado", etiqueta: "Validados" },
+  { id: "pendientes", etiqueta: "Pendientes de captura" },
+  { id: "del_mjrv", etiqueta: "Del MJRV sin validar" },
   { id: "completos", etiqueta: "Fotos completas" },
   { id: "todos", etiqueta: "Todos" },
 ] as const;
 type Filtro = typeof FILTROS[number]["id"];
+type ColaRevision = { modo: Modo; escaneados: { mjrvId: number; escaneadoEn: string }[] };
+type EntradaVentanilla = ReturnType<typeof useSondeo<ColaRevision>>;
 
 const normalizar = (texto: string) => texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es");
-function coincide(ficha: FichaDocumentosFinanzas, filtro: Filtro) {
+function coincide(ficha: FichaDocumentosFinanzas, filtro: Filtro, turno: Map<number, string>) {
+  if (filtro === "en_ventanilla") return turno.has(ficha.id);
   if (filtro === "todos") return true;
   if (filtro === "pendientes") return !ficha.completos;
   if (filtro === "completos") return ficha.completos;
@@ -34,27 +39,40 @@ function rotulo(ficha: FichaDocumentosFinanzas) {
   return [ESTADOS_DOCUMENTO[ficha.estado], ficha.origen ? ORIGEN_DOCUMENTOS[ficha.origen] : ""].filter(Boolean).join(" · ");
 }
 
-export function SeguimientoDocumental({ fichas, modo, validacion = false, token }: {
+export function RevisionVentanilla(props: { fichas: FichaDocumentosFinanzas[]; modo: Modo; cedulaInicial?: string }) {
+  const ventanilla = useSondeo<ColaRevision>("/api/admin/finanzas/escaneados?etapa=revision", 5000);
+  return <SeguimientoDocumental {...props} ventanilla={ventanilla} />;
+}
+
+export function SeguimientoDocumental({ fichas, modo, validacion = false, token, ventanilla, cedulaInicial }: {
   fichas: FichaDocumentosFinanzas[]; modo: Modo; validacion?: boolean; token?: string;
+  ventanilla?: EntradaVentanilla; cedulaInicial?: string;
 }) {
   const router = useRouter();
   const [refrescando, refrescar] = useTransition();
-  const [filtro, setFiltro] = useState<Filtro>(validacion ? "por_validar" : "pendientes");
+  const [filtro, setFiltro] = useState<Filtro>(ventanilla ? "en_ventanilla" : "por_validar");
   const [busqueda, setBusqueda] = useState("");
   const [junta, setJunta] = useState("");
-  const [seleccion, setSeleccion] = useState<{ id: number; revision: number } | null>(null);
+  const [seleccion, setSeleccion] = useState<{ id: number; revision: number } | null>(() => {
+    const ficha = fichas.find((f) => f.cedula === cedulaInicial);
+    return ficha ? { id: ficha.id, revision: 0 } : null;
+  });
   const panel = useRef<HTMLElement>(null);
   const juntas = [...new Set(fichas.map((f) => f.junta))];
   const terminos = normalizar(busqueda.trim()).split(/\s+/).filter(Boolean);
   const coincidentes = fichas.filter((f) =>
     (!junta || junta === f.junta) && terminos.every((parte) => normalizar(`${f.nombre} ${f.cedula}`).includes(parte)));
-  const visibles = coincidentes.filter((f) => coincide(f, filtro));
+  const escaneados = ventanilla?.datos?.modo === modo ? ventanilla.datos.escaneados : [];
+  const turno = new Map(escaneados.map((f) => [f.mjrvId, f.escaneadoEn]));
+  const visibles = coincidentes.filter((f) => coincide(f, filtro, turno));
+  if (filtro === "en_ventanilla") visibles.sort((a, b) => turno.get(a.id)!.localeCompare(turno.get(b.id)!));
   const elegida = fichas.find((f) => f.id === seleccion?.id);
-  const siguientes = visibles.filter((f) => f.id !== elegida?.id);
-  const siguiente = siguientes.find((f) => elegida && fichas.indexOf(f) > fichas.indexOf(elegida)) ?? siguientes[0];
+  const posicion = visibles.findIndex((f) => f.id === elegida?.id);
+  const siguiente = visibles[posicion + 1] ?? visibles.find((f) => f.id !== elegida?.id);
 
   function actualizarLista() {
     refrescar(() => router.refresh());
+    ventanilla?.refrescar();
   }
 
   function actualizarVista() {
@@ -64,20 +82,30 @@ export function SeguimientoDocumental({ fichas, modo, validacion = false, token 
 
   function abrir(id: number) {
     setSeleccion((actual) => ({ id, revision: (actual?.revision ?? 0) + 1 }));
+    if (ventanilla) refrescar(() => router.refresh());
     if (window.matchMedia("(max-width: 1023px)").matches) {
       requestAnimationFrame(() => panel.current?.focus());
     }
   }
 
+  const botones = FILTROS.filter(({ id }) => id !== "en_ventanilla" || ventanilla);
+  const principal = ({ id }: { id: Filtro }) =>
+    id === "en_ventanilla" || id === "por_validar" || id === "necesita_repetir" || id === "validado";
+  const mostrarFiltro = ({ id, etiqueta }: typeof FILTROS[number]) => (
+    <button key={id} type="button" aria-pressed={filtro === id} onClick={() => setFiltro(id)}
+      className={filtro === id ? "button-like" : "button-like secondary"}>
+      {etiqueta} ({coincidentes.filter((f) => coincide(f, id, turno)).length})
+    </button>
+  );
+
   return (
     <>
       <section className="card stack" aria-label="Filtrar documentos">
-        <div className="flex flex-wrap gap-2">
-          {FILTROS.map(({ id, etiqueta }) => (
-            <button key={id} type="button" aria-pressed={filtro === id} onClick={() => setFiltro(id)}
-              className={filtro === id ? "button-like" : "button-like secondary"}>{etiqueta} ({coincidentes.filter((f) => coincide(f, id)).length})</button>
-          ))}
-        </div>
+        <div className="flex flex-wrap gap-2">{botones.filter(principal).map(mostrarFiltro)}</div>
+        <details>
+          <summary className="cursor-pointer font-semibold text-[var(--blue)]">Más filtros</summary>
+          <div className="mt-2 flex flex-wrap gap-2">{botones.filter((opcion) => !principal(opcion)).map(mostrarFiltro)}</div>
+        </details>
         <div className="flex flex-wrap items-end gap-3">
           <label className="min-w-48 flex-1">Nombre, apellido o cédula
             <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} maxLength={120} autoComplete="off" />
@@ -93,8 +121,10 @@ export function SeguimientoDocumental({ fichas, modo, validacion = false, token 
       </section>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <section className="card stack min-w-0" aria-label="Lista de MJRV">
+          {filtro === "en_ventanilla" && !ventanilla?.datos && <p role="status">{ventanilla?.falla ? "No se pudo cargar la cola. Pulse Actualizar lista." : "Cargando la cola de ventanilla…"}</p>}
           <p role="status">{visibles.length} {visibles.length === 1 ? "ficha" : "fichas"}</p>
-          {!visibles.length ? <p>No hay fichas con estos filtros.</p> : (
+          {!visibles.length ? (filtro !== "en_ventanilla" || ventanilla?.datos) &&
+            <p>{filtro === "en_ventanilla" ? "No hay personas por revisar en ventanilla." : "No hay fichas con estos filtros."}</p> : (
             <ul className="max-h-[65vh] divide-y overflow-y-auto">
               {visibles.map((f) => (
                 <li key={f.id}>
@@ -159,17 +189,17 @@ function DetalleDocumento({ ficha, modo, onGuardar, siguiente }: {
         <p>Junta {ficha.junta} · {rotulo(ficha)}</p>
       </div>
       <RevisionDocumentoFinanzas key={`${ficha.version}:${ficha.revisionEn}`} id={ficha.id} modo={modo} version={ficha.version}
-        fotos={ficha} estado={ficha.estado} revisionEn={ficha.revisionEn} motivoRepetir={ficha.motivoRepetir}
+        fotos={ficha} estado={ficha.estado} revisionEn={ficha.revisionEn} motivoRepetir={ficha.motivoRepetir} soloLectura={ficha.pagoConfirmado}
         onGuardar={(aviso) => { setMensaje(aviso); onGuardar(); }} />
       {mensaje && <p role="status">{mensaje}</p>}
-      {ficha.estado === "necesita_repetir" && ficha.completos ? (
+      {ficha.pagoConfirmado ? <p>Pago confirmado.</p> : ficha.estado === "necesita_repetir" && ficha.completos ? (
         <button className="button-like secondary" type="button" onClick={() => setCaptura(!captura)}>
           {captura ? "Cerrar captura" : "Volver a fotografiar el documento"}
         </button>
-      ) : ficha.completos ? (
-        <Link className="button-like secondary" href={{ pathname: "/admin/finanzas/pagar", query: { cedula: ficha.cedula } }}>Ir a Revisar e imprimir</Link>
+      ) : ficha.estado === "validado" ? (
+        <Link className="button-like secondary" href={{ pathname: "/admin/finanzas/pagar", query: { cedula: ficha.cedula } }}>Ir a Impresión</Link>
       ) : null}
-      {(!ficha.completos || captura) && <CapturaDocumentosPuesto fotos={ficha} onUsar={subir} seguirConReverso />}
+      {!ficha.pagoConfirmado && (!ficha.completos || captura) && <CapturaDocumentosPuesto fotos={ficha} onUsar={subir} seguirConReverso />}
     </>
   );
 }

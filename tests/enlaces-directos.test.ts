@@ -67,7 +67,7 @@ describe("enlaces directos de estación", () => {
     expect((await escanear(solicitud(finanzas.token, { cedula: "0000000099" }))).status).toBe(404);
 
     const respuestas = await Promise.all([1, 2].map(() => escanear(solicitud(finanzas.token, { cedula: CEDULA }))));
-    for (const r of respuestas) expect(await r.json()).toEqual({ ok: true });
+    for (const r of respuestas) expect(await r.json()).toEqual({ ok: true, etapa: "revision", nombre: "APELLIDO PRUEBA, NOMBRE PRUEBA" });
     const cuenta = await login({ correo: "fin@prueba.cne", password: "clave-de-prueba-1", portal: "admin", ip: "127.0.0.1", agente: "prueba" });
     if (!cuenta.ok) throw new Error("No entró la cuenta financiera de prueba");
     cookieAdmin = cuenta.token;
@@ -82,7 +82,7 @@ describe("enlaces directos de estación", () => {
 
     await consultarDueno("UPDATE cne.configuracion SET modo = 'eleccion' WHERE id = 1");
     expect(await (await bandeja(solicitud())).json()).toEqual({ modo: "eleccion", escaneados: [] });
-    expect(await (await escanear(solicitud(finanzas.token, { cedula: CEDULA }))).json()).toEqual({ ok: true });
+    expect(await (await escanear(solicitud(finanzas.token, { cedula: CEDULA }))).json()).toMatchObject({ ok: true, etapa: "revision" });
     expect(await consultarDueno("SELECT es_prueba FROM cne.escaneos_finanzas ORDER BY es_prueba")).toEqual([{ es_prueba: false }, { es_prueba: true }]);
     await consultarDueno("UPDATE cne.configuracion SET modo = 'prueba' WHERE id = 1");
     expect(await (await consultarCaja()).json()).toEqual({ modo: "prueba", escaneados: [] });
