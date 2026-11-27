@@ -55,7 +55,6 @@ services:
     environment:
       <<: *app-environment
       CNE_MOVIL_PADRON_DIR: /run/cne-padron-movil
-      CNE_ENTREGA_PUESTO_DIR: /run/cne-padron-movil/entregas
       CNE_MOVIL_CORREO_ACTIVO: "1"
     mem_limit: 768m
     command: ["npm", "start"]

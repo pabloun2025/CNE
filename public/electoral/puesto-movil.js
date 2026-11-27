@@ -11,18 +11,6 @@
   if (location.hash && (gestion || !formatoPuesto.test(fragmento))) history.replaceState(null, "", location.pathname);
   window.addEventListener("hashchange", () => location.reload());
 
-  const claveInstalacion = "cne-madrid-terminal-online-29n";
-  let instalacion;
-  if (!gestion) {
-    try {
-      instalacion = localStorage.getItem(claveInstalacion);
-      if (!/^[a-f0-9]{16}$/.test(instalacion ?? "")) {
-        instalacion = Array.from(crypto.getRandomValues(new Uint8Array(8)), n => n.toString(16).padStart(2, "0")).join("");
-        localStorage.setItem(claveInstalacion, instalacion);
-      }
-    } catch { instalacion = undefined; }
-  }
-
   let abierto = false;
   let cerrado = false;
   let turno = "";
@@ -196,11 +184,7 @@
     mensaje("mensaje");
     mensaje("consulta-estado", "Consultando…");
     try {
-      const data = await api("consulta", { cedula: el("cedula").value, instalacion });
-      if (Number.isSafeInteger(data.terminal)) {
-        el("terminal-online").textContent = "Terminal en línea " + String(data.terminal).padStart(2, "0");
-        mostrar("terminal-online", true);
-      }
+      const data = await api("consulta", { cedula:el("cedula").value });
       if (actual !== generacion || !permitido()) return;
       if (typeof data.turno !== "string" || !data.turno) throw Error("No se pudo iniciar la atención. Repita la consulta.");
       const r = data.resultado;
@@ -288,7 +272,6 @@
     mensaje("mensaje", "Para consultar, abra el enlace completo que compartió la coordinación electoral, incluido el código después del #.");
   } else if (gestion) {
     el("titulo").textContent = "Seguimiento del puesto móvil";
-    el("recuento-terminales").href = "/recuento-offline#seguimiento=" + acceso;
     mostrar("seguimiento", true);
     void actualizar();
   } else {

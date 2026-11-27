@@ -3,12 +3,12 @@ import { credencialesMovil } from "@/server/puesto-movil/credenciales";
 const pagina = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive"><title>Puesto móvil de información electoral · Madrid</title>
-<link rel="stylesheet" href="/electoral/puesto-movil.css"><script defer src="/electoral/puesto-movil.js?v=terminales-auto"></script></head>
+<link rel="stylesheet" href="/electoral/puesto-movil.css"><script defer src="/electoral/puesto-movil.js?v=zona-unica"></script></head>
 <body>
 <header><div class="cabecera"><img src="/electoral/escudo.png" alt="República del Ecuador" width="82" height="43"><div><strong>Consulado General del Ecuador</strong><span>Madrid · España</span></div></div></header>
 <main data-acceso-puesto="">
 <p class="jornada">29 de noviembre de 2026 · Madrid</p><h1 id="titulo">Puesto móvil de información electoral</h1>
-<p id="terminal-online" hidden></p><noscript><p>Active JavaScript para utilizar el puesto móvil.</p></noscript>
+<noscript><p>Active JavaScript para utilizar el puesto móvil.</p></noscript>
 <p id="mensaje" role="status" aria-live="polite" hidden></p><button id="reintentar" type="button" class="secundario" hidden>Volver a conectar</button>
 <div id="puesto" hidden>
   <form id="consulta" class="panel" autocomplete="off">
@@ -35,7 +35,7 @@ const pagina = `<!doctype html>
   <div><dt>Sin registro en el padrón</dt><dd id="sin"></dd></div>
   <div><dt>Correos aceptados</dt><dd id="correosAceptados"></dd></div>
   <div><dt>Correos sin confirmación</dt><dd id="correosInciertos"></dd></div>
-</dl><p><a id="recuento-terminales" href="/recuento-offline">Abrir tablero de terminales</a></p><div class="acciones-seguimiento"><button id="actualizar" class="secundario" type="button">Actualizar cifras</button><button id="descargar-contactos" type="button">Descargar contactos para empadronamiento</button></div></section>
+</dl><div class="acciones-seguimiento"><button id="actualizar" class="secundario" type="button">Actualizar cifras</button><button id="descargar-contactos" type="button">Descargar contactos para empadronamiento</button></div></section>
 <footer>La consulta cierra el 29 de noviembre a las 19:00, hora de Madrid.<p id="cuenta-cierre" hidden></p></footer>
 </main></body></html>`;
 
