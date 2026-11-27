@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import type { PoolClient } from "pg";
-import { sha256Bytes } from "../domain/text";
+import { sha256Bytes, sha256Hex } from "../domain/text";
 import type { EstadoDocs, LadoDocumento } from "../domain/documentos";
 import { decryptBuffer, encryptBuffer } from "./crypto";
 import { normalizarFrase } from "../domain/limpieza";
@@ -56,13 +56,35 @@ export async function listarDocumentosFinanzas(): Promise<{ modo: Modo; fichas: 
 }
 
 // La búsqueda usa el número del padrón. El formulario público solo recibe iniciales y junta; la estación ve el nombre completo.
-export async function buscarPorCedula(cedulaBruta: string): Promise<BusquedaCompleta | null> {
+export async function buscarPorCedula(cedulaBruta: string, client?: PoolClient): Promise<BusquedaCompleta | null> {
   const cedula = normalizarCedula(cedulaBruta).slice(0, 20);
-  const f = await query<{ id: number; cedula: string; apellidos: string; nombres: string; junta: string }>(
-    "SELECT m.id, m.cedula, m.apellidos, m.nombres, j.serie || j.numero AS junta FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id WHERE m.cedula = $1 AND m.activo", [cedula]);
+  type Fila = { id: number; cedula: string; apellidos: string; nombres: string; junta: string };
+  const sql = "SELECT m.id, m.cedula, m.apellidos, m.nombres, j.serie || j.numero AS junta FROM mjrv m JOIN juntas_madrid j ON j.id = m.junta_origen_id WHERE m.cedula = $1 AND m.activo";
+  const f = client
+    ? (await client.query<Fila>(`${sql} AND (cne.en_prueba() OR NOT m.es_prueba) FOR SHARE OF m`, [cedula])).rows
+    : await query<Fila>(sql, [cedula]);
   const m = f[0];
   if (!m) return null;
-  return { mjrvId: m.id, cedula: m.cedula, nombre: `${m.apellidos}, ${m.nombres}`, iniciales: iniciales(m.nombres, m.apellidos), junta: m.junta, ...(await estadoDocumentos(m.id)) };
+  return { mjrvId: m.id, cedula: m.cedula, nombre: `${m.apellidos}, ${m.nombres}`, iniciales: iniciales(m.nombres, m.apellidos), junta: m.junta, ...(await estadoDocumentos(m.id, client)) };
+}
+
+export async function versionDocumentos(mjrvId: number, client: PoolClient): Promise<string> {
+  const { rows } = await client.query<{ lado: Lado; capturado: string; hash: string }>(
+    `SELECT lado, creado_en::text AS capturado, encode(sha256, 'hex') AS hash FROM documentos_mjrv
+       WHERE mjrv_id = $1 AND es_prueba = cne.en_prueba() ORDER BY lado`,
+    [mjrvId],
+  );
+  return sha256Hex(JSON.stringify(rows));
+}
+
+export async function buscarParaValidacion(cedula: string) {
+  return withTx(async (client) => {
+    const { rows: [{ modo }] } = await client.query<{ modo: Modo }>("SELECT modo FROM configuracion WHERE id = 1 FOR SHARE");
+    const ficha = await buscarPorCedula(cedula, client);
+    if (!ficha) return null;
+    const { rowCount } = await client.query("SELECT 1 FROM v_cedulas_validadas WHERE mjrv_id = $1", [ficha.mjrvId]);
+    return { ...ficha, modo, validada: ficha.completos && !!rowCount, version: await versionDocumentos(ficha.mjrvId, client) };
+  });
 }
 
 export type ResultadoFoto = { ok: true; estado: EstadoDocs } | { ok: false; status: 400 | 404 | 409; mensaje: string };

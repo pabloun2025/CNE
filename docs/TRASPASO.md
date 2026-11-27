@@ -546,3 +546,10 @@ El criterio de identificación de esta primera entrega fue corregido en la [secc
 - Se restauró la casilla «Imprimir automáticamente al buscar», marcada al iniciar. Con la casilla desmarcada, una coincidencia muestra «Imprimir ticket». Se conserva el flujo de confirmación para quien no consta en el padrón.
 - La búsqueda actual muestra la junta y la zona en grande. La última atención impresa conserva su junta, zona y recinto, y las anteriores quedan en una lista de la sesión sin nombres ni cédulas.
 - Se probaron ambos modos con la red externa bloqueada, el regreso del foco al buscador y los tres niveles visuales del historial. El servidor local, el recuento, el padrón cifrado y el puente de impresión conservan los mismos componentes.
+
+## 62. Captura en mesas y validación documental (27-11)
+
+- El equipo que recorre las juntas abre el enlace directo de Documentación. Puede escanear el QR de una credencial o buscar por cédula y guardar las fotos del documento. La revisión formal requiere una cuenta.
+- Superadministración asigna el rol «Validación de documentos». El puesto está en `/admin/validacion-documental`. Permite escanear, buscar, tomar fotos, revisar las imágenes guardadas y validar. La operación registra al usuario. Si alguien sustituye una foto durante la revisión, el validador vuelve a cargar la ficha.
+- Validar marca la identidad en el modo vigente para Finanzas. La emisión, la impresión y la confirmación de pagos conservan sus permisos financieros. El escáner financiero continúa enviando fichas a «Revisar e imprimir».
+- Las cuentas de validación tienen un tipo propio en la base. Si se arranca una versión anterior, ese tipo de cuenta queda fuera de su autenticación administrativa.

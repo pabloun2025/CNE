@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { ENLACES_ADMIN } from "@/domain/roles";
+import { ENLACES_ADMIN, type RolAdmin } from "@/domain/roles";
 import { leerSesion, login } from "@/server/auth";
 import { closePools } from "@/server/db";
 import { resumenParaRol, type ResumenAdmin } from "@/server/resumen-admin";
@@ -16,10 +16,11 @@ describe("roles de administración", () => {
   afterAll(closePools);
 
   it("menú: cada rol ve solo sus enlaces", () => {
-    const de = (rol: "consul" | "coordinador" | "financiero") => ENLACES_ADMIN.filter((e) => e.roles.includes(rol)).map((e) => e.href);
+    const de = (rol: RolAdmin) => ENLACES_ADMIN.filter((e) => e.roles.includes(rol)).map((e) => e.href);
     expect(de("consul")).toHaveLength(ENLACES_ADMIN.length);
     expect(de("coordinador")).toEqual(["/admin/mando"]);
     expect(de("financiero")).toEqual(["/admin", "/admin/finanzas", "/admin/finanzas/pagar", "/admin/finanzas/caja", "/admin/informes"]);
+    expect(de("validador")).toEqual(["/admin/validacion-documental"]);
     expect(de("consul")).not.toContain("/admin/configuracion");
   });
 
