@@ -11,6 +11,7 @@ export const CATEGORIAS_LIMPIEZA: CategoriaLimpieza[] = [
   { tabla: "pendientes_impresion", etiqueta: "Actas pendientes de imprimir" },
   { tabla: "firmas_recibo", etiqueta: "Recibos firmados en pantalla" },
   { tabla: "asignaciones_cargo", etiqueta: "Cargos asumidos" },
+  { tabla: "ausencias_mesa", etiqueta: "Ausencias en mesas" },
   { tabla: "decisiones_movimiento", etiqueta: "Movimientos entre juntas" },
   { tabla: "excepciones_disponibilidad", etiqueta: "Excepciones de disponibilidad" },
   { tabla: "lecturas_puerta", etiqueta: "Lecturas de puerta" },

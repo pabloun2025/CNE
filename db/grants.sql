@@ -13,7 +13,7 @@ BEGIN
       cne.configuracion, cne.parametros_pago,
       cne.lecturas_puerta, cne.excepciones_disponibilidad, cne.decisiones_movimiento, cne.documentos_mjrv,
       cne.actas_pago, cne.pagos_confirmados, cne.asignaciones_cargo, cne.fichas_abiertas_finanzas,
-      cne.credenciales_revocadas, cne.pendientes_impresion, cne.firmas_recibo TO cne_app;
+      cne.credenciales_revocadas, cne.pendientes_impresion, cne.firmas_recibo, cne.ausencias_mesa TO cne_app;
     -- Borrar una ficha sin pago confirmado, y las filas que solo existen por ella. El pago confirmado no se borra.
     GRANT DELETE ON cne.mjrv, cne.envios_credencial, cne.excepciones_disponibilidad, cne.decisiones_movimiento,
       cne.documentos_mjrv, cne.actas_pago, cne.asignaciones_cargo, cne.lecturas_puerta,

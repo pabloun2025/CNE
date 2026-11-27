@@ -19,7 +19,7 @@ function exigirSuperadmin(sesion: Sesion): void {
 const DE_PRUEBA: Record<string, string> = {
   pagos_confirmados: "es_prueba", actas_pago: "es_prueba", documentos_mjrv: "es_prueba", decisiones_movimiento: "es_prueba",
   excepciones_disponibilidad: "es_prueba", lecturas_puerta: "es_prueba", fichas_abiertas_finanzas: "es_prueba", asignaciones_cargo: "es_prueba",
-  escaneos_finanzas: "es_prueba", cedulas_validadas: "es_prueba", pendientes_impresion: "es_prueba", firmas_recibo: "es_prueba",
+  escaneos_finanzas: "es_prueba", cedulas_validadas: "es_prueba", pendientes_impresion: "es_prueba", firmas_recibo: "es_prueba", ausencias_mesa: "es_prueba",
   envios_credencial: "mjrv_id IN (SELECT id FROM cne.mjrv WHERE es_prueba)",
   mjrv: "es_prueba",
 };

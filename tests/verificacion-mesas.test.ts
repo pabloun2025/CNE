@@ -121,3 +121,43 @@ it("resume las juntas por recorrer y deja de contar al titular sustituido al con
   expect(detalle?.actuantes).toHaveLength(3);
   expect(detalle?.documentacion).toHaveLength(4);
 });
+
+it("registra y revierte la ausencia titular sin confirmar, cubriendo el cargo después con un sustituto", async () => {
+  const { procesarSolicitudMesa } = await import("@/server/verificacion-mesas-http");
+  const [{ id: junta }] = await consultarDueno<{ id: number }>("SELECT id::int FROM cne.juntas_madrid WHERE serie='H' AND numero=20");
+  const [{ id: titular }] = await consultarDueno<{ id: number }>(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+    VALUES ('0000000221','TITULAR PRUEBA','PERSONA','VOCAL','vocal',$1) RETURNING id::int`, [junta]);
+  const ausencia = (ausente: boolean, modo = "prueba") => procesarSolicitudMesa(new Request("http://localhost/api/e/mesas", {
+    method: "POST", body: JSON.stringify({ accion: "ausencia", juntaId: junta, cargo: "vocal", titularId: titular, ausente, modo }),
+  }), actor);
+  expect((await ausencia(true, "eleccion")).status).toBe(400);
+  expect((await ausencia(true)).status).toBe(200);
+  expect((await ausencia(true)).status).toBe(200);
+  expect((await listarPanoramaJuntas()).find((j) => j.id === junta)).toMatchObject({ cargosPendientes: 3, ausentes: 1, capturaPendiente: 0 });
+  expect((await consultarJuntaVerificacion(junta))?.titulares).toEqual([expect.objectContaining({ cargo: "vocal", id: titular, ausente: true })]);
+  expect(await verificarActuacion(actor, { cedula: "0000000222", nombres: "PERSONA", apellidos: "SUPLENTE PRUEBA",
+    juntaId: junta, cargo: "vocal", modo: "prueba", verificacionAnterior: null })).toMatchObject({ ok: true });
+  expect((await listarPanoramaJuntas()).find((j) => j.id === junta)).toMatchObject({ cargosPendientes: 2, ausentes: 1, capturaPendiente: 1 });
+  expect((await ausencia(false)).status).toBe(200);
+  expect((await consultarJuntaVerificacion(junta))?.titulares[0].ausente).toBe(false);
+  expect((await consultarJuntaVerificacion(junta))?.puestos).toHaveLength(1);
+});
+
+it("aísla las ausencias del ensayo y las retira al confirmar a la titular que llegó", async () => {
+  const { cambiarAusenciaMesa } = await import("@/server/verificacion-mesas");
+  const [{ id: junta }] = await consultarDueno<{ id: number }>("SELECT id::int FROM cne.juntas_madrid WHERE serie='H' AND numero=21");
+  const [{ id: titularId }] = await consultarDueno<{ id: number }>(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
+    VALUES ('0000000223','TITULAR PRUEBA','PERSONA','VOCAL','vocal',$1) RETURNING id::int`, [junta]);
+  const ausencia = { juntaId: junta, cargo: "vocal", titularId, ausente: true, modo: "prueba" as const };
+  expect(await cambiarAusenciaMesa(actor, ausencia)).toMatchObject({ ok: true });
+  await consultarDueno("UPDATE cne.configuracion SET modo='eleccion' WHERE id=1");
+  try {
+    expect((await consultarJuntaVerificacion(junta))?.titulares[0].ausente).toBe(false);
+  } finally {
+    await consultarDueno("UPDATE cne.configuracion SET modo='prueba' WHERE id=1");
+  }
+  expect((await consultarJuntaVerificacion(junta))?.titulares[0].ausente).toBe(true);
+  expect(await verificarActuacion(actor, { cedula: "0000000223", juntaId: junta, cargo: "vocal", modo: "prueba", verificacionAnterior: null })).toMatchObject({ ok: true });
+  expect(await cambiarAusenciaMesa(actor, ausencia)).toMatchObject({ ok: false });
+  expect((await consultarJuntaVerificacion(junta))?.titulares[0].ausente).toBe(false);
+});

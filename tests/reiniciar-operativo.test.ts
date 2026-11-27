@@ -111,6 +111,7 @@ describe("reiniciar operativo completo en una base ficticia", () => {
         WHERE j1.serie='H' AND j1.numero=1 AND j2.serie='H' AND j2.numero=2`, [id, operador.id]);
       await consultarDueno(`INSERT INTO cne.asignaciones_cargo (mjrv_id,junta_id,cargo,origen,actor_tipo,actor_id,actor_nombre)
         SELECT $1,id,'vocal','traslado','operador',$2,'Ensayo' FROM cne.juntas_madrid WHERE serie='H' AND numero=2`, [id, operador.id]);
+      await consultarDueno("INSERT INTO cne.ausencias_mesa (mjrv_id, junta_id, cargo, activa) SELECT id, junta_origen_id, 'vocal', true FROM cne.mjrv WHERE id=$1", [id]);
       await consultarDueno(`INSERT INTO cne.excepciones_disponibilidad (mjrv_id,motivo,actor_tipo,actor_id,actor_nombre) VALUES ($1,'Ensayo','operador',$2,'Ensayo')`, [id, operador.id]);
     }
     await consultarDueno(`INSERT INTO cne.envios_credencial (mjrv_id, canal, destino, simulado, estado)
@@ -135,7 +136,7 @@ describe("reiniciar operativo completo en una base ficticia", () => {
     expect(recuento).toEqual({
       mjrv: 4, envios_credencial: 4, entregas_whatsapp: 1, whatsapp_respuestas: 1, credenciales_revocadas: 1, pagos_confirmados: 2, firmas_recibo: 2,
       pendientes_impresion: 2, actas_pago: 2, documentos_mjrv: 4, cedulas_validadas: 2,
-      fichas_abiertas_finanzas: 2, escaneos_finanzas: 2, asignaciones_cargo: 2,
+      fichas_abiertas_finanzas: 2, escaneos_finanzas: 2, asignaciones_cargo: 2, ausencias_mesa: 2,
       decisiones_movimiento: 2, excepciones_disponibilidad: 2, lecturas_puerta: 8,
     });
     expect(await consultarDueno("SELECT modo FROM cne.configuracion")).toEqual([{ modo: "eleccion" }]);

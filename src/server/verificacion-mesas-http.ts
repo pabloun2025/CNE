@@ -1,5 +1,5 @@
 import type { Actor } from "./movimientos";
-import { consultarJuntaVerificacion, listarPanoramaJuntas, verificarActuacion } from "./verificacion-mesas";
+import { cambiarAusenciaMesa, consultarJuntaVerificacion, listarPanoramaJuntas, verificarActuacion } from "./verificacion-mesas";
 
 export async function procesarSolicitudMesa(request: Request, actor: Actor) {
   const datos = (await request.json().catch(() => null)) as Record<string, unknown> | null;
@@ -7,7 +7,7 @@ export async function procesarSolicitudMesa(request: Request, actor: Actor) {
     return Response.json(await listarPanoramaJuntas(), { headers: { "cache-control": "private, no-store" } });
   }
   const juntaId = datos?.juntaId;
-  if (typeof juntaId !== "number" || !Number.isSafeInteger(juntaId) || juntaId < 1) {
+  if (typeof juntaId !== "number" || !Number.isSafeInteger(juntaId) || juntaId < 1 || juntaId > 2147483647) {
     return Response.json({ error: "Elija una junta." }, { status: 400 });
   }
   const cedula = typeof datos?.cedula === "string" ? datos.cedula : "";
@@ -15,6 +15,15 @@ export async function procesarSolicitudMesa(request: Request, actor: Actor) {
     const consulta = await consultarJuntaVerificacion(juntaId, cedula);
     return consulta ? Response.json(consulta, { headers: { "cache-control": "private, no-store" } })
       : Response.json({ error: "La junta no existe." }, { status: 404 });
+  }
+  if (datos?.accion === "ausencia") {
+    const { cargo, titularId, ausente, modo } = datos;
+    if (typeof cargo !== "string" || typeof titularId !== "number" || !Number.isSafeInteger(titularId) || titularId < 1
+      || typeof ausente !== "boolean" || (modo !== "prueba" && modo !== "eleccion")) {
+      return Response.json({ error: "Faltan datos de la ausencia." }, { status: 400 });
+    }
+    const resultado = await cambiarAusenciaMesa(actor, { juntaId, cargo, titularId, ausente, modo });
+    return Response.json(resultado, { status: resultado.ok ? 200 : resultado.cambio ? 409 : 400 });
   }
   const persona = datos?.personaAnterior as { id?: unknown; juntaId?: unknown; actuacionId?: unknown } | null;
   if (persona !== null && (!persona || typeof persona.id !== "number" || !Number.isSafeInteger(persona.id)

@@ -281,6 +281,7 @@ describe("matriz de permisos", () => {
     expect((await POST(post(tokenValidacion, { accion: "validar" }))).status).toBe(400);
     expect((await mesas(post(tokenValidacion, { accion: "consultar" }))).status).toBe(403);
     expect((await mesas(post(tokenValidacion, { accion: "panorama" }))).status).toBe(403);
+    expect((await mesas(post(tokenValidacion, { accion: "ausencia", juntaId: 1 }))).status).toBe(403);
     const panorama = await mesas(post(tokenMesa, { accion: "panorama" }));
     expect(panorama.status).toBe(200);
     expect(panorama.headers.get("cache-control")).toBe("private, no-store");
