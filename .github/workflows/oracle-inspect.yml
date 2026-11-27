@@ -4,7 +4,7 @@ on:
     inputs:
       modo:
         type: choice
-        options: [preparar, enviar, estado, limpiar]
+        options: [preparar, verificar, enviar, estado, limpiar]
         required: true
 permissions:
   contents: read
@@ -34,12 +34,12 @@ jobs:
             preparar)
               "${oracle[@]}" 'set -eu; umask 077; p=/tmp/cne-sms-juntas-39235-20261127; mkdir -p "$p"; if [ ! -s "$p/publica.pem" ]; then openssl req -x509 -newkey rsa:3072 -keyout "$p/privada.pem" -out "$p/publica.pem" -days 1 -nodes -subj /CN=CNE-SMS-JUNTAS-39235 >/dev/null 2>&1; fi; cat "$p/publica.pem"'
               ;;
-            enviar|estado)
+            verificar|enviar|estado)
               [[ "$MODO" != enviar || "$GITHUB_RUN_ATTEMPT" == 1 ]]
               base=scripts/ops/sms-juntas-39235
               cp "$base/oracle.sh" "$base/respuesta.crt" "$t/"
               partes=(oracle.sh respuesta.crt)
-              if [[ "$MODO" == enviar ]]; then
+              if [[ "$MODO" != estado ]]; then
                 test -n "$API_SMSQUEENS"
                 printf '%s' "$API_SMSQUEENS" > "$t/sms.key"
                 cp "$base/envio.mjs" "$base/lote.cms" "$t/"

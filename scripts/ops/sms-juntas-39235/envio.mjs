@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { appendFileSync, closeSync, fsyncSync, openSync, readFileSync } from "node:fs";
 import { setTimeout as esperar } from "node:timers/promises";
 import { gunzipSync } from "node:zlib";
 
@@ -19,16 +18,12 @@ if (!clave || huella !== "6577ceecfeb5e69195a8a29f09d78e821230ae5af83ffc7df3d012
       !["prioridad","Zaragoza","Toledo","Madrid"].includes(r.grupo) || !r.text.includes("Su junta es la ")))
   throw Error("La lista no coincide con la lista aprobada.");
 
-mkdirSync(dirname(archivo), { mode:0o700,recursive:true });
-const historial = existsSync(archivo) ? readFileSync(archivo,"utf8").trimEnd().split("\n").map(s=>JSON.parse(s)) : [];
-if (historial.length && (historial[0].evento!=="lista" || historial[0].huella!==huella))
+const checkpoint = readFileSync(archivo);
+if (createHash("sha256").update(checkpoint).digest("hex") !== "39dd7bf62d139476cd10b8c6188ab119e34a4daba7f584a450286bef514cbf55")
+  throw Error("El diario cambió desde la última conciliación. Se detuvo la reanudación.");
+const historial = checkpoint.toString("utf8").trimEnd().split("\n").map(s=>JSON.parse(s));
+if (historial[0].evento!=="lista" || historial[0].huella!==huella)
   throw Error("El diario no corresponde a la lista aprobada.");
-const fd = openSync(archivo,"a",0o600);
-const grabar = (evento, datos={}) => {
-  appendFileSync(fd, JSON.stringify({evento,at:new Date().toISOString(),...datos})+"\n");
-  fsyncSync(fd);
-};
-if (!historial.length) grabar("lista",{huella,filas:filas.length});
 const intentados = new Set(historial.filter(e=>e.evento==="solicitud").flatMap(e=>e.indices));
 const pendientes = filas.flatMap((fila,i)=>intentados.has(i+1)?[]:[{...fila,indice:i+1}]);
 const identificador = i => "CNE29NJ39235-" + String(i).padStart(5,"0");
@@ -56,6 +51,17 @@ async function presupuesto() {
   const micros=Math.ceil(precio*1e6-1e-7);
   return {saldo:dinero,precio,capacidad:Math.floor(Math.floor(dinero*1e6+1e-7)/micros)};
 }
+
+if (process.argv[2] === "verificar") {
+  console.log(JSON.stringify({...await presupuesto(),intentados:intentados.size,pendientes:pendientes.length}));
+  process.exit(0);
+}
+
+const fd = openSync(archivo,"a",0o600);
+const grabar = (evento, datos={}) => {
+  appendFileSync(fd, JSON.stringify({evento,at:new Date().toISOString(),...datos})+"\n");
+  fsyncSync(fd);
+};
 
 try {
   const quote=await presupuesto();
