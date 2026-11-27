@@ -26,7 +26,9 @@ it("traslada un suplente y rechaza una segunda confirmación que ignora la susti
   const { id: suplente } = (await consultarDueno<{ id: number }>(`INSERT INTO cne.mjrv (cedula, apellidos, nombres, cargo_original, rol, junta_origen_id)
     SELECT '0000000093','SUPLENTE PRUEBA','PERSONA','SUPLENTE','suplente',id FROM cne.juntas_madrid WHERE serie='H' AND numero=6 RETURNING id::int`))[0];
   const anterior = { cedula: "0000000093", juntaId: id, cargo: "vocal", modo: "prueba" as const, verificacionAnterior: null };
+  const consultaAnterior = (await consultarJuntaVerificacion(id, anterior.cedula))?.persona ?? null;
   expect((await verificarActuacion(actor, anterior)).ok).toBe(true);
+  expect((await verificar(actor, { ...anterior, cargo: "secretario", personaAnterior: consultaAnterior })).ok).toBe(false);
   expect(await fichaPago(anterior.cedula)).toMatchObject({ cargo: "VOCAL", juntaOrigen: "H6", juntaVigente: "H7", actuacionVerificada: true });
   expect((await verificarActuacion(actor, { ...anterior, cedula, nombres: "PERSONA", apellidos: "PRUEBA" })).ok).toBe(false);
   expect(await consultarDueno("SELECT cargo FROM cne.asignaciones_cargo WHERE mjrv_id=$1 AND activa", [suplente])).toEqual([{ cargo: "vocal" }]);
@@ -54,6 +56,8 @@ it("conserva el folio al reimprimir sin anexo si el cargo cambia y protege la ac
   expect(await verificarActuacion(actor, {
     cedula: "0000000094", cargo: "presidente", juntaId: junta, modo: "prueba", verificacionAnterior: null,
   })).toMatchObject({ ok: true });
+  const { quitarCargo } = await import("@/server/movimientos");
+  expect(await quitarCargo(actor, { juntaId: junta, mjrvId: id })).toMatchObject({ ok: false, mensaje: expect.stringContaining("confirmado en mesa") });
   expect((await fichaPago("0000000094"))?.acta?.documentoPendiente).toBe(true);
   const datosPago = { mjrvId: id, actaId: acta.id, verificado: true };
   expect(await confirmarPago(finanzas, datosPago)).toMatchObject({ ok: false, mensaje: expect.stringContaining("Reimprima") });

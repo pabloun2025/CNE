@@ -48,7 +48,8 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
 
   const actual = consulta?.puestos.find((p) => p.cargo === cargo);
   const persona = consulta?.persona;
-  const exigeAviso = !!actual || (!!persona && persona.juntaId !== juntaId);
+  const cambiaCargo = !!persona?.actuacionCargo && persona.actuacionCargo !== cargo;
+  const exigeAviso = !!actual || cambiaCargo || (!!persona && persona.juntaId !== juntaId);
 
   async function confirmar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,7 +61,7 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
       const posicion = persona?.cedula ?? consultada;
       const { mensaje } = await solicitar<{ mensaje: string }>({
         accion: "confirmar", juntaId, cedula: posicion, cargo, modo: consulta.modo,
-        personaAnterior: persona ? { id: persona.id, juntaId: persona.juntaId } : null,
+        personaAnterior: persona ? { id: persona.id, juntaId: persona.juntaId, actuacionId: persona.actuacionId } : null,
         nombres: datos.get("nombres"), apellidos: datos.get("apellidos"), verificacionAnterior: actual?.id ?? null,
       }, token);
       setConsulta(await solicitar<Consulta>({ accion: "consultar", juntaId }, token));
@@ -130,7 +131,7 @@ export function VerificacionMesas({ juntas, token }: { juntas: Junta[]; token?: 
                 </>}
                 {exigeAviso && <label className="flex items-start gap-2">
                   <input type="checkbox" required checked={aviso} onChange={(e) => setAviso(e.target.checked)} />
-                  <span>Confirmo el cambio de {cargo}{actual ? ` registrado para ${actual.nombre}` : ""}{persona && persona.juntaId !== juntaId ? ` y el traslado desde ${persona.junta}` : ""}.</span>
+                  <span>Confirmo el cambio de {cargo}{actual ? ` registrado para ${actual.nombre}` : ""}{cambiaCargo ? ` y el retiro del cargo anterior de ${persona?.actuacionCargo}` : ""}{persona && persona.juntaId !== juntaId ? ` y el traslado desde ${persona.junta}` : ""}.</span>
                 </label>}
                 <button className="button-like" disabled={ocupado || (exigeAviso && !aviso)}>Confirmar actuación</button>
               </form>

@@ -13,11 +13,13 @@ export const listarJuntasVerificacion = () =>
     `SELECT id, ${juntaPublicaSql("juntas_madrid")} AS junta, zona_color AS zona FROM juntas_madrid ORDER BY serie, numero`,
   );
 
-type PersonaMesa = { id: number; activo: boolean; cedula: string; nombre: string; juntaId: number; junta: string };
+type PersonaMesa = { id: number; activo: boolean; cedula: string; nombre: string; juntaId: number; junta: string; actuacionId: number | null; actuacionCargo: Cargo | null };
 const PERSONA = `SELECT m.id, m.activo, m.cedula, m.apellidos || ', ' || m.nombres AS nombre,
-    coalesce(a.junta_actual_id, m.junta_origen_id) AS "juntaId", ${juntaPublicaSql("j")} AS junta
+    coalesce(a.junta_actual_id, m.junta_origen_id) AS "juntaId", ${juntaPublicaSql("j")} AS junta,
+    v.id AS "actuacionId", v.cargo AS "actuacionCargo"
   FROM mjrv m LEFT JOIN v_mjrv_asignacion a ON a.mjrv_id = m.id
   JOIN juntas_madrid j ON j.id = coalesce(a.junta_actual_id, m.junta_origen_id)
+  LEFT JOIN v_actuacion_mesa v ON v.mjrv_id = m.id
   WHERE m.cedula = $1 AND (cne.en_prueba() OR NOT m.es_prueba)`;
 
 export async function consultarJuntaVerificacion(juntaId: number, cedula?: string) {
@@ -39,7 +41,7 @@ export async function consultarJuntaVerificacion(juntaId: number, cedula?: strin
 
 type DatosActuacion = {
   cedula: string; nombres?: string; apellidos?: string; juntaId: number; cargo: string;
-  modo: Modo; verificacionAnterior: number | null; personaAnterior: { id: number; juntaId: number } | null;
+  modo: Modo; verificacionAnterior: number | null; personaAnterior: { id: number; juntaId: number; actuacionId: number | null } | null;
 };
 const fuera = (mensaje: string) => ({ ok: false as const, mensaje });
 const cambio = () => ({ ok: false as const, cambio: true, mensaje: "La junta cambió. Vuelva a consultar antes de confirmar." });
@@ -65,7 +67,7 @@ export async function verificarActuacion(actor: Actor, d: DatosActuacion): Promi
     if (modo !== d.modo) return fuera("El modo cambió. Vuelva a abrir el puesto.");
     if (!(await client.query("SELECT 1 FROM juntas_madrid WHERE id = $1", [d.juntaId])).rowCount) return fuera("La junta no existe.");
     const { rows: [previa] } = await client.query<PersonaMesa>(PERSONA, [cedula]);
-    if (previa?.id !== d.personaAnterior?.id || previa?.juntaId !== d.personaAnterior?.juntaId) return cambio();
+    if (previa?.id !== d.personaAnterior?.id || previa?.juntaId !== d.personaAnterior?.juntaId || previa?.actuacionId !== d.personaAnterior?.actuacionId) return cambio();
     if (previa && !previa.activo) return fuera("La ficha está de baja. Consulte al responsable.");
     await bloquearJuntas(client, [previa?.juntaId ?? d.juntaId, d.juntaId]);
     const { rows: [ocupante] } = await client.query<{ id: number; mjrv_id: number; confirmada: boolean }>(
@@ -74,7 +76,7 @@ export async function verificarActuacion(actor: Actor, d: DatosActuacion): Promi
     const ids = [...new Set([previa?.id, ocupante?.mjrv_id].filter((id): id is number => id !== undefined))];
     await client.query("SELECT id FROM mjrv WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE", [ids]);
     const { rows: [vigente] } = await client.query<PersonaMesa>(PERSONA, [cedula]);
-    if (vigente?.id !== previa?.id || vigente?.juntaId !== previa?.juntaId || vigente?.activo !== previa?.activo) return cambio();
+    if (vigente?.id !== previa?.id || vigente?.juntaId !== previa?.juntaId || vigente?.activo !== previa?.activo || vigente?.actuacionId !== previa?.actuacionId) return cambio();
     if (ocupante?.confirmada && ocupante.mjrv_id === vigente?.id) return { ok: true, mensaje: "La actuación ya está confirmada." };
     if ((ocupante?.confirmada ? ocupante.id : null) !== d.verificacionAnterior) return cambio();
     if ((await client.query(

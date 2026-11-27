@@ -53,12 +53,24 @@ export const insertarMovimiento = (client: PoolClient, a: Actor, mjrvId: number,
     "INSERT INTO decisiones_movimiento (mjrv_id, junta_origen_id, junta_destino_id, decision, motivo, manual, actor_tipo, actor_id, actor_nombre) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
     [mjrvId, origen, destino, decision, motivo, manual, a.tipo, a.id, a.nombre]);
 
+export const MENSAJE_ACTUACION = "El cargo ya fue confirmado en mesa. Corrija la actuación desde Verificación de mesas.";
+
+export async function afectaActuacionVerificada(client: PoolClient, juntaId: number, cargo: string, mjrvId = 0): Promise<boolean> {
+  const r = await client.query(
+    `SELECT 1 FROM asignaciones_cargo
+      WHERE activa AND es_prueba = cne.en_prueba() AND verificada_en IS NOT NULL
+        AND (mjrv_id = $1 OR (junta_id = $2 AND cargo = $3))`, [mjrvId, juntaId, cargo],
+  );
+  return !!r.rowCount;
+}
+
 // Aceptar una propuesta: el servidor vuelve a comprobar todo bajo bloqueo (el estado pudo cambiar desde que se mostró).
 // La persona sigue siendo un suplente transferible de su junta y el cargo sigue vacante en el destino; se guardan la decisión y el cargo.
 export async function aceptarPropuesta(a: Actor, p: { mjrvId: number; origenId: number; destinoId: number; cargo: string }): Promise<Resultado> {
   return withTx(async (client) => {
     const s = await situacion(client, p.mjrvId, p.origenId, p.destinoId);
     const cargo = p.cargo as Cargo;
+    if (s && await afectaActuacionVerificada(client, p.destinoId, cargo, p.mjrvId)) return { ok: false, mensaje: MENSAJE_ACTUACION };
     const valida = !!s && (CARGOS as string[]).includes(p.cargo) && p.origenId !== p.destinoId && s.v.junta_actual_id === p.origenId && s.v.ingresado && !s.v.con_excepcion
       && (await coberturaEnTx(client, p.origenId)).transferibles.includes(p.mjrvId)
       && (await coberturaEnTx(client, p.destinoId)).vacantes.includes(cargo);
@@ -104,6 +116,7 @@ export async function moverManual(a: Actor, d: { mjrvId: number; destino: string
   return withTx(async (client) => {
     const s = await situacion(client, d.mjrvId, origenId, destinoId);
     if (!s || s.v.junta_actual_id !== origenId) return { ok: false as const, cambio: true, mensaje: MENSAJE_CAMBIO };
+    if (await afectaActuacionVerificada(client, destinoId, cargo, d.mjrvId)) return { ok: false, mensaje: MENSAJE_ACTUACION };
     // ¿Qué cargos quedarían sin cubrir en el origen al irse la persona?
     if (s.v.ingresado && !s.v.con_excepcion) {
       const antes = await coberturaEnTx(client, origenId);
@@ -177,6 +190,7 @@ export async function asignarCargo(a: Actor, d: { juntaId: number; mjrvId: numbe
   const cargo = d.cargo as Cargo;
   return withTx(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock(7001, $1)", [d.juntaId]);
+    if (await afectaActuacionVerificada(client, d.juntaId, cargo, d.mjrvId)) return { ok: false, mensaje: MENSAJE_ACTUACION };
     const c = await coberturaEnTx(client, d.juntaId);
     if (!c.presentes.includes(d.mjrvId) || !c.vacantes.includes(cargo)) return { ok: false as const, cambio: true, mensaje: "La situación cambió: el cargo ya no está vacante o la persona ya no está en la junta." };
     await insertarAsignacion(client, a, { mjrvId: d.mjrvId, juntaId: d.juntaId, cargo, origen: "manual" });
@@ -189,7 +203,8 @@ export async function asignarCargo(a: Actor, d: { juntaId: number; mjrvId: numbe
 export async function quitarCargo(a: Actor, d: { juntaId: number; mjrvId: number }): Promise<Resultado> {
   return withTx(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock(7001, $1)", [d.juntaId]);
-    const r = await client.query<{ cargo: string }>("UPDATE asignaciones_cargo SET activa = false, anulada_en = now() WHERE activa AND mjrv_id = $1 AND junta_id = $2 RETURNING cargo", [d.mjrvId, d.juntaId]);
+    if (await afectaActuacionVerificada(client, d.juntaId, "", d.mjrvId)) return { ok: false, mensaje: MENSAJE_ACTUACION };
+    const r = await client.query<{ cargo: string }>("UPDATE asignaciones_cargo SET activa = false, anulada_en = now() WHERE activa AND verificada_en IS NULL AND mjrv_id = $1 AND junta_id = $2 RETURNING cargo", [d.mjrvId, d.juntaId]);
     if (!r.rows[0]) return { ok: false as const, cambio: true, mensaje: "Esa persona ya no tenía un cargo asignado a mano en esta junta." };
     await registrarAuditoria({ portal: "mando", ...actorAuditoria(a), accion: "cargo_quitado", entidad: "mjrv", entidadId: d.mjrvId, datos: { junta: d.juntaId, cargo: r.rows[0].cargo } }, client);
     return { ok: true as const };

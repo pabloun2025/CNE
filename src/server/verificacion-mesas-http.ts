@@ -13,9 +13,10 @@ export async function procesarSolicitudMesa(request: Request, actor: Actor) {
     return consulta ? Response.json(consulta, { headers: { "cache-control": "private, no-store" } })
       : Response.json({ error: "La junta no existe." }, { status: 404 });
   }
-  const persona = datos?.personaAnterior as { id?: unknown; juntaId?: unknown } | null;
+  const persona = datos?.personaAnterior as { id?: unknown; juntaId?: unknown; actuacionId?: unknown } | null;
   if (persona !== null && (!persona || typeof persona.id !== "number" || !Number.isSafeInteger(persona.id)
-    || typeof persona.juntaId !== "number" || !Number.isSafeInteger(persona.juntaId))) {
+    || typeof persona.juntaId !== "number" || !Number.isSafeInteger(persona.juntaId)
+    || (persona.actuacionId !== null && (typeof persona.actuacionId !== "number" || !Number.isSafeInteger(persona.actuacionId))))) {
     return Response.json({ error: "Vuelva a consultar la ficha." }, { status: 400 });
   }
   if (datos?.accion !== "confirmar" || typeof datos.cargo !== "string"
@@ -25,7 +26,7 @@ export async function procesarSolicitudMesa(request: Request, actor: Actor) {
   }
   const resultado = await verificarActuacion(actor, {
     juntaId, cedula, cargo: datos.cargo, modo: datos.modo, verificacionAnterior: datos.verificacionAnterior,
-    personaAnterior: persona ? { id: Number(persona.id), juntaId: Number(persona.juntaId) } : null,
+    personaAnterior: persona ? { id: Number(persona.id), juntaId: Number(persona.juntaId), actuacionId: persona.actuacionId === null ? null : Number(persona.actuacionId) } : null,
     nombres: typeof datos.nombres === "string" ? datos.nombres : undefined,
     apellidos: typeof datos.apellidos === "string" ? datos.apellidos : undefined,
   });

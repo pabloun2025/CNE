@@ -280,9 +280,9 @@ describe("matriz de permisos", () => {
     expect((await POST(post(tokenMesa, { accion: "validar" }))).status).toBe(403);
     expect((await POST(post(tokenValidacion, { accion: "validar" }))).status).toBe(400);
     expect((await mesas(post(tokenValidacion, { accion: "consultar" }))).status).toBe(403);
-    await consultarDueno("UPDATE cne.enlaces_estacion SET creado_en = now() - interval '4 days' WHERE funcion = 'mesas'");
+    await consultarDueno("UPDATE cne.enlaces_estacion SET expira_en = now() - interval '1 second' WHERE funcion = 'mesas'");
     expect((await mesas(post(tokenMesa, { accion: "consultar" }))).status).toBe(401);
-    await consultarDueno("UPDATE cne.enlaces_estacion SET creado_en = now() WHERE funcion = 'mesas'");
+    await consultarDueno("UPDATE cne.enlaces_estacion SET expira_en = NULL WHERE funcion = 'mesas'");
   });
 
   describe("acciones de servidor", () => {
