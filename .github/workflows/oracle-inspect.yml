@@ -1,117 +1,43 @@
-name: Inspeccionar servidor Oracle (solo lectura)
-
-# Muestra capacidad, contenedores, redes y NOMBRES de variables (nunca valores).
-# No cambia nada en el servidor. Requiere el secreto ORACLE_SSH_KEY en este repositorio.
+name: Actualizar padrón de Madrid del 27 de noviembre
 on:
   workflow_dispatch:
-
+    inputs:
+      modo:
+        required: true
+        type: choice
+        options: [clave, comprobar, ejecutar, estado, limpiar]
+      paquete:
+        description: Paquete cifrado para comprobar o ejecutar
+        required: false
+        type: string
 permissions:
   contents: read
-
+concurrency:
+  group: cotejo-madrid-27nov
+  cancel-in-progress: false
 jobs:
-  inspect:
+  padron:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
-      - name: Preparar clave SSH
+      - uses: actions/checkout@v4
+      - name: Ejecutar en Oracle
         env:
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          API_SMSQUEENS: ${{ secrets.API_SMSQUEENS }}
+          MODO: ${{ inputs.modo }}
+          PAQUETE: ${{ inputs.paquete }}
         run: |
-          test -n "$ORACLE_SSH_KEY" || { echo "Falta el secreto ORACLE_SSH_KEY en pabloun2025/CNE"; exit 1; }
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle
-          chmod 600 ~/.ssh/oracle
-
-      - name: Inspeccionar sin exponer secretos
-        run: |
-          ssh -i ~/.ssh/oracle -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
-            ubuntu@51.170.51.109 'bash -s' <<'REMOTE'
-          set -u
-          echo '=== SISTEMA ==='; hostname; uname -m; nproc; uptime; free -h; df -h /
-          echo '=== DOCKER ==='; sudo docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
-          echo '=== USO DE RECURSOS ==='; sudo docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}'
-          echo '=== PROYECTOS COMPOSE ==='; sudo docker compose ls
-          echo '=== REDES ==='; sudo docker network ls --format '{{.Name}}' | sort
-          echo '=== EVOLUTION API DESDE CNE ==='
-          sudo docker exec cne-prod-cne-app-1 ./node_modules/.bin/tsx -e '
-            import { clienteEvolution } from "./src/server/envios/evolution";
-            async function comprobar() {
-              for (const linea of [1, 2] as const) {
-                const cliente = clienteEvolution({ linea, fetch: async (url, opciones) => {
-                  const respuesta = await fetch(url, opciones);
-                  console.log("Evolution línea", linea, "HTTP", respuesta.status);
-                  if (url.includes("/instance/fetchInstances?") && respuesta.ok) {
-                    const datos = await respuesta.clone().json().catch(() => null);
-                    const nombre = linea === 1 ? "cne-madrid" : "cne-madrid-2";
-                    const f = Array.isArray(datos) ? datos.find((i) => i?.name === nombre) : null;
-                    if (f) {
-                      const codigo = Number.isSafeInteger(f.disconnectionReasonCode) ? f.disconnectionReasonCode : "sin código";
-                      const fecha = typeof f.disconnectionAt === "string" && Number.isFinite(Date.parse(f.disconnectionAt))
-                        ? new Date(f.disconnectionAt).toISOString() : "sin fecha";
-                      const detalle = typeof f.disconnectionObject === "string" ? f.disconnectionObject : "";
-                      const motivo = /connection[ _-]?replaced|conflict.{0,60}replaced/i.test(detalle) ? "sesión sustituida"
-                         : /device[ _-]?removed/i.test(detalle) ? "dispositivo retirado"
-                        : /logged[ _-]?out/i.test(detalle) ? "cierre de sesión"
-                        : /forbidden|banned|blocked/i.test(detalle) ? "rechazada"
-                        : /stream[ _-]?error/i.test(detalle) ? "error de sesión" : "sin detalle clasificable";
-                      const senales = [
-                        /"tag"\s*:\s*"conflict"/i.test(detalle) ? "conflict" : "",
-                        /"tag"\s*:\s*"failure"/i.test(detalle) ? "failure" : "",
-                        /connection failure/i.test(detalle) ? "connection failure" : "",
-                        /"reason"\s*:\s*"?(401|403|440|515|428|408|500|411)\b/.exec(detalle)?.[1] || "",
-                      ].filter(Boolean);
-                      console.log("Desconexión registrada", linea, codigo, fecha, motivo, senales.join(", ") || "sin datos adicionales");
-                    }
-                  }
-                  return respuesta;
-                } });
-                if (cliente.simulado) console.log("Evolution línea", linea, "modo simulado");
-                else {
-                  try {
-                    const { existe, estado } = await cliente.resumen();
-                    console.log("Evolution línea", linea, existe ? estado : "sin crear");
-                  } catch (e) {
-                    const codigo = e?.cause?.code || e?.code;
-                    console.log("Evolution línea", linea, "consulta fallida", /^[A-Z0-9_]+$/.test(codigo || "") ? codigo : "sin código");
-                  }
-                }
-              }
-            }
-            comprobar();
-          ' || echo 'No se pudo ejecutar la comprobación desde el contenedor de CNE.'
-          echo '=== ACCESO A CONFIGURACIÓN DE ENVÍOS ==='
-          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
-            "SELECT 'Superadministraciones activas: ' || count(*) FROM cne.usuarios WHERE tipo = 'superadmin' AND activo"
-          echo '=== FICHAS MJRV Y MODO (solo recuentos) ==='
-          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
-            "SELECT 'Modo: ' || modo FROM cne.configuracion WHERE id = 1" || true
-          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
-            "SELECT 'MJRV es_prueba=' || es_prueba || ' activo=' || activo || ': ' || count(*) FROM cne.mjrv GROUP BY es_prueba, activo ORDER BY 1" || true
-          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
-            "SELECT 'Auditoría MJRV (últimas 10): ' || accion || ' (' || coalesce(actor_tipo,'') || ') ' || to_char(creado_en AT TIME ZONE 'Europe/Madrid','DD-MM HH24:MI') FROM cne.auditoria WHERE accion ILIKE '%mjrv%' OR accion ILIKE '%borr%' OR accion ILIKE '%import%' ORDER BY creado_en DESC LIMIT 10" || true
-          echo '=== COLAS DE CREDENCIALES (solo recuentos) ==='
-          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
-            "BEGIN READ ONLY; SELECT canal, linea_whatsapp, count(*) FILTER (WHERE intentos = 0) AS esperando, count(*) FILTER (WHERE intentos > 0) AS en_intento FROM cne.envios_credencial WHERE estado = 'en_cola' AND NOT simulado GROUP BY canal, linea_whatsapp ORDER BY 1, 2; COMMIT;" || true
-          echo '=== PAUSAS Y VINCULACIONES DE CNE ==='
-          sudo docker exec cne-prod-cne-postgres-1 psql -U cne_owner -d cne -Atc \
-            "BEGIN READ ONLY; SELECT linea, encendido, CASE WHEN pausa = 'La línea de WhatsApp no está vinculada.' THEN 'desconectada' WHEN pausa LIKE '%fallos seguidos%' THEN 'fallos seguidos' WHEN pausa = 'Pausado desde Credenciales.' THEN 'manual' WHEN pausa IS NOT NULL THEN 'otra pausa' ELSE 'sin pausa' END FROM cne.configuracion CROSS JOIN LATERAL (VALUES (1, whatsapp_real, whatsapp_pausa_motivo), (2, whatsapp_real_2, whatsapp_pausa_motivo_2)) l(linea, encendido, pausa); SELECT accion, coalesce(datos->>'linea','1'), to_char(creado_en AT TIME ZONE 'Europe/Madrid','DD-MM HH24:MI:SS') FROM cne.auditoria WHERE accion IN ('linea_whatsapp_desvinculada','linea_whatsapp_vinculacion','linea_whatsapp_creada','envios_pausados','envios_reanudados') ORDER BY id DESC LIMIT 15; COMMIT;" || true
-          echo '=== ALMACENAMIENTO DE MENSAJES EN EVOLUTION ==='
-          for c in $(sudo docker ps --format '{{.Names}}' | grep -i evolution); do
-            sudo docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$c" |
-              awk -F= '$1 ~ /^DATABASE_SAVE_DATA_(NEW_MESSAGE|HISTORIC|CHATS)$/ && $2 ~ /^(true|false)$/ { print $1 "=" $2 }'
-          done
-          echo '=== VOLUMENES ==='; sudo docker system df
-          echo '=== PUERTOS ==='; sudo ss -lntp | sed -E 's/users:\(.*\)//'
-          echo '=== NOMBRES DE VARIABLES (sin valores) ==='
-          for f in /home/ubuntu/consulares/.env.production /home/ubuntu/consulares/docker/evolution.env /home/ubuntu/teinvito/.env.production /home/ubuntu/cne/.env.production; do
-            [ -f "$f" ] || continue; echo "ARCHIVO: $f"
-            sudo sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$f" | sort -u
-          done
-          echo '=== TUNEL CLOUDFLARE ==='; sudo docker ps --filter ancestor=cloudflare/cloudflared --format '{{.Names}}' ; ls /etc/cloudflared 2>/dev/null
-          echo '=== BASES POSTGRES ==='
-          for c in $(sudo docker ps --format '{{.Names}}' | grep -Ei 'postgres|db'); do echo "CONTENEDOR: $c"; sudo docker exec "$c" psql -U postgres -Atc "select datname from pg_database where not datistemplate" 2>/dev/null || echo "(sin acceso con usuario postgres)"; done
-          REMOTE
-
-      - name: Borrar clave temporal
-        if: always()
-        run: rm -f ~/.ssh/oracle
+          set -euo pipefail
+          umask 077
+          clave=$(mktemp)
+          trap 'unlink "$clave"' EXIT
+          printf '%s\n' "$ORACLE_SSH_KEY" > "$clave"
+          case "$MODO" in
+            comprobar|ejecutar) test -n "$PAQUETE"; printf '%s' "$PAQUETE" | base64 -d > madrid.cms ;;
+            clave|estado|limpiar) touch madrid.cms ;;
+            *) exit 1 ;;
+          esac
+          remoto='set -eu; umask 077; t=$(mktemp -d); trap '"'"'for p in "$t"/*; do unlink "$p"; done; rmdir "$t"'"'"' EXIT; tar -xf - -C "$t"; bash "$t/remoto-cotejo.sh" "$t" '
+          printf "%s" "$API_SMSQUEENS" > sms.key
+          tar -cf - remoto-cotejo.sh aplicar-cotejo.ts madrid.cms sms.key | ssh -i "$clave" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109 "$remoto$MODO"
