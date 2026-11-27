@@ -1,5 +1,4 @@
 import { privado, peticion } from "@/server/justificante/http";
-import { asignarTerminalEnLinea } from "@/server/puesto-movil/terminal-online";
 import { recuentoOffline } from "@/server/puesto-movil/recuento-offline";
 import { exportarContactos } from "@/server/puesto-movil/contactos";
 import { ErrorJustificante } from "@/server/justificante/servicio";
@@ -22,10 +21,8 @@ export async function POST(request: Request, { params }: Contexto) {
     if (!["consulta", "envio", "seguimiento", "diagnostico-correo", "contactos", "recuento-offline"].includes(operacion)) throw new ErrorJustificante(404, "Página no encontrada.");
     verificarAcceso(request, ["seguimiento", "diagnostico-correo", "contactos", "recuento-offline"].includes(operacion));
     limitar(request, operacion);
-    if (operacion === "recuento-offline") {
-      const enlace = datos.altaEnLinea === undefined ? undefined : await asignarTerminalEnLinea(datos.altaEnLinea);
-      return Response.json({ ...await recuentoOffline(datos.codigo), enlace }, { headers: privado });
-    }
+    if (operacion === "recuento-offline")
+      return Response.json(await recuentoOffline(datos.codigo), { headers: privado });
     if (operacion === "contactos") {
       return new Response(await exportarContactos(), { headers: {
         ...privado,
@@ -34,7 +31,7 @@ export async function POST(request: Request, { params }: Contexto) {
         "x-content-type-options": "nosniff",
       } });
     }
-    const resultado = operacion === "consulta" ? await consultar(datos.cedula, datos.terminal, datos.instalacion) :
+    const resultado = operacion === "consulta" ? await consultar(datos.cedula, datos.instalacion) :
       operacion === "envio" ? await enviar(datos) : operacion === "diagnostico-correo" ? await diagnosticoCorreo() : await seguimiento();
     return Response.json(resultado, { headers: privado });
   });

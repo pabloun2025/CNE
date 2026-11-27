@@ -15,10 +15,9 @@ function guardar(copia) {
 }
 
 function mostrar() {
-  el("alta").hidden = true;
   el("atencion").hidden = false;
   el("entrega").hidden = true;
-  el("puesto").textContent = "Terminal sin conexión " + String(datos.terminal).padStart(2, "0");
+  el("puesto").textContent = "Terminal sin conexión " + String(datos.terminal).padStart(2, "0").replace(/(\d)(?=(\d{3})+$)/g, "$1-");
   for (const campo of categorias) el(campo).textContent = datos[campo];
   el("total").textContent = datos.con + datos.sin + datos.otra;
   el("deshacer").disabled = !datos.ultima;
@@ -37,16 +36,13 @@ try {
   if (anterior) {
     datos = JSON.parse(anterior);
     mostrar();
+  } else {
+    const instalacion = Array.from(crypto.getRandomValues(new Uint8Array(8)), n => n.toString(16).padStart(2, "0")).join("");
+    const terminal = 100_000_000_000_000 + Number.parseInt(instalacion.slice(0, 12), 16);
+    guardar({ terminal, instalacion, revision: 0, con: 0, sin: 0, otra: 0, ultima: null });
   }
-} catch { estado("No se pudo recuperar el recuento guardado."); }
+} catch { estado("No se pudo guardar o recuperar el recuento. Abra el archivo en el navegador habitual."); }
 
-el("alta").querySelector("form").addEventListener("submit", evento => {
-  evento.preventDefault();
-  const terminal = Number(el("terminal").value);
-  if (!Number.isInteger(terminal) || terminal < 1 || terminal > 99) return;
-  const instalacion = Array.from(crypto.getRandomValues(new Uint8Array(8)), n => n.toString(16).padStart(2, "0")).join("");
-  guardar({ terminal, instalacion, revision: 0, con: 0, sin: 0, otra: 0, ultima: null });
-});
 for (const boton of document.querySelectorAll("[data-categoria]")) {
   boton.addEventListener("click", () => {
     const categoria = boton.dataset.categoria;
@@ -59,7 +55,7 @@ el("deshacer").addEventListener("click", () => {
   guardar({ ...datos, [categoria]: datos[categoria] - 1, revision: datos.revision + 1, ultima: null });
 });
 el("cierre").addEventListener("click", async () => {
-  const codigo = [1, datos.terminal, datos.instalacion, datos.revision, datos.con, datos.sin, datos.otra].join(".");
+  const codigo = [datos.terminal <= 99 ? 1 : 2, datos.terminal, datos.instalacion, datos.revision, datos.con, datos.sin, datos.otra].join(".");
   el("codigo").value = codigo;
   try {
     await toCanvas(el("qr"), "https://madrid.consulado.app/recuento-offline#" + codigo, { width: 300, margin: 4 });

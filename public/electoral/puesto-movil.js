@@ -4,19 +4,16 @@
   const mostrar = (id, visible) => { el(id).hidden = !visible; };
   const fragmento = location.hash.slice(1);
   const gestion = fragmento.startsWith("seguimiento=");
-  const terminal = /^terminal=([1-9]\d?)\.[A-Za-z0-9_-]{22}$/.exec(fragmento);
   const formatoPuesto = /^(?:[A-Za-z0-9_-]{18}|[A-Za-z0-9_-]{43})$/;
   const acceso = gestion
     ? fragmento.slice("seguimiento=".length)
     : formatoPuesto.test(fragmento) ? fragmento : document.querySelector("main").dataset.accesoPuesto;
-  if (location.hash && (gestion || (!terminal && !formatoPuesto.test(fragmento)))) history.replaceState(null, "", location.pathname);
+  if (location.hash && (gestion || !formatoPuesto.test(fragmento))) history.replaceState(null, "", location.pathname);
   window.addEventListener("hashchange", () => location.reload());
 
   const claveInstalacion = "cne-madrid-terminal-online-29n";
   let instalacion;
-  if (terminal) {
-    el("terminal-online").textContent = "Terminal en línea " + terminal[1].padStart(2, "0");
-    mostrar("terminal-online", true);
+  if (!gestion) {
     try {
       instalacion = localStorage.getItem(claveInstalacion);
       if (!/^[a-f0-9]{16}$/.test(instalacion ?? "")) {
@@ -199,11 +196,11 @@
     mensaje("mensaje");
     mensaje("consulta-estado", "Consultando…");
     try {
-      if (terminal && !instalacion) throw Error("Permita guardar datos en el navegador para usar este puesto numerado.");
-      const data = await api("consulta", {
-        cedula: el("cedula").value,
-        ...(terminal && { terminal: fragmento.slice("terminal=".length), instalacion }),
-      });
+      const data = await api("consulta", { cedula: el("cedula").value, instalacion });
+      if (Number.isSafeInteger(data.terminal)) {
+        el("terminal-online").textContent = "Terminal en línea " + String(data.terminal).padStart(2, "0");
+        mostrar("terminal-online", true);
+      }
       if (actual !== generacion || !permitido()) return;
       if (typeof data.turno !== "string" || !data.turno) throw Error("No se pudo iniciar la atención. Repita la consulta.");
       const r = data.resultado;

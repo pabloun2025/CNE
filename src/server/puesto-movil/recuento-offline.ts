@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withTx } from "../db";
 import { ErrorJustificante } from "../justificante/servicio";
 
-const corte = z.string().max(64).regex(/^1\.[1-9]\d?\.[a-f0-9]{16}\.(?:0|[1-9]\d{0,6})(?:\.(?:0|[1-9]\d{0,5})){3}$/);
+const corte = z.string().max(64).regex(/^(?:1\.[1-9]\d?|2\.[1-9]\d{14})\.[a-f0-9]{16}\.(?:0|[1-9]\d{0,6})(?:\.(?:0|[1-9]\d{0,5})){3}$/);
 type Fila = { terminal: number; instalacion: string; revision: number; con_padron: number; sin_padron: number; otra: number; recibido: Date };
 
 export async function recuentoOffline(codigo?: unknown) {
@@ -11,7 +11,9 @@ export async function recuentoOffline(codigo?: unknown) {
   return withTx(async client => {
     let estado = null;
     if (snapshot?.success) {
-      const [, terminal, instalacion, revision, con, sin, otra] = snapshot.data.split(".");
+      const [version, terminal, instalacion, revision, con, sin, otra] = snapshot.data.split(".");
+      if (version === "2" && Number(terminal) !== 100_000_000_000_000 + Number.parseInt(instalacion.slice(0, 12), 16))
+        throw new ErrorJustificante(400, "El número del terminal no coincide con el código de cierre.");
       const valores = [Number(terminal), instalacion, Number(revision), Number(con), Number(sin), Number(otra)];
       if (Number(revision) > 2_000_000 || [con, sin, otra].some(n => Number(n) > 500_000) ||
           Number(con) + Number(sin) + Number(otra) > Number(revision))

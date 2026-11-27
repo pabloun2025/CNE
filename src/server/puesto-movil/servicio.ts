@@ -102,18 +102,18 @@ function leerTurno(valor: unknown): Turno {
   } catch { fallo(409, "La consulta ha caducado. Vuelva a buscar la cédula."); }
 }
 
-export async function consultar(cedula: unknown, enlace?: unknown, instalacion?: unknown) {
+export async function consultar(cedula: unknown, instalacion?: unknown) {
   if (typeof cedula !== "string" || !formatoCedula.test(cedula)) fallo(400, "Ingrese los 10 dígitos de la cédula.");
   const elector = buscar(cedula);
   const { cierreMs } = exigirPadron();
   const tipo = elector ? "con" : "sin";
   const id = randomUUID();
   const turno = generarTurno({ contexto, id, cedula, vence: Math.min(cierreMs, Date.now() + 10 * 60_000), tipo });
-  await registrarConsultaMovil(id, tipo, enlace, instalacion);
+  const terminal = await registrarConsultaMovil(id, tipo, instalacion);
   exigirPadron();
   return {
     resultado: elector ? { junta: elector.junta, zona: elector.zona, recinto: elector.recinto, verificarWeb: elector.verificarWeb } : null,
-    turno,
+    turno, terminal,
   };
 }
 

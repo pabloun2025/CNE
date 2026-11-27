@@ -2,7 +2,6 @@
 .tablero section { min-width: 0; }
 .cifra { font-size: 1.15rem; font-weight: 750; color: #123d50; }
 .tablero li { margin-bottom: .65rem; }
-#enlace:not([hidden]) { width: 100%; }
 @media (min-width: 730px) {
   main { max-width: 68rem; }
   .tablero:not([hidden]) { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }

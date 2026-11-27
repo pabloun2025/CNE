@@ -3,7 +3,6 @@
   const elemento = id => document.getElementById(id);
   const codigo = elemento("codigo");
   const clave = elemento("clave");
-  const previstos = elemento("previstos");
   const estado = elemento("estado");
 
   function codigoDe(texto) {
@@ -28,7 +27,6 @@
   window.addEventListener("hashchange", leerFragmento);
   try {
     clave.value = sessionStorage.getItem("cne-recuento-clave") ?? "";
-    previstos.value = localStorage.getItem("cne-recuento-previstos") ?? "";
   } catch { /* Se pueden completar los campos en esta visita. */ }
 
   async function consultar(datos) {
@@ -56,31 +54,12 @@
   const numerar = n => String(n).padStart(2, "0");
   function mostrarEnLinea(datos) {
     const usados = datos.enLinea.filter(fila => fila.con + fila.sin > 0).length;
-    elemento("en-linea-usados").textContent = usados + " en uso · " + datos.enLinea.length + " asignados";
+    elemento("en-linea-usados").textContent = usados + " terminales con consultas";
     elemento("sin-terminal").textContent = datos.sinTerminal
       ? datos.sinTerminal + " consultas sin número de terminal. No se pueden atribuir a un equipo." : "";
-    lista("en-linea", datos.enLinea, fila =>
-      "En línea " + numerar(fila.terminal) + (fila.con + fila.sin
-        ? " · En el padrón: " + fila.con + " · No consta: " + fila.sin : " · Sin consultas"));
+    lista("en-linea", datos.enLinea.filter(fila => fila.con + fila.sin > 0), fila =>
+      "En línea " + numerar(fila.terminal) + " · En el padrón: " + fila.con + " · No consta: " + fila.sin);
   }
-
-  elemento("asignar").addEventListener("submit", async evento => {
-    evento.preventDefault();
-    const boton = evento.target.querySelector("button");
-    const campo = elemento("enlace");
-    boton.disabled = true;
-    campo.hidden = elemento("etiqueta-enlace").hidden = true;
-    try {
-      const datos = await consultar({ altaEnLinea: Number(elemento("numero-en-linea").value) });
-      mostrarEnLinea(datos);
-      campo.value = datos.enlace;
-      campo.hidden = elemento("etiqueta-enlace").hidden = false;
-      campo.focus();
-      campo.select();
-      estado.textContent = "Enlace listo. Ábralo en el equipo al que se asignó ese número.";
-    } catch (error) { estado.textContent = error.message; }
-    finally { boton.disabled = false; }
-  });
 
   elemento("archivo").addEventListener("change", async evento => {
     const archivo = evento.target.files[0];
@@ -99,12 +78,8 @@
     if (boton.disabled) return;
     boton.disabled = true;
     try {
-      const esperados = [...new Set(previstos.value.trim().split(/[,\s]+/).filter(Boolean))];
-      if (esperados.some(n => !/^[1-9]\d?$/.test(n))) throw Error("Escriba números de puesto del 1 al 99, separados por comas.");
       const corte = codigoDe(codigo.value);
       const datos = await consultar(corte ? { codigo: corte } : {});
-      try { localStorage.setItem("cne-recuento-previstos", esperados.join(", ")); }
-      catch { /* Los totales ya están confirmados por el servidor. */ }
       mostrarEnLinea(datos);
       const usados = datos.terminales.filter(fila => fila.revision > 0).length;
       elemento("offline-usados").textContent = usados + " en uso · " + datos.terminales.length + " con corte";
@@ -115,12 +90,8 @@
       const otra = total("otra");
       elemento("totales").textContent = (con + sin + otra) + " atenciones · En el padrón: " + con +
         " · No consta en el padrón: " + sin + " · Otra información: " + otra;
-      const recibidos = new Set(datos.terminales.map(fila => String(fila.terminal)));
-      const faltan = esperados.filter(id => !recibidos.has(id));
-      elemento("faltantes").textContent = !esperados.length ? recibidos.size + " puestos con corte. Indique los puestos previstos para comprobar faltantes." :
-        faltan.length ? "Falta el corte de los puestos " + faltan.join(", ") + "." : "Todos los puestos previstos han enviado un corte.";
       lista("puestos", datos.terminales, fila =>
-        "Sin conexión " + numerar(fila.terminal) + " · En el padrón: " + fila.con_padron +
+        "Sin conexión " + numerar(fila.terminal).replace(/(\d)(?=(\d{3})+$)/g, "$1-") + " · En el padrón: " + fila.con_padron +
         " · No consta: " + fila.sin_padron + " · Otra información: " + fila.otra + " · Corte " + fila.revision);
       elemento("resultado").hidden = false;
       estado.textContent = {

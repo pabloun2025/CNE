@@ -1,15 +1,15 @@
 CNE Madrid · Recuento de prueba sin conexión
 
 1. Extraiga todo el ZIP a una carpeta fija y abra recuento.html con Edge o Chrome.
-2. Use un número del 01 al 99 distinto para cada puesto sin conexión. Mantenga una sola pestaña abierta
-   por equipo. Abra siempre el mismo archivo con el mismo perfil de navegador.
+2. El número aparece automáticamente. Mantenga una sola pestaña por equipo.
+   Abra siempre el mismo archivo con el mismo perfil de navegador.
 3. Marque una categoría por atención. El total se guarda sin conexión.
 4. Al cierre, pulse Generar corte. Coordinación escanea el QR, se identifica
    con la clave de seguimiento y confirma la carga. Guarde también el archivo
    de cierre por si no se puede escanear. Un puesto con cero atenciones debe
    enviar su corte para figurar como reportado.
 5. Si se envían varios cortes de un puesto, el panel conserva el más reciente.
-   Introduzca los números de los puestos previstos para comprobar faltantes.
+   El tablero solo puede contar los terminales cuyo corte se haya recibido.
 
 Este ZIP contiene el contador auxiliar. Sirve junto al puesto electoral y no
 contiene el padrón, el generador de tickets ni claves. Para ensayar en el panel

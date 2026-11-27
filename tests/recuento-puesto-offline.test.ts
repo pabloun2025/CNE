@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { asignarTerminalEnLinea, registrarConsultaMovil } from "@/server/puesto-movil/terminal-online";
+import { registrarConsultaMovil } from "@/server/puesto-movil/terminal-online";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { closePools } from "@/server/db";
 import { recuentoOffline } from "@/server/puesto-movil/recuento-offline";
@@ -26,19 +26,28 @@ it("conserva el último corte por puesto, admite rectificaciones y no suma dupli
   await expect(recuentoOffline("1.1.0123456789abcdef.3.4.0.0")).rejects.toMatchObject({ status: 400 });
 });
 
-it("numera los terminales en línea, vincula un navegador y separa las consultas sin asignar", async () => {
-  const enlace = await asignarTerminalEnLinea(11);
-  const token = new URL(enlace).hash.slice("#terminal=".length);
+it("identifica automáticamente cada navegador, incluso con primeras consultas simultáneas", async () => {
   const instalacion = "0123456789abcdef";
-  await registrarConsultaMovil(randomUUID(), "con", token, instalacion);
-  await registrarConsultaMovil(randomUUID(), "sin", token, instalacion);
-  await registrarConsultaMovil(randomUUID(), "sin", undefined, undefined);
-  await expect(registrarConsultaMovil(randomUUID(), "con", token, "fedcba9876543210")).rejects.toMatchObject({ status: 409 });
-  const otro = new URL(await asignarTerminalEnLinea(12)).hash.slice("#terminal=".length);
-  await expect(registrarConsultaMovil(randomUUID(), "con", otro, instalacion)).rejects.toMatchObject({ status: 409 });
-  await expect(registrarConsultaMovil(randomUUID(), "con", "12." + token.split(".")[1], "fedcba9876543210")).rejects.toMatchObject({ status: 403 });
+  const [con, sin] = await Promise.all([
+    registrarConsultaMovil(randomUUID(), "con", instalacion),
+    registrarConsultaMovil(randomUUID(), "sin", instalacion),
+  ]);
+  expect(con).toBeTypeOf("number");
+  expect(sin).toBe(con);
+  const otro = await registrarConsultaMovil(randomUUID(), "sin", "fedcba9876543210");
+  expect(otro).not.toBe(con);
+  await registrarConsultaMovil(randomUUID(), "sin", undefined);
+  await expect(registrarConsultaMovil(randomUUID(), "con", "incorrecto")).rejects.toMatchObject({ status: 400 });
   expect(await recuentoOffline()).toMatchObject({
-    enLinea: [{ terminal: 11, con: 1, sin: 1 }, { terminal: 12, con: 0, sin: 0 }],
+    enLinea: [{ terminal: con, con: 1, sin: 1 }, { terminal: otro, con: 0, sin: 1 }],
     sinTerminal: 1,
   });
+});
+
+it("importa el identificador numérico generado sin conexión y comprueba su correspondencia", async () => {
+  const instalacion = "fedcba9876543210";
+  const terminal = 100_000_000_000_000 + Number.parseInt(instalacion.slice(0, 12), 16);
+  await expect(recuentoOffline(`2.${terminal + 1}.${instalacion}.1.0.1.0`)).rejects.toMatchObject({ status: 400 });
+  const datos = await recuentoOffline(`2.${terminal}.${instalacion}.1.0.1.0`);
+  expect(datos.terminales.at(-1)).toMatchObject({ terminal, revision: 1, sin_padron: 1 });
 });

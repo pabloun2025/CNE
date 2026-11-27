@@ -1,48 +1,28 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { masterKey } from "../crypto";
-import { query, withTx } from "../db";
+import { query } from "../db";
 import { ErrorJustificante } from "../justificante/servicio";
 
-const firmaEnlace = /^([1-9]\d?)\.([A-Za-z0-9_-]{22})$/;
 const instalacionValida = /^[0-9a-f]{16}$/;
 
-function firma(terminal: string) {
-  const clave = masterKey();
-  try {
-    return createHmac("sha256", clave).update("cne/madrid/29n/terminal-online/" + terminal).digest().subarray(0, 16).toString("base64url");
-  } finally { clave.fill(0); }
-}
-
-export async function asignarTerminalEnLinea(numero: unknown) {
-  if (typeof numero !== "number" || !Number.isInteger(numero) || numero < 1 || numero > 99)
-    throw new ErrorJustificante(400, "Indique un número de puesto del 1 al 99.");
-  const terminal = String(numero);
-  const acceso = firma(terminal);
-  await query("INSERT INTO cne.puesto_terminal_online (terminal) VALUES ($1) ON CONFLICT DO NOTHING", [numero]);
-  return "https://cne.consulado.app/puesto-movil#terminal=" + terminal + "." + acceso;
-}
-
-export async function registrarConsultaMovil(id: string, tipo: "con" | "sin", enlace: unknown, instalacion: unknown) {
-  if (enlace === undefined && instalacion === undefined) {
+export async function registrarConsultaMovil(id: string, tipo: "con" | "sin", instalacion: unknown) {
+  if (instalacion === undefined) {
     await query("INSERT INTO cne.puesto_movil_actividad (id,tipo) VALUES ($1,$2)", [id, tipo]);
-    return;
+    return null;
   }
-  const codigo = typeof enlace === "string" ? firmaEnlace.exec(enlace) : null;
-  if (!codigo || typeof instalacion !== "string" || !instalacionValida.test(instalacion) ||
-      !timingSafeEqual(Buffer.from(codigo[2]), Buffer.from(firma(codigo[1]))))
-    throw new ErrorJustificante(403, "El enlace numerado no es válido. Solicite el enlace a coordinación.");
+  if (typeof instalacion !== "string" || !instalacionValida.test(instalacion))
+    throw new ErrorJustificante(400, "No se pudo identificar el navegador. Vuelva a cargar la página.");
 
-  await withTx(async client => {
-    const terminal = Number(codigo[1]);
-    const { rowCount } = await client.query(`
-      UPDATE cne.puesto_terminal_online SET instalacion=$2
-      WHERE terminal=$1 AND (instalacion IS NULL OR instalacion=$2) RETURNING terminal
-    `, [terminal, instalacion]);
-    if (!rowCount) throw new ErrorJustificante(409, "Ese número ya está en uso en otro navegador. Solicite otro número a coordinación.");
-    await client.query("INSERT INTO cne.puesto_movil_actividad (id,tipo,terminal_online) VALUES ($1,$2,$3)", [id, tipo, terminal]);
-  }).catch(error => {
-    if ((error as { code?: string }).code === "23505")
-      throw new ErrorJustificante(409, "Este navegador ya está asociado a otro número. Use el enlace asignado.");
-    throw error;
-  });
+  const [fila] = await query<{ terminal_online: number }>(`
+    WITH existente AS (
+      SELECT terminal FROM cne.puesto_terminal_online WHERE instalacion=$3
+    ), alta AS (
+      INSERT INTO cne.puesto_terminal_online (instalacion)
+      SELECT $3 WHERE NOT EXISTS (SELECT 1 FROM existente)
+      ON CONFLICT (instalacion) DO UPDATE SET instalacion=EXCLUDED.instalacion
+      RETURNING terminal
+    )
+    INSERT INTO cne.puesto_movil_actividad (id,tipo,terminal_online)
+    SELECT $1::uuid,$2::text,terminal FROM existente UNION ALL SELECT $1::uuid,$2::text,terminal FROM alta
+    RETURNING terminal_online
+  `, [id, tipo, instalacion]);
+  return fila.terminal_online;
 }
