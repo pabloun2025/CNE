@@ -214,13 +214,21 @@ async function estado() {
        FROM mjrv m JOIN juntas_madrid j ON j.id=m.junta_origen_id
        JOIN LATERAL (SELECT estado,codigo_error,abierto_en FROM envios_sms
         WHERE mjrv_id=m.id AND destino=m.telefono_e164 ORDER BY id DESC LIMIT 1) s ON true
-      WHERE activo AND NOT es_prueba AND incorporado_en IS NULL
+      WHERE m.activo AND NOT m.es_prueba AND m.incorporado_en IS NULL
         AND (CASE j.serie WHEN 'M' THEN 'F' ELSE 'M' END||j.numero::text||':'||m.rol)=ANY($1) ORDER BY puesto`,[esperado]);
   const [{activos}] = await query("SELECT count(*)::int AS activos FROM mjrv WHERE activo AND NOT es_prueba AND incorporado_en IS NULL");
   const smsReenviado = await query(
     "SELECT datos->>'puesto' AS puesto, datos->>'estado' AS estado, datos->>'codigo' AS codigo FROM auditoria WHERE accion=$1",
     [lote+"_sms_reenvio_resultado"]);
-  console.log(JSON.stringify({resultados,correos,sms,smsReenviado,activos}));
+  const pendientes = await query(
+    `SELECT CASE j.serie WHEN 'M' THEN 'F' ELSE 'M' END||j.numero::text||':'||p.rol AS puesto,
+         count(m.id)::int AS asignadas
+       FROM (VALUES('M',11,'secretario'),('H',23,'presidente')) p(serie,numero,rol)
+       JOIN juntas_madrid j ON j.serie=p.serie AND j.numero=p.numero
+       LEFT JOIN mjrv m ON m.junta_origen_id=j.id AND m.rol=p.rol AND m.activo AND NOT m.es_prueba
+         AND m.incorporado_en IS NULL
+       GROUP BY j.serie,j.numero,p.rol ORDER BY puesto`);
+  console.log(JSON.stringify({resultados,correos,sms,smsReenviado,activos,pendientes}));
 }
 
 async function main() {
