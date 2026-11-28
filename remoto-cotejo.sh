@@ -2,7 +2,7 @@ set -euo pipefail
 umask 077
 trabajo=$1
 modo=$2
-clave_dir=/tmp/cne-cotejo-20261127-ops
+clave_dir=/tmp/cne-cotejo-20261128-ops
 case "$modo" in
   clave)
     if [ ! -d "$clave_dir" ]; then
@@ -10,15 +10,15 @@ case "$modo" in
       openssl req -x509 -newkey rsa:3072 -keyout "$clave_dir/clave.pem" -out "$clave_dir/publico.pem" -days 1 -nodes -subj /CN=CNE-cotejo-produccion >/dev/null 2>&1
     fi
     cat "$clave_dir/publico.pem"
-    printf '[]' > "$trabajo/madrid.json"
-    modo=estado ;;
+    exit ;;
   limpiar)
     unlink "$clave_dir/clave.pem"
     unlink "$clave_dir/publico.pem"
     rmdir "$clave_dir"
     exit ;;
   comprobar|ejecutar)
-    openssl cms -decrypt -binary -inform DER -in "$trabajo/madrid.cms" -inkey "$clave_dir/clave.pem" -out "$trabajo/madrid.json"
+    openssl cms -decrypt -binary -inform DER -in "$trabajo/madrid.cms" -inkey "$clave_dir/clave.pem" -out "$trabajo/madrid.json.gz"
+    gzip -df "$trabajo/madrid.json.gz"
     ;;
   estado)
     printf '[]' > "$trabajo/madrid.json"

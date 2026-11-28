@@ -1,4 +1,4 @@
-name: Actualizar padrón de Madrid del 27 de noviembre
+name: Actualizar padrón de Madrid del 28 de noviembre
 on:
   workflow_dispatch:
     inputs:
@@ -13,7 +13,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: cotejo-madrid-27nov
+  group: cotejo-madrid-28nov
   cancel-in-progress: false
 jobs:
   padron:
