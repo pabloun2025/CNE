@@ -97,6 +97,35 @@ async function ajustar(d:Entrada, titulares:Set<string>, ejecutar:boolean) {
   });
 }
 
+async function reenviarM19(d:Entrada, id:number, apiKey:string, texto:string) {
+  const etapa = lote+"_sms_reenvio";
+  const fila = await withTx(async tx => {
+    const { rows:[m] } = await tx.query("SELECT id FROM mjrv WHERE id=$1 AND activo AND NOT es_prueba AND cedula=$2 AND telefono_e164=$3 FOR UPDATE",[id,d.cedula,d.telefono]);
+    if (!m) return undefined;
+    const previa = await tx.query("SELECT 1 FROM auditoria WHERE entidad='mjrv' AND entidad_id=$1 AND accion=$2",[String(id),etapa]);
+    if (previa.rowCount) return undefined;
+    const { rows:[sms] } = await tx.query("SELECT id FROM envios_sms WHERE mjrv_id=$1 AND destino=$2 AND estado IN ('aceptado','entregado')",[id,d.telefono]);
+    if (!sms) return undefined;
+    await registrarAuditoria({portal:"admin",actorTipo:"sistema",accion:etapa,entidad:"mjrv",entidadId:id,datos:{puesto:puesto(d),estado:"reservado"}},tx);
+    return Number(sms.id);
+  });
+  if (!fila) return "reenvío reservado previamente";
+  const token = tokenCredencialSms({id,cedula:d.cedula,telefono:d.telefono},expira);
+  const r = await enviarSmsPubli({id:fila,destino:d.telefono,remitente:remitenteSmsMadrid(d.serie),texto,enlace:`https://${host}/s/${token}`,acuse:""},{
+    apiKey,
+    fetch:(url,init) => {
+      const body = JSON.parse(String(init?.body));
+      // El envío histórico conserva su identificador y sus acuses.
+      delete body.report_url;
+      body.messages[0].custom = `CNE28NOVR${fila}`;
+      return fetch(url,{...init,body:JSON.stringify(body),redirect:"error"});
+    },
+  });
+  await registrarAuditoria({portal:"admin",actorTipo:"sistema",accion:etapa+"_resultado",entidad:"mjrv",entidadId:id,
+    datos:{puesto:puesto(d),estado:r.estado,...(r.estado==="aceptado"?{idExterno:r.idExterno}:{codigo:r.codigo})}});
+  return "reenvío "+r.estado+(r.estado==="aceptado"?"":":"+r.codigo);
+}
+
 async function avisos(datos: {d:Entrada; id:number}[], apiKey: string) {
   const brevo = clienteCorreo();
   const config = await leerConfigEnvios();
@@ -108,6 +137,7 @@ async function avisos(datos: {d:Entrada; id:number}[], apiKey: string) {
   }
   const medidas = await medidasCredencial();
   for (const {d,id} of datos) {
+    try {
     const sel = await seleccionarParaCredencial({alcance:"ids",ids:[id]});
     exigir(sel.ids.length===1 && sel.datos[0].cedula===d.cedula && !sel.datos[0].prueba && sel.datos[0].rotulo===rotulo(d), "Credencial no coincide: " + puesto(d));
     const contenido = await prepararContenidoEnvio({canal:"correo",ficha:sel.datos[0],persona:sel.personas[0],rectificacion:false,medidas});
@@ -141,7 +171,11 @@ async function avisos(datos: {d:Entrada; id:number}[], apiKey: string) {
     if (destinos[0].sms) sms = "contacto compartido";
     const mensaje = mensajeSmsMadrid(sel.datos[0].nombres);
     if (!mensaje.ok) sms = mensaje.motivo;
-    if (apiKey && !destinos[0].sms && mensaje.ok) {
+    const reenvio = puesto(d)==="M19:presidente" && (await query(
+      "SELECT 1 FROM auditoria WHERE entidad='mjrv' AND entidad_id=$1 AND accion=$2",[String(id),lote+"_reactivar"])).length > 0;
+    if (apiKey && !destinos[0].sms && mensaje.ok && reenvio) {
+      sms = await reenviarM19(d,id,apiKey,mensaje.texto);
+    } else if (apiKey && !destinos[0].sms && mensaje.ok) {
       const token = tokenCredencialSms({id,cedula:d.cedula,telefono:d.telefono},expira);
       const from = remitenteSmsMadrid(d.serie);
       const [reserva] = await query(
@@ -158,6 +192,9 @@ async function avisos(datos: {d:Entrada; id:number}[], apiKey: string) {
       }
     }
     console.log(JSON.stringify({puesto:puesto(d),pdf:true,correo,sms}));
+    } catch(e) {
+      console.log(JSON.stringify({puesto:puesto(d),avisoPendiente:e instanceof Control ? e.message : e && typeof e==="object" && "code" in e ? e.code : "validación"}));
+    }
   }
 }
 
@@ -180,7 +217,10 @@ async function estado() {
       WHERE activo AND NOT es_prueba AND incorporado_en IS NULL
         AND (CASE j.serie WHEN 'M' THEN 'F' ELSE 'M' END||j.numero::text||':'||m.rol)=ANY($1) ORDER BY puesto`,[esperado]);
   const [{activos}] = await query("SELECT count(*)::int AS activos FROM mjrv WHERE activo AND NOT es_prueba AND incorporado_en IS NULL");
-  console.log(JSON.stringify({resultados,correos,sms,activos}));
+  const smsReenviado = await query(
+    "SELECT datos->>'puesto' AS puesto, datos->>'estado' AS estado, datos->>'codigo' AS codigo FROM auditoria WHERE accion=$1",
+    [lote+"_sms_reenvio_resultado"]);
+  console.log(JSON.stringify({resultados,correos,sms,smsReenviado,activos}));
 }
 
 async function main() {
