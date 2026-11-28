@@ -15,6 +15,16 @@ type ModoManual = "cedula" | "nombre";
 type Origen = "qr" | "credencial" | ModoManual;
 
 function Aviso({ p, origen }: { p: Pantalla; origen: Origen }) {
+  if (p.resultado === "autorizado_embajada") {
+    return (
+      <>
+        <p className="text-3xl font-extrabold leading-tight"><span aria-hidden="true">✓ </span>AUTORIZADO</p>
+        <p className="font-semibold">Personal de la Embajada</p>
+        <p className="text-xl font-bold">{p.nombre}</p>
+        <p className="text-sm">{p.cargo} · Acceso VIP</p>
+      </>
+    );
+  }
   if (p.resultado === "valido") {
     const zona = ZONAS.find((clave) => ZONA_NOMBRE[clave] === p.zona);
     return (
@@ -82,7 +92,7 @@ export function Puerta({ token, medidas }: { token: string; medidas: MedidasCred
     setEncima(true);
     window.clearTimeout(cierre.current);
     // El lector espera mientras aparece la confirmación.
-    const ms = lectura.resultado === "valido" ? 2500 : 6000;
+    const ms = tonoLectura(lectura.resultado) === "valido" ? 2500 : 6000;
     cierre.current = window.setTimeout(() => setEncima(false), ms);
   }, []);
 
@@ -138,8 +148,9 @@ export function Puerta({ token, medidas }: { token: string; medidas: MedidasCred
   }
 
   const aviso = pantalla ? <Aviso p={pantalla.lectura} origen={pantalla.origen} /> : null;
-  const valido = pantalla?.lectura.resultado === "valido";
-  const color = pantalla ? COLOR_LECTURA[tonoLectura(pantalla.lectura.resultado)] : "";
+  const tono = pantalla ? tonoLectura(pantalla.lectura.resultado) : null;
+  const valido = tono === "valido";
+  const color = tono ? COLOR_LECTURA[tono] : "";
   const puedeComprobar = modoManual === "cedula" ? cedulaManualValida(manual) : !!manual.trim();
   return (
     <div className="mx-auto max-w-xl space-y-3">

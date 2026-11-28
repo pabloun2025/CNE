@@ -24,6 +24,8 @@ BEGIN
     GRANT INSERT, UPDATE (total, sin) ON cne.cortes_puesto_windows TO cne_app;
     GRANT INSERT, UPDATE (estado, intentos, envio_iniciado, huella_peticion) ON cne.puesto_movil_actividad TO cne_app;
     GRANT INSERT, UPDATE (nonce, cifrado) ON cne.puesto_movil_contactos TO cne_app;
+    GRANT INSERT ON cne.acreditaciones_embajada TO cne_app;
+    GRANT INSERT, UPDATE (estado, actualizado_en) ON cne.acreditaciones_embajada_envios TO cne_app;
     GRANT UPDATE (ultimo_ordinal) ON cne.secuencia_recibos TO cne_app;
     GRANT INSERT (mjrv_id, validada_en, retirada_en, repetir_en, motivo_repetir),
       UPDATE (validada_en, retirada_en, repetir_en, motivo_repetir) ON cne.cedulas_validadas TO cne_app;

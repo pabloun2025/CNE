@@ -1,0 +1,117 @@
+name: Acreditaciones de la Embajada
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "Clave pública, verificación, activación, envío autorizado o estado"
+        type: choice
+        options: [clave, verificar, activar, enviar, estado]
+        default: verificar
+        required: true
+      lote_cifrado:
+        description: "JSON compacto de 11 bloques RSA OAEP SHA-256 en base64"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cne-madrid-acreditaciones-embajada
+  cancel-in-progress: false
+
+jobs:
+  lote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Operar el lote en CNE
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          CNE_EMBAJADA_LOTE: ${{ secrets.CNE_EMBAJADA_LOTE }}
+          LOTE_CIFRADO: ${{ inputs.lote_cifrado }}
+          MODO: ${{ inputs.modo }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$ORACLE_SSH_KEY"
+          clave=$(mktemp)
+          trap 'unlink "$clave"' EXIT
+          printf '%s\n' "$ORACLE_SSH_KEY" > "$clave"
+          oracle=(ssh -i "$clave" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ubuntu@51.170.51.109)
+
+          if [ "$MODO" = clave ]; then
+            "${oracle[@]}" 'bash -se' <<'ORACLE'
+          set -euo pipefail
+          umask 077
+          carpeta="$HOME/.cne-embajada"
+          install -d -m 700 "$carpeta"
+          exec 9>"$carpeta/clave.lock"
+          flock 9
+          privada="$carpeta/lote-rsa.pem"
+          if [ ! -e "$privada" ]; then
+            temporal=$(mktemp "$carpeta/lote.XXXXXXXX")
+            trap 'unlink "$temporal" 2>/dev/null || true' EXIT
+            openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$temporal" 2>/dev/null
+            mv -- "$temporal" "$privada"
+          fi
+          chmod 600 "$privada"
+          openssl pkey -in "$privada" -pubout
+          ORACLE
+            exit 0
+          fi
+
+          case "$MODO" in
+            verificar|activar|enviar|estado) ;;
+            *) exit 2 ;;
+          esac
+          ejecutar="sudo docker exec -i -w /app cne-prod-cne-app-1 ./node_modules/.bin/tsx scripts/ops/acreditaciones-embajada.ts $MODO"
+          if [ "$MODO" = estado ]; then
+            "${oracle[@]}" "$ejecutar" </dev/null
+          elif [ -n "$LOTE_CIFRADO" ]; then
+            # Descifrado en memoria en Oracle. La salida alimenta el stdin del proceso exclusivo de CNE.
+            descifrar=$(cat <<'PY'
+          import base64
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          try:
+              datos = sys.stdin.buffer.read(16385)
+              if len(datos) > 16384:
+                  raise ValueError()
+              bloques = json.loads(datos)
+              if not isinstance(bloques, list) or len(bloques) != 11:
+                  raise ValueError()
+              clave = Path.home() / ".cne-embajada" / "lote-rsa.pem"
+              filas = []
+              for bloque in bloques:
+                  if not isinstance(bloque, str) or len(bloque) != 512:
+                      raise ValueError()
+                  cifra = base64.b64decode(bloque, validate=True)
+                  if len(cifra) != 384:
+                      raise ValueError()
+                  salida = subprocess.run(
+                      ["openssl", "pkeyutl", "-decrypt", "-inkey", str(clave),
+                       "-pkeyopt", "rsa_padding_mode:oaep", "-pkeyopt", "rsa_oaep_md:sha256",
+                       "-pkeyopt", "rsa_mgf1_md:sha256"],
+                      input=cifra, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True, timeout=5,
+                  ).stdout
+                  filas.append(json.loads(salida.decode("utf-8")))
+              sys.stdout.write(json.dumps(filas, ensure_ascii=False))
+          except Exception:
+              print(json.dumps({"loteCifradoInvalido": 1}), file=sys.stderr)
+              sys.exit(1)
+          PY
+            )
+            orden="python3 -c $(printf '%q' "$descifrar") | $ejecutar"
+            printf '%s' "$LOTE_CIFRADO" | "${oracle[@]}" "bash -o pipefail -c $(printf '%q' "$orden")"
+          elif [ -n "$CNE_EMBAJADA_LOTE" ]; then
+            printf '%s' "$CNE_EMBAJADA_LOTE" | "${oracle[@]}" "$ejecutar"
+          else
+            printf '%s\n' '{"loteAusente":1}' >&2
+            exit 1
+          fi
