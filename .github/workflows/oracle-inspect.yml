@@ -1,4 +1,4 @@
-name: Actualizar padrón de Madrid del 28 de noviembre
+name: Completar F11 y M23 del padrón de Madrid
 on:
   workflow_dispatch:
     inputs:
@@ -13,7 +13,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: cotejo-madrid-28nov
+  group: cotejo-madrid-f11-m23
   cancel-in-progress: false
 jobs:
   padron:

@@ -2,7 +2,7 @@ set -euo pipefail
 umask 077
 trabajo=$1
 modo=$2
-clave_dir=/tmp/cne-cotejo-20261128-ops
+clave_dir=/tmp/cne-cotejo-20261128-f11-m23-ops
 case "$modo" in
   clave)
     if [ ! -d "$clave_dir" ]; then

@@ -11,25 +11,24 @@ import { tokenCredencialSms } from "./src/server/credencial-sms";
 import { hashEnlaceSms, urlAcuseSms } from "./src/server/envios/sms-seguimiento";
 import { mensajeSmsMadrid, remitenteSmsMadrid, enviarSmsPubli } from "./src/server/envios/sms-publi";
 
-import { claveAcceso } from "./src/server/revocar-credencial";
 
-const lote = "padron_madrid_20261128";
+const lote = "padron_madrid_20261128_f11_m23";
 const mail = lote + "_correo";
 const host = "madrid.consulado.app";
 const expira = Date.parse("2026-11-29T23:59:00+01:00");
-const fuente = "Padrón oficial de Madrid, 28-11-2026 11:21 CET";
+const fuente = "Padrón oficial de Madrid, 28-11-2026 14:21 CET";
 type Entrada = { serie:"M"|"H"; num:number; rol:string; fila:number; cedula:string; apellidos:string; nombres:string; correo:string; telefono:string; cargo:string; anterior:string|null };
 type Ficha = { id:number; activo:boolean; cedula:string; correo:string; telefono_e164:string; nombres:string; apellidos:string; cargo_original:string; junta_origen_id:number; rol:string; incorporado_en:string|null; es_prueba:boolean };
 type Paquete = { cambios:Entrada[]; cedulas:string[] };
 const rotulo = (d: Entrada) => (d.serie === "M" ? "F" : "M") + d.num;
 const puesto = (d: Entrada) => rotulo(d) + ":" + d.rol;
-const esperado = ["F14:secretario","F23:secretario","F25:vocal","F29:presidente","F40:presidente","F44:secretario","M1:presidente","M3:vocal","M16:secretario","M19:presidente","M22:presidente","M31:vocal","M32:presidente","M36:presidente","M39:secretario"];
+const esperado = ["F11:secretario","M23:presidente"];
 class Control extends Error {}
 function exigir(p: unknown, e: string): asserts p { if (!p) throw new Control(e); }
 const cedula = (c: string) => c.padStart(10, "0");
 const equivalentes = (c: string) => [c, c.replace(/^0+/, "")];
 
-async function ajustar(d:Entrada, titulares:Set<string>, ejecutar:boolean) {
+async function ajustar(d:Entrada, ejecutar:boolean) {
   return withTx(async tx => {
     await tx.query("SELECT pg_advisory_xact_lock($1)",[CLAVE_CANDADO_COLA]);
     const {rows:[cfg]} = await tx.query("SELECT modo FROM configuracion WHERE id=1 FOR UPDATE");
@@ -44,35 +43,13 @@ async function ajustar(d:Entrada, titulares:Set<string>, ejecutar:boolean) {
     exigir(homonimas.length<=1,"Más de una ficha con esa cédula");
     const actual = homonimas[0];
     exigir(!actual || (!actual.es_prueba && !actual.incorporado_en && actual.junta_origen_id===j.id && actual.rol===d.rol),"La persona nueva figura en otro puesto");
-    const otras = fichas.filter(m => m.activo && m.id !== actual?.id);
-    exigir(otras.length<=1,"Más de un ocupante activo");
-    const anterior = otras[0];
-    if (anterior) {
-      exigir(!anterior.incorporado_en && !titulares.has(cedula(anterior.cedula)) &&
-        (d.anterior===cedula(anterior.cedula) || puesto(d)==="F23:secretario"),"La ficha activa requiere cotejo adicional");
-      const actividad = await tx.query(
-        `SELECT 1 FROM v_actuacion_mesa WHERE mjrv_id=$1
-         UNION ALL SELECT 1 FROM pagos_confirmados WHERE mjrv_id=$1
-         UNION ALL SELECT 1 FROM firmas_recibo WHERE mjrv_id=$1`,[anterior.id]);
-      exigir(!actividad.rowCount,"Hay actuación confirmada, firma o pago");
-    }
+    const otroOcupante = fichas.some(m => m.activo && m.id !== actual?.id);
+    exigir(!otroOcupante, "El cargo ya tiene otra persona activa");
     const rev = await tx.query("SELECT 1 FROM credenciales_revocadas WHERE cedula=ANY($1::text[]) OR mjrv_id=$2",[equivalentes(d.cedula),actual?.id ?? null]);
     exigir(!rev.rowCount,"La persona nueva tiene una revocación vigente");
     const cambio = !actual ? "alta" : actual.activo ? "actualizar" : "reactivar";
     const prevSms = actual ? (await tx.query("SELECT estado FROM envios_sms WHERE mjrv_id=$1 AND destino=$2",[actual.id,d.telefono])).rows[0]?.estado : undefined;
-    if (!ejecutar) return { d, id:actual?.id, cambio, sustituye:!!anterior, previoSms:prevSms };
-    if (anterior) {
-      const claves = [...new Set([anterior.cedula,anterior.apellidos+anterior.nombres,anterior.nombres+anterior.apellidos].map(claveAcceso).filter(Boolean))];
-      await tx.query(
-        `INSERT INTO credenciales_revocadas(mjrv_id,cedula,apellidos,nombres,claves,actor_nombre)
-         VALUES($1,$2,$3,$4,$5,'CNE · cotejo de padrón') ON CONFLICT DO NOTHING`,
-        [anterior.id,anterior.cedula,anterior.apellidos,anterior.nombres,claves]);
-      const revocada = await tx.query("SELECT 1 FROM credenciales_revocadas WHERE mjrv_id=$1 OR cedula=$2",[anterior.id,anterior.cedula]);
-      exigir(revocada.rowCount,"No se pudo confirmar la revocación");
-      await tx.query("UPDATE mjrv SET activo=false,baja_motivo=$2,actualizado_en=now() WHERE id=$1",[anterior.id,fuente+" · cargo reasignado"]);
-      await tx.query("UPDATE envios_credencial SET estado='fallo',error='Cancelado por baja en el padrón de Madrid.' WHERE mjrv_id=$1 AND NOT simulado AND estado='en_cola' AND intentos=0",[anterior.id]);
-      await registrarAuditoria({portal:"admin",actorTipo:"sistema",accion:lote+"_revocar",entidad:"mjrv",entidadId:anterior.id,datos:{puesto:puesto(d)}},tx);
-    }
+    if (!ejecutar) return { d, id:actual?.id, cambio, sustituye:false, previoSms:prevSms };
     let id = actual?.id;
     if (actual) {
       const modificado = !actual.activo || actual.cedula!==d.cedula || actual.nombres!==d.nombres || actual.apellidos!==d.apellidos ||
@@ -82,7 +59,7 @@ async function ajustar(d:Entrada, titulares:Set<string>, ejecutar:boolean) {
           `UPDATE mjrv SET activo=true,baja_motivo=NULL,cedula=$2,apellidos=$3,nombres=$4,cargo_original=$5,correo=$6,
            telefono_e164=$7,fuente_archivo=$8,fila_origen=$9,credencial_generada_en=NULL,actualizado_en=now() WHERE id=$1`,
           [id,d.cedula,d.apellidos,d.nombres,d.cargo,d.correo,d.telefono,fuente,d.fila]);
-      } else if (!anterior) {
+      } else {
         return { d,id,cambio:"ya vigente",sustituye:false,previoSms:prevSms };
       }
     } else {
@@ -93,37 +70,8 @@ async function ajustar(d:Entrada, titulares:Set<string>, ejecutar:boolean) {
       id=m.id;
     }
     await registrarAuditoria({portal:"admin",actorTipo:"sistema",accion:lote+"_"+cambio,entidad:"mjrv",entidadId:id,datos:{puesto:puesto(d),fila:d.fila}},tx);
-    return { d,id,cambio,sustituye:!!anterior,previoSms:prevSms };
+    return { d,id,cambio,sustituye:false,previoSms:prevSms };
   });
-}
-
-async function reenviarM19(d:Entrada, id:number, apiKey:string, texto:string) {
-  const etapa = lote+"_sms_reenvio";
-  const fila = await withTx(async tx => {
-    const { rows:[m] } = await tx.query("SELECT id FROM mjrv WHERE id=$1 AND activo AND NOT es_prueba AND cedula=$2 AND telefono_e164=$3 FOR UPDATE",[id,d.cedula,d.telefono]);
-    if (!m) return undefined;
-    const previa = await tx.query("SELECT 1 FROM auditoria WHERE entidad='mjrv' AND entidad_id=$1 AND accion=$2",[String(id),etapa]);
-    if (previa.rowCount) return undefined;
-    const { rows:[sms] } = await tx.query("SELECT id FROM envios_sms WHERE mjrv_id=$1 AND destino=$2 AND estado IN ('aceptado','entregado')",[id,d.telefono]);
-    if (!sms) return undefined;
-    await registrarAuditoria({portal:"admin",actorTipo:"sistema",accion:etapa,entidad:"mjrv",entidadId:id,datos:{puesto:puesto(d),estado:"reservado"}},tx);
-    return Number(sms.id);
-  });
-  if (!fila) return "reenvío reservado previamente";
-  const token = tokenCredencialSms({id,cedula:d.cedula,telefono:d.telefono},expira);
-  const r = await enviarSmsPubli({id:fila,destino:d.telefono,remitente:remitenteSmsMadrid(d.serie),texto,enlace:`https://${host}/s/${token}`,acuse:""},{
-    apiKey,
-    fetch:(url,init) => {
-      const body = JSON.parse(String(init?.body));
-      // El envío histórico conserva su identificador y sus acuses.
-      delete body.report_url;
-      body.messages[0].custom = `CNE28NOVR${fila}`;
-      return fetch(url,{...init,body:JSON.stringify(body),redirect:"error"});
-    },
-  });
-  await registrarAuditoria({portal:"admin",actorTipo:"sistema",accion:etapa+"_resultado",entidad:"mjrv",entidadId:id,
-    datos:{puesto:puesto(d),estado:r.estado,...(r.estado==="aceptado"?{idExterno:r.idExterno}:{codigo:r.codigo})}});
-  return "reenvío "+r.estado+(r.estado==="aceptado"?"":":"+r.codigo);
 }
 
 async function avisos(datos: {d:Entrada; id:number}[], apiKey: string) {
@@ -171,11 +119,7 @@ async function avisos(datos: {d:Entrada; id:number}[], apiKey: string) {
     if (destinos[0].sms) sms = "contacto compartido";
     const mensaje = mensajeSmsMadrid(sel.datos[0].nombres);
     if (!mensaje.ok) sms = mensaje.motivo;
-    const reenvio = puesto(d)==="M19:presidente" && (await query(
-      "SELECT 1 FROM auditoria WHERE entidad='mjrv' AND entidad_id=$1 AND accion=$2",[String(id),lote+"_reactivar"])).length > 0;
-    if (apiKey && !destinos[0].sms && mensaje.ok && reenvio) {
-      sms = await reenviarM19(d,id,apiKey,mensaje.texto);
-    } else if (apiKey && !destinos[0].sms && mensaje.ok) {
+    if (apiKey && !destinos[0].sms && mensaje.ok) {
       const token = tokenCredencialSms({id,cedula:d.cedula,telefono:d.telefono},expira);
       const from = remitenteSmsMadrid(d.serie);
       const [reserva] = await query(
@@ -217,9 +161,6 @@ async function estado() {
       WHERE m.activo AND NOT m.es_prueba AND m.incorporado_en IS NULL
         AND (CASE j.serie WHEN 'M' THEN 'F' ELSE 'M' END||j.numero::text||':'||m.rol)=ANY($1) ORDER BY puesto`,[esperado]);
   const [{activos}] = await query("SELECT count(*)::int AS activos FROM mjrv WHERE activo AND NOT es_prueba AND incorporado_en IS NULL");
-  const smsReenviado = await query(
-    "SELECT datos->>'puesto' AS puesto, datos->>'estado' AS estado, datos->>'codigo' AS codigo FROM auditoria WHERE accion=$1",
-    [lote+"_sms_reenvio_resultado"]);
   const pendientes = await query(
     `SELECT CASE j.serie WHEN 'M' THEN 'F' ELSE 'M' END||j.numero::text||':'||p.rol AS puesto,
          count(m.id)::int AS asignadas
@@ -228,7 +169,7 @@ async function estado() {
        LEFT JOIN mjrv m ON m.junta_origen_id=j.id AND m.rol=p.rol AND m.activo AND NOT m.es_prueba
          AND m.incorporado_en IS NULL
        GROUP BY j.serie,j.numero,p.rol ORDER BY puesto`);
-  console.log(JSON.stringify({resultados,correos,sms,smsReenviado,activos,pendientes}));
+  console.log(JSON.stringify({resultados,correos,sms,activos,puestos:pendientes}));
 }
 
 async function main() {
@@ -238,7 +179,7 @@ async function main() {
   const {cambios,cedulas}=JSON.parse(readFileSync(process.env.CNE_COTEJO_ARCHIVO!,"utf8")) as Paquete;
   exigir(cambios.map(puesto).join("|")===esperado.join("|"),"Paquete fuera del alcance aprobado");
   const titulares=new Set(cedulas);
-  exigir(titulares.size===284 && cedulas.every(c=>/^\d{10}$/.test(c)),"Padrón de referencia incorrecto");
+  exigir(titulares.size===285 && cedulas.every(c=>/^\d{10}$/.test(c)),"Padrón de referencia incorrecto");
   for (const d of cambios) {
     exigir(titulares.has(d.cedula) && (!d.anterior || /^\d{10}$/.test(d.anterior)) && /^\+34[67]\d{8}$/.test(d.telefono)
       && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.correo),"Datos inválidos: "+puesto(d));
@@ -248,7 +189,7 @@ async function main() {
   const notificar:{d:Entrada;id:number}[]=[];
   for (const d of cambios) {
     try {
-      const r=await ajustar(d,titulares,modo==="ejecutar");
+      const r=await ajustar(d,modo==="ejecutar");
       console.log(JSON.stringify({puesto:puesto(d),cambio:r.cambio,revocar:r.sustituye,smsAnterior:r.previoSms ?? null}));
       if(r.id && modo==="ejecutar") notificar.push({d,id:r.id});
     } catch(e) {
