@@ -3,7 +3,7 @@
 export type TonoLectura = "valido" | "rechazo" | "aviso";
 
 export function tonoLectura(resultado: string): TonoLectura {
-  if (resultado === "valido") return "valido";
+  if (resultado === "valido" || resultado === "autorizado_embajada") return "valido";
   if (resultado === "error" || resultado === "ambiguo") return "aviso";
   return "rechazo";
 }

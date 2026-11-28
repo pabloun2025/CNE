@@ -607,3 +607,9 @@ SMS Publi aceptó los 7.425 mensajes que quedaban del fichero aprobado. El diari
 - «Enlaces de estación» del cónsul identifica a la persona que usa cada puesto y su tarea. Agrupa Puerta y Centro de mando, los dos puestos itinerantes y Finanzas. El acceso de captura sin validación está en «Otros accesos».
 - Finanzas enlaza a la tarjeta de Ingreso. Los botones de Revisión, Impresión y Caja abren los puestos que requieren cuenta. Cada enlace de estación activo conserva sus acciones de copia, WhatsApp y QR. Si hay varios enlaces para el mismo puesto, se muestran sus etiquetas para elegir.
 - La organización se verificó en navegador a 375 y 1440 píxeles con enlaces de prueba, incluidos dos para un mismo puesto. La gestión de altas y revocaciones sigue en Superadministración.
+
+## 72. Acreditaciones de la Embajada para el 29N (28-11)
+
+- Puerta reconoce los QR individuales de la Embajada en un registro separado del padrón de MJRV. Cada lectura de un pase vigente muestra «AUTORIZADO», nombre y cargo. El uso repetido no caduca el pase ni genera ingresos de MJRV. Un código inexistente o revocado se rechaza.
+- La credencial sigue el formato aprobado de 54 × 85,6 mm, con la marca oficial del proceso y la indicación «Acceso VIP» al pie. Su enlace individual entrega el PDF. Las pruebas comprobaron lectura repetida, ausencia de cambios en el recuento y el aviso verde en el escáner a 375 y 1280 px.
+- La operación «Acreditaciones de la Embajada» recibe el lote aprobado cifrado, valida de nuevo los PDF y las lecturas de Puerta antes del envío y registra el resultado por canal. Los datos de contacto y los códigos en claro quedan fuera del historial del repositorio.

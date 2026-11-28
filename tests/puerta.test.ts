@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { closePools, withOwnerTx } from "@/server/db";
 import type { SesionEstacion } from "@/server/estaciones";
 import { normalizarCodigo } from "@/domain/puerta-nombre";
 import { comprobarCredencial, contadoresPuerta, dejarPasar, registrarLectura } from "@/server/puerta";
+import { GET as credencialEmbajada } from "@/app/v/[token]/route";
 import { consultarDueno, reiniciarBase } from "./helpers/db";
 
 let s1: SesionEstacion, s2: SesionEstacion;
@@ -67,6 +69,30 @@ describe("puerta", () => {
 
   it("normaliza espacios y mayúsculas", () => {
     expect(normalizarCodigo(" ab 12 ")).toBe("AB12");
+  });
+
+  it("reconoce repetidamente solo el QR emitido de la Embajada, sin contar ingresos de MJRV", async () => {
+    const token = "qQk2fpQW9TXJTE37td7M2id49PYknMRh";
+    const url = `https://madrid.consulado.app/v/${token}`;
+    const hash = createHash("sha256").update(token).digest("hex");
+    const antes = await contadoresPuerta(s1.enlaceId);
+    await consultarDueno(`INSERT INTO cne.acreditaciones_embajada (token_hash, nombre, cargo, contactos_hash)
+      VALUES ($1, 'PERSONA PRUEBA EMBAJADA', 'FUNCIONARIO PRUEBA', $1)`, [hash]);
+    const autorizada = { resultado: "autorizado_embajada", nombre: "PERSONA PRUEBA EMBAJADA", cargo: "FUNCIONARIO PRUEBA" };
+    expect(await registrarLectura(s1, url, null)).toEqual(autorizada);
+    expect(await registrarLectura(s2, url, null)).toEqual(autorizada);
+    expect(await registrarLectura(s1, url.replace(/.$/, "z"), null)).toEqual({ resultado: "desconocido" });
+    expect(await registrarLectura(s1, url.replace("madrid.consulado.app", "ejemplo.invalid"), null)).toEqual({ resultado: "desconocido" });
+    expect(await registrarLectura(s1, url, null, "cedula")).toEqual({ resultado: "desconocido" });
+    const pdf = async () => credencialEmbajada(new Request(url), { params: Promise.resolve({ token }) });
+    const respuesta = await pdf();
+    expect(respuesta.headers.get("content-type")).toEqual("application/pdf");
+    expect(respuesta.headers.get("cache-control")).toContain("no-store");
+    expect((await respuesta.text()).slice(0, 4)).toEqual("%PDF");
+    await consultarDueno("UPDATE cne.acreditaciones_embajada SET revocada_en = now() WHERE token_hash = $1", [hash]);
+    expect(await registrarLectura(s1, url, null)).toEqual({ resultado: "revocado" });
+    expect((await pdf()).status).toBe(404);
+    expect(await contadoresPuerta(s1.enlaceId)).toEqual(antes);
   });
 
   it("el nombre encuentra a la persona de la lista y el QR de la cédula sigue valiendo", async () => {

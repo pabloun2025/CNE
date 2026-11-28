@@ -76,6 +76,7 @@ const RUTAS: Record<string, Regla> = {
   "POST /api/puesto-movil/[operacion]": [], // credencial de enlace propia, independiente de las sesiones de CNE
   "GET /w/[token]": "publica", // enlace firmado por ficha; solo fichas reales activas (Google Wallet)
   "GET /s/[token]": "publica", // token cifrado por ficha, con caducidad y validación de revocación
+  "GET /v/[token]": "publica", // credencial de Embajada accesible por su token individual
   "POST /api/webhooks/evolution": [], // requiere la credencial de la línea de Evolution
   "POST /api/webhooks/smspubli": [], // valida una firma limitada al envío de SMS
   "POST /api/webhooks/brevo": [], // autentica el token de Brevo, no una sesión de CNE

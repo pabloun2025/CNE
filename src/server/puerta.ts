@@ -3,9 +3,11 @@ import { query, withTx } from "./db";
 import { ZONA_NOMBRE, type ZonaColor } from "../domain/juntas";
 import { buscarNombreCamara, buscarPorNombre, cedulaManualValida, cedulasDeCamara, normalizarCodigo, normalizarNombre, type PersonaLista } from "../domain/puerta-nombre";
 import { claveAcceso, credencialRevocada, mjrvRevocado } from "./revocar-credencial";
+import { BASE_ACREDITACION_EMBAJADA, buscarAcreditacionEmbajada } from "./acreditaciones-embajada";
 
 export type Lectura =
   | { resultado: "valido"; nombre: string; junta: string; zona: string }
+  | { resultado: "autorizado_embajada"; nombre: string; cargo: string }
   | { resultado: "duplicado"; desde: string; mjrvId: number; nombre: string; junta: string }
   | { resultado: "desconocido" }
   | { resultado: "bloqueado" }
@@ -64,6 +66,14 @@ async function registrarFicha(client: PoolClient, s: PuestoPuerta, ficha: FichaP
 }
 
 export async function registrarLectura(s: PuestoPuerta, codigoBruto: string, dispositivo: string | null, origen: "codigo" | "cedula" = "codigo"): Promise<Lectura> {
+  const codigo = codigoBruto.trim();
+  if (origen === "codigo" && codigo.startsWith(BASE_ACREDITACION_EMBAJADA)) {
+    const ficha = await buscarAcreditacionEmbajada(codigo.slice(BASE_ACREDITACION_EMBAJADA.length));
+    if (!ficha) return { resultado: "desconocido" };
+    if (ficha.revocada) return { resultado: "revocado" };
+    return { resultado: "autorizado_embajada", nombre: ficha.nombre, cargo: ficha.cargo };
+  }
+
   const compacto = normalizarCodigo(codigoBruto).slice(0, 40);
   const clave = claveAcceso(codigoBruto).slice(0, 200);
   if (origen === "cedula" && !cedulaManualValida(codigoBruto.trim())) return { resultado: "desconocido" };

@@ -4,6 +4,7 @@ import { COLOR_LECTURA, tonoLectura } from "@/domain/puerta-aviso";
 describe("colores de la lectura en puerta", () => {
   it("válida es verde", () => {
     expect(tonoLectura("valido")).toBe("valido");
+    expect(tonoLectura("autorizado_embajada")).toBe("valido");
     expect(COLOR_LECTURA.valido).toContain("#1f7a4d");
   });
 
